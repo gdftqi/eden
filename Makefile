@@ -15,12 +15,14 @@ C_OBJECTS   := $(C_SOURCES:src/%.c=$(BUILD_DIR)/%.o)
 CPP_OBJECTS := $(CPP_SOURCES:src/%.cpp=$(BUILD_DIR)/%.o)
 OBJECTS     := $(C_OBJECTS) $(CPP_OBJECTS)
 
-.PHONY: all examples clean
+.PHONY: all lib examples clean
 
-all: $(LIB)
+all: lib examples
+
+lib: $(LIB)
 
 examples: $(LIB)
-	$(MAKE) -C examples
+	@$(MAKE) -C examples
 
 $(LIB): $(OBJECTS)
 	@mkdir -p $(@D)
@@ -38,4 +40,4 @@ $(BUILD_DIR)/%.o: src/%.cpp
 
 clean:
 	rm -rf $(BUILD_DIR)
-	$(MAKE) -C examples clean
+	@$(MAKE) -C examples clean

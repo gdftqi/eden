@@ -13,6 +13,9 @@ TARGETS := $(SOURCES:%.cpp=$(BUILD_DIR)/%)
 
 all: $(TARGETS)
 
+$(LIB):
+	@$(MAKE) -C ..
+
 $(BUILD_DIR)/%: $(BUILD_DIR)/%.o $(LIB)
 	$(CXX) $(CXXFLAGS) $< $(LIB) -o $@
 
