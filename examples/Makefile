@@ -9,6 +9,7 @@ OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 TARGETS := $(SOURCES:%.cpp=$(BUILD_DIR)/%)
 
 .PHONY: all clean
+.SECONDARY: $(OBJECTS)
 
 all: $(TARGETS)
 
