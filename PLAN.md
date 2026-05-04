@@ -7,12 +7,12 @@
 **目标**：网关下行 IO 全套打通，C# Unity 客户端通过 KCP 与网关跑通 echo。
 
 **任务**：
-- [ ] 项目骨架（构建系统、目录结构、hello-world 编译跑通）
-- [ ] 单线程 UDP echo（bind + recvfrom / sendto）
-- [ ] 加 epoll 事件循环
+- [x] 项目骨架（构建系统、目录结构、hello-world 编译跑通）
+- [x] 单线程 UDP echo（实际用了 recvmmsg / sendmmsg 替代 recvfrom / sendto）
+- [x] 加 epoll 事件循环
 - [ ] 集成 ikcp（单线程 KCP echo）
 - [ ] 多线程 + SO_REUSEPORT（每线程一个 UDP socket，conv 哈希到固定线程）
-- [ ] 加 recvmmsg / sendmmsg 批量化
+- [x] 加 recvmmsg / sendmmsg 批量化
 - [ ] C# Unity 客户端集成 KCP
 - [ ] 端到端 echo 跑通
 
