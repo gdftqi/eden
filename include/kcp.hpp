@@ -34,6 +34,12 @@ public:
     }
 
 
+    static uint32_t
+    getconv(const uint8_t* data, int len) noexcept {
+        return len < 4 ? 0 : ::ikcp_getconv(data);
+    }
+
+
     static void
     allocator(void* (*new_malloc)(size_t), void (*new_free)(void*)) {
         ::ikcp_allocator(new_malloc, new_free);
