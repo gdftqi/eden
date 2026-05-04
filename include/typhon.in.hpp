@@ -1,10 +1,11 @@
-#ifndef __TYPHON_IN_H__
-#define __TYPHON_IN_H__
+#ifndef __TYPHON_IN_HPP__
+#define __TYPHON_IN_HPP__
 
 
 #include <cassert>
 #include <cstdint>
 #include <fcntl.h>
+#include <time.h>
 
 
 namespace typhon {
@@ -39,7 +40,18 @@ set_nonblocking(int fd) noexcept {
 }
 
 
+inline ::time_t
+systime_ms() noexcept{
+    struct timespec ts{};
+    if (::clock_gettime(CLOCK_MONOTONIC, &ts)) {
+        return 0;
+    }
+
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+
 } // namespace typhon;
 
 
-#endif // __TYPHON_IN_H__
+#endif // __TYPHON_IN_HPP__

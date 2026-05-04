@@ -1,14 +1,17 @@
 CC       := gcc
 CXX      := g++
 AR       := ar
-CFLAGS   := -O2 -g -Wall -Wextra -Iinclude -MMD -MP
-CXXFLAGS := -O2 -g -Wall -Wextra -Iinclude -MMD -MP -std=c++20
+THIRD_PARTY_INCLUDES ?= -I/usr/include
+THIRD_PARTY_LIBS ?= /usr/lib/x86_64-linux-gnu/libbpf.a -lelf -lz
+INCLUDES := -Iinclude $(THIRD_PARTY_INCLUDES)
+CFLAGS   := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP
+CXXFLAGS := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP -std=c++20
 ARFLAGS  := rcs
 
 BUILD_DIR := build
 LIB       := $(BUILD_DIR)/libtyphon.a
 
-C_SOURCES   := $(shell find src -name '*.c')
+C_SOURCES   := $(filter-out %.bpf.c, $(shell find src -name '*.c'))
 CPP_SOURCES := $(shell find src -name '*.cpp')
 
 C_OBJECTS   := $(C_SOURCES:src/%.c=$(BUILD_DIR)/%.o)
@@ -22,7 +25,7 @@ all: lib examples
 lib: $(LIB)
 
 examples: $(LIB)
-	@$(MAKE) -C examples
+	@$(MAKE) -C examples THIRD_PARTY_INCLUDES="$(THIRD_PARTY_INCLUDES)" THIRD_PARTY_LIBS="$(THIRD_PARTY_LIBS)"
 
 $(LIB): $(OBJECTS)
 	@mkdir -p $(@D)

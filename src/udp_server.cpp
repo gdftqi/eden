@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/eventfd.h>
 
-#include "typhon.in.h"
+#include "typhon.in.hpp"
 
 
 static typhon::SOCKET
@@ -47,13 +47,13 @@ udp_bind(const std::string& host) noexcept {
             continue;
         }
 
-        if (typhon::set_nonblocking(fd)) {
-            ::close(fd);
-            continue;
-        }
-
         static constexpr int reuseport = 1;
-        if (::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport))) {
+        static constexpr int sndbuf = 1024 * 1024 * 4;
+        static constexpr int rcvbuf = sndbuf * 2;
+        if (typhon::set_nonblocking(fd) ||
+            ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
+            ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
+            ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
             ::close(fd);
             continue;
         }
@@ -92,6 +92,7 @@ typhon::UdpServer::run() noexcept {
     constexpr int MAX_EVENTS = 2;
     constexpr int TIMEOUT = 10;
     ::epoll_event events[MAX_EVENTS];
+    auto base_ms = (uint32_t)systime_ms();
 
     state_.store(State::Running);
 
@@ -106,6 +107,7 @@ typhon::UdpServer::run() noexcept {
             break;
         }
 
+        tnow_ = (uint32_t)systime_ms() - base_ms;
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == evfd_) {
@@ -121,6 +123,8 @@ typhon::UdpServer::run() noexcept {
         if (err) {
             break;
         }
+
+        update();
     }
 
     release();
@@ -224,11 +228,11 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
     while (1) {
         for (i = 0; i < MAX_RECV; ++i) {
-            iovecs_[i].iov_len = UDP_MTU;
+            riovecs_[i].iov_len = UDP_MTU;
         }
 
         err = 0;
-        n = ::recvmmsg(sockfd_, msgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
+        n = ::recvmmsg(sockfd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
         if (n == -1) {
             if (errno != EAGAIN && errno != EWOULDBLOCK) {
                 err = -errno;
@@ -239,17 +243,78 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
         }
 
         for (i = 0; i < n; ++i) {
-            auto& msg = msgs_[i];
-            auto hdr = &msgs_[i].msg_hdr;
+            auto& msg = rmsgs_[i];
+            auto hdr = &rmsgs_[i].msg_hdr;
             hdr->msg_iov[0].iov_len = msg.msg_len;
-        }
+            auto conv = Kcp::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
+            if (conv == 0) {
+                continue;
+            }
 
-        n = ::sendmmsg(sockfd_, msgs_, n, 0);
-        if (n < 0) {
-            err = -errno;
-            break;
+            auto kcp = get_session(conv);
+            if (kcp == nullptr) {
+                kcp = Kcp::create(conv, hdr->msg_name, hdr->msg_namelen);
+                add_session(conv, kcp);
+            }
+
+            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len)) {
+                remove_session(conv);
+                continue;
+            }
+
+            auto rbuf = (uint8_t*)::malloc(1024 * 8);            
+            auto len = kcp->recv(rbuf, 1024 * 8);
+            if (len < -1) {
+                remove_session(conv);
+                continue;
+            }
+
+            // TODO: 事件 读
+            kcp->send(rbuf, len);
+            ::free(rbuf);
         }
     }
 
     return err;
+}
+
+
+void
+typhon::UdpServer::update() noexcept {
+    for (auto& kv : sessions_) {
+        auto kcp = kv.second;
+        kcp->update(tnow_);
+    }
+
+    ::mmsghdr msgs[MAX_SEND] {};
+    ::iovec iovecs[MAX_SEND] {};
+    int nsnd = 0, total = sque_.size();
+
+    while (nsnd < total) {
+        int n = total - nsnd;
+        n = n > MAX_SEND ? MAX_SEND : n;
+
+        for (int i = 0; i < n; ++i) {
+            auto& buf = sque_[nsnd + i];
+            auto& msg = msgs[i];
+            auto& hdr = msg.msg_hdr;
+
+            hdr.msg_name = buf.kcp->addr();
+            hdr.msg_namelen = *buf.kcp->addrlen();
+            hdr.msg_iov = &iovecs[i];
+            hdr.msg_iovlen = 1;
+
+            iovecs[i].iov_base = buf.buf;
+            iovecs[i].iov_len = buf.len;
+        }
+
+        int res = ::sendmmsg(sockfd_, msgs, n, 0);
+        if (res == -1) {
+            break;
+        }
+
+        nsnd += n;
+    }
+
+    sque_.erase(sque_.begin(), sque_.begin() + nsnd);
 }

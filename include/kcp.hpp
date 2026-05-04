@@ -2,12 +2,17 @@
 #define __TYPHON_KCP_EX_HPP__
 
 
-#include "kcp/ikcp.h"
-#include "typhon.in.h"
+#include <memory>
+#include <string.h>
 
+#include "kcp/ikcp.h"
+#include "typhon.in.hpp"
 
 
 namespace typhon {
+
+
+class UdpServer;
 
 
 class Kcp {
@@ -18,9 +23,18 @@ class Kcp {
 
 
 public:
+    typedef std::shared_ptr<Kcp> Ptr;
+
+
+    static Ptr
+    create(uint32_t conv, const void* addr, socklen_t addrlen) noexcept {
+        return Ptr(new Kcp(conv, (::sockaddr_storage*)addr, addrlen));
+    }
+
+    
     struct Conf {
-        int sndwnd { 256 };
-        int rcvwnd { 256 };
+        int sndwnd { 32 };
+        int rcvwnd { 32 };
         int nodelay { 1 };
         int interval { 10 };
         int resend { 3 };
@@ -35,7 +49,7 @@ public:
 
 
     static uint32_t
-    getconv(const uint8_t* data, int len) noexcept {
+    getconv(const void* data, int len) noexcept {
         return len < 4 ? 0 : ::ikcp_getconv(data);
     }
 
@@ -43,16 +57,6 @@ public:
     static void
     allocator(void* (*new_malloc)(size_t), void (*new_free)(void*)) {
         ::ikcp_allocator(new_malloc, new_free);
-    }
-
-
-    explicit Kcp(uint32_t conv, void* user) noexcept {
-        kcp_ = ::ikcp_create(conv, user);
-
-        auto& c = conf();
-        ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
-        ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
-        ::ikcp_setmtu(kcp_, UDP_MTU);
     }
 
 
@@ -93,11 +97,15 @@ public:
 
 
     int
-    input(const uint8_t* data, long len) noexcept {
+    input(const void* data, long len) noexcept {
         return ::ikcp_input(kcp_, (const char*)data, len);
     }
 
 
+    // 立即把待发数据 / ACK / 超时重传通过 output 回调发出去。
+    // ikcp_send 只是入队，真正出网卡靠 update 周期性触发 flush，或手动调 flush 提前触发。
+    // 何时手动调：发完一条延迟敏感的消息后立刻调，省掉 ≤ interval 的等待。
+    // 何时不该调：高吞吐连续 send 时频繁调会破坏 MTU 批量打包，效率反而降低。
     void
     flush() noexcept {
         ::ikcp_flush(kcp_);
@@ -110,8 +118,54 @@ public:
     }
 
 
+    void
+    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
+        kcp_->output = output;
+    }
+
+
+    void
+    set_server(UdpServer* server) noexcept {
+        server_ = server;
+    }
+
+
+    UdpServer*
+    get_server() noexcept {
+        return server_;
+    }
+
+
+    ::sockaddr_storage*
+    addr() noexcept {
+        return &addr_;
+    }
+
+
+    ::socklen_t*
+    addrlen() noexcept {
+        return &addrlen_;
+    }
+
+
 private:
+    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen) noexcept {
+        kcp_ = ::ikcp_create(conv, this);
+
+        auto& c = conf();
+        ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
+        ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
+        ::ikcp_setmtu(kcp_, UDP_MTU);
+
+        ::memcpy(&addr_, addr, addrlen);
+        addrlen_ = addrlen;
+    }
+
+
+    UdpServer* server_ { nullptr };
     ::ikcpcb* kcp_ { nullptr };
+    ::sockaddr_storage addr_ {};
+    ::socklen_t addrlen_ { sizeof(addr_) };
 }; // class Kcp;
 
 

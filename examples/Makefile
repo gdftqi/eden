@@ -1,5 +1,7 @@
 CXX      := g++
-CXXFLAGS := -O2 -g -Wall -Wextra -I../include -MMD -MP -std=c++20
+THIRD_PARTY_INCLUDES ?=
+THIRD_PARTY_LIBS ?=
+CXXFLAGS := -O2 -g -Wall -Wextra -I../include $(THIRD_PARTY_INCLUDES) -MMD -MP -std=c++20
 
 BUILD_DIR := build
 LIB       := ../build/libtyphon.a
@@ -17,7 +19,7 @@ $(LIB):
 	@$(MAKE) -C ..
 
 $(BUILD_DIR)/%: $(BUILD_DIR)/%.o $(LIB)
-	$(CXX) $(CXXFLAGS) $< $(LIB) -o $@
+	$(CXX) $(CXXFLAGS) $< $(LIB) $(THIRD_PARTY_LIBS) -o $@
 
 $(BUILD_DIR)/%.o: %.cpp
 	@mkdir -p $(@D)
