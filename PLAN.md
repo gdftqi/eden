@@ -10,7 +10,7 @@
 - [x] 项目骨架（构建系统、目录结构、hello-world 编译跑通）
 - [x] 单线程 UDP echo（实际用了 recvmmsg / sendmmsg 替代 recvfrom / sendto）
 - [x] 加 epoll 事件循环
-- [ ] 集成 ikcp（单线程 KCP echo）
+- [x] 集成 ikcp（单线程 KCP echo）
 - [ ] 多线程 + SO_REUSEPORT（每线程一个 UDP socket，conv 哈希到固定线程；MVP 阶段用 concurrent map + per-session mutex 兜底 endpoint 漂移）
 - [x] 加 recvmmsg / sendmmsg 批量化
 - [ ] C# Unity 客户端集成 KCP

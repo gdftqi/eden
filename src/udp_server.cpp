@@ -67,8 +67,8 @@ typhon::UdpServer::run() noexcept {
 
 
 int
-typhon::UdpServer::output(const char *buf, int len, IKCPCB* cb, void *user) noexcept {
-    auto kcp = ((Kcp*)user)->server()->get_session(cb->conv);
+typhon::UdpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
+    auto kcp = ((Kcp*)user)->shared_from_this();
     kcp->server()->sque_.emplace_back(SendBuf::create(kcp, buf, len));
     return 0;
 }

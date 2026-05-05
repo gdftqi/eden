@@ -15,7 +15,7 @@ namespace typhon {
 class UdpServer;
 
 
-class Kcp {
+class Kcp: public std::enable_shared_from_this<Kcp> {
     Kcp(const Kcp&) = delete;
     Kcp& operator=(const Kcp&) = delete;
     Kcp(Kcp&&) = delete;
