@@ -33,7 +33,7 @@ class UdpServer {
 
 
         static Ptr
-        create(Kcp* k, const char* b, uint32_t l) noexcept {
+        create(Kcp::Ptr k, const char* b, uint32_t l) noexcept {
             return Ptr(new SendBuf(k, b, l));
         }
 
@@ -54,7 +54,7 @@ class UdpServer {
         SendBuf& operator=(SendBuf&&) = delete;
 
 
-        SendBuf(Kcp* k, const char* b, uint32_t l) noexcept
+        SendBuf(Kcp::Ptr k, const char* b, uint32_t l) noexcept
             : kcp(k), len(l) {
             buf = (char*)::malloc(len);
             ::memcpy(buf, b, len);
