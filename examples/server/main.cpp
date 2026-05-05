@@ -23,7 +23,7 @@ main(int, char**) {
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
-    std::cout<<"udp echo listening on 0.0.0.0:5555 (Ctrl+C to stop)"<<std::endl;
+    std::cout<<"kcp echo listening on 0.0.0.0:5555 (Ctrl+C to stop)"<<std::endl;
     int err = server.run();
     std::cout<<"server stopped, run() returned "<<err<<std::endl;
     return err;
