@@ -18,7 +18,7 @@ namespace typhon {
 
 
 constexpr int MAX_RECV = 128;
-constexpr int MAX_SEND = 32;
+constexpr int MAX_SEND = MAX_RECV;
 
 
 class UdpServer {
@@ -29,15 +29,37 @@ class UdpServer {
 
 
     struct SendBuf {
-        SendBuf(Kcp* k, const char* b, uint32_t l)
-            : kcp(k), buf(const_cast<char*>(b)), len(l)
-        {}
+        typedef std::unique_ptr<SendBuf> Ptr;
 
 
-        Kcp* kcp;
-        void* buf;
+        static Ptr
+        create(Kcp* k, const char* b, uint32_t l) noexcept {
+            return Ptr(new SendBuf(k, b, l));
+        }
+
+
+        ~SendBuf() noexcept {
+            ::free(buf);
+        }
+
+
+        Kcp::Ptr kcp;
         uint32_t len;
-    };
+        char* buf;
+
+    private:
+        SendBuf(const SendBuf&) = delete;
+        SendBuf& operator=(const SendBuf&) = delete;
+        SendBuf(SendBuf&&) = delete;
+        SendBuf& operator=(SendBuf&&) = delete;
+
+
+        SendBuf(Kcp* k, const char* b, uint32_t l) noexcept
+            : kcp(k), len(l) {
+            buf = (char*)::malloc(len);
+            ::memcpy(buf, b, len);
+        }
+    }; // class SendBuf;
 
 
 public:
@@ -53,6 +75,8 @@ public:
             riovecs_[i].iov_base = ::malloc(UDP_MTU);
             riovecs_[i].iov_len = UDP_MTU;
         }
+
+        sque_.reserve(MAX_RECV * 4);
     }
 
 
@@ -102,11 +126,7 @@ public:
 
 private:
     static int
-    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept {
-        auto kcp = (Kcp*)user;
-        kcp->get_server()->sque_.emplace_back(kcp, buf, len);
-        return 0;
-    }
+    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
 
 
     int
@@ -162,7 +182,7 @@ private:
     ::iovec riovecs_[MAX_RECV] {};
     ::sockaddr_storage raddrs_[MAX_RECV] {};
 
-    std::vector<SendBuf> sque_;
+    std::vector<SendBuf::Ptr> sque_;
 };
 
 

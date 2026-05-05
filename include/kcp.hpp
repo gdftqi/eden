@@ -27,14 +27,14 @@ public:
 
 
     static Ptr
-    create(uint32_t conv, const void* addr, socklen_t addrlen) noexcept {
-        return Ptr(new Kcp(conv, (::sockaddr_storage*)addr, addrlen));
+    create(uint32_t conv, const void* addr, socklen_t addrlen, UdpServer* server) noexcept {
+        return std::make_shared<Kcp>(conv, (const ::sockaddr_storage*)addr, addrlen, server);
     }
 
     
     struct Conf {
-        int sndwnd { 32 };
-        int rcvwnd { 32 };
+        int sndwnd { 128 };
+        int rcvwnd { 128 };
         int nodelay { 1 };
         int interval { 10 };
         int resend { 3 };
@@ -57,6 +57,20 @@ public:
     static void
     allocator(void* (*new_malloc)(size_t), void (*new_free)(void*)) {
         ::ikcp_allocator(new_malloc, new_free);
+    }
+
+
+    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen, UdpServer* server) noexcept
+        : server_(server) {
+        kcp_ = ::ikcp_create(conv, this);
+
+        auto& c = conf();
+        ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
+        ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
+        ::ikcp_setmtu(kcp_, UDP_MTU);
+
+        ::memcpy(&addr_, addr, addrlen);
+        addrlen_ = addrlen;
     }
 
 
@@ -120,18 +134,12 @@ public:
 
     void
     set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
-        kcp_->output = output;
-    }
-
-
-    void
-    set_server(UdpServer* server) noexcept {
-        server_ = server;
+        ::ikcp_setoutput(kcp_, output);
     }
 
 
     UdpServer*
-    get_server() noexcept {
+    server() noexcept {
         return server_;
     }
 
@@ -142,26 +150,13 @@ public:
     }
 
 
-    ::socklen_t*
+    ::socklen_t
     addrlen() noexcept {
-        return &addrlen_;
+        return addrlen_;
     }
 
 
 private:
-    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen) noexcept {
-        kcp_ = ::ikcp_create(conv, this);
-
-        auto& c = conf();
-        ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
-        ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
-        ::ikcp_setmtu(kcp_, UDP_MTU);
-
-        ::memcpy(&addr_, addr, addrlen);
-        addrlen_ = addrlen;
-    }
-
-
     UdpServer* server_ { nullptr };
     ::ikcpcb* kcp_ { nullptr };
     ::sockaddr_storage addr_ {};

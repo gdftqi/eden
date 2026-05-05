@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <string>
 #include <fcntl.h>
 #include <time.h>
 
@@ -40,7 +41,7 @@ set_nonblocking(int fd) noexcept {
 }
 
 
-inline ::time_t
+inline uint64_t
 systime_ms() noexcept{
     struct timespec ts{};
     if (::clock_gettime(CLOCK_MONOTONIC, &ts)) {
@@ -49,6 +50,10 @@ systime_ms() noexcept{
 
     return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
+
+
+SOCKET
+udp_bind(const std::string& host) noexcept;
 
 
 } // namespace typhon;

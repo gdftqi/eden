@@ -7,74 +7,6 @@
 #include "typhon.in.hpp"
 
 
-static typhon::SOCKET
-udp_bind(const std::string& host) noexcept {
-    if (host.empty()) {
-        return typhon::INVALID_SOCKET;
-    }
-
-    auto pos = host.find(':');
-    if (pos == std::string::npos) {
-        return typhon::INVALID_SOCKET;
-    }
-
-    auto ip = host.substr(0, pos);
-    auto port = host.substr(pos + 1);
-
-    if (ip.empty()) {
-        ip = "0.0.0.0";
-    }
-
-    if (port.empty()) {
-        return typhon::INVALID_SOCKET;
-    }
-
-    auto fd = typhon::INVALID_SOCKET;
-    ::addrinfo hints;
-    ::addrinfo *result = nullptr, *rp = nullptr;
-    ::memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;
-
-    if (::getaddrinfo(ip.c_str(), port.c_str(), &hints, &result) != 0) {
-        return typhon::INVALID_SOCKET;
-    }
-
-    for (rp = result; rp != nullptr; rp = rp->ai_next) {
-        fd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (fd == typhon::INVALID_SOCKET) {
-            continue;
-        }
-
-        static constexpr int reuseport = 1;
-        static constexpr int sndbuf = 1024 * 1024 * 4;
-        static constexpr int rcvbuf = sndbuf * 2;
-        if (typhon::set_nonblocking(fd) ||
-            ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
-            ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
-            ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
-            ::close(fd);
-            continue;
-        }
-
-        if (::bind(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
-            break;
-        }
-
-        ::close(fd);
-    }
-
-    ::freeaddrinfo(result);
-
-    if (rp == nullptr) {
-        return typhon::INVALID_SOCKET;
-    }
-
-    return fd;
-}
-
-
 int
 typhon::UdpServer::run() noexcept {
     auto expected = State::Stopped;
@@ -131,6 +63,14 @@ typhon::UdpServer::run() noexcept {
 
     state_.store(State::Stopped);
     return err;
+}
+
+
+int
+typhon::UdpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
+    auto kcp = (Kcp*)user;
+    kcp->server()->sque_.emplace_back(SendBuf::create(kcp, buf, len));
+    return 0;
 }
 
 
@@ -222,10 +162,10 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
     int i, n, err;
 
     if (!(ev.events & EPOLLIN) && !(ev.events & EPOLLERR)) {
-        err = -errno;
-        return err;
+        return -EINVAL;
     }
 
+    uint8_t rbuf[8192];
     while (1) {
         for (i = 0; i < MAX_RECV; ++i) {
             riovecs_[i].iov_len = UDP_MTU;
@@ -245,7 +185,6 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
         for (i = 0; i < n; ++i) {
             auto& msg = rmsgs_[i];
             auto hdr = &rmsgs_[i].msg_hdr;
-            hdr->msg_iov[0].iov_len = msg.msg_len;
             auto conv = Kcp::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
             if (conv == 0) {
                 continue;
@@ -253,25 +192,23 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
             auto kcp = get_session(conv);
             if (kcp == nullptr) {
-                kcp = Kcp::create(conv, hdr->msg_name, hdr->msg_namelen);
+                kcp = Kcp::create(conv, hdr->msg_name, hdr->msg_namelen, this);
                 add_session(conv, kcp);
             }
 
             if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len)) {
-                remove_session(conv);
                 continue;
             }
 
-            auto rbuf = (uint8_t*)::malloc(1024 * 8);            
-            auto len = kcp->recv(rbuf, 1024 * 8);
-            if (len < -1) {
-                remove_session(conv);
-                continue;
-            }
+            while (true) {
+                auto len = kcp->recv(rbuf, sizeof(rbuf));
+                if (len <= 0) {
+                    break;
+                }
 
-            // TODO: 事件 读
-            kcp->send(rbuf, len);
-            ::free(rbuf);
+                // TODO: 事件 读
+                kcp->send(rbuf, len);
+            }
         }
     }
 
@@ -282,8 +219,7 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 void
 typhon::UdpServer::update() noexcept {
     for (auto& kv : sessions_) {
-        auto kcp = kv.second;
-        kcp->update(tnow_);
+        kv.second->update(tnow_);
     }
 
     ::mmsghdr msgs[MAX_SEND] {};
@@ -299,13 +235,13 @@ typhon::UdpServer::update() noexcept {
             auto& msg = msgs[i];
             auto& hdr = msg.msg_hdr;
 
-            hdr.msg_name = buf.kcp->addr();
-            hdr.msg_namelen = *buf.kcp->addrlen();
+            hdr.msg_name = buf->kcp->addr();
+            hdr.msg_namelen = buf->kcp->addrlen();
             hdr.msg_iov = &iovecs[i];
             hdr.msg_iovlen = 1;
 
-            iovecs[i].iov_base = buf.buf;
-            iovecs[i].iov_len = buf.len;
+            iovecs[i].iov_base = buf->buf;
+            iovecs[i].iov_len = buf->len;
         }
 
         int res = ::sendmmsg(sockfd_, msgs, n, 0);
@@ -313,7 +249,10 @@ typhon::UdpServer::update() noexcept {
             break;
         }
 
-        nsnd += n;
+        nsnd += res;
+        if (res < n) {
+            break;
+        }
     }
 
     sque_.erase(sque_.begin(), sque_.begin() + nsnd);
