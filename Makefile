@@ -20,13 +20,10 @@ CPP_SOURCES := $(shell find src -name '*.cpp')
 OBJECTS     := $(C_SOURCES:src/%.c=$(BUILD_DIR)/%.o) \
                $(CPP_SOURCES:src/%.cpp=$(BUILD_DIR)/%.o)
 
-.PHONY: all lib examples clean
+.PHONY: all lib
 
-all: lib examples
+all: lib
 lib: $(LIB)
-
-examples: $(LIB)
-	@$(MAKE) -C examples
 
 # 用 ar 的 MRI script 把 typhon 自身 .o 和第三方 .a 合成一个 libtyphon.a
 $(LIB): $(OBJECTS) $(BUNDLED_LIBS)
@@ -49,4 +46,3 @@ $(BUILD_DIR)/%.o: src/%.cpp
 
 clean:
 	rm -rf $(BUILD_DIR)
-	@$(MAKE) -C examples clean
