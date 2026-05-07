@@ -39,6 +39,7 @@ public:
         int interval { 10 };
         int resend { 3 };
         int nc { 1 };
+        uint32_t timeout { 60000 };
     };
 
 
@@ -73,6 +74,12 @@ public:
             ::ikcp_release(kcp_);
         }
     }
+
+
+    bool
+    timeout(uint32_t tnow) const noexcept {
+        return tnow - last_recv_ms_ > conf().timeout;
+    }
     
 
     int
@@ -105,8 +112,12 @@ public:
 
 
     int
-    input(const void* data, long len) noexcept {
-        return ::ikcp_input(kcp_, (const char*)data, len);
+    input(const void* data, long len, uint32_t now) noexcept {
+        int res = ::ikcp_input(kcp_, (const char*)data, len);
+        if (res == 0) {
+            last_recv_ms_ = now;
+        }
+        return res;
     }
 
 
@@ -152,6 +163,7 @@ public:
 
 private:
     UdpServer* server_ { nullptr };
+    uint32_t last_recv_ms_ { 0 };
     ::ikcpcb* kcp_ { nullptr };
     ::sockaddr_storage addr_ {};
     ::socklen_t addrlen_ { sizeof(addr_) };

@@ -196,7 +196,7 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
                 add_session(conv, kcp);
             }
 
-            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len)) {
+            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, tnow_)) {
                 continue;
             }
 
@@ -218,8 +218,15 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::UdpServer::update() noexcept {
-    for (auto& kv : sessions_) {
-        kv.second->update(tnow_);
+    for (auto itr = sessions_.begin(); itr != sessions_.end();) {
+        auto& s = itr->second;
+        if (s->timeout(tnow_)) {
+            itr = sessions_.erase(itr);
+            continue;
+        } else {
+            s->update(tnow_);
+            ++itr;
+        }
     }
 
     ::mmsghdr msgs[MAX_SEND] {};
