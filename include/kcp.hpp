@@ -54,12 +54,6 @@ public:
     }
 
 
-    static void
-    allocator(void* (*new_malloc)(size_t), void (*new_free)(void*)) {
-        ::ikcp_allocator(new_malloc, new_free);
-    }
-
-
     explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen, UdpServer* server) noexcept
         : server_(server) {
         kcp_ = ::ikcp_create(conv, this);

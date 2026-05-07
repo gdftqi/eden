@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "mimalloc-3.2/mimalloc.h"
 #include "kcp.hpp"
 
 
@@ -39,7 +40,7 @@ class UdpServer {
 
 
         ~SendBuf() noexcept {
-            ::free(buf);
+            ::mi_free(buf);
         }
 
 
@@ -56,7 +57,7 @@ class UdpServer {
 
         SendBuf(Kcp::Ptr k, const char* b, uint32_t l) noexcept
             : kcp(k), len(l) {
-            buf = (char*)::malloc(len);
+            buf = (char*)::mi_malloc(len);
             ::memcpy(buf, b, len);
         }
     }; // class SendBuf;
@@ -72,7 +73,7 @@ public:
             hdr->msg_name = &raddrs_[i];
             hdr->msg_namelen = sizeof(raddrs_[i]);
 
-            riovecs_[i].iov_base = ::malloc(UDP_MTU);
+            riovecs_[i].iov_base = ::mi_malloc(UDP_MTU);
             riovecs_[i].iov_len = UDP_MTU;
         }
 
