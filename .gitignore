@@ -3,3 +3,35 @@ build
 *.a
 *.so
 .venv
+
+# --- Unity (echidna/) ---
+# Unity 自动生成的缓存 / 中间产物，重新打开工程会重建
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+
+# Unity 自动生成的 IDE / 解决方案文件（每次打开工程都会刷新）
+*.csproj
+*.sln
+*.slnx
+*.unityproj
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+.vs/
+
+# Unity 崩溃报告
+sysinfo.txt
+
+# 构建产物（Android / iOS / 通用打包）
+*.apk
+*.aab
+*.unitypackage
+*.app
