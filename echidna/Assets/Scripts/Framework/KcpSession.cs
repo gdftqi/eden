@@ -68,10 +68,12 @@ namespace Echidna
                 {
                     remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                     udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
+                    udp.Connect(remotePoint);
+
                     kcp = new Kcp(conv, output);
                     kcp.SetNoDelay(1, 10, 3, true);
                     kcp.SetMtu(1232);
-                    udp.Connect(remotePoint);
+                    
                     ev?.OnConnected(remotePoint);
                     udpRecvThread = new Thread(udpRecvLoop);
                     udpRecvThread.Start();
@@ -100,9 +102,7 @@ namespace Echidna
                 try
                 {
                     var data = udp.Receive(ref remote);
-                    if (remotePoint.Equals(remote))
-                        rbufQueue.Enqueue(data);
-
+                    rbufQueue.Enqueue(data);
                 }
                 catch (ObjectDisposedException)
                 {
