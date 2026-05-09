@@ -70,9 +70,9 @@ namespace Echidna
                     udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
                     kcp = new Kcp(conv, output);
                     kcp.SetNoDelay(1, 10, 3, true);
-
+                    kcp.SetMtu(1232);
+                    udp.Connect(remotePoint);
                     ev?.OnConnected(remotePoint);
-
                     udpRecvThread = new Thread(udpRecvLoop);
                     udpRecvThread.Start();
                 }
@@ -137,6 +137,7 @@ namespace Echidna
 
                     rbufQueue.Clear();
                     kcp = null;
+                    udp = null;
                 }
                 return;
             }
@@ -169,7 +170,7 @@ namespace Echidna
 
         private void output(byte[] segment, int size)
         {
-            udp.Send(segment, size, remotePoint);
+            udp.Send(segment, size);
         }
 
         private IPEndPoint remotePoint;
