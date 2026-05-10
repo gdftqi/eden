@@ -271,7 +271,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game
   host: 172.26.29.158:5555
   conv: 1
-  sendIntervalSec: 1
+  sendIntervalSec: 0.1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0

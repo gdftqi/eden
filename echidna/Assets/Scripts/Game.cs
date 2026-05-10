@@ -8,7 +8,7 @@ public class Game : MonoBehaviour, ISessionEvent
 {
     [SerializeField] private string host = "127.0.0.1:5555";
     [SerializeField] private uint conv = 1;
-    [SerializeField] private float sendIntervalSec = 1f;   // 多久发一次 4KB
+    [SerializeField] private float sendIntervalSec = 0.1f;   // 多久发一次 4KB
 
     private const int DataSize = 4096;
 
@@ -78,7 +78,7 @@ public class Game : MonoBehaviour, ISessionEvent
             }
         }
 
-        if (match)
+        if (!match)
         {
             Debug.Log($"echo recv {len} bytes  ✓ match");
         }
