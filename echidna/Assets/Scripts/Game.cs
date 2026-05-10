@@ -78,7 +78,7 @@ public class Game : MonoBehaviour, ISessionEvent
             }
         }
 
-        if (!match)
+        if (match)
         {
             Debug.Log($"echo recv {len} bytes  ✓ match");
         }
