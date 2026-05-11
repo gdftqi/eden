@@ -13,8 +13,8 @@
 - [x] 集成 ikcp（单线程 KCP echo）
 - [ ] 多线程 + SO_REUSEPORT（每线程一个 UDP socket，conv 哈希到固定线程；MVP 阶段用 concurrent map + per-session mutex 兜底 endpoint 漂移）
 - [x] 加 recvmmsg / sendmmsg 批量化
-- [ ] C# Unity 客户端集成 KCP
-- [x] 端到端 echo 跑通（Python KCP 客户端验证 100 并发 × 4KB；C# Unity 待补）
+- [x] C# Unity 客户端集成 KCP（kcp2k 低层 + 自写 KcpSession 收发线程）
+- [x] 端到端 echo 跑通（Python KCP 100 并发 × 4KB ✅ + Unity 单客户端 4KB 周期 echo ✅）
 
 **验证标准**：C# 客户端发字符串到网关，网关原样返回；多客户端并发各自不串。
 

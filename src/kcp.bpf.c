@@ -2,7 +2,7 @@
 #include <bpf/bpf_helpers.h>
 
 
-#define NUM_SOCKETS 8
+#define NUM_SOCKETS 12
 
 
 struct {

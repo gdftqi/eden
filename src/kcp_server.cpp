@@ -8,7 +8,7 @@
 
 
 int
-typhon::UdpServer::run() noexcept {
+typhon::KcpServer::run() noexcept {
     auto expected = State::Stopped;
     if (!state_.compare_exchange_strong(expected, State::Starting)) {
         return -1;
@@ -67,7 +67,7 @@ typhon::UdpServer::run() noexcept {
 
 
 int
-typhon::UdpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
+typhon::KcpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
     auto kcp = ((Kcp*)user)->shared_from_this();
     kcp->server()->sque_.emplace_back(SendBuf::create(kcp, buf, len));
     return 0;
@@ -75,7 +75,7 @@ typhon::UdpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcep
 
 
 int
-typhon::UdpServer::init() noexcept {
+typhon::KcpServer::init() noexcept {
     int err = 0;
 
     epfd_ = ::epoll_create1(0);
@@ -116,7 +116,7 @@ typhon::UdpServer::init() noexcept {
 
 
 void
-typhon::UdpServer::release() noexcept {
+typhon::KcpServer::release() noexcept {
     if (epfd_ != -1) {
         ::close(epfd_);
         epfd_ = -1;
@@ -135,7 +135,7 @@ typhon::UdpServer::release() noexcept {
 
 
 int
-typhon::UdpServer::on_event_handle(const ::epoll_event& ev) noexcept {
+typhon::KcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
@@ -158,7 +158,7 @@ typhon::UdpServer::on_event_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
+typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
     int i, n, err;
 
     if (!(ev.events & EPOLLIN) && !(ev.events & EPOLLERR)) {
@@ -217,7 +217,7 @@ typhon::UdpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::UdpServer::update() noexcept {
+typhon::KcpServer::update() noexcept {
     for (auto itr = sessions_.begin(); itr != sessions_.end();) {
         auto& s = itr->second;
         if (s->timeout(tnow_)) {

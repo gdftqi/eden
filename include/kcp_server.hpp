@@ -22,11 +22,11 @@ constexpr int MAX_RECV = 128;
 constexpr int MAX_SEND = MAX_RECV;
 
 
-class UdpServer {
-    UdpServer(const UdpServer&) = delete;
-    UdpServer& operator=(const UdpServer&) = delete;
-    UdpServer(UdpServer&&) = delete;
-    UdpServer& operator=(UdpServer&&) = delete;
+class KcpServer {
+    KcpServer(const KcpServer&) = delete;
+    KcpServer& operator=(const KcpServer&) = delete;
+    KcpServer(KcpServer&&) = delete;
+    KcpServer& operator=(KcpServer&&) = delete;
 
 
     struct SendBuf {
@@ -64,7 +64,7 @@ class UdpServer {
 
 
 public:
-    explicit UdpServer(const char* host) noexcept
+    explicit KcpServer(const char* host) noexcept
         : host_(host) {
         for (int i = 0; i < MAX_RECV; ++i) {
             auto hdr = &rmsgs_[i].msg_hdr;
@@ -81,7 +81,7 @@ public:
     }
 
 
-    ~UdpServer() noexcept {
+    ~KcpServer() noexcept {
         for (int i = 0; i < MAX_RECV; ++i) {
             ::free(riovecs_[i].iov_base);
         }

@@ -12,7 +12,7 @@
 namespace typhon {
 
 
-class UdpServer;
+class KcpServer;
 
 
 class Kcp: public std::enable_shared_from_this<Kcp> {
@@ -27,7 +27,7 @@ public:
 
 
     static Ptr
-    create(uint32_t conv, const void* addr, socklen_t addrlen, UdpServer* server) noexcept {
+    create(uint32_t conv, const void* addr, socklen_t addrlen, KcpServer* server) noexcept {
         return std::make_shared<Kcp>(conv, (const ::sockaddr_storage*)addr, addrlen, server);
     }
 
@@ -55,7 +55,7 @@ public:
     }
 
 
-    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen, UdpServer* server) noexcept
+    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen, KcpServer* server) noexcept
         : server_(server) {
         kcp_ = ::ikcp_create(conv, this);
 
@@ -143,7 +143,7 @@ public:
     }
 
 
-    UdpServer*
+    KcpServer*
     server() noexcept {
         return server_;
     }
@@ -162,7 +162,7 @@ public:
 
 
 private:
-    UdpServer* server_ { nullptr };
+    KcpServer* server_ { nullptr };
     uint32_t last_recv_ms_ { 0 };
     ::ikcpcb* kcp_ { nullptr };
     ::sockaddr_storage addr_ {};
