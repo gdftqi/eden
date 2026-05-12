@@ -22,7 +22,7 @@ typhon::KcpServer::run() noexcept {
 
     int i, n;
     constexpr int MAX_EVENTS = 2;
-    constexpr int TIMEOUT = 10;
+    constexpr int TIMEOUT = 5;
     ::epoll_event events[MAX_EVENTS];
     auto base_ms = (uint32_t)systime_ms();
 

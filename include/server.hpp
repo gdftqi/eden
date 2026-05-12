@@ -10,6 +10,9 @@ namespace typhon {
 
 
 class Server {
+    typedef std::unique_ptr<KcpServer> KcpServerPtr;
+
+
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
     Server(Server&&) = delete;
@@ -37,7 +40,7 @@ public:
 private:
     std::atomic<State> state_ { State::Stopped };
     std::string host_;
-    std::vector<KcpServer*> servers_;
+    std::vector<KcpServerPtr> servers_;
     std::vector<std::thread> threads_;
 };
 

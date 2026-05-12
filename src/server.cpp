@@ -13,9 +13,8 @@ typhon::Server::run() noexcept {
     n = n > 1 ? n - 1 : 1;
 
     for (int i = 0; i < n; ++i) {
-        auto server = new KcpServer(host_.c_str());
-        threads_.emplace_back(std::thread(std::bind(&KcpServer::run, server)));
-        servers_.emplace_back(server);
+        servers_.emplace_back(std::make_unique<KcpServer>(host_.c_str()));
+        threads_.emplace_back(std::thread(std::bind(&KcpServer::run, servers_[i].get())));
     }
 
     state_.store(State::Running);
@@ -23,6 +22,9 @@ typhon::Server::run() noexcept {
     for (auto& t : threads_) {
         t.join();
     }
+
+    servers_.clear();
+    threads_.clear();
 
     state_.store(State::Stopped);
 }
@@ -35,7 +37,7 @@ typhon::Server::stop() noexcept {
         return;
     }
 
-    for (auto server : servers_) {
-        server->stop();
+    for (auto& s : servers_) {
+        s->stop();
     }
 }
