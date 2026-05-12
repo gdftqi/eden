@@ -1,6 +1,6 @@
 #include "typhon.in.hpp"
 
-#include <netdb.h>
+
 #include <string.h>
 #include <unistd.h>
 

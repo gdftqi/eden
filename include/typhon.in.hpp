@@ -5,7 +5,11 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+
+#include <arpa/inet.h>
 #include <fcntl.h>
+
+#include <netdb.h>
 #include <time.h>
 
 
@@ -54,6 +58,27 @@ systime_ms() noexcept{
 
 SOCKET
 udp_bind(const std::string& host) noexcept;
+
+
+inline std::string
+sockaddr_to_string(const sockaddr* addr) noexcept {
+    char ip[INET6_ADDRSTRLEN] = {0};
+    uint16_t port = 0;
+
+    if (addr->sa_family == AF_INET) {
+        auto* v4 = (const sockaddr_in*)addr;
+        ::inet_ntop(AF_INET, &v4->sin_addr, ip, sizeof(ip));
+        port = ::ntohs(v4->sin_port);
+    } else if (addr->sa_family == AF_INET6) {
+        auto* v6 = (const sockaddr_in6*)addr;
+        ::inet_ntop(AF_INET6, &v6->sin6_addr, ip, sizeof(ip));
+        port = ::ntohs(v6->sin6_port);
+    } else {
+        return "";
+    }
+
+    return std::string(ip) + ":" + std::to_string(port);
+}
 
 
 } // namespace typhon;

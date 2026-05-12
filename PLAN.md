@@ -11,7 +11,7 @@
 - [x] 单线程 UDP echo（实际用了 recvmmsg / sendmmsg 替代 recvfrom / sendto）
 - [x] 加 epoll 事件循环
 - [x] 集成 ikcp（单线程 KCP echo）
-- [ ] 多线程 + SO_REUSEPORT（每线程一个 UDP socket，conv 哈希到固定线程；MVP 阶段用 concurrent map + per-session mutex 兜底 endpoint 漂移）
+- [x] 多线程 + SO_REUSEPORT（直接上 eBPF 路由：每 worker 独立 sockfd + 自有 sessions 表，share-nothing 零锁；同 conv 永远落同 worker）
 - [x] 加 recvmmsg / sendmmsg 批量化
 - [x] C# Unity 客户端集成 KCP（kcp2k 低层 + 自写 KcpSession 收发线程）
 - [x] 端到端 echo 跑通（Python KCP 100 并发 × 4KB ✅ + Unity 单客户端 4KB 周期 echo ✅）
@@ -39,10 +39,7 @@
 
 仅在性能瓶颈实际出现时再实施，不要为想象中的并发提前优化。
 
-- [ ] **eBPF SO_REUSEPORT 路由（按 KCP conv 在内核分流）**
-  - 目的：替代 Phase 1 Step 4 的 concurrent map + per-session mutex，保证同一 conv 永远落同一 worker，回到完美 share-nothing
-  - 触发条件：mutex 竞争 / cache miss 成为瓶颈，或单进程目标 CCU > 10k 时
-  - 已就绪：[src/kcp.bpf.c](src/kcp.bpf.c) 草稿；libbpf-dev 系统已装；当前**不参与编译**（移出 src/ glob 或单独 clang 规则）
-  - 待做：clang -target bpf 编译规则、libbpf 加载/挂载代码、CAP_BPF 部署、bpftool 调试链路
-  - 内核要求：≥ 4.10（建议 5.x）
+- [x] **eBPF SO_REUSEPORT 路由（按 KCP conv 在内核分流）** —— 已随 Phase 1 Step 4 一起做完
+  - 实现：[src/kcp.bpf.c](src/kcp.bpf.c) + [include/bpf_router.hpp](include/bpf_router.hpp) / [src/bpf_router.cpp](src/bpf_router.cpp)
+  - 运行需要 sudo / `cap_bpf,cap_net_admin` 能力
 

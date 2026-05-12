@@ -76,6 +76,12 @@ public:
     }
 
 
+    uint32_t
+    conv() const noexcept {
+        return kcp_->conv;
+    }
+
+
     bool
     timeout(uint32_t tnow) const noexcept {
         return tnow - last_recv_ms_ > conf().timeout;
@@ -158,6 +164,12 @@ public:
     ::socklen_t
     addrlen() noexcept {
         return addrlen_;
+    }
+
+
+    std::string
+    remote_addr() noexcept {
+        return sockaddr_to_string((sockaddr*)&addr_);
     }
 
 
