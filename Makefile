@@ -1,16 +1,18 @@
-CC  := gcc
-CXX := g++
-AR  := ar
+CC    := gcc
+CXX   := g++
+AR    := ar
+CLANG := clang
 
 BUILD_DIR := build
 LIB       := $(BUILD_DIR)/libtyphon.a
 
-# 静态库捆绑进 libtyphon.a，使用方只需链 libtyphon.a 一个文件。
-# mimalloc.o 是 mimalloc 的"全功能 override 对象"，自己就含完整 mi_* API + C malloc/free
-# + C++ new/delete 覆盖，**不能再叠加 libmimalloc.a 否则符号重复**。
+# 静态库捆绑进 libtyphon.a。
+# mimalloc.o：全功能 override 对象（mi_* API + C malloc/free + C++ new/delete），不能再叠 libmimalloc.a。
+# libbpf.a：用户态 BPF 加载库，依赖 libelf + libz（动态，由 examples 链）。
 SPDLOG_LIB        := /usr/local/lib/libspdlog.a
+LIBBPF_LIB        := /usr/lib/x86_64-linux-gnu/libbpf.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
-BUNDLED_LIBS      := $(SPDLOG_LIB)
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 
@@ -22,10 +24,15 @@ CPP_SOURCES := $(shell find src -name '*.cpp')
 OBJECTS     := $(C_SOURCES:src/%.c=$(BUILD_DIR)/%.o) \
                $(CPP_SOURCES:src/%.cpp=$(BUILD_DIR)/%.o)
 
-.PHONY: all lib
+# BPF 程序：clang -target bpf 单独编译，**不**进 libtyphon.a，运行时由 libbpf 加载
+BPF_SOURCES := $(shell find src -name '*.bpf.c')
+BPF_OBJECTS := $(BPF_SOURCES:src/%.bpf.c=$(BUILD_DIR)/%.bpf.o)
 
-all: lib
+.PHONY: all lib bpf
+
+all: lib bpf
 lib: $(LIB)
+bpf: $(BPF_OBJECTS)
 
 # 用 ar 的 MRI script 把 typhon 自身 .o 和第三方 .a 合成一个 libtyphon.a
 $(LIB): $(OBJECTS) $(BUNDLED_LIBS) $(MIMALLOC_OVERRIDE)
@@ -43,6 +50,10 @@ $(BUILD_DIR)/%.o: src/%.c
 $(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.bpf.o: src/%.bpf.c
+	@mkdir -p $(@D)
+	$(CLANG) -O2 -g -Wall -target bpf -I/usr/include/x86_64-linux-gnu -c $< -o $@
 
 -include $(OBJECTS:.o=.d)
 

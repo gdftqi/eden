@@ -16,14 +16,16 @@ on_signal(int) {
 
 
 int
-main(int, char**) {
-    typhon::Server server("0.0.0.0:5555");
+main(int argc, char** argv) {
+    const char* bpf_path = (argc > 1) ? argv[1] : "kcp.bpf.o";
+
+    typhon::Server server("0.0.0.0:5555", bpf_path);
     g_server = &server;
 
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
-    std::cout<<"kcp echo listening on 0.0.0.0:5555 (Ctrl+C to stop)"<<std::endl;
+    std::cout<<"kcp echo listening on 0.0.0.0:5555 (BPF " << bpf_path << ", Ctrl+C to stop)"<<std::endl;
     server.run();
     exit(0);
 }

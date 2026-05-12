@@ -15,9 +15,10 @@ all: $(TARGET)
 $(LIB):
 	@$(MAKE) -C ../..
 
-# spdlog / mimalloc 已被打进 libtyphon.a，链接方只需 libtyphon.a + pthread
+# spdlog / mimalloc / libbpf 已被打进 libtyphon.a；
+# libelf + libz 是 libbpf 的动态依赖，必须由最终链接行提供
 $(TARGET): $(OBJECTS) $(LIB)
-	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -o $@
+	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -lelf -lz -o $@
 
 $(BUILD_DIR)/%.o: %.cpp
 	@mkdir -p $(@D)

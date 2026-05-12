@@ -7,6 +7,10 @@
 #include "typhon.in.hpp"
 
 
+static constexpr int MAX_EVENTS = 2;
+static constexpr int TIMEOUT = 10;
+
+
 int
 typhon::KcpServer::run() noexcept {
     auto expected = State::Stopped;
@@ -21,8 +25,6 @@ typhon::KcpServer::run() noexcept {
     }
 
     int i, n;
-    constexpr int MAX_EVENTS = 2;
-    constexpr int TIMEOUT = 5;
     ::epoll_event events[MAX_EVENTS];
     auto base_ms = (uint32_t)systime_ms();
 
@@ -90,10 +92,9 @@ typhon::KcpServer::init() noexcept {
         return err;
     }
 
-    sockfd_ = udp_bind(host_);
-    if (sockfd_ == -1) {
-        err = -errno;
-        return err;
+    // sockfd_ 已经在 ctor 里 bind 过；这里只验证有效
+    if (sockfd_ == INVALID_SOCKET) {
+        return -EINVAL;
     }
 
     ::epoll_event ev;

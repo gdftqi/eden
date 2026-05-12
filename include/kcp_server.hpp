@@ -78,6 +78,9 @@ public:
         }
 
         sque_.reserve(MAX_RECV * 4);
+
+        // 在 ctor 里 bind，让 sockfd_ 在 run() 之前就可用——给 BpfRouter 注册用
+        sockfd_ = udp_bind(host_);
     }
 
 

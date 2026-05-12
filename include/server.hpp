@@ -3,7 +3,9 @@
 
 
 #include <thread>
+#include <vector>
 #include "kcp_server.hpp"
+#include "bpf_router.hpp"
 
 
 namespace typhon {
@@ -20,8 +22,8 @@ class Server {
 
 
 public:
-    explicit Server(const char* host) noexcept
-        : host_(host)
+    explicit Server(const char* host, const char* bpf_obj_path) noexcept
+        : host_(host), bpf_obj_path_(bpf_obj_path)
     {}
 
 
@@ -38,10 +40,12 @@ public:
 
 
 private:
-    std::atomic<State> state_ { State::Stopped };
-    std::string host_;
-    std::vector<KcpServerPtr> servers_;
-    std::vector<std::thread> threads_;
+    std::atomic<State>           state_ { State::Stopped };
+    std::string                  host_;
+    std::string                  bpf_obj_path_;
+    BpfRouter                    router_;
+    std::vector<KcpServerPtr>    servers_;
+    std::vector<std::thread>     threads_;
 };
 
 
