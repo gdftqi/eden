@@ -174,11 +174,11 @@ public:
 
 
 private:
-    KcpServer* server_ { nullptr };
-    uint32_t last_recv_ms_ { 0 };
-    ::ikcpcb* kcp_ { nullptr };
-    ::sockaddr_storage addr_ {};
-    ::socklen_t addrlen_ { sizeof(addr_) };
+    KcpServer*          server_         { nullptr };
+    uint32_t            last_recv_ms_   { 0 };
+    ::ikcpcb*           kcp_            { nullptr };
+    ::sockaddr_storage  addr_           {};
+    ::socklen_t         addrlen_        { sizeof(addr_) };
 }; // class Kcp;
 
 

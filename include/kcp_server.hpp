@@ -64,6 +64,10 @@ class KcpServer {
 
 
 public:
+    typedef std::unordered_map<uint32_t, Kcp::Ptr> SessionMap;
+    typedef std::vector<SendBuf::Ptr> SendBufQue;
+
+    
     class IEvent {
     public:
         virtual int on_init(KcpServer*) noexcept { return 0; }
@@ -173,21 +177,18 @@ private:
     update() noexcept;
 
 
-    SOCKET sockfd_ { INVALID_SOCKET };
-    SOCKET epfd_ { INVALID_SOCKET };
-    SOCKET evfd_ { INVALID_SOCKET };
-    IEvent* event_ { nullptr };
-
-    uint32_t tnow_ { 0 };
-    std::atomic<State> state_ { State::Stopped };
-    std::string host_;
-    std::unordered_map<uint32_t, Kcp::Ptr> sessions_;
-
-    ::mmsghdr rmsgs_[MAX_RECV] {};
-    ::iovec riovecs_[MAX_RECV] {};
-    ::sockaddr_storage raddrs_[MAX_RECV] {};
-
-    std::vector<SendBuf::Ptr> sque_;
+    SOCKET              sockfd_             { INVALID_SOCKET };
+    SOCKET              epfd_               { INVALID_SOCKET };
+    SOCKET              evfd_               { INVALID_SOCKET };
+    IEvent*             event_              { nullptr };
+    uint32_t            tnow_               { 0 };
+    std::atomic<State>  state_              { State::Stopped };
+    std::string         host_;
+    SessionMap          sessions_;
+    ::mmsghdr           rmsgs_[MAX_RECV]    {};
+    ::iovec             riovecs_[MAX_RECV]  {};
+    ::sockaddr_storage  raddrs_[MAX_RECV]   {};
+    SendBufQue          sque_;
 };
 
 

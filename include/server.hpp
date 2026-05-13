@@ -41,13 +41,13 @@ public:
 
 
 private:
-    KcpServer::IEvent* ev_;
-    std::atomic<State> state_ { State::Stopped };
-    std::string host_;
-    std::string bpf_obj_path_;
-    BpfRouter router_;
-    std::vector<KcpServerPtr> servers_;
-    std::vector<std::thread> threads_;
+    KcpServer::IEvent*          ev_             { nullptr };
+    std::atomic<State>          state_          { State::Stopped };
+    std::string                 host_;
+    std::string                 bpf_obj_path_;
+    BpfRouter                   router_;
+    std::vector<KcpServerPtr>   servers_;
+    std::vector<std::thread>    threads_;
 };
 
 

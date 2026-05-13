@@ -38,9 +38,9 @@ public:
 
 
 private:
-    ::bpf_object* obj_ { nullptr };
-    int           map_fd_ { -1 };
-    int           prog_fd_ { -1 };
+    ::bpf_object* obj_      { nullptr };
+    int           map_fd_   { -1 };
+    int           prog_fd_  { -1 };
 };
 
 
