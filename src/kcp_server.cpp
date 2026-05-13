@@ -254,7 +254,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 void
 typhon::KcpServer::update() noexcept {
     for (auto itr = sessions_.begin(); itr != sessions_.end();) {
-        auto& s = itr->second;
+        auto s = itr->second;
         if (s->timeout(tnow_)) {
             itr = sessions_.erase(itr);
             event_->on_disconnected(s);
