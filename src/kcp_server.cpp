@@ -9,6 +9,32 @@
 
 static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 10;
+static constexpr int RBUF_MAX = 8196;
+
+
+typhon::KcpServer::KcpServer(const char* host, IEvent* ev)
+    : event_(ev)
+    , host_(host) {
+    if (ev == nullptr) {
+        throw new std::runtime_error("IEvent is invalid");
+    }
+
+    for (int i = 0; i < MAX_RECV; ++i) {
+        auto hdr = &rmsgs_[i].msg_hdr;
+        hdr->msg_iov = &riovecs_[i];
+        hdr->msg_iovlen = 1;
+        hdr->msg_name = &raddrs_[i];
+        hdr->msg_namelen = sizeof(raddrs_[i]);
+
+        riovecs_[i].iov_base = ::mi_malloc(UDP_MTU);
+        riovecs_[i].iov_len = UDP_MTU;
+    }
+
+    sque_.reserve(MAX_RECV * 4);
+
+    // 在 ctor 里 bind，让 sockfd_ 在 run() 之前就可用——给 BpfRouter 注册用
+    sockfd_ = udp_bind(host_);
+}
 
 
 int
@@ -19,6 +45,12 @@ typhon::KcpServer::run() noexcept {
     }
 
     int err = init();
+    if (err) {
+        state_.store(State::Stopped);
+        return err;
+    }
+
+    err = event_->on_init(this);
     if (err) {
         state_.store(State::Stopped);
         return err;
@@ -62,6 +94,7 @@ typhon::KcpServer::run() noexcept {
     }
 
     release();
+    event_->on_stopped(this);
 
     state_.store(State::Stopped);
     return err;
@@ -166,7 +199,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
         return -EINVAL;
     }
 
-    uint8_t rbuf[8192];
+    uint8_t rbuf[RBUF_MAX];
     while (1) {
         for (i = 0; i < MAX_RECV; ++i) {
             riovecs_[i].iov_len = UDP_MTU;
@@ -207,8 +240,9 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
                     break;
                 }
 
-                // TODO: 事件 读
-                kcp->send(rbuf, len);
+                if (event_->on_data(kcp, rbuf, len)) {
+                    remove_session(kcp->conv());
+                }
             }
         }
     }
@@ -223,6 +257,7 @@ typhon::KcpServer::update() noexcept {
         auto& s = itr->second;
         if (s->timeout(tnow_)) {
             itr = sessions_.erase(itr);
+            event_->on_disconnected(s);
             continue;
         } else {
             s->update(tnow_);

@@ -64,24 +64,17 @@ class KcpServer {
 
 
 public:
-    explicit KcpServer(const char* host) noexcept
-        : host_(host) {
-        for (int i = 0; i < MAX_RECV; ++i) {
-            auto hdr = &rmsgs_[i].msg_hdr;
-            hdr->msg_iov = &riovecs_[i];
-            hdr->msg_iovlen = 1;
-            hdr->msg_name = &raddrs_[i];
-            hdr->msg_namelen = sizeof(raddrs_[i]);
+    class IEvent {
+    public:
+        virtual int on_init(KcpServer*) noexcept { return 0; }
+        virtual void on_stopped(KcpServer*) noexcept {}
+        virtual int on_connected(Kcp::Ptr) noexcept = 0;
+        virtual void on_disconnected(Kcp::Ptr) noexcept = 0;
+        virtual int on_data(Kcp::Ptr, const uint8_t*, size_t) noexcept = 0;
+    };
 
-            riovecs_[i].iov_base = ::mi_malloc(UDP_MTU);
-            riovecs_[i].iov_len = UDP_MTU;
-        }
 
-        sque_.reserve(MAX_RECV * 4);
-
-        // 在 ctor 里 bind，让 sockfd_ 在 run() 之前就可用——给 BpfRouter 注册用
-        sockfd_ = udp_bind(host_);
-    }
+    explicit KcpServer(const char* host, IEvent* ev);
 
 
     ~KcpServer() noexcept {
@@ -151,13 +144,20 @@ private:
     void
     add_session(uint32_t conv, Kcp::Ptr kcp) noexcept {
         kcp->set_output(output);
-        sessions_.emplace(conv, std::move(kcp));
+        sessions_.emplace(conv, kcp);
+        if (event_->on_connected(kcp)) {
+            remove_session(kcp->conv());
+        }
     }
 
 
     void
     remove_session(uint32_t conv) noexcept {
-        sessions_.erase(conv);
+        auto itr = sessions_.find(conv);
+        if (itr != sessions_.end()) {
+            sessions_.erase(itr);
+            event_->on_disconnected(itr->second);
+        }
     }
 
 
@@ -176,6 +176,7 @@ private:
     SOCKET sockfd_ { INVALID_SOCKET };
     SOCKET epfd_ { INVALID_SOCKET };
     SOCKET evfd_ { INVALID_SOCKET };
+    IEvent* event_ { nullptr };
 
     uint32_t tnow_ { 0 };
     std::atomic<State> state_ { State::Stopped };

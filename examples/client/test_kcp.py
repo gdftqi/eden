@@ -22,8 +22,8 @@ from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 SERVER_HOST = '44.197.226.175'
 SERVER_PORT = 5555
-NUM_CLIENTS = 1
-DATA_SIZE   = 4096
+NUM_CLIENTS = 12
+DATA_SIZE   = 1024
 TIMEOUT_SEC = 10.0
 
 
