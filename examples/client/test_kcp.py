@@ -22,7 +22,7 @@ from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 SERVER_HOST = '44.197.226.175'
 SERVER_PORT = 5555
-NUM_CLIENTS = 100
+NUM_CLIENTS = 1
 DATA_SIZE   = 4096
 TIMEOUT_SEC = 10.0
 
@@ -200,8 +200,8 @@ def main():
     signal.signal(signal.SIGINT,  handle_sig)
     signal.signal(signal.SIGTERM, handle_sig)
 
-    print(f'sustained load: {NUM_CLIENTS} clients × {DATA_SIZE} B -> '
-          f'{SERVER_HOST}:{SERVER_PORT}   (Ctrl+C to stop)')
+    print(f'持续压测：{NUM_CLIENTS} 个客户端 × {DATA_SIZE} B -> '
+          f'{SERVER_HOST}:{SERVER_PORT}   （按 Ctrl+C 停止）')
 
     threads = [threading.Thread(target=run_client, args=(i, stats, stop_event))
                for i in range(NUM_CLIENTS)]
@@ -217,12 +217,12 @@ def main():
         if now >= next_tick:
             sent, succ, fail, lat_sum, lat_count, b_out, b_in = stats.snapshot_interval()
             avg     = (lat_sum / lat_count) if lat_count else 0.0
-            print(f'[+{int(now - t0):4d}s]  sent {sent:5d}  ok {succ:5d}  fail {fail:4d}  '
-                  f'avg_lat {avg:6.2f} ms   ↑{fmt_bytes(b_out)}/s  ↓{fmt_bytes(b_in)}/s')
+            print(f'[+{int(now - t0):4d}s]  发送 {sent:5d}  成功 {succ:5d}  失败 {fail:4d}  '
+                  f'平均延迟 {avg:6.2f} ms   ↑{fmt_bytes(b_out)}/s  ↓{fmt_bytes(b_in)}/s')
             next_tick += 1.0
 
     # SIGINT 之后等所有 client 线程退出，再出最终汇总
-    print('\nstopping ...')
+    print('\n停止中 ...')
     for t in threads: t.join()
     elapsed = time.monotonic() - t0
 
@@ -236,18 +236,18 @@ def main():
     all_lat.sort()
 
     print('=' * 64)
-    print(f'elapsed       {elapsed:.2f} s')
-    print(f'requests      sent {total_sent}   ok {total_succ}   fail {total_fail}')
+    print(f'运行时间     {elapsed:.2f} 秒')
+    print(f'请求统计     发送 {total_sent}   成功 {total_succ}   失败 {total_fail}')
     if total_succ:
         app_bps = total_succ * DATA_SIZE / elapsed
-        print(f'throughput    {total_succ / elapsed:.0f} req/s   ({fmt_bytes(app_bps)}/s 应用层)')
+        print(f'吞吐量       {total_succ / elapsed:.0f} 次/s   ({fmt_bytes(app_bps)}/s 应用层)')
     print(f'网络流量     ↑ {fmt_bytes(total_out)}   ↓ {fmt_bytes(total_in)}   '
           f'(↑{fmt_bytes(total_out / elapsed)}/s  ↓{fmt_bytes(total_in / elapsed)}/s)')
     if all_lat:
         avg = sum(all_lat) / len(all_lat)
-        print(f'latency (ms)  min {all_lat[0]:.2f}  avg {avg:.2f}  '
+        print(f'延迟 (ms)    最小 {all_lat[0]:.2f}  平均 {avg:.2f}  '
               f'p50 {percentile(all_lat, 0.50):.2f}  p95 {percentile(all_lat, 0.95):.2f}  '
-              f'p99 {percentile(all_lat, 0.99):.2f}  max {all_lat[-1]:.2f}')
+              f'p99 {percentile(all_lat, 0.99):.2f}  最大 {all_lat[-1]:.2f}')
     print('=' * 64)
 
 
