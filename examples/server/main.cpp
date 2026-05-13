@@ -45,7 +45,7 @@ public:
 
     virtual int
     on_data(typhon::Kcp::Ptr kcp, const uint8_t* data, size_t len) noexcept {
-        return kcp->send(data, len);
+        return kcp->send(data, len) < 0 ? -1 : 0;
     }
 };
 

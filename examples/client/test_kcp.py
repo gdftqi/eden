@@ -20,7 +20,8 @@ import time
 from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
-SERVER_HOST = '44.197.226.175'
+# SERVER_HOST = '44.197.226.175'
+SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5555
 NUM_CLIENTS = 12
 DATA_SIZE   = 1024
