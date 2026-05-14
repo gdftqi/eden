@@ -21,12 +21,13 @@ import time
 from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
-SERVER_HOST = '44.197.226.175'
+SERVER_HOST   = '44.197.226.175'
 # SERVER_HOST = '127.0.0.1'
-SERVER_PORT = 5555
-NUM_CLIENTS = 200
-DATA_SIZE   = 2048     # payload 大小（不含 12B Package 头）
-TIMEOUT_SEC = 10.0
+SERVER_PORT   = 5555
+NUM_CLIENTS   = 5      # localhost 没带宽限制，1k 起步；想测上限可继续加
+DATA_SIZE     = 800      # 典型 MMO 移动/事件包 100-300B，取 200B
+SEND_RATE_HZ  = 20       # 典型 MMO 同步 10-20 Hz，取 15 Hz
+TIMEOUT_SEC   = 15.0     # 单条请求超时阈值（超过算 fail）
 
 # ----- Package 协议格式（必须和 typhon C++ 端 package.hpp 保持一致）-----
 # struct Package {
@@ -60,7 +61,8 @@ def unpack_pk(data):
     return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
 
 
-_lib = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'libkcp.so'))
+_lib_name = 'libkcp.dll' if sys.platform == 'win32' else 'libkcp.so'
+_lib = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), _lib_name))
 
 OutputFn = CFUNCTYPE(c_int, c_void_p, c_int, c_void_p, c_void_p)
 
@@ -142,10 +144,15 @@ class Stats:
 
 
 def run_client(client_id, stats, stop_event):
-    conv        = 1000 + client_id
+    """
+    模拟 MMO 客户端：固定频率 SEND_RATE_HZ 持续发包，**不等响应**。
+    收到的 echo 用 pk_idem 与 pending 表配对，算延迟。
+    超过 TIMEOUT_SEC 仍未收到响应的包按 fail 计。
+    """
+    conv        = 2000 + client_id
     server_addr = (SERVER_HOST, SERVER_PORT)
     sock        = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(0.05)
+    sock.settimeout(0.002)              # 2ms 非阻塞读，让循环及时跑 send/update
 
     kcp = _lib.ikcp_create(conv, None)
     _lib.ikcp_wndsize(kcp, 128, 128)
@@ -160,58 +167,72 @@ def run_client(client_id, stats, stop_event):
     _lib.ikcp_setoutput(kcp, cb)
 
     rbuf = ctypes.create_string_buffer(65536)
-    next_idem = 1                     # 客户端单调递增，必须 ≠ 0
+    next_idem = 1                       # 客户端单调递增，必须 ≠ 0
+    pending   = {}                      # idem -> (payload, t_start)
+
+    send_interval = 1.0 / SEND_RATE_HZ  # 50ms @ 20Hz
+    next_send_at  = time.monotonic()
 
     try:
         while not stop_event.is_set():
-            payload = os.urandom(DATA_SIZE)
-            idem    = next_idem
-            next_idem += 1
+            now = time.monotonic()
 
-            pkg_bytes = pack_pk(PK_ID_PING, idem, PK_DST_ID, payload)
-            total     = len(pkg_bytes)
+            # 1. 到时间就发一包
+            if now >= next_send_at:
+                payload = os.urandom(DATA_SIZE)
+                idem    = next_idem
+                next_idem += 1
 
-            t_start = time.monotonic()
-            stats.record_send()
+                pkg_bytes = pack_pk(PK_ID_PING, idem, PK_DST_ID, payload)
+                sbuf = ctypes.create_string_buffer(pkg_bytes, len(pkg_bytes))
+                _lib.ikcp_send(kcp, sbuf, len(pkg_bytes))
+                _lib.ikcp_flush(kcp)
 
-            sbuf = ctypes.create_string_buffer(pkg_bytes, total)
-            _lib.ikcp_send(kcp, sbuf, total)
-            _lib.ikcp_flush(kcp)
+                pending[idem] = (payload, now)
+                stats.record_send()
 
-            matched = False
-            deadline = time.monotonic() + TIMEOUT_SEC
-            while time.monotonic() < deadline and not matched:
-                if stop_event.is_set():
-                    return
-                try:
-                    data, _ = sock.recvfrom(2048)
-                    stats.record_bytes_in(len(data))
-                    ibuf = ctypes.create_string_buffer(data, len(data))
-                    _lib.ikcp_input(kcp, ibuf, len(data))
-                except socket.timeout:
-                    pass
+                next_send_at += send_interval
+                # 落后太多就把节奏拉回当前时刻，避免突发 burst
+                if next_send_at < now:
+                    next_send_at = now + send_interval
 
-                while True:
-                    n = _lib.ikcp_recv(kcp, rbuf, 65536)
-                    if n <= 0:
-                        break
-                    parsed = unpack_pk(bytes(rbuf.raw[:n]))
-                    if parsed is None:
-                        continue
-                    rcv_id, rcv_idem, rcv_dst, rcv_payload = parsed
-                    if (rcv_idem == idem and
-                            rcv_id  == PK_ID_PING and
-                            rcv_payload == payload):
-                        matched = True
-                        break
+            # 2. 尝试收 UDP（非阻塞 2ms）
+            try:
+                data, _ = sock.recvfrom(2048)
+                stats.record_bytes_in(len(data))
+                ibuf = ctypes.create_string_buffer(data, len(data))
+                _lib.ikcp_input(kcp, ibuf, len(data))
+            except socket.timeout:
+                pass
 
-                _lib.ikcp_update(kcp, now_ms())
+            # 3. drain KCP 收完成的消息，按 idem 配对 pending
+            while True:
+                n = _lib.ikcp_recv(kcp, rbuf, 65536)
+                if n <= 0:
+                    break
+                parsed = unpack_pk(bytes(rbuf.raw[:n]))
+                if parsed is None:
+                    continue
+                rcv_id, rcv_idem, _, rcv_payload = parsed
+                entry = pending.pop(rcv_idem, None)
+                if entry is None:
+                    continue        # 来历不明（重复响应 / 已超时清除）
+                p_payload, p_t_start = entry
+                if rcv_id == PK_ID_PING and rcv_payload == p_payload:
+                    stats.record_success((time.monotonic() - p_t_start) * 1000.0)
+                else:
+                    stats.record_fail()
 
-            if not matched:
-                stats.record_fail()
-                continue
+            # 4. 清理超时的 pending（按 fail 算）
+            if pending:
+                cutoff = now - TIMEOUT_SEC
+                expired = [k for k, (_, t) in pending.items() if t < cutoff]
+                for k in expired:
+                    pending.pop(k, None)
+                    stats.record_fail()
 
-            stats.record_success((time.monotonic() - t_start) * 1000.0)
+            # 5. 推 KCP 状态机
+            _lib.ikcp_update(kcp, now_ms())
     finally:
         _lib.ikcp_release(kcp)
         sock.close()
@@ -247,7 +268,7 @@ def main():
     signal.signal(signal.SIGINT,  handle_sig)
     signal.signal(signal.SIGTERM, handle_sig)
 
-    print(f'持续压测（Package framing）：{NUM_CLIENTS} 个客户端 × {DATA_SIZE} B payload '
+    print(f'MMO 模拟压测：{NUM_CLIENTS} 个客户端 × {SEND_RATE_HZ} Hz × {DATA_SIZE} B payload '
           f'(+ {HEADER_SIZE} B header) -> {SERVER_HOST}:{SERVER_PORT}   （按 Ctrl+C 停止）')
 
     threads = [threading.Thread(target=run_client, args=(i, stats, stop_event))

@@ -40,7 +40,7 @@ public:
         int interval { 10 };
         int resend { 3 };
         int nc { 1 };
-        uint32_t timeout { 60000 };
+        uint32_t timeout { 30000 };
     };
 
 
@@ -56,15 +56,7 @@ public:
     }
 
 
-    explicit Kcp(uint32_t conv, KcpServer* server) noexcept
-        : server_(server) {
-        kcp_ = ::ikcp_create(conv, this);
-
-        auto& c = conf();
-        ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
-        ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
-        ::ikcp_setmtu(kcp_, UDP_MTU);
-    }
+    explicit Kcp(uint32_t conv, KcpServer* server) noexcept;
 
 
     ~Kcp() noexcept {
@@ -78,8 +70,6 @@ public:
     conv() const noexcept {
         return kcp_->conv;
     }
-
-
     
 
     KcpServer*

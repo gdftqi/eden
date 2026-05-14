@@ -111,6 +111,12 @@ public:
     }
 
 
+    uint32_t
+    tnow() const noexcept {
+        return tnow_;
+    }
+
+
     std::string
     host() const noexcept {
         return host_;
@@ -176,8 +182,9 @@ private:
     remove_session(uint32_t conv) noexcept {
         auto itr = sessions_.find(conv);
         if (itr != sessions_.end()) {
+            auto kcp = itr->second;
             sessions_.erase(itr);
-            event_->on_disconnected(itr->second);
+            event_->on_disconnected(kcp);
         }
     }
 
