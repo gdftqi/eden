@@ -2,10 +2,9 @@
 #define __TYPHON_HPP__
 
 
-#include <thread>
-#include <vector>
-#include "kcp_server.hpp"
 #include "bpf_router.hpp"
+#include "kcp_server.hpp"
+#include "utils/log.hpp"
 
 
 namespace typhon {

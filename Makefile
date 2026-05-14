@@ -16,8 +16,12 @@ BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 
+# SPDLOG_COMPILED_LIB: 切到 spdlog 的 compiled 模式
+#   - typhon 自身 .o 不再 inline spdlog,改为 extern 调用
+#   - libspdlog.a 被 addlib 进 libtyphon.a,extern 符号在 libtyphon.a 内自满足
+#   - 下游链 libtyphon.a 时,不需要再额外 -lspdlog
 CFLAGS   := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP
-CXXFLAGS := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP -std=c++20
+CXXFLAGS := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP -std=c++20 -DSPDLOG_COMPILED_LIB
 
 C_SOURCES   := $(filter-out %.bpf.c, $(shell find src -name '*.c'))
 CPP_SOURCES := $(shell find src -name '*.cpp')

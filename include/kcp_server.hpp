@@ -90,8 +90,10 @@ public:
 
 
     ~KcpServer() noexcept {
+        // ctor 里 bind 了 sockfd_,run() 没跑(或还没跑完)的话 release 在这里兜底
+        release();
         for (int i = 0; i < MAX_RECV; ++i) {
-            ::free(riovecs_[i].iov_base);
+            ::mi_free(riovecs_[i].iov_base);
         }
     }
 

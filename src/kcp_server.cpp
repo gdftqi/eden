@@ -24,6 +24,11 @@ typhon::KcpServer::KcpServer(const char* host, IEvent* ev)
     }
 
     sque_.reserve(MAX_RECV * 4);
+
+    // 在 ctor 里 bind,让 sockfd_ 在 run() 之前就可用 —— TyService 需要在
+    // worker 线程启动前把 fd 注册到 BPF sock_map。绑定失败的话 sockfd_ 保持
+    // INVALID_SOCKET,上层 fd() 检查会处理。
+    sockfd_ = udp_bind(host_);
 }
 
 
@@ -116,11 +121,10 @@ typhon::KcpServer::init() noexcept {
         return err;
     }
 
-    sockfd_ = udp_bind(host_);
+    // sockfd_ 已经在 ctor 里 bind 过,这里只验证
     if (sockfd_ == INVALID_SOCKET) {
-        err = -errno;
         release();
-        return err;
+        return -EINVAL;
     }
 
     ::epoll_event ev;
