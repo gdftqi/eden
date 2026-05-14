@@ -27,8 +27,6 @@
 **任务**：
 - [x] 消息帧：Package（12B 头）+ PackageTail（8B 网关 stamp）
 - [x] 字节序转换（pk_hton / pk_ntoh / pkt_hton / pkt_ntoh）
-- [x] 幂等校验（rcv_idem_ 单调递增）
-- [x] Kcp::ctor 初始化 last_recv_ms_，避免新 session 立即超时被踢
 - [x] C# Unity 客户端消息格式与服务端对齐（Package 编解码 + idem 单调递增）
 - [ ] BackendConn：非阻塞 TCP 长连，inbuf 切包 + outbuf + EPOLLOUT
 - [ ] BackendConn fd 加入 KcpServer 主 epoll，按 fd 分发

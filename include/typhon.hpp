@@ -11,10 +11,10 @@
 namespace typhon {
 
 
+/**
+ * @brief Typhon 服务
+ */
 class TyService {
-    typedef std::unique_ptr<KcpServer> KcpServerPtr;
-
-
     TyService(const TyService&) = delete;
     TyService& operator=(const TyService&) = delete;
     TyService(TyService&&) = delete;
@@ -22,32 +22,40 @@ class TyService {
 
 
 public:
+    /**
+     * @brief 构造函数
+     * @param ev KcpServer 事件接口
+     * @param host 监听端口
+     * @param bpf_obj_path eBPF 路径
+     */
     explicit TyService(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path) noexcept
-        : ev_(ev)
+        : serv_ev_(ev)
         , host_(host), bpf_obj_path_(bpf_obj_path)
     {}
 
 
-    ~TyService() noexcept
-    {}
-
-
+    /**
+     * @brief 启动服务
+     */
     void
     run() noexcept;
 
 
+    /**
+     * @brief 停止服务
+     */
     void
     stop() noexcept;
 
 
 private:
-    KcpServer::IEvent*          ev_             { nullptr };
-    std::atomic<State>          state_          { State::Stopped };
-    std::string                 host_;
-    std::string                 bpf_obj_path_;
-    BpfRouter                   router_;
-    std::vector<KcpServerPtr>   servers_;
-    std::vector<std::thread>    threads_;
+    KcpServer::IEvent*          serv_ev_       { nullptr };        // 服务事件
+    std::atomic<State>          state_         { State::Stopped }; // 状态
+    std::string                 host_;                             // 服务地址
+    std::string                 bpf_obj_path_;                     // eBPF 路径
+    BpfRouter                   router_;                           // eBPF 路由
+    std::vector<KcpServer::Ptr> servers_;                          // kcp servers
+    std::vector<std::thread>    threads_;                          // 线程池
 };
 
 

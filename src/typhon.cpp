@@ -21,7 +21,7 @@ typhon::TyService::run() noexcept {
 
     // 创建 N 个 KcpServer，每个 ctor 自带 udp_bind（SO_REUSEPORT），sockfd 立即可用
     for (uint32_t i = 0; i < n; ++i) {
-        auto s = std::make_unique<KcpServer>(host_.c_str(), ev_);
+        auto s = std::make_unique<KcpServer>(host_.c_str(), serv_ev_);
         if (s->fd() == INVALID_SOCKET) {
             state_.store(State::Stopped);
             return;

@@ -6,6 +6,75 @@
 
 
 typhon::SOCKET
+typhon::tcp_listen(const std::string& host) noexcept {
+    std::string host_str(host);
+    if (host_str.empty()) {
+        return INVALID_SOCKET;
+    }
+
+    auto pos = host_str.find_last_of(':');
+    std::string port_str;
+    if (pos != std::string::npos) {
+        port_str = host_str.substr(pos + 1);
+        host_str = host_str.substr(0, pos);
+    }
+
+    if (port_str.empty()) {
+        return INVALID_SOCKET;
+    }
+
+    if (host_str.empty()) {
+        host_str = "0.0.0.0";
+    }
+
+    struct addrinfo hints {};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    struct addrinfo* res = nullptr;
+    struct addrinfo* rp = nullptr;
+
+    int ret = ::getaddrinfo(host_str.c_str(), port_str.c_str(), &hints, &res);
+    if (ret) {
+        return INVALID_SOCKET;
+    }
+
+    SOCKET lfd = INVALID_SOCKET;
+    for (rp = res; rp; rp = rp->ai_next) {
+        lfd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (lfd == INVALID_SOCKET) {
+            continue;
+        }
+
+        if (set_nonblocking(lfd) < 0) {
+            ::close(lfd);
+            lfd = INVALID_SOCKET;
+            continue;
+        }
+
+        int optval = 1;
+        if (::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
+            ::close(lfd);
+            lfd = INVALID_SOCKET;
+            continue;
+        }
+
+        if (!::bind(lfd, rp->ai_addr, rp->ai_addrlen)) {
+            break;
+        }
+
+        ::close(lfd);
+        lfd = INVALID_SOCKET;
+    }
+
+    ::freeaddrinfo(res);
+
+    return lfd;
+}
+
+
+typhon::SOCKET
 typhon::udp_bind(const std::string& host) noexcept {
     if (host.empty()) {
         return typhon::INVALID_SOCKET;

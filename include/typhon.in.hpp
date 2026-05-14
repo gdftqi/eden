@@ -2,15 +2,22 @@
 #define __TYPHON_IN_HPP__
 
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
-
 #include <netdb.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
 #include <time.h>
+#include <unistd.h>
+
+#include "mimalloc-3.2/mimalloc.h"
 
 
 namespace typhon {
@@ -58,6 +65,10 @@ systime_ms() noexcept{
 
 SOCKET
 udp_bind(const std::string& host) noexcept;
+
+
+SOCKET
+tcp_listen(const std::string& host) noexcept;
 
 
 inline std::string

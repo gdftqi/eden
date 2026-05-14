@@ -1,7 +1,5 @@
 #include "kcp_server.hpp"
 
-#include <netdb.h>
-#include <string.h>
 #include <sys/eventfd.h>
 
 #include "typhon.in.hpp"

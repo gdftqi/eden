@@ -2,16 +2,6 @@
 #define __TYPHON_UDP_SERVER_HPP__
 
 
-#include <string>
-#include <atomic>
-#include <unordered_map>
-#include <vector>
-
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#include "mimalloc-3.2/mimalloc.h"
 #include "kcp.hpp"
 #include "package.hpp"
 
@@ -65,6 +55,7 @@ class KcpServer {
 
 
 public:
+    typedef std::unique_ptr<KcpServer> Ptr;
     typedef std::unordered_map<uint32_t, Kcp::Ptr> SessionMap;
     typedef std::vector<SendBuf::Ptr> SendBufQue;
 
