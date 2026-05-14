@@ -15,7 +15,7 @@ public class Game : MonoBehaviour, ISessionEvent
     private System.Random rng = new System.Random();
     private Stopwatch sw;
     private float timeSinceLastSend;
-    private byte[] lastSent;        // 最近一次发的内容，用来对比 echo
+    private readonly byte[] lastSent = new byte[DataSize];  // 复用,避免每帧分配
     private int echoRound;
 
     void Start()
@@ -47,11 +47,21 @@ public class Game : MonoBehaviour, ISessionEvent
 
     private void SendRandom4K()
     {
-        var data = new byte[DataSize];
-        rng.NextBytes(data);
-        lastSent = data;
+        // 1. 先把随机字节填到 lastSent (留一份本地副本,后面比对 echo 用)
+        rng.NextBytes(lastSent);
         echoRound++;
-        KcpSession.Instance.Send(data);
+
+        // 2. 从池取一个 Package,填字段 + 拷 payload
+        var pkg = Package.Pool.Take();
+        pkg.PkId          = Package.PK_ID_PING;
+        pkg.PkDstId       = 0;
+        pkg.PayloadLength = DataSize;
+        System.Buffer.BlockCopy(lastSent, 0, pkg.Payload, 0, DataSize);
+
+        // 3. 发出 + 立即归还池 (KcpSession 内部已把字节拷到 pkSendBuf)
+        KcpSession.Instance.SendPk(pkg);
+        Package.Pool.Return(pkg);
+
         Debug.Log($"[round {echoRound}] sent {DataSize} bytes");
     }
 
@@ -67,24 +77,25 @@ public class Game : MonoBehaviour, ISessionEvent
         Debug.Log($"disconnected from {host}");
     }
 
-    public void OnData(byte[] data, int len)
+    public void OnPackage(Package pkg)
     {
-        bool match = (lastSent != null) && (len == lastSent.Length);
+        // pkg 在本函数返回后会被 KcpSession 复用;要存就立刻拷走
+        bool match = (pkg.PayloadLength == DataSize);
         if (match)
         {
-            for (int i = 0; i < len; i++)
+            for (int i = 0; i < DataSize; i++)
             {
-                if (data[i] != lastSent[i]) { match = false; break; }
+                if (pkg.Payload[i] != lastSent[i]) { match = false; break; }
             }
         }
 
         if (match)
         {
-            Debug.Log($"echo recv {len} bytes  ✓ match");
+            Debug.Log($"echo recv {pkg.PayloadLength} bytes  ✓ match  (pk_idem={pkg.PkIdem})");
         }
         else
         {
-            Debug.LogError($"echo recv {len} bytes  ✗ MISMATCH (expected {lastSent?.Length})");
+            Debug.LogError($"echo recv {pkg.PayloadLength} bytes  ✗ MISMATCH (expected {DataSize})");
         }
     }
 }

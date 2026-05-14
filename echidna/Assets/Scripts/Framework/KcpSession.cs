@@ -9,11 +9,28 @@ using UnityEngine;
 
 namespace Echidna
 {
+    /// <summary>
+    /// 会话事件
+    /// </summary>
     public interface ISessionEvent
     {
+        /// <summary>
+        /// 连接成功事件
+        /// </summary>
+        /// <param name="host"></param>
         public void OnConnected(IPEndPoint host);
+
+        /// <summary>
+        /// 连接断开事件
+        /// </summary>
+        /// <param name="host"></param>
         public void OnDisconnected(IPEndPoint host);
-        public void OnData(byte[] data, int len);
+
+        /// <summary>
+        /// 消息事件
+        /// </summary>
+        /// <param name="pkg"></param>
+        public void OnPackage(Package pkg);
     }
 
     public class KcpSession
@@ -42,7 +59,8 @@ namespace Echidna
 
         public void SetEvent(ISessionEvent ev)
         {
-            if (ev == null) throw new Exception("ev is invalid");
+            if (ev == null) 
+                throw new Exception("ev is invalid");
             this.ev = ev;
         }
 
@@ -154,17 +172,36 @@ namespace Echidna
             while (true)
             {
                 int n = kcp.Receive(rbuf.Array, rbuf.Count);
-                if (n <= 0) break;
+                if (n <= 0)
+                    break;
 
-                ev?.OnData(rbuf.Array, n);
+                recvPkg.Reset();
+                if (!Package.Unpack(rbuf.Array, n, recvPkg)) 
+                    continue;
+
+                if (recvPkg.PkIdem <= rcvIdem)
+                    continue;
+
+                rcvIdem = recvPkg.PkIdem;
+                ev?.OnPackage(recvPkg);
             }
 
             kcp.Update(current);
         }
 
-        public void Send(byte[] data)
+        /// <summary>
+        /// 发送一个 Package。会自动 stamp 单调递增的 PkIdem 到 pkg 上;
+        /// pkg 可以是池化复用的对象,调用方填充 PkId / PkDstId / Payload / PayloadLength 后传入。
+        /// 返回后 pkg 可以立即 Return 给池。
+        /// </summary>
+        public void SendPk(Package pkg)
         {
-            if (Running && kcp.Send(data, 0, data.Length) != 0)
+            if (!Running || kcp == null) 
+                throw new Exception("Kcp session is not running");
+
+            pkg.PkIdem = ++sndIdem;
+            int total = Package.Pack(pkg, pkSendBuf);
+            if (kcp.Send(pkSendBuf, 0, total) != 0)
                 throw new Exception("Kcp.Send failed");
         }
 
@@ -173,13 +210,20 @@ namespace Echidna
             udp.Send(segment, size);
         }
 
+        /// <summary>
+        /// 服务器地址
+        /// </summary>
         private IPEndPoint remotePoint;
         private UdpClient udp;
         private Kcp kcp;
         private int running = 0;
+        private uint sndIdem = 0;
+        private uint rcvIdem = 0;
         private ConcurrentQueue<byte[]> rbufQueue = new ConcurrentQueue<byte[]>();
         Thread udpRecvThread;
         ISessionEvent ev;
-        ArraySegment<byte> rbuf = new ArraySegment<byte>(new byte[1024 * 8]);
+        ArraySegment<byte> rbuf = new ArraySegment<byte>(new byte[Package.PACK_MAX_LEN + 1]);
+        byte[] pkSendBuf = new byte[Package.PACK_MAX_LEN];
+        Package recvPkg = new Package();   // 接收端复用的 Package 实例(单线程,无需锁)
     }
 }
