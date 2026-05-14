@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>

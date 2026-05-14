@@ -1,10 +1,5 @@
 #include "kcp_server.hpp"
 
-#include <sys/eventfd.h>
-
-#include "typhon.in.hpp"
-#include "package.hpp"
-
 
 static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 10;
@@ -29,9 +24,6 @@ typhon::KcpServer::KcpServer(const char* host, IEvent* ev)
     }
 
     sque_.reserve(MAX_RECV * 4);
-
-    // 在 ctor 里 bind，让 sockfd_ 在 run() 之前就可用——给 BpfRouter 注册用
-    sockfd_ = udp_bind(host_);
 }
 
 
@@ -120,12 +112,15 @@ typhon::KcpServer::init() noexcept {
     evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     if (evfd_ == -1) {
         err = -errno;
+        release();
         return err;
     }
 
-    // sockfd_ 已经在 ctor 里 bind 过；这里只验证有效
+    sockfd_ = udp_bind(host_);
     if (sockfd_ == INVALID_SOCKET) {
-        return -EINVAL;
+        err = -errno;
+        release();
+        return err;
     }
 
     ::epoll_event ev;
@@ -133,6 +128,7 @@ typhon::KcpServer::init() noexcept {
     ev.events = EPOLLIN | EPOLLET;
     if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev)) {
         err = -errno;
+        release();
         return err;
     }
 
@@ -140,6 +136,7 @@ typhon::KcpServer::init() noexcept {
     ev.events = EPOLLIN | EPOLLET;
     if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, sockfd_, &ev)) {
         err = -errno;
+        release();
         return err;
     }
 

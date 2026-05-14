@@ -58,9 +58,22 @@ private:
     release() noexcept;
 
 
-    SOCKET lfd_  { INVALID_SOCKET };
-    SOCKET evfd_ { INVALID_SOCKET };
-    SOCKET epfd_ { INVALID_SOCKET }; 
+    int
+    on_event_handle(const ::epoll_event& ev) noexcept;
+
+
+    int
+    on_listen_handle(const ::epoll_event& ev) noexcept;
+
+
+    int
+    on_session_handle(const ::epoll_event& ev) noexcept;
+
+
+    SOCKET   lfd_  { INVALID_SOCKET };
+    SOCKET   evfd_ { INVALID_SOCKET };
+    SOCKET   epfd_ { INVALID_SOCKET };
+    uint32_t tnow_ { 0 };
     std::atomic<State> state_ { State::Stopped };
     std::string host_;
 };
