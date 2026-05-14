@@ -14,18 +14,50 @@ import ctypes
 import os
 import signal
 import socket
+import struct
 import sys
 import threading
 import time
 from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
-# SERVER_HOST = '44.197.226.175'
-SERVER_HOST = '127.0.0.1'
+SERVER_HOST = '44.197.226.175'
+# SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 5555
-NUM_CLIENTS = 12
-DATA_SIZE   = 1024
+NUM_CLIENTS = 200
+DATA_SIZE   = 2048     # payload 大小（不含 12B Package 头）
 TIMEOUT_SEC = 10.0
+
+# ----- Package 协议格式（必须和 typhon C++ 端 package.hpp 保持一致）-----
+# struct Package {
+#     uint16_t pk_len;     // 整包总长 = HEADER_SIZE + payload
+#     uint16_t pk_id;      // 业务消息号
+#     uint32_t pk_idem;    // 幂等 ID，客户端单调递增，必须 ≠ 0
+#     uint32_t pk_dst_id;  // 目标服务类型（路由键）
+#     uint8_t  pk_data[];  // payload
+# };
+# 所有多字节字段一律网络字节序（big-endian）
+HEADER_FMT  = '!HHII'                       # big-endian: u16, u16, u32, u32
+HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 12 字节
+assert HEADER_SIZE == 12
+
+PK_ID_PING  = 1     # 测试用消息号
+PK_DST_ID   = 0     # 测试用目标服务（占位）
+
+
+def pack_pk(pk_id, pk_idem, pk_dst_id, payload):
+    pk_len = HEADER_SIZE + len(payload)
+    return struct.pack(HEADER_FMT, pk_len, pk_id, pk_idem, pk_dst_id) + payload
+
+
+def unpack_pk(data):
+    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None """
+    if len(data) < HEADER_SIZE:
+        return None
+    pk_len, pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
+    if pk_len != len(data):
+        return None
+    return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
 
 
 _lib = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'libkcp.so'))
@@ -127,22 +159,28 @@ def run_client(client_id, stats, stop_event):
     cb = OutputFn(output)
     _lib.ikcp_setoutput(kcp, cb)
 
-    rbuf = ctypes.create_string_buffer(8192)
+    rbuf = ctypes.create_string_buffer(65536)
+    next_idem = 1                     # 客户端单调递增，必须 ≠ 0
 
     try:
         while not stop_event.is_set():
-            sent_data = os.urandom(DATA_SIZE)
-            received  = bytearray()
+            payload = os.urandom(DATA_SIZE)
+            idem    = next_idem
+            next_idem += 1
+
+            pkg_bytes = pack_pk(PK_ID_PING, idem, PK_DST_ID, payload)
+            total     = len(pkg_bytes)
 
             t_start = time.monotonic()
             stats.record_send()
 
-            sbuf = ctypes.create_string_buffer(sent_data, DATA_SIZE)
-            _lib.ikcp_send(kcp, sbuf, DATA_SIZE)
+            sbuf = ctypes.create_string_buffer(pkg_bytes, total)
+            _lib.ikcp_send(kcp, sbuf, total)
             _lib.ikcp_flush(kcp)
 
+            matched = False
             deadline = time.monotonic() + TIMEOUT_SEC
-            while time.monotonic() < deadline and len(received) < DATA_SIZE:
+            while time.monotonic() < deadline and not matched:
                 if stop_event.is_set():
                     return
                 try:
@@ -154,14 +192,22 @@ def run_client(client_id, stats, stop_event):
                     pass
 
                 while True:
-                    n = _lib.ikcp_recv(kcp, rbuf, 8192)
+                    n = _lib.ikcp_recv(kcp, rbuf, 65536)
                     if n <= 0:
                         break
-                    received += rbuf.raw[:n]
+                    parsed = unpack_pk(bytes(rbuf.raw[:n]))
+                    if parsed is None:
+                        continue
+                    rcv_id, rcv_idem, rcv_dst, rcv_payload = parsed
+                    if (rcv_idem == idem and
+                            rcv_id  == PK_ID_PING and
+                            rcv_payload == payload):
+                        matched = True
+                        break
 
                 _lib.ikcp_update(kcp, now_ms())
 
-            if len(received) != DATA_SIZE or bytes(received) != sent_data:
+            if not matched:
                 stats.record_fail()
                 continue
 
@@ -201,8 +247,8 @@ def main():
     signal.signal(signal.SIGINT,  handle_sig)
     signal.signal(signal.SIGTERM, handle_sig)
 
-    print(f'持续压测：{NUM_CLIENTS} 个客户端 × {DATA_SIZE} B -> '
-          f'{SERVER_HOST}:{SERVER_PORT}   （按 Ctrl+C 停止）')
+    print(f'持续压测（Package framing）：{NUM_CLIENTS} 个客户端 × {DATA_SIZE} B payload '
+          f'(+ {HEADER_SIZE} B header) -> {SERVER_HOST}:{SERVER_PORT}   （按 Ctrl+C 停止）')
 
     threads = [threading.Thread(target=run_client, args=(i, stats, stop_event))
                for i in range(NUM_CLIENTS)]

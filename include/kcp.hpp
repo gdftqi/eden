@@ -7,6 +7,7 @@
 
 #include "kcp/ikcp.h"
 #include "typhon.in.hpp"
+#include "package.hpp"
 
 
 namespace typhon {
@@ -27,8 +28,8 @@ public:
 
 
     static Ptr
-    create(uint32_t conv, const void* addr, socklen_t addrlen, KcpServer* server) noexcept {
-        return std::make_shared<Kcp>(conv, (const ::sockaddr_storage*)addr, addrlen, server);
+    create(uint32_t conv, KcpServer* server) noexcept {
+        return std::make_shared<Kcp>(conv, server);
     }
 
     
@@ -55,7 +56,7 @@ public:
     }
 
 
-    explicit Kcp(uint32_t conv, const ::sockaddr_storage* addr, socklen_t addrlen, KcpServer* server) noexcept
+    explicit Kcp(uint32_t conv, KcpServer* server) noexcept
         : server_(server) {
         kcp_ = ::ikcp_create(conv, this);
 
@@ -63,9 +64,6 @@ public:
         ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
         ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
         ::ikcp_setmtu(kcp_, UDP_MTU);
-
-        ::memcpy(&addr_, addr, addrlen);
-        addrlen_ = addrlen;
     }
 
 
@@ -79,6 +77,38 @@ public:
     uint32_t
     conv() const noexcept {
         return kcp_->conv;
+    }
+
+
+    
+
+    KcpServer*
+    server() noexcept {
+        return server_;
+    }
+
+
+    ::sockaddr_storage*
+    addr() noexcept {
+        return &addr_;
+    }
+
+
+    ::socklen_t
+    addrlen() noexcept {
+        return addrlen_;
+    }
+
+
+    std::string
+    remote_addr() noexcept {
+        return sockaddr_to_string((sockaddr*)&addr_);
+    }
+
+
+    uint32_t
+    next_snd_idem() noexcept {
+        return ++snd_idem_;
     }
 
 
@@ -118,10 +148,11 @@ public:
 
 
     int
-    input(const void* data, long len, uint32_t now) noexcept {
+    input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
         int res = ::ikcp_input(kcp_, (const char*)data, len);
         if (res == 0) {
-            last_recv_ms_ = now;
+            ::memcpy(&addr_, addr, addrlen);
+            addrlen_ = addrlen;
         }
         return res;
     }
@@ -149,33 +180,63 @@ public:
     }
 
 
-    KcpServer*
-    server() noexcept {
-        return server_;
+    /**
+     * @brief 读取 Package
+     * @return 成功返回 1, 没有消息返回 0, 错误返回 -1
+     */
+    int
+    recv_pk(Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
+        int res = recv(buf, len);
+        if (res <= 0) {
+            return 0;
+        }
+
+        if ((size_t)res < sizeof(Package)) {
+            return -1;
+        }
+
+        *pkg = (Package*)buf;
+        pk_ntoh(*pkg);
+        if ((*pkg)->pk_len != res) {
+            return -1;
+        }
+
+        if (rcv_idem_ >= (*pkg)->pk_idem) {
+            return -1;
+        }
+
+        last_recv_ms_ = now;
+        rcv_idem_ = (*pkg)->pk_idem;
+        return 1;
     }
 
 
-    ::sockaddr_storage*
-    addr() noexcept {
-        return &addr_;
-    }
+    int
+    send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
+        thread_local static uint8_t buf[PACK_MAX_LEN];
 
+        size_t total = sizeof(Package) + len;
+        if (total > UINT16_MAX) {
+            return -1;
+        }
 
-    ::socklen_t
-    addrlen() noexcept {
-        return addrlen_;
-    }
+        auto* pkg = (Package*)buf;
+        pkg->pk_len = total;
+        pkg->pk_id = pk_id;
+        pkg->pk_idem = pk_idemp;
+        pkg->pk_dst_id = pk_dst_id;
+        ::memcpy(pkg->pk_data, data, len);
 
-
-    std::string
-    remote_addr() noexcept {
-        return sockaddr_to_string((sockaddr*)&addr_);
+        pk_hton(pkg);
+        return send(buf, total);
     }
 
 
 private:
     KcpServer*          server_         { nullptr };
     uint32_t            last_recv_ms_   { 0 };
+    uint32_t            snd_idem_       { 0 };
+    uint32_t            rcv_idem_       { 0 };
     ::ikcpcb*           kcp_            { nullptr };
     ::sockaddr_storage  addr_           {};
     ::socklen_t         addrlen_        { sizeof(addr_) };

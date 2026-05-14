@@ -5,11 +5,11 @@
 #include <sys/eventfd.h>
 
 #include "typhon.in.hpp"
+#include "package.hpp"
 
 
 static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 10;
-static constexpr int RBUF_MAX = 8196;
 
 
 typhon::KcpServer::KcpServer(const char* host, IEvent* ev)
@@ -193,13 +193,14 @@ typhon::KcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
 
 int
 typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
+    thread_local static uint8_t rbuf[PACK_MAX_LEN];
+
     int i, n, err;
 
     if (!(ev.events & EPOLLIN) && !(ev.events & EPOLLERR)) {
         return -EINVAL;
     }
 
-    uint8_t rbuf[RBUF_MAX];
     while (1) {
         for (i = 0; i < MAX_RECV; ++i) {
             riovecs_[i].iov_len = UDP_MTU;
@@ -226,21 +227,26 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
             auto kcp = get_session(conv);
             if (kcp == nullptr) {
-                kcp = Kcp::create(conv, hdr->msg_name, hdr->msg_namelen, this);
+                kcp = Kcp::create(conv, this);
                 add_session(conv, kcp);
             }
 
-            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, tnow_)) {
+            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
                 continue;
             }
 
+            Package* pkg;
             while (true) {
-                auto len = kcp->recv(rbuf, sizeof(rbuf));
-                if (len <= 0) {
+                int res = kcp->recv_pk(&pkg, rbuf, PACK_MAX_LEN, tnow_);
+                if (res < 0) {
+                    continue;
+                }
+
+                if (res == 0) {
                     break;
                 }
 
-                if (event_->on_data(kcp, rbuf, len)) {
+                if (event_->on_data(kcp, pkg) != 0) {
                     remove_session(kcp->conv());
                 }
             }

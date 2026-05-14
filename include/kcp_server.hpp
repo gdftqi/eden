@@ -13,6 +13,7 @@
 
 #include "mimalloc-3.2/mimalloc.h"
 #include "kcp.hpp"
+#include "package.hpp"
 
 
 namespace typhon {
@@ -70,11 +71,27 @@ public:
     
     class IEvent {
     public:
-        virtual int on_init(KcpServer*) noexcept { return 0; }
-        virtual void on_stopped(KcpServer*) noexcept {}
-        virtual int on_connected(Kcp::Ptr) noexcept = 0;
-        virtual void on_disconnected(Kcp::Ptr) noexcept = 0;
-        virtual int on_data(Kcp::Ptr, const uint8_t*, size_t) noexcept = 0;
+        virtual int 
+        on_init(KcpServer*) noexcept { 
+            return 0; 
+        }
+
+
+        virtual void 
+        on_stopped(KcpServer*) noexcept 
+        {}
+
+
+        virtual int 
+        on_connected(Kcp::Ptr) noexcept = 0;
+
+
+        virtual void 
+        on_disconnected(Kcp::Ptr) noexcept = 0;
+
+
+        virtual int 
+        on_data(Kcp::Ptr, const Package*) noexcept = 0;
     };
 
 

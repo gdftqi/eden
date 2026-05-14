@@ -1,10 +1,10 @@
 #include <csignal>
 #include <iostream>
 
-#include "server.hpp"
+#include "typhon.hpp"
 
 
-static typhon::Server* g_server = nullptr;
+static typhon::TyService* g_server = nullptr;
 
 
 static void
@@ -44,8 +44,14 @@ public:
 
 
     virtual int
-    on_data(typhon::Kcp::Ptr kcp, const uint8_t* data, size_t len) noexcept {
-        return kcp->send(data, len) < 0 ? -1 : 0;
+    on_data(typhon::Kcp::Ptr kcp, const typhon::Package* pkg) noexcept {
+        return kcp->send_pk(
+            pkg->pk_id, 
+            kcp->next_snd_idem(), 
+            pkg->pk_dst_id, 
+            pkg->pk_data, 
+            pkg->pk_len - sizeof(typhon::Package)
+        ) < 0 ? -1 : 0;
     }
 };
 
@@ -55,7 +61,7 @@ main(int argc, char** argv) {
     const char* bpf_path = (argc > 1) ? argv[1] : "kcp.bpf.o";
 
     EchoService echo;
-    typhon::Server server(&echo, "0.0.0.0:5555", bpf_path);
+    typhon::TyService server(&echo, "0.0.0.0:5555", bpf_path);
     g_server = &server;
 
     ::signal(SIGINT, on_signal);

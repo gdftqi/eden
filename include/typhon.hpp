@@ -1,5 +1,5 @@
-#ifndef __SERVER_HPP__
-#define __SERVER_HPP__
+#ifndef __TYPHON_HPP__
+#define __TYPHON_HPP__
 
 
 #include <thread>
@@ -11,24 +11,24 @@
 namespace typhon {
 
 
-class Server {
+class TyService {
     typedef std::unique_ptr<KcpServer> KcpServerPtr;
 
 
-    Server(const Server&) = delete;
-    Server& operator=(const Server&) = delete;
-    Server(Server&&) = delete;
-    Server& operator=(Server&&) = delete;
+    TyService(const TyService&) = delete;
+    TyService& operator=(const TyService&) = delete;
+    TyService(TyService&&) = delete;
+    TyService& operator=(TyService&&) = delete;
 
 
 public:
-    explicit Server(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path) noexcept
+    explicit TyService(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path) noexcept
         : ev_(ev)
         , host_(host), bpf_obj_path_(bpf_obj_path)
     {}
 
 
-    ~Server() noexcept
+    ~TyService() noexcept
     {}
 
 
@@ -54,4 +54,4 @@ private:
 } // namespace typhon;
 
 
-#endif // __SERVER_HPP__
+#endif // __TYPHON_HPP__

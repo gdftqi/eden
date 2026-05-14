@@ -3,16 +3,21 @@
 
 
 #include <inttypes.h>
+#include <arpa/inet.h>   // htons / htonl / ntohs / ntohl
 
 
 namespace typhon {
+
+
+constexpr int PACK_MAX_LEN = 65535;
 
 
 // =============================================================================
 //                          typhon 消息协议（v1）
 // =============================================================================
 //
-// 字节序：所有多字节字段一律 little-endian。
+// 字节序：所有多字节字段一律 big-endian（网络字节序）。本地处理用 host 序，
+//          发送前调 pk_hton / pkt_hton 转换，接收后调 pk_ntoh / pkt_ntoh 转回。
 // 单包上限：pk_len 是 uint16_t → 单条 KCP message 最大 65535 字节（含头）。
 //           更大的载荷由业务层自行分片。
 //
@@ -33,8 +38,11 @@ namespace typhon {
 //
 //   pk_len    包总长（含 12B 头 + pk_data；**不包含**网关追加的 PackageTail）
 //   pk_id     业务消息号（PING=1 / MOVE=100 / BUY_REQ=200 / ...）
-//   pk_idemp  幂等 ID：服务端响应时原样回填；关键业务（购买等）按 (player,idemp)
-//             去重以避免重发被处理多次；其他业务忽略即可
+//   pk_idem   幂等 ID。**协议约定**：客户端单调递增分配，必须 ≠ 0（0 保留为无效值）。
+//             服务端按 conv 内的最大 idem 校验单调性，<= 上次的视为重复包丢弃。
+//             服务端响应时原样回填客户端的 idem 以做 RPC 配对。
+//             鉴权成功后服务端重置 rcv_idem_，从新连接 idem=1 开始计；故单次 session
+//             寿命内 uint32 不会 wrap。
 //   pk_dst_id 目标服务类型（scene / chat / guild ...）路由键
 //
 // -----------------------------------------------------------------------------
@@ -64,7 +72,7 @@ namespace typhon {
 struct Package {
     uint16_t pk_len;    // 消息长度（含本头部 + pk_data；不含 PackageTail）
     uint16_t pk_id;     // 消息ID（业务消息号）
-    uint32_t pk_idemp;  // 幂等 ID（请求/响应配对 + 业务层去重）
+    uint32_t pk_idem;   // 幂等 ID（客户端单调递增；**必须 ≠ 0**，0 视为无效包丢弃）
     uint32_t pk_dst_id; // 目标服务类型（路由键）
     uint8_t  pk_data[]; // 消息数据
 };
@@ -81,7 +89,73 @@ struct PackageTail {
 
 #pragma pack(pop)
 
-    
+
+/**
+ * @defgroup byteorder 字节序转换
+ *
+ * 协议字节序分层：
+ *   - KCP 协议层（conv / sn / ts / ...）：**小端序**，由 ikcp.c 决定，对应用层透明
+ *   - Package / PackageTail（应用层）：**大端序（网络字节序）**
+ *
+ * 两层互不影响 —— KCP 只解析自身头部，Package 字节对 KCP 是 opaque payload。
+ *
+ * 用法：
+ *   - 发送前：本地填 host 序 → 调用 pk_hton / pkt_hton
+ *   - 接收后：cast 为 Package* / PackageTail* → 调用 pk_ntoh / pkt_ntoh → 读字段
+ *
+ * @note 在大端机上 htons/htonl 是空操作，跨平台自动正确。
+ * @warning 转换为**原地修改**；同一字段重复调用一次会自己还原。
+ * @{
+ */
+
+/**
+ * @brief 本机字节序 → 网络字节序（发送 Package 前调用）
+ * @param p 待转换的 Package 头指针
+ */
+inline void
+pk_hton(Package* p) noexcept {
+    p->pk_len    = htons(p->pk_len);
+    p->pk_id     = htons(p->pk_id);
+    p->pk_idem  = htonl(p->pk_idem);
+    p->pk_dst_id = htonl(p->pk_dst_id);
+}
+
+
+/**
+ * @brief 网络字节序 → 本机字节序（接收 Package 后调用）
+ * @param p 待转换的 Package 头指针
+ */
+inline void
+pk_ntoh(Package* p) noexcept {
+    p->pk_len    = ntohs(p->pk_len);
+    p->pk_id     = ntohs(p->pk_id);
+    p->pk_idem  = ntohl(p->pk_idem);
+    p->pk_dst_id = ntohl(p->pk_dst_id);
+}
+
+
+/**
+ * @brief 本机字节序 → 网络字节序（发送 PackageTail 前调用）
+ * @param p 待转换的 PackageTail 指针
+ */
+inline void
+pkt_hton(PackageTail* p) noexcept {
+    p->pkt_src_id   = htonl(p->pkt_src_id);
+    p->pkt_src_addr = htonl(p->pkt_src_addr);
+}
+
+
+/**
+ * @brief 网络字节序 → 本机字节序（接收 PackageTail 后调用）
+ * @param p 待转换的 PackageTail 指针
+ */
+inline void
+pkt_ntoh(PackageTail* p) noexcept {
+    p->pkt_src_id   = ntohl(p->pkt_src_id);
+    p->pkt_src_addr = ntohl(p->pkt_src_addr);
+}
+
+
 } // namespace typhon
 
 

@@ -1,9 +1,9 @@
-#include "server.hpp"
+#include "typhon.hpp"
 #include <functional>
 
 
 void
-typhon::Server::run() noexcept {
+typhon::TyService::run() noexcept {
     auto stopped = State::Stopped;
     if (!state_.compare_exchange_strong(stopped, State::Starting)) {
         return;
@@ -60,7 +60,7 @@ typhon::Server::run() noexcept {
 
 
 void
-typhon::Server::stop() noexcept {
+typhon::TyService::stop() noexcept {
     auto running = State::Running;
     if (!state_.compare_exchange_strong(running, State::Stopping)) {
         return;
