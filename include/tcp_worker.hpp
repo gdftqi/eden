@@ -3,6 +3,7 @@
 
 
 #include "typhon.in.hpp"
+#include "utils/log.hpp"
 #include "utils/spsc.hpp"
 
 
@@ -31,25 +32,66 @@ public:
     TcpWorker() noexcept;
 
 
+    bool
+    running() const noexcept {
+        return state_.load(std::memory_order_relaxed) == State::Running;
+    }
+
+
     void
     run() noexcept;
 
 
     void
-    stop() noexcept;
+    stop() noexcept {
+        State expected = State::Running;
+        if (state_.compare_exchange_strong(expected, State::Stopping)) {
+            constexpr uint64_t event = 1;
+            auto n = ::write(q_evfd_, &event, sizeof(event));
+            if (n != sizeof(event)) {
+                xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            }
+        }
+    }
 
 
     void
     push(RcvBuf* rbuf) noexcept {
         rque_.enqueue(std::move(rbuf));
+        bool expected = false;
+        if (sending_.compare_exchange_strong(expected, true)) {
+            constexpr uint64_t event = 1;
+            if (::write(q_evfd_, &event, sizeof(event)) != sizeof(event)) {
+                xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            }
+        }
     }
 
 
 private:
-    SOCKET epfd_ { INVALID_SOCKET };
-    SOCKET evfd_ { INVALID_SOCKET };
-    utils::SPSC<RcvBuf*, 4096> rque_;
-};
+    void
+    init() noexcept;
+
+
+    void
+    release() noexcept;
+
+
+    int
+    on_stop_handle(const ::epoll_event& ev) noexcept;
+
+
+    int
+    on_que_handle(const ::epoll_event& ev) noexcept;
+
+
+    SOCKET               epfd_      { INVALID_SOCKET };
+    SOCKET               q_evfd_    { INVALID_SOCKET }; // 队列事件
+    SOCKET               s_evfd_    { INVALID_SOCKET }; // 停止事件
+    std::atomic<State>   state_     { State::Stopped };
+    std::atomic<bool>    sending_   { false };
+    utils::SPSC<RcvBuf*> rque_;
+}; // class TcpWorker;
 
     
 } // namespace typhon

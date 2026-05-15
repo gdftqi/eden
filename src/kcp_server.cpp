@@ -24,30 +24,24 @@ typhon::KcpServer::KcpServer(const char* host, IEvent* ev) noexcept
 
     sque_.reserve(MAX_RECV * 4);
 
-    // 在 ctor 里 bind,让 sockfd_ 在 run() 之前就可用 —— TyService 需要在
-    // worker 线程启动前把 fd 注册到 BPF sock_map。绑定失败的话 sockfd_ 保持
-    // INVALID_SOCKET,上层 fd() 检查会处理。
-    sockfd_ = udp_bind(host_);
+    ufd_ = udp_bind(host_);
+    ASSERT(ufd_ != INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
-int
+void
 typhon::KcpServer::run() noexcept {
     auto expected = State::Stopped;
     if (!state_.compare_exchange_strong(expected, State::Starting)) {
-        return -1;
+        return;
     }
 
-    int err = init();
-    if (err) {
-        state_.store(State::Stopped);
-        return err;
-    }
+    init();
 
-    err = event_->on_init(this);
+    int err = event_->on_init(this);
     if (err) {
         state_.store(State::Stopped);
-        return err;
+        return;
     }
 
     int i, n;
@@ -70,9 +64,9 @@ typhon::KcpServer::run() noexcept {
         tnow_ = (uint32_t)systime_ms() - base_ms;
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == evfd_) {
-                err = on_event_handle(ev);
-            } else if (ev.data.fd == sockfd_) {
+            if (ev.data.fd == stop_evfd_) {
+                err = on_stop_handle(ev);
+            } else if (ev.data.fd == ufd_) {
                 err = on_udp_handle(ev);
             }
         }
@@ -88,7 +82,6 @@ typhon::KcpServer::run() noexcept {
     event_->on_stopped(this);
 
     state_.store(State::Stopped);
-    return err;
 }
 
 
@@ -100,47 +93,22 @@ typhon::KcpServer::output(const char *buf, int len, IKCPCB*, void *user) noexcep
 }
 
 
-int
+void
 typhon::KcpServer::init() noexcept {
-    int err = 0;
-
     epfd_ = ::epoll_create1(0);
-    if (epfd_ == -1) {
-        err = -errno;
-        return err;
-    }
+    ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (evfd_ == -1) {
-        err = -errno;
-        release();
-        return err;
-    }
-
-    // sockfd_ 已经在 ctor 里 bind 过,这里只验证
-    if (sockfd_ == INVALID_SOCKET) {
-        release();
-        return -EINVAL;
-    }
+    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(stop_evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = evfd_;
+    ev.data.fd = stop_evfd_;
     ev.events = EPOLLIN | EPOLLET;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev)) {
-        err = -errno;
-        release();
-        return err;
-    }
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    ev.data.fd = sockfd_;
+    ev.data.fd = ufd_;
     ev.events = EPOLLIN | EPOLLET;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, sockfd_, &ev)) {
-        err = -errno;
-        release();
-        return err;
-    }
-
-    return 0;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, ufd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -151,24 +119,24 @@ typhon::KcpServer::release() noexcept {
         epfd_ = -1;
     }
 
-    if (evfd_ != -1) {
-        ::close(evfd_);
-        evfd_ = -1;
+    if (stop_evfd_ != -1) {
+        ::close(stop_evfd_);
+        stop_evfd_ = -1;
     }
 
-    if (sockfd_ != -1) {
-        ::close(sockfd_);
-        sockfd_ = -1;
+    if (ufd_ != -1) {
+        ::close(ufd_);
+        ufd_ = -1;
     }
 }
 
 
 int
-typhon::KcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
+typhon::KcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
-            auto n = ::read(evfd_, &event, sizeof(event));
+            auto n = ::read(stop_evfd_, &event, sizeof(event));
             if (n == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
@@ -189,7 +157,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
     int res = 0;
     if (ev.events & EPOLLERR) {
         socklen_t len = sizeof(res);
-        if (::getsockopt(sockfd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
+        if (::getsockopt(ufd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
             return -errno;
         }
 
@@ -197,16 +165,16 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
             return -res;
         }
     }
-
-    int i, n;
+    
     if (ev.events & EPOLLIN) {
+        int i, n;
         while (1) {
             for (i = 0; i < MAX_RECV; ++i) {
                 riovecs_[i].iov_len = UDP_MTU;
             }
 
             res = 0;
-            n = ::recvmmsg(sockfd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
+            n = ::recvmmsg(ufd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
             if (n == -1) {
                 if (errno != EAGAIN && errno != EWOULDBLOCK) {
                     res = -errno;
@@ -226,7 +194,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 auto kcp = get_session(conv);
                 if (kcp == nullptr) {
-                    kcp = Kcp::create(conv, this);
+                    kcp = Kcp::create(conv, this, hdr->msg_name, hdr->msg_namelen);
                     add_session(conv, kcp);
                 }
 
@@ -294,7 +262,7 @@ typhon::KcpServer::update() noexcept {
             iovecs[i].iov_len = buf->len;
         }
 
-        int res = ::sendmmsg(sockfd_, msgs, n, 0);
+        int res = ::sendmmsg(ufd_, msgs, n, 0);
         if (res == -1) {
             break;
         }

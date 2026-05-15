@@ -35,7 +35,7 @@ typhon::TyService::run() noexcept {
         servers_.emplace_back(std::move(s));
     }
 
-    // 挂 BPF 程序到 SO_REUSEPORT 组（任一 socket 即可，整组共享）
+    // 挂载 BPF 程序到 SO_REUSEPORT 组（任一 socket 即可，整组共享）
     if (router_.attach(servers_[0]->fd()) != 0) {
         state_.store(State::Stopped);
         return;

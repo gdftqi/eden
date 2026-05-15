@@ -34,27 +34,24 @@ public:
     }
 
 
-    int
+    void
     run() noexcept;
 
 
-    int
+    void
     stop() noexcept {
-        State expected = State::Running;
-        if (state_.compare_exchange_strong(expected, State::Stopping)) {
-            static constexpr uint64_t event = 1;
-            auto n = ::write(evfd_, &event, sizeof(event));
-            if (n != sizeof(event)) {
-                return -1;
+        if (running()) {
+            State expected = State::Running;
+            if (state_.compare_exchange_strong(expected, State::Stopping)) {
+                static constexpr uint64_t event = 1;
+                ASSERT(::write(stop_evfd_, &event, sizeof(event)) == sizeof(event), "errno = {}, errstr = {}", errno, ::strerror(errno));
             }
         }
-
-        return 0;
     }
 
 
 private:
-    int
+    void
     init() noexcept;
 
 
@@ -63,7 +60,7 @@ private:
 
 
     int
-    on_event_handle(const ::epoll_event& ev) noexcept;
+    on_stop_handle(const ::epoll_event& ev) noexcept;
 
 
     int
@@ -74,13 +71,13 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    SOCKET   lfd_  { INVALID_SOCKET };
-    SOCKET   evfd_ { INVALID_SOCKET };
-    SOCKET   epfd_ { INVALID_SOCKET };
-    uint32_t tnow_ { 0 };
-    std::atomic<State> state_ { State::Stopped };
-    std::string host_;
-    std::vector<std::thread> threads_;
+    SOCKET                      lfd_       { INVALID_SOCKET };
+    SOCKET                      stop_evfd_ { INVALID_SOCKET };
+    SOCKET                      epfd_      { INVALID_SOCKET };
+    uint32_t                    tnow_      { 0 };
+    std::atomic<State>          state_     { State::Stopped };
+    std::string                 host_;
+    std::vector<std::thread>    threads_;
     std::vector<TcpWorker::Ptr> workers_;
 };
 

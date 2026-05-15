@@ -7,20 +7,16 @@ static constexpr int TIMEOUT = 1000;
 static constexpr int RBUF_SIZE = 1500;
 
 
-int
+void
 typhon::TcpServer::run() noexcept {
     State expected = State::Stopped;
     if (!state_.compare_exchange_strong(expected, State::Starting)) {
-        return -1;
+        return;
     }
 
-    int err = init();
-    if (err) {
-        state_.store(State::Stopped);
-        return err;
-    }
+    init();
 
-    int i, n;
+    int i, n, err;
     ::epoll_event events[MAX_EVENTS];
     auto base_ms = (uint32_t)systime_ms();
 
@@ -40,8 +36,8 @@ typhon::TcpServer::run() noexcept {
         tnow_ = (uint32_t)systime_ms() - base_ms;
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == evfd_) {
-                err = on_event_handle(ev);
+            if (ev.data.fd == stop_evfd_) {
+                err = on_stop_handle(ev);
             } else if (ev.data.fd == lfd_) {
                 err = on_listen_handle(ev);
             } else {
@@ -59,51 +55,27 @@ typhon::TcpServer::run() noexcept {
     release();
 
     state_.store(State::Stopped);
-    return err;
 }
 
 
-int
+void
 typhon::TcpServer::init() noexcept {
-    int err = 0;
-
     epfd_ = ::epoll_create1(0);
-    if (epfd_ == -1) {
-        err = -errno;
-        return err;
-    }
+    ASSERT(epfd_ > 0, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    if (evfd_ == -1) {
-        err = -errno;
-        release();
-        return err;
-    }
+    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(stop_evfd_ > 0, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     lfd_ = tcp_listen(host_);
-    if (lfd_ == -1) {
-        err = -errno;
-        release();
-        return err;
-    }
+    ASSERT(lfd_ > 0, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = evfd_;
+    ev.data.fd = stop_evfd_;
     ev.events = EPOLLIN | EPOLLET;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev)) {
-        err = -errno;
-        release();
-        return err;
-    }
+    ASSERT((::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev)) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ev.data.fd = lfd_;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev)) {
-        err = -errno;
-        release();
-        return err;
-    }
-
-    return 0;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -114,9 +86,9 @@ typhon::TcpServer::release() noexcept {
         epfd_ = -1;
     }
 
-    if (evfd_ != -1) {
-        ::close(evfd_);
-        evfd_ = -1;
+    if (stop_evfd_ != -1) {
+        ::close(stop_evfd_);
+        stop_evfd_ = -1;
     }
 
     if (lfd_ != -1) {
@@ -127,11 +99,11 @@ typhon::TcpServer::release() noexcept {
 
 
 int
-typhon::TcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
+typhon::TcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
-            auto n = ::read(evfd_, &event, sizeof(event));
+            auto n = ::read(stop_evfd_, &event, sizeof(event));
             if (n == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;

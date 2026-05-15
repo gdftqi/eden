@@ -2,9 +2,12 @@
 #include "kcp_server.hpp"
 
 
-typhon::Kcp::Kcp(uint32_t conv, KcpServer* server) noexcept
+typhon::Kcp::Kcp(uint32_t conv, KcpServer* server, const void* addr, socklen_t addrlen) noexcept
     : server_(server) {
     kcp_ = ::ikcp_create(conv, this);
+
+    ::memcpy(&addr_, addr, addrlen);
+    addrlen_ = addrlen;
 
     auto& c = conf();
     ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
