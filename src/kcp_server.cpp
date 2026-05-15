@@ -1,4 +1,5 @@
 #include "kcp_server.hpp"
+#include "utils/log.hpp"
 
 
 static constexpr int MAX_EVENTS = 2;
@@ -194,65 +195,74 @@ int
 typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
     thread_local static uint8_t rbuf[PACK_MAX_LEN];
 
-    int i, n, err;
+    int res = 0;
+    if (ev.events & EPOLLERR) {
+        socklen_t len = sizeof(res);
+        if (::getsockopt(sockfd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
+            return -errno;
+        }
 
-    if (!(ev.events & EPOLLIN) && !(ev.events & EPOLLERR)) {
-        return -EINVAL;
+        if (res != 0) {
+            return -res;
+        }
     }
 
-    while (1) {
-        for (i = 0; i < MAX_RECV; ++i) {
-            riovecs_[i].iov_len = UDP_MTU;
-        }
-
-        err = 0;
-        n = ::recvmmsg(sockfd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
-        if (n == -1) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                err = -errno;
-            }
-            break;
-        } else if (n == 0) {
-            break;
-        }
-
-        for (i = 0; i < n; ++i) {
-            auto& msg = rmsgs_[i];
-            auto hdr = &rmsgs_[i].msg_hdr;
-            auto conv = Kcp::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
-            if (conv == 0) {
-                continue;
+    int i, n;
+    if (ev.events & EPOLLIN) {
+        while (1) {
+            for (i = 0; i < MAX_RECV; ++i) {
+                riovecs_[i].iov_len = UDP_MTU;
             }
 
-            auto kcp = get_session(conv);
-            if (kcp == nullptr) {
-                kcp = Kcp::create(conv, this);
-                add_session(conv, kcp);
+            res = 0;
+            n = ::recvmmsg(sockfd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
+            if (n == -1) {
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    res = -errno;
+                }
+                break;
+            } else if (n == 0) {
+                break;
             }
 
-            if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
-                continue;
-            }
-
-            Package* pkg;
-            while (true) {
-                int res = kcp->recv_pk(&pkg, rbuf, PACK_MAX_LEN, tnow_);
-                if (res < 0) {
+            for (i = 0; i < n; ++i) {
+                auto& msg = rmsgs_[i];
+                auto hdr = &rmsgs_[i].msg_hdr;
+                auto conv = Kcp::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
+                if (conv == 0) {
                     continue;
                 }
 
-                if (res == 0) {
-                    break;
+                auto kcp = get_session(conv);
+                if (kcp == nullptr) {
+                    kcp = Kcp::create(conv, this);
+                    add_session(conv, kcp);
                 }
 
-                if (event_->on_data(kcp, pkg) != 0) {
-                    remove_session(kcp->conv());
+                if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
+                    continue;
+                }
+
+                Package* pkg;
+                while (true) {
+                    int rc = kcp->recv_pk(&pkg, rbuf, PACK_MAX_LEN, tnow_);
+                    if (rc < 0) {
+                        continue;
+                    }
+
+                    if (rc == 0) {
+                        break;
+                    }
+
+                    if (event_->on_data(kcp, pkg) != 0) {
+                        remove_session(kcp->conv());
+                    }
                 }
             }
-        }
+        } // while(1);
     }
 
-    return err;
+    return res;
 }
 
 

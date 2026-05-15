@@ -1,8 +1,10 @@
 #include "tcp_server.hpp"
+#include "utils/log.hpp"
 
 
 static constexpr int MAX_EVENTS = 1024;
 static constexpr int TIMEOUT = 1000;
+static constexpr int RBUF_SIZE = 1500;
 
 
 int
@@ -121,4 +123,120 @@ typhon::TcpServer::release() noexcept {
         ::close(lfd_);
         lfd_ = -1;
     }
+}
+
+
+int
+typhon::TcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
+    if (ev.events & EPOLLIN) {
+        while (1) {
+            uint64_t event;
+            auto n = ::read(evfd_, &event, sizeof(event));
+            if (n == -1) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    break;
+                }
+                return -errno;
+            } else if (n == 0) {
+                break;
+            } else if (n != sizeof(event)) {
+                return -EINVAL;
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+int
+typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
+    int res = 0;
+
+    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+        socklen_t len = sizeof(res);
+        if (::getsockopt(lfd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
+            return -errno;
+        }
+
+        if (res != 0) {
+            return -res;
+        }
+    }
+
+    if (ev.events & EPOLLIN) {
+        while (1) {
+            SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            if (cfd < 0) {
+                int err = errno;
+                if (err == EINTR) {
+                    continue;
+                }
+
+                if (err == EAGAIN || err == EWOULDBLOCK) {
+                    res = 0;
+                } else {
+                    res = -err;
+                }
+
+                break;
+            }
+
+            ::epoll_event event;
+            event.data.fd = cfd;
+            event.events  = EPOLLIN | EPOLLET;
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        }
+    }
+
+    return res;
+}
+
+
+int
+typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
+    int res = 0;
+    SOCKET fd = ev.data.fd;
+
+    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+        socklen_t len = sizeof(res);
+        if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len)) {
+            return -errno;
+        }
+
+        if (res != 0) {
+            return -res;
+        }
+    }
+
+    if (ev.events & EPOLLIN) {
+        int n;
+
+        while (1) {
+            RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + RBUF_SIZE);
+            n = ::recv(fd, rbuf->data, RBUF_SIZE, 0);
+            if (n < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    res = 0;
+                    break;
+                }
+
+                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+                ::close(fd);
+            } else if (n == 0) {
+                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+                ::close(fd);
+            } else {
+                rbuf->len = n;
+                rbuf->fd = fd;
+                workers_[fd % workers_.size()]->push(rbuf);
+            }
+        }
+    }
+
+    return res;
 }

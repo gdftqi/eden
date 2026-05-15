@@ -2,7 +2,7 @@
 #define __TYPHON_TCP_SERVER_HPP__
 
 
-#include "typhon.in.hpp"
+#include "tcp_worker.hpp"
 
 
 namespace typhon {
@@ -18,7 +18,7 @@ class TcpServer {
 public:
     explicit
     TcpServer(const char* host) noexcept
-        : host_(host)
+        : host_(host) 
     {}
 
 
@@ -80,6 +80,8 @@ private:
     uint32_t tnow_ { 0 };
     std::atomic<State> state_ { State::Stopped };
     std::string host_;
+    std::vector<std::thread> threads_;
+    std::vector<TcpWorker::Ptr> workers_;
 };
 
     
