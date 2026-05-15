@@ -52,6 +52,14 @@ typhon::TcpServer::run() noexcept {
         // TODO check heartbeat
     }
 
+    for (auto& w: workers_) {
+        w->stop();
+    }
+
+    for (auto& t: threads_) {
+        t.join();
+    }
+
     release();
 
     state_.store(State::Stopped);
@@ -61,13 +69,13 @@ typhon::TcpServer::run() noexcept {
 void
 typhon::TcpServer::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ > 0, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ > 0, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(stop_evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     lfd_ = tcp_listen(host_);
-    ASSERT(lfd_ > 0, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(lfd_ != INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.fd = stop_evfd_;
@@ -76,6 +84,14 @@ typhon::TcpServer::init() noexcept {
 
     ev.data.fd = lfd_;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    uint32_t n = std::thread::hardware_concurrency();
+    n = n > 2 ? n - 2 : 2;
+
+    for (uint32_t i = 0; i < n; ++i) {
+        workers_.emplace_back(TcpWorker::create());
+        threads_.emplace_back(std::thread(std::bind(&TcpWorker::run, workers_[i].get())));
+    }
 }
 
 
@@ -95,6 +111,9 @@ typhon::TcpServer::release() noexcept {
         ::close(lfd_);
         lfd_ = -1;
     }
+
+    workers_.clear();
+    threads_.clear();
 }
 
 
@@ -109,10 +128,6 @@ typhon::TcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
                     break;
                 }
                 return -errno;
-            } else if (n == 0) {
-                break;
-            } else if (n != sizeof(event)) {
-                return -EINVAL;
             }
         }
     }
@@ -167,48 +182,43 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
 
 int
 typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
-    int res = 0;
     SOCKET fd = ev.data.fd;
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-        socklen_t len = sizeof(res);
-        if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len)) {
-            return -errno;
-        }
-
-        if (res != 0) {
-            return -res;
-        }
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+        ::close(fd);
+        return 0;
     }
 
     if (ev.events & EPOLLIN) {
         int n;
+        thread_local static uint8_t buf[RBUF_SIZE];
 
         while (1) {
-            RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + RBUF_SIZE);
-            n = ::recv(fd, rbuf->data, RBUF_SIZE, 0);
-            if (n < 0) {
-                if (errno == EINTR) {
-                    continue;
-                }
+            n = ::recv(fd, buf, RBUF_SIZE, 0);
+            if (n <= 0) {
+                if (n < 0) {
+                    if (errno == EINTR) {
+                        continue;
+                    }
 
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    res = 0;
-                    break;
+                    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                        xERROR("{} recv 失败: errno = {}, errstr = {}", fd, errno, ::strerror(errno));
+                    }
                 }
 
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 ::close(fd);
-            } else if (n == 0) {
-                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-                ::close(fd);
+                break;
             } else {
+                RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);
                 rbuf->len = n;
                 rbuf->fd = fd;
+                ::memcpy(rbuf->data, buf, n);
                 workers_[fd % workers_.size()]->push(rbuf);
             }
         }
     }
 
-    return res;
+    return 0;
 }

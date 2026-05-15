@@ -28,9 +28,9 @@ typhon::TcpWorker::run() noexcept {
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == s_evfd_) {
+            if (ev.data.fd == stop_evfd_) {
                 err = on_stop_handle(ev);
-            } else if (ev.data.fd == q_evfd_) {
+            } else if (ev.data.fd == que_evfd_) {
                 err = on_que_handle(ev);
             }
         }
@@ -52,11 +52,11 @@ typhon::TcpWorker::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ > 0, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    q_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(q_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    que_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(que_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    s_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(s_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(stop_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -67,15 +67,24 @@ typhon::TcpWorker::release() noexcept {
         epfd_ = -1;
     }
 
-    if (q_evfd_ > 0) {
-        ::close(q_evfd_);
-        q_evfd_ = -1;
+    if (que_evfd_ > 0) {
+        ::close(que_evfd_);
+        que_evfd_ = -1;
     }
 
-    if (s_evfd_ > 0) {
-        ::close(s_evfd_);
-        s_evfd_ = -1;
+    if (stop_evfd_ > 0) {
+        ::close(stop_evfd_);
+        stop_evfd_ = -1;
     }
+
+    ::epoll_event ev;
+    ev.data.fd = que_evfd_;
+    ev.events = EPOLLIN | EPOLLET;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, que_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    ev.data.fd = stop_evfd_;
+    ev.events = EPOLLIN | EPOLLET;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -87,7 +96,7 @@ typhon::TcpWorker::on_stop_handle(const ::epoll_event& ev) noexcept {
         int n;
         while (1) {
             uint64_t event;
-            n = ::read(s_evfd_, &event, sizeof(event));
+            n = ::read(stop_evfd_, &event, sizeof(event));
             if (n < 0) {
                 if (errno != EAGAIN && errno != EWOULDBLOCK) {
                     err = -errno;

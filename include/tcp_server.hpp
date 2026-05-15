@@ -22,6 +22,21 @@ public:
     {}
 
 
+    ~TcpServer() noexcept {
+        for (auto& w: workers_) {
+            w->stop();
+        }
+
+        for (auto& t: threads_) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
+
+        release();
+    }
+
+
     std::string
     host() const noexcept {
         return host_;
@@ -77,8 +92,8 @@ private:
     uint32_t                    tnow_      { 0 };
     std::atomic<State>          state_     { State::Stopped };
     std::string                 host_;
-    std::vector<std::thread>    threads_;
     std::vector<TcpWorker::Ptr> workers_;
+    std::vector<std::thread>    threads_;
 };
 
     

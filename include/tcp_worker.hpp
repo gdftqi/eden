@@ -28,8 +28,15 @@ public:
     typedef std::unique_ptr<TcpWorker> Ptr;
 
 
-    explicit
-    TcpWorker() noexcept;
+    static Ptr
+    create() noexcept {
+        return Ptr(new TcpWorker);
+    }
+
+    
+    ~TcpWorker() noexcept {
+        release();
+    }
 
 
     bool
@@ -47,7 +54,7 @@ public:
         State expected = State::Running;
         if (state_.compare_exchange_strong(expected, State::Stopping)) {
             constexpr uint64_t event = 1;
-            auto n = ::write(q_evfd_, &event, sizeof(event));
+            auto n = ::write(que_evfd_, &event, sizeof(event));
             if (n != sizeof(event)) {
                 xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
@@ -61,7 +68,7 @@ public:
         bool expected = false;
         if (sending_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
-            if (::write(q_evfd_, &event, sizeof(event)) != sizeof(event)) {
+            if (::write(que_evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
         }
@@ -69,6 +76,11 @@ public:
 
 
 private:
+    explicit
+    TcpWorker() noexcept
+    {}
+
+
     void
     init() noexcept;
 
@@ -86,8 +98,8 @@ private:
 
 
     SOCKET               epfd_      { INVALID_SOCKET };
-    SOCKET               q_evfd_    { INVALID_SOCKET }; // 队列事件
-    SOCKET               s_evfd_    { INVALID_SOCKET }; // 停止事件
+    SOCKET               que_evfd_    { INVALID_SOCKET }; // 队列事件
+    SOCKET               stop_evfd_    { INVALID_SOCKET }; // 停止事件
     std::atomic<State>   state_     { State::Stopped };
     std::atomic<bool>    sending_   { false };
     utils::SPSC<RcvBuf*> rque_;
