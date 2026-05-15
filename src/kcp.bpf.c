@@ -2,7 +2,18 @@
 #include <bpf/bpf_helpers.h>
 
 
-#define MAX_WORKERS 64   // 上限，map 永远开这么大；运行时由 num_workers 决定实际用几个
+#define MAX_WORKERS 64   // 上限, map 永远开这么大; 运行时由 num_workers 决定实际用几个
+
+
+static inline __u32 
+read_conv_le(__u32 conv) {
+#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+    return conv;
+#else
+    __u8* p = (__u8*)&conv;
+    return (__u32)p[0] | ((__u32)p[1] << 8) | ((__u32)p[2] << 16) | ((__u32)p[3] << 24);
+#endif
+}
 
 
 struct {
@@ -13,13 +24,13 @@ struct {
 } sock_map SEC(".maps");
 
 
-// userspace 在 bpf_object__load() 前改写这个值（写到 .rodata 段）。
-// 默认 1，万一 userspace 忘改也只是全打到 worker 0，不会崩。
+// userspace 在 bpf_object__load() 前改写这个值(写到 .rodata 段).
+// 默认 1, 万一 userspace 忘改也只是全打到 worker 0, 不会崩。
 const volatile __u32 num_workers = 1;
 
 
-// kernel 传给 sk_reuseport BPF 程序的 ctx->data 指向 UDP **头**（不是 payload）。
-// UDP 头固定 8 字节，KCP conv 紧随其后。所以我们要读 [data+8, data+12)。
+// kernel 传给 sk_reuseport BPF 程序的 ctx->data 指向 UDP **头** (不是 payload).
+// UDP 头固定 8 字节, KCP conv 紧随其后。所以我们要读 [data+8, data+12).
 #define UDP_HDR_LEN 8
 
 SEC("sk_reuseport") int
@@ -31,15 +42,9 @@ select_by_conv(struct sk_reuseport_md *ctx) {
         return SK_DROP;
     }
 
-    __u32 conv = *(__u32*)((char*)data + UDP_HDR_LEN);
+    __u32 conv = read_conv_le(*(__u32*)((char*)data + UDP_HDR_LEN));
     __u32 idx = conv % num_workers;
-
-    int rc = bpf_sk_select_reuseport(ctx, &sock_map, &idx, 0);
-
-    if (rc == 0) {
-        return SK_PASS;
-    }
-    return SK_DROP;
+    return bpf_sk_select_reuseport(ctx, &sock_map, &idx, 0) == 0 ? SK_PASS : SK_DROP;
 }
 
 char _license[] SEC("license") = "GPL";
