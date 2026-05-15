@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cassert>
+#include <functional>
 #include <immintrin.h>
 
 

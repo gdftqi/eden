@@ -18,6 +18,7 @@ class BpfRouter {
 
 
 public:
+    explicit
     BpfRouter() noexcept
     {}
 

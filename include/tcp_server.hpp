@@ -30,7 +30,7 @@ public:
 
     bool
     running() const noexcept {
-        return state_.load() == State::Running;
+        return state_.load(std::memory_order_relaxed) == State::Running;
     }
 
 

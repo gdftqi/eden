@@ -6,12 +6,10 @@ static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 10;
 
 
-typhon::KcpServer::KcpServer(const char* host, IEvent* ev)
+typhon::KcpServer::KcpServer(const char* host, IEvent* ev) noexcept
     : event_(ev)
     , host_(host) {
-    if (ev == nullptr) {
-        throw new std::runtime_error("IEvent is invalid");
-    }
+    ASSERT(host && ev, "invalid host or IEvent instance");
 
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
@@ -76,9 +74,6 @@ typhon::KcpServer::run() noexcept {
                 err = on_event_handle(ev);
             } else if (ev.data.fd == sockfd_) {
                 err = on_udp_handle(ev);
-            } else {
-                err = -EINVAL;
-                break;
             }
         }
 
@@ -179,10 +174,6 @@ typhon::KcpServer::on_event_handle(const ::epoll_event& ev) noexcept {
                     break;
                 }
                 return -errno;
-            } else if (n == 0) {
-                break;
-            } else if (n != sizeof(event)) {
-                return -EINVAL;
             }
         }
     }
@@ -256,6 +247,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                     if (event_->on_data(kcp, pkg) != 0) {
                         remove_session(kcp->conv());
+                        break;
                     }
                 }
             }
@@ -270,7 +262,7 @@ void
 typhon::KcpServer::update() noexcept {
     for (auto itr = sessions_.begin(); itr != sessions_.end();) {
         auto s = itr->second;
-        if (s->timeout(tnow_)) {
+        if (s->check_timeout(tnow_)) {
             itr = sessions_.erase(itr);
             event_->on_disconnected(s);
             continue;

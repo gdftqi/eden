@@ -25,8 +25,8 @@ class KcpServer {
 
 
         static Ptr
-        create(Kcp::Ptr k, const char* b, uint32_t l) noexcept {
-            return Ptr(new SendBuf(k, b, l));
+        create(Kcp::Ptr kcp, const char* buf, uint32_t len) noexcept {
+            return Ptr(new SendBuf(kcp, buf, len));
         }
 
 
@@ -83,10 +83,11 @@ public:
 
         virtual int 
         on_data(Kcp::Ptr, const Package*) noexcept = 0;
-    };
+    }; // class IEvent;
 
 
-    explicit KcpServer(const char* host, IEvent* ev);
+    explicit 
+    KcpServer(const char* host, IEvent* ev) noexcept;
 
 
     ~KcpServer() noexcept {
