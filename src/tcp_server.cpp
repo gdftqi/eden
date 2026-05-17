@@ -202,9 +202,11 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        xERROR("{} recv 失败: errno = {}, errstr = {}", fd, errno, ::strerror(errno));
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;
                     }
+
+                    xERROR("{} recv 失败: errno = {}, errstr = {}", fd, errno, ::strerror(errno));
                 }
 
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));

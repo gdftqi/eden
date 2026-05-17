@@ -50,13 +50,22 @@ typhon::TcpWorker::run() noexcept {
 void
 typhon::TcpWorker::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ > 0, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     que_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(que_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(que_evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ > 0, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(stop_evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    ::epoll_event ev;
+    ev.data.fd = que_evfd_;
+    ev.events = EPOLLIN | EPOLLET;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, que_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    ev.data.fd = stop_evfd_;
+    ev.events = EPOLLIN | EPOLLET;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -77,14 +86,16 @@ typhon::TcpWorker::release() noexcept {
         stop_evfd_ = -1;
     }
 
-    ::epoll_event ev;
-    ev.data.fd = que_evfd_;
-    ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, que_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-
-    ev.data.fd = stop_evfd_;
-    ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+    size_t i, n;
+    while (!rque_.empty()) {
+        RcvBuf* rbufs[16];
+        n = rque_.try_dequeue_bulk(rbufs, 16);
+        for (i = 0; i < n; ++i) {
+            auto& rbuf = rbufs[i];
+            // TODO 处理接收数据
+            ::mi_free(rbuf);
+        }
+    }
 }
 
 
@@ -112,5 +123,33 @@ typhon::TcpWorker::on_stop_handle(const ::epoll_event& ev) noexcept {
 
 int
 typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
+    if (!(ev.events & EPOLLIN)) {
+        return 0;
+    }
+
+    while (1) {
+        uint64_t event;
+        auto n = ::read(que_evfd_, &event, sizeof(event));
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+            return -errno;
+        }
+    }
+
+    sending_.store(false, std::memory_order_relaxed);
+
+    size_t i, n;
+    while (!rque_.empty()) {
+        RcvBuf* rbufs[16];
+        n = rque_.try_dequeue_bulk(rbufs, 16);
+        for (i = 0; i < n; ++i) {
+            auto& rbuf = rbufs[i];
+            // TODO 处理接收数据
+            ::mi_free(rbuf);
+        }
+    }
+
     return 0;
 }
