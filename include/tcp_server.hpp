@@ -81,6 +81,27 @@ public:
     }
 
 
+    void
+    add_session(SOCKET fd) noexcept {
+        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
+        if (sessions_[fd] != nullptr) {
+            delete sessions_[fd];
+        }
+        sessions_[fd] = new TcpSession(fd, tnow_);
+    }
+
+
+    void
+    remove_session(SOCKET fd) noexcept {
+        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
+        auto* s = sessions_[fd];
+        if (s != nullptr) {
+            delete s;
+            sessions_[fd] = nullptr;
+        }
+    }
+
+
     PackageHandler
     get_handler(uint16_t pkid) const noexcept {
         return handlers[pkid];
@@ -116,27 +137,6 @@ private:
 
     int
     on_session_handle(const ::epoll_event& ev) noexcept;
-
-
-    void
-    add_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
-        if (sessions_[fd] != nullptr) {
-            delete sessions_[fd];
-        }
-        sessions_[fd] = new TcpSession(fd, tnow_);
-    }
-
-
-    void
-    remove_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
-        auto* s = sessions_[fd];
-        if (s != nullptr) {
-            delete s;
-            sessions_[fd] = nullptr;
-        }
-    }
 
 
     SOCKET                      lfd_             { INVALID_SOCKET };

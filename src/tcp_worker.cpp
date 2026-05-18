@@ -142,6 +142,7 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
     sending_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
+    int res;
     while (!rque_.empty()) {
         RcvBuf* rbufs[16];
         n = rque_.try_dequeue_bulk(rbufs, 16);
@@ -156,7 +157,14 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
 
             Package* pk;
             PackageTail* pkt;
-            while (s->recv(&pk, &pkt, server_->tnow())) {
+            while (1) {
+                res = s->recv(&pk, &pkt, server_->tnow());
+                if (res == 0) {
+                    continue;
+                } else if (res == -1) {
+                    break;
+                }
+
                 auto handler = server_->get_handler(pk->pk_id);
                 if (handler) {
                     handler(s, pk);

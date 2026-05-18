@@ -15,11 +15,21 @@ namespace typhon {
 //
 // 字节序：所有多字节字段一律 big-endian（网络字节序）。本地处理用 host 序，
 //          发送前调 pk_hton / pkt_hton 转换，接收后调 pk_ntoh / pkt_ntoh 转回。
-// 单包上限：PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限，已
-//           预留了网关 → 后端方向追加的 PackageTail 空间。
-//             - pk_len 实际可用 ≤ PKG_MAX_LEN - PKG_TAIL_LEN = 65527
-//             - 业务 payload (pk_data) ≤ PKG_MAX_DATA_LEN = 65515
-//           更大的载荷由业务层自行分片。
+// 单包上限：PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限。
+//
+//  **pk_len 字段语义随方向变化**（重要！）：
+//
+//    - 客户端 → 网关 方向（KCP 上跑）：
+//        pk_len = header + pk_data，**不含 PackageTail**（客户端填写）
+//        最大值 = PKG_MAX_LEN - PKG_TAIL_LEN = 65527
+//
+//    - 网关 → 后端 方向（TCP 上跑）：
+//        网关追加 PackageTail 时**重写 pk_len = header + pk_data + tail**
+//        最大值 = PKG_MAX_LEN = 65535
+//        后端按 pk_len 读完整字节即为 "Package + Tail" 完整 wire frame。
+//
+//    业务 payload (pk_data) 上限统一 = PKG_MAX_DATA_LEN = 65515
+//    更大的载荷由业务层自行分片。
 //
 // -----------------------------------------------------------------------------
 //  客户端 ↔ 网关（KCP 上面跑的是这个）
@@ -36,7 +46,7 @@ namespace typhon {
 //  |                    pk_data ... (variable)                     |
 //  +---------------------------------------------------------------+
 //
-//   pk_len    包总长（含 12B 头 + pk_data；**不包含**网关追加的 PackageTail）
+//   pk_len    包总长（此方向 = header + pk_data，**不含 PackageTail**，由客户端填写）
 //   pk_id     业务消息号（PING=1 / MOVE=100 / BUY_REQ=200 / ...）
 //   pk_idem   幂等 ID。**协议约定**：客户端单调递增分配，必须 ≠ 0（0 保留为无效值）。
 //             服务端按 conv 内的最大 idem 校验单调性，<= 上次的视为重复包丢弃。
@@ -46,9 +56,9 @@ namespace typhon {
 //   pk_dst_id 目标服务类型（scene / chat / guild ...）路由键
 //
 // -----------------------------------------------------------------------------
-//  网关 → 业务服（在客户端原包后追加 PackageTail）
+//  网关 → 业务服（网关 stamp PackageTail，并**重写 pk_len 含 tail**）
 // -----------------------------------------------------------------------------
-//  +---------------------- Package (12B 头 + pk_data) -------------+
+//  +-------- Package (12B 头 + pk_data，pk_len 已含 tail) ----------+
 //  | ...                                                           |
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //  |                         pkt_src_id                            | ┐ PackageTail
@@ -56,7 +66,8 @@ namespace typhon {
 //  |                        pkt_src_addr                           | │ 网关 stamp
 //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ ┘
 //
-//   后端读出包后：先用 pk_len 取到 pk_data 末尾，再向后读 8 字节 PackageTail。
+//   后端切包：直接读 pk_len 字节即拿到 "完整 Package + Tail"。
+//             tail 位于 (buf + pk_len - 8)，即整体末尾 8 字节。
 //   pkt_src_id   = FromPlayerID（网关从 conv→session 查到的，客户端无法伪造）
 //   pkt_src_addr = 客户端 IPv4 地址（IPv6 暂不支持）
 //
@@ -70,9 +81,11 @@ namespace typhon {
  * @brief 客户端与网关的消息
  */
 struct Package {
-    uint16_t pk_len;    // 消息长度 (含本头部 + pk_data; 不含 PackageTail);
-                        // 最大值 = PKG_MAX_LEN - PKG_TAIL_LEN = 65527,
-                        // 留 8B 给网关 → 后端方向追加的 PackageTail
+    uint16_t pk_len;    // 包总长。语义随传输方向变化:
+                        //   - client → gateway: header + pk_data, **不含 tail**
+                        //     (客户端填写,最大值 = PKG_MAX_LEN - PKG_TAIL_LEN = 65527)
+                        //   - gateway → backend: header + pk_data + tail (网关重写)
+                        //     (最大值 = PKG_MAX_LEN = 65535)
     uint16_t pk_id;     // 消息ID (业务消息号)
     uint32_t pk_idem;   // 幂等 ID (客户端单调递增; **必须 > 0**, 0 视为无效包丢弃)
     uint32_t pk_dst_id; // 目标服务类型 (路由键)

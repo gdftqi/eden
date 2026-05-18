@@ -39,10 +39,15 @@
 
 ### 2c. TcpSession + 消息派发
 
-- [ ] TcpSession 抽象：per-fd 切包状态（inbuf + cursor）+ last_recv_ms / last_send_ms + 可选 outbuf
-- [ ] TcpWorker 内部维护 `unordered_map<fd, TcpSession::Ptr>`
-- [ ] `handlers[65536]`：按 pk_id O(1) 派发到注册的 handler（uint16 完整空间，~512KB per worker）
-- [ ] 注册接口 `register_handler(pk_id, fn)`
+- [x] TcpSession 抽象：per-fd 切包状态（inbuf + cursor）+ last_recv_ms / last_send_ms + 可选 outbuf
+- [x] TcpServer 维护 `TcpSession* sessions_[65536]`（raw 指针数组，按 fd 索引）。
+      worker 通过 `server_->get_session(fd)` 读；accept / close 时由 server 主线程 add / remove。
+      *注：偏离严格 share-nothing 设计 —— 跨线程访问，已知 race 隐患，生产前需迁移到 per-worker 维护或加并发保护*
+- [x] `handlers[65536]`：按 pk_id O(1) 派发，存于 TcpServer，所有 worker 共享读
+- [x] 注册接口 `regist_handler(pk_id, fn)`（启动期注册，worker 跑起来后不再改写）
+- [ ] `PlayerRoutingTable`：`tbb::concurrent_hash_map<player_id, ClientInfo>`
+      存路由元数据（gateway_fd / scene_id / last_active_ms 等），共享于所有 TcpWorker；
+      登录登出时写，消息处理时读。需引入 `libtbb-dev` 依赖。
 
 ### 2d. KcpServer ↔ TcpServer 集成
 
