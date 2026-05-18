@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -13,6 +14,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/socket.h>
@@ -20,6 +22,8 @@
 #include <unistd.h>
 
 #include "mimalloc-3.2/mimalloc.h"
+
+#include "utils/log.hpp"
 
 
 namespace typhon {

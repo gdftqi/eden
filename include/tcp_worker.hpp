@@ -2,8 +2,8 @@
 #define __TYPHON_TCP_WORKER_HPP__
 
 
-#include "typhon.in.hpp"
-#include "utils/log.hpp"
+#include "package.hpp"
+#include "tcp_session.hpp"
 #include "utils/spsc.hpp"
 
 
@@ -15,6 +15,9 @@ struct RcvBuf {
     uint32_t len;
     uint8_t  data[];
 };
+
+
+class TcpServer;
 
 
 class TcpWorker {
@@ -29,8 +32,8 @@ public:
 
 
     static Ptr
-    create() noexcept {
-        return Ptr(new TcpWorker);
+    create(TcpServer* server) noexcept {
+        return Ptr(new TcpWorker(server));
     }
 
     
@@ -77,7 +80,8 @@ public:
 
 private:
     explicit
-    TcpWorker() noexcept
+    TcpWorker(TcpServer* server) noexcept
+        : server_(server)
     {}
 
 
@@ -97,9 +101,10 @@ private:
     on_que_handle(const ::epoll_event& ev) noexcept;
 
 
+    TcpServer*           server_    { nullptr };
     SOCKET               epfd_      { INVALID_SOCKET };
-    SOCKET               que_evfd_    { INVALID_SOCKET }; // 队列事件
-    SOCKET               stop_evfd_    { INVALID_SOCKET }; // 停止事件
+    SOCKET               que_evfd_  { INVALID_SOCKET }; // 队列事件
+    SOCKET               stop_evfd_ { INVALID_SOCKET }; // 停止事件
     std::atomic<State>   state_     { State::Stopped };
     std::atomic<bool>    sending_   { false };
     utils::SPSC<RcvBuf*> rque_;

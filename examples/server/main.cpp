@@ -58,7 +58,7 @@ public:
 
 int
 main(int argc, char** argv) {
-    const char* bpf_path = (argc > 1) ? argv[1] : "kcp.bpf.o";
+    const char* bpf_path = (argc > 1) ? argv[1] : "";
 
     EchoService echo;
     typhon::TyService server(&echo, "0.0.0.0:5555", bpf_path);

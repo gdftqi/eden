@@ -1,5 +1,4 @@
 #include "tcp_server.hpp"
-#include "utils/log.hpp"
 
 
 static constexpr int MAX_EVENTS = 1024;
@@ -89,7 +88,7 @@ typhon::TcpServer::init() noexcept {
     n = n > 2 ? n - 2 : 2;
 
     for (uint32_t i = 0; i < n; ++i) {
-        workers_.emplace_back(TcpWorker::create());
+        workers_.emplace_back(TcpWorker::create(this));
         threads_.emplace_back(std::thread(std::bind(&TcpWorker::run, workers_[i].get())));
     }
 }
@@ -114,6 +113,13 @@ typhon::TcpServer::release() noexcept {
 
     workers_.clear();
     threads_.clear();
+
+    for (auto& s: sessions_) {
+        if (s != nullptr) {
+            delete s;
+            s = nullptr;
+        }
+    }
 }
 
 
@@ -173,6 +179,7 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events  = EPOLLIN | EPOLLET;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            add_session(cfd);
         }
     }
 
@@ -186,7 +193,7 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-        ::close(fd);
+        remove_session(fd);
         return 0;
     }
 
@@ -210,7 +217,7 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-                ::close(fd);
+                remove_session(fd);
                 break;
             } else {
                 RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);

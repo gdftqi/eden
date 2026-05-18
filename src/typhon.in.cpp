@@ -1,10 +1,6 @@
 #include "typhon.in.hpp"
 
 
-#include <string.h>
-#include <unistd.h>
-
-
 typhon::SOCKET
 typhon::tcp_listen(const std::string& host) noexcept {
     std::string host_str(host);

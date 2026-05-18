@@ -63,8 +63,9 @@ namespace Echidna
         public const int OFFSET_IDEM   = 4;
         public const int OFFSET_DST_ID = 8;
         public const int HEADER_SIZE   = 12;
-        public const int PACK_MAX_LEN  = 65535;
-        public const int PAYLOAD_MAX   = PACK_MAX_LEN - HEADER_SIZE;
+        public const int TAIL_SIZE     = 8;     // PackageTail size:客户端不接触,但作为 payload 上限约束
+        public const int PACK_MAX_LEN  = 65535; // wire frame 上限(任意方向,已含 tail)
+        public const int PAYLOAD_MAX   = PACK_MAX_LEN - HEADER_SIZE - TAIL_SIZE;  // 65515
 
         // ---- 业务消息号约定(必须与 C++ 端保持一致)----
         public const ushort PK_ID_PING    = 1;
@@ -142,9 +143,9 @@ namespace Echidna
             if (pkg.PkIdem == 0)
                 throw new ArgumentException("PkIdem must be != 0");
 
+            if (pkg.PayloadLength > PAYLOAD_MAX)
+                throw new ArgumentException("payload too large: " + pkg.PayloadLength);
             int total = HEADER_SIZE + pkg.PayloadLength;
-            if (total > PACK_MAX_LEN)
-                throw new ArgumentException("package too large: " + total);
             if (wireBuf.Length < total)
                 throw new ArgumentException("wireBuf too small");
 

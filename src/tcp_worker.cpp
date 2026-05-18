@@ -1,4 +1,5 @@
 #include "tcp_worker.hpp"
+#include "tcp_server.hpp"
 
 
 void
@@ -71,19 +72,19 @@ typhon::TcpWorker::init() noexcept {
 
 void
 typhon::TcpWorker::release() noexcept {
-    if (epfd_ > 0) {
+    if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = -1;
+        epfd_ = INVALID_SOCKET;
     }
 
-    if (que_evfd_ > 0) {
+    if (que_evfd_ != INVALID_SOCKET) {
         ::close(que_evfd_);
-        que_evfd_ = -1;
+        que_evfd_ = INVALID_SOCKET;
     }
 
-    if (stop_evfd_ > 0) {
+    if (stop_evfd_ != INVALID_SOCKET) {
         ::close(stop_evfd_);
-        stop_evfd_ = -1;
+        stop_evfd_ = INVALID_SOCKET;
     }
 
     size_t i, n;
@@ -146,7 +147,24 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
         n = rque_.try_dequeue_bulk(rbufs, 16);
         for (i = 0; i < n; ++i) {
             auto& rbuf = rbufs[i];
-            // TODO 处理接收数据
+            auto* s = server_->get_session(rbuf->fd);
+            if (!s->input(rbuf->data, rbuf->len)) {
+                // TODO 处理输入错误
+                ::mi_free(rbuf);
+                continue;
+            }
+
+            Package* pk;
+            PackageTail* pkt;
+            while (s->recv(&pk, &pkt, server_->tnow())) {
+                auto handler = server_->get_handler(pk->pk_id);
+                if (handler) {
+                    handler(s, pk);
+                } else {
+                    // TODO 处理无效路由
+                }
+            }
+
             ::mi_free(rbuf);
         }
     }

@@ -4,7 +4,6 @@
 
 #include "bpf_router.hpp"
 #include "kcp_server.hpp"
-#include "utils/log.hpp"
 
 
 namespace typhon {
@@ -27,10 +26,12 @@ public:
      * @param host 监听端口
      * @param bpf_obj_path eBPF 路径
      */
-    explicit TyService(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path) noexcept
+    explicit TyService(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path = "") noexcept
         : serv_ev_(ev)
-        , host_(host), bpf_obj_path_(bpf_obj_path)
-    {}
+        , host_(host)
+        , bpf_obj_path_(bpf_obj_path ? bpf_obj_path : "") {
+        ASSERT(host_.find(':') != std::string::npos, "invalid host: {}", host_);
+    }
 
 
     /**

@@ -2,9 +2,6 @@
 #define __TYPHON_KCP_EX_HPP__
 
 
-#include <memory>
-#include <string.h>
-
 #include "kcp/ikcp.h"
 #include "typhon.in.hpp"
 #include "package.hpp"
@@ -245,19 +242,19 @@ public:
      * @param pk_idemp  幂等 ID,**必须 != 0**;0 会被对端 recv_pk 视为非法包丢弃
      * @param pk_dst_id 目标服务类型(路由键);客户端发出时填,echo 时透传
      * @param data      payload 起始
-     * @param len       payload 字节数;Package 总长(HEADER + payload)不可超过 UINT16_MAX
+     * @param len       payload 字节数;不可超过 PKG_MAX_DATA_LEN(预留 PackageTail 空间)
      * @return   0  入队成功(等 update() 触发出网卡)
-     * @return  -1  Package 总长溢出 uint16(payload 太大)
+     * @return  -1  payload 太大(> PKG_MAX_DATA_LEN)
      * @return  -2  KCP 拒绝入队(分片数 >= rcvwnd),见 send() 注释
      */
     int
     send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
         thread_local static uint8_t buf[PACK_MAX_LEN];
 
-        size_t total = sizeof(Package) + len;
-        if (total > UINT16_MAX) {
+        if (len > PKG_MAX_DATA_LEN) {
             return -1;
         }
+        size_t total = PKG_HEADER_LEN + len;
 
         auto* pkg = (Package*)buf;
         pkg->pk_len = total;

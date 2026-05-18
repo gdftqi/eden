@@ -4,7 +4,6 @@
 
 #include "kcp.hpp"
 #include "package.hpp"
-#include "utils/log.hpp"
 
 
 namespace typhon {

@@ -13,10 +13,12 @@ typhon::TyService::run() noexcept {
     n = n > 1 ? n - 1 : 1;
 
     // 加载 BPF 程序，并把 num_workers 写进 .rodata
-    int rc = router_.init(bpf_obj_path_.c_str(), n);
-    if (rc != 0) {
-        state_.store(State::Stopped);
-        return;
+    if (!bpf_obj_path_.empty()) {
+        int rc = router_.init(bpf_obj_path_.c_str(), n);
+        if (rc != 0) {
+            state_.store(State::Stopped);
+            return;
+        }
     }
 
     // 创建 N 个 KcpServer，每个 ctor 自带 udp_bind（SO_REUSEPORT），sockfd 立即可用
@@ -27,7 +29,7 @@ typhon::TyService::run() noexcept {
             return;
         }
 
-        if (router_.register_socket(i, s->fd()) != 0) {
+        if (!bpf_obj_path_.empty() && router_.register_socket(i, s->fd()) != 0) {
             state_.store(State::Stopped);
             return;
         }
@@ -36,7 +38,7 @@ typhon::TyService::run() noexcept {
     }
 
     // 挂载 BPF 程序到 SO_REUSEPORT 组（任一 socket 即可，整组共享）
-    if (router_.attach(servers_[0]->fd()) != 0) {
+    if (!bpf_obj_path_.empty() && router_.attach(servers_[0]->fd()) != 0) {
         state_.store(State::Stopped);
         return;
     }

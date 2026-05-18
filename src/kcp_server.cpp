@@ -1,5 +1,4 @@
 #include "kcp_server.hpp"
-#include "utils/log.hpp"
 
 
 static constexpr int MAX_EVENTS = 2;
