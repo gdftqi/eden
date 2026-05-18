@@ -17,13 +17,9 @@ class TcpSession {
 
 
     struct PkgBuf {
-        // PACK_MAX_LEN 已包含 PackageTail 上限,直接用即可
-        static constexpr size_t PKG_BUF_SIZE = PACK_MAX_LEN;
-
-
         uint32_t rpos { 0 };
         uint32_t wpos { 0 };
-        uint8_t  buf[PKG_BUF_SIZE];
+        uint8_t  buf[PKG_MAX_LEN];
 
 
         size_t
@@ -34,7 +30,7 @@ class TcpSession {
 
         size_t
         writable() const noexcept {
-            return PKG_BUF_SIZE - wpos;
+            return PKG_MAX_LEN - wpos;
         }
 
 

@@ -198,7 +198,7 @@ public:
      *        并刷新 last_recv_ms_(用于 session 超时判定)。
      *        相当于 recv() 之上加一层应用协议层处理。
      * @param[out] pkg 解析成功时指向 buf 起始(host 字节序,可直接访问字段)
-     * @param      buf 接收缓冲;长度应 >= PACK_MAX_LEN,否则会触发 ikcp_recv 的 -3
+     * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      * @return   1  成功,*pkg 可用
@@ -212,7 +212,7 @@ public:
             return 0;
         }
 
-        if ((size_t)res < sizeof(Package)) {
+        if ((size_t)res < PKG_HEADER_LEN || res > PKG_MAX_LEN - PKG_TAIL_LEN) {
             return -1;
         }
 
@@ -249,7 +249,7 @@ public:
      */
     int
     send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
-        thread_local static uint8_t buf[PACK_MAX_LEN];
+        thread_local static uint8_t buf[PKG_MAX_LEN];
 
         if (len > PKG_MAX_DATA_LEN) {
             return -1;

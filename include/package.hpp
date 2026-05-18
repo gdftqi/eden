@@ -15,9 +15,9 @@ namespace typhon {
 //
 // 字节序：所有多字节字段一律 big-endian（网络字节序）。本地处理用 host 序，
 //          发送前调 pk_hton / pkt_hton 转换，接收后调 pk_ntoh / pkt_ntoh 转回。
-// 单包上限：PACK_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限，已
+// 单包上限：PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限，已
 //           预留了网关 → 后端方向追加的 PackageTail 空间。
-//             - pk_len 实际可用 ≤ PACK_MAX_LEN - PKG_TAIL_LEN = 65527
+//             - pk_len 实际可用 ≤ PKG_MAX_LEN - PKG_TAIL_LEN = 65527
 //             - 业务 payload (pk_data) ≤ PKG_MAX_DATA_LEN = 65515
 //           更大的载荷由业务层自行分片。
 //
@@ -71,7 +71,7 @@ namespace typhon {
  */
 struct Package {
     uint16_t pk_len;    // 消息长度 (含本头部 + pk_data; 不含 PackageTail);
-                        // 最大值 = PACK_MAX_LEN - PKG_TAIL_LEN = 65527,
+                        // 最大值 = PKG_MAX_LEN - PKG_TAIL_LEN = 65527,
                         // 留 8B 给网关 → 后端方向追加的 PackageTail
     uint16_t pk_id;     // 消息ID (业务消息号)
     uint32_t pk_idem;   // 幂等 ID (客户端单调递增; **必须 > 0**, 0 视为无效包丢弃)
@@ -159,10 +159,10 @@ pkt_ntoh(PackageTail* p) noexcept {
 
 
 // 协议常量。语义见文件顶部"单包上限"注释。
-constexpr int PACK_MAX_LEN     = 65535;                                              // wire frame 总长上限(任意方向)
+constexpr int PKG_MAX_LEN      = 65535;                                              // wire frame 总长上限(任意方向)
 constexpr int PKG_HEADER_LEN   = sizeof(Package);                                    // 12
 constexpr int PKG_TAIL_LEN     = sizeof(PackageTail);                                // 8
-constexpr int PKG_MAX_DATA_LEN = PACK_MAX_LEN - PKG_HEADER_LEN - PKG_TAIL_LEN;       // 65515,业务 payload 上限
+constexpr int PKG_MAX_DATA_LEN = PKG_MAX_LEN - PKG_HEADER_LEN - PKG_TAIL_LEN;       // 65515,业务 payload 上限
 
 static_assert(PKG_HEADER_LEN == 12, "Package header size changed");
 static_assert(PKG_TAIL_LEN   == 8,  "PackageTail size changed");

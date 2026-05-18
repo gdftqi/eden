@@ -151,7 +151,7 @@ typhon::KcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
 
 int
 typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
-    thread_local static uint8_t rbuf[PACK_MAX_LEN];
+    thread_local static uint8_t rbuf[PKG_MAX_LEN];
 
     int res = 0;
     if (ev.events & EPOLLERR) {
@@ -203,7 +203,7 @@ typhon::KcpServer::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 Package* pkg;
                 while (true) {
-                    int rc = kcp->recv_pk(&pkg, rbuf, PACK_MAX_LEN, tnow_);
+                    int rc = kcp->recv_pk(&pkg, rbuf, PKG_MAX_LEN, tnow_);
                     if (rc < 0) {
                         continue;
                     }
