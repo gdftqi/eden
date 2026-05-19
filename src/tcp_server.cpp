@@ -179,7 +179,7 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events  = EPOLLIN | EPOLLET;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            add_session(cfd);
+            workers_[cfd % workers_.size()]->push(new QEvent(QEvent::Type::AddSess, (void*)(uintptr_t)cfd));
         }
     }
 
@@ -193,7 +193,7 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-        remove_session(fd);
+        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
         return 0;
     }
 
@@ -217,14 +217,14 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-                remove_session(fd);
+                workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
                 break;
             } else {
                 RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);
                 rbuf->len = n;
                 rbuf->fd = fd;
                 ::memcpy(rbuf->data, buf, n);
-                workers_[fd % workers_.size()]->push(rbuf);
+                workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::Recv, rbuf));
             }
         }
     }

@@ -89,12 +89,15 @@ typhon::TcpWorker::release() noexcept {
 
     size_t i, n;
     while (!rque_.empty()) {
-        RcvBuf* rbufs[16];
-        n = rque_.try_dequeue_bulk(rbufs, 16);
+        QEvent* qes[16];
+        n = rque_.try_dequeue_bulk(qes, 16);
         for (i = 0; i < n; ++i) {
-            auto& rbuf = rbufs[i];
-            // TODO 处理接收数据
-            ::mi_free(rbuf);
+            auto& qe = qes[i];
+            if (qe->qe_type == QEvent::Type::Recv) {
+                auto* rbuf = (RcvBuf*)qe->qe_data;
+                ::mi_free(rbuf);
+            }
+            delete qe;
         }
     }
 }
@@ -142,40 +145,81 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
     sending_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
-    int res;
     while (!rque_.empty()) {
-        RcvBuf* rbufs[16];
-        n = rque_.try_dequeue_bulk(rbufs, 16);
+        QEvent* qes[16];
+        n = rque_.try_dequeue_bulk(qes, 16);
         for (i = 0; i < n; ++i) {
-            auto& rbuf = rbufs[i];
-            auto* s = server_->get_session(rbuf->fd);
-            if (!s->input(rbuf->data, rbuf->len)) {
-                // TODO 处理输入错误
-                ::mi_free(rbuf);
-                continue;
+            switch (qes[i]->qe_type) {
+            case QEvent::Type::Recv:
+                on_qe_recv_handle(qes[i]);
+                break;
+
+            case QEvent::Type::AddSess:
+                on_qe_add_sess_handle(qes[i]);
+                break;
+
+            case QEvent::Type::RmvSess:
+                on_qe_rmv_sess_handle(qes[i]);
+                break;
+
+            default:
+                break;
             }
 
-            Package* pk;
-            PackageTail* pkt;
-            while (1) {
-                res = s->recv(&pk, &pkt, server_->tnow());
-                if (res == 0) {
-                    continue;
-                } else if (res == -1) {
-                    break;
-                }
-
-                auto handler = server_->get_handler(pk->pk_id);
-                if (handler) {
-                    handler(s, pk);
-                } else {
-                    // TODO 处理无效路由
-                }
-            }
-
-            ::mi_free(rbuf);
+            delete qes[i];
         }
     }
 
+    return 0;
+}
+
+
+int
+typhon::TcpWorker::on_qe_recv_handle(QEvent* qe) noexcept {
+    auto* rbuf = (RcvBuf*)qe->qe_data;
+    auto* sess = server_->get_session(rbuf->fd);
+    ASSERT(sess != nullptr, "session not found for fd: {}", rbuf->fd);
+    if (!sess->input(rbuf->data, rbuf->len)) {
+        ::mi_free(rbuf);
+        return 0;
+    }
+
+    int res;
+    Package* pk;
+    PackageTail* pkt;
+    while (1) {
+        res = sess->recv(&pk, &pkt, server_->tnow());
+        if (res < 0) {
+            break;
+        } else if (res == 0) {
+            continue;
+        }
+
+        auto handler = server_->get_handler(pk->pk_id);
+        if (!handler) {
+            xWARN("no handler for pk_id {}, from {}", pk->pk_id, sess->remote_addr());
+            continue;
+        }
+
+        handler(sess, pk);
+    }
+
+    ::mi_free(rbuf);
+    return 0;
+}
+
+
+int
+typhon::TcpWorker::on_qe_add_sess_handle(QEvent* qe) noexcept {
+    auto fd = (SOCKET)(uintptr_t)qe->qe_data;
+    server_->add_session(fd);
+    return 0;
+}
+
+
+int
+typhon::TcpWorker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
+    auto fd = (SOCKET)(uintptr_t)qe->qe_data;
+    server_->remove_session(fd);
     return 0;
 }

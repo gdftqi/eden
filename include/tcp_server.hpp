@@ -16,6 +16,9 @@ class TcpServer {
 
 
 public:
+    static constexpr int MAX_CONN = 1024 * 8;
+
+
     typedef int (*PackageHandler)(TcpSession* s, const Package* p) noexcept;
 
 
@@ -76,14 +79,14 @@ public:
 
     TcpSession*
     get_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
+        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         return sessions_[fd];
     }
 
 
     void
     add_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
+        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (sessions_[fd] != nullptr) {
             delete sessions_[fd];
         }
@@ -93,7 +96,7 @@ public:
 
     void
     remove_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < 65535, "invalid fd: {}", fd);
+        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         auto* s = sessions_[fd];
         if (s != nullptr) {
             delete s;
@@ -139,16 +142,16 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    SOCKET                      lfd_             { INVALID_SOCKET };
-    SOCKET                      stop_evfd_       { INVALID_SOCKET };
-    SOCKET                      epfd_            { INVALID_SOCKET };
-    uint32_t                    tnow_            { 0 };
-    std::atomic<State>          state_           { State::Stopped };
+    SOCKET                      lfd_                  { INVALID_SOCKET };
+    SOCKET                      stop_evfd_            { INVALID_SOCKET };
+    SOCKET                      epfd_                 { INVALID_SOCKET };
+    uint32_t                    tnow_                 { 0 };
+    std::atomic<State>          state_                { State::Stopped };
     std::string                 host_;
     std::vector<TcpWorker::Ptr> workers_;
     std::vector<std::thread>    threads_;
-    TcpSession*                 sessions_[65535] { nullptr };
-    PackageHandler              handlers[65535]  { nullptr };
+    TcpSession*                 sessions_[MAX_CONN]   { nullptr };
+    PackageHandler              handlers[UINT16_MAX]  { nullptr };
 };
 
     
