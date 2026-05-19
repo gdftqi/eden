@@ -1,4 +1,4 @@
-#include "tcp_server.hpp"
+#include "tcp/server.hpp"
 
 
 static constexpr int MAX_EVENTS = 1024;
@@ -7,9 +7,9 @@ static constexpr int RBUF_SIZE = 1500;
 
 
 void
-typhon::TcpServer::run() noexcept {
-    State expected = State::Stopped;
-    if (!state_.compare_exchange_strong(expected, State::Starting)) {
+typhon::tcp::Server::run() noexcept {
+    auto expected = core::State::Stopped;
+    if (!state_.compare_exchange_strong(expected, core::State::Starting)) {
         return;
     }
 
@@ -17,9 +17,9 @@ typhon::TcpServer::run() noexcept {
 
     int i, n, err;
     ::epoll_event events[MAX_EVENTS];
-    auto base_ms = (uint32_t)systime_ms();
+    auto base_ms = (uint32_t)core::systime_ms();
 
-    state_.store(State::Running);
+    state_.store(core::State::Running);
 
     while (running()) {
         err = 0;
@@ -32,7 +32,7 @@ typhon::TcpServer::run() noexcept {
             break;
         }
 
-        tnow_ = (uint32_t)systime_ms() - base_ms;
+        tnow_ = (uint32_t)core::systime_ms() - base_ms;
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
@@ -61,20 +61,20 @@ typhon::TcpServer::run() noexcept {
 
     release();
 
-    state_.store(State::Stopped);
+    state_.store(core::State::Stopped);
 }
 
 
 void
-typhon::TcpServer::init() noexcept {
+typhon::tcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != core::INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    lfd_ = tcp_listen(host_);
-    ASSERT(lfd_ != INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    lfd_ = core::tcp_listen(host_);
+    ASSERT(lfd_ != core::INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.fd = stop_evfd_;
@@ -88,27 +88,27 @@ typhon::TcpServer::init() noexcept {
     n = n > 2 ? n - 2 : 2;
 
     for (uint32_t i = 0; i < n; ++i) {
-        workers_.emplace_back(TcpWorker::create(this));
-        threads_.emplace_back(std::thread(std::bind(&TcpWorker::run, workers_[i].get())));
+        workers_.emplace_back(Worker::create(this));
+        threads_.emplace_back(std::thread(std::bind(&Worker::run, workers_[i].get())));
     }
 }
 
 
 void
-typhon::TcpServer::release() noexcept {
-    if (epfd_ != -1) {
+typhon::tcp::Server::release() noexcept {
+    if (epfd_ != core::INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = -1;
+        epfd_ = core::INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != -1) {
+    if (stop_evfd_ != core::INVALID_SOCKET) {
         ::close(stop_evfd_);
-        stop_evfd_ = -1;
+        stop_evfd_ = core::INVALID_SOCKET;
     }
 
-    if (lfd_ != -1) {
+    if (lfd_ != core::INVALID_SOCKET) {
         ::close(lfd_);
-        lfd_ = -1;
+        lfd_ = core::INVALID_SOCKET;
     }
 
     workers_.clear();
@@ -124,7 +124,7 @@ typhon::TcpServer::release() noexcept {
 
 
 int
-typhon::TcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
@@ -143,7 +143,7 @@ typhon::TcpServer::on_stop_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
     int res = 0;
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
@@ -159,7 +159,7 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & EPOLLIN) {
         while (1) {
-            SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            core::SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
             if (cfd < 0) {
                 int err = errno;
                 if (err == EINTR) {
@@ -188,8 +188,8 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
-    SOCKET fd = ev.data.fd;
+typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
+    core::SOCKET fd = ev.data.fd;
     bool del = false;
 
     if (ev.events & EPOLLIN) {

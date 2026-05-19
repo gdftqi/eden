@@ -6,7 +6,7 @@
 #include <inttypes.h>
 
 
-namespace typhon {
+namespace typhon::core {
 
 
 // =============================================================================
@@ -181,7 +181,7 @@ static_assert(PKG_HEADER_LEN == 12, "Package header size changed");
 static_assert(PKG_TAIL_LEN   == 8,  "PackageTail size changed");
 
 
-} // namespace typhon
+} // namespace typhon::core
 
 
 #endif // __TYPHON_PACKAGE_HPP__

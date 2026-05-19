@@ -1,8 +1,8 @@
-#include "typhon.in.hpp"
+#include "core/typhon.in.hpp"
 
 
-typhon::SOCKET
-typhon::tcp_listen(const std::string& host) noexcept {
+typhon::core::SOCKET
+typhon::core::tcp_listen(const std::string& host) noexcept {
     std::string host_str(host);
     if (host_str.empty()) {
         return INVALID_SOCKET;
@@ -70,15 +70,15 @@ typhon::tcp_listen(const std::string& host) noexcept {
 }
 
 
-typhon::SOCKET
-typhon::udp_bind(const std::string& host) noexcept {
+typhon::core::SOCKET
+typhon::core::udp_bind(const std::string& host) noexcept {
     if (host.empty()) {
-        return typhon::INVALID_SOCKET;
+        return INVALID_SOCKET;
     }
 
     auto pos = host.find(':');
     if (pos == std::string::npos) {
-        return typhon::INVALID_SOCKET;
+        return INVALID_SOCKET;
     }
 
     auto ip = host.substr(0, pos);
@@ -89,10 +89,10 @@ typhon::udp_bind(const std::string& host) noexcept {
     }
 
     if (port.empty()) {
-        return typhon::INVALID_SOCKET;
+        return INVALID_SOCKET;
     }
 
-    auto fd = typhon::INVALID_SOCKET;
+    auto fd = INVALID_SOCKET;
     ::addrinfo hints;
     ::addrinfo *result = nullptr, *rp = nullptr;
     ::memset(&hints, 0, sizeof(hints));
@@ -101,19 +101,19 @@ typhon::udp_bind(const std::string& host) noexcept {
     hints.ai_flags = AI_PASSIVE;
 
     if (::getaddrinfo(ip.c_str(), port.c_str(), &hints, &result) != 0) {
-        return typhon::INVALID_SOCKET;
+        return INVALID_SOCKET;
     }
 
     for (rp = result; rp != nullptr; rp = rp->ai_next) {
         fd = ::socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (fd == typhon::INVALID_SOCKET) {
+        if (fd == INVALID_SOCKET) {
             continue;
         }
 
         static constexpr int reuseport = 1;
         static constexpr int sndbuf = 1024 * 1024 * 4;
         static constexpr int rcvbuf = sndbuf * 2;
-        if (typhon::set_nonblocking(fd) ||
+        if (set_nonblocking(fd) ||
             ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
@@ -131,7 +131,7 @@ typhon::udp_bind(const std::string& host) noexcept {
     ::freeaddrinfo(result);
 
     if (rp == nullptr) {
-        return typhon::INVALID_SOCKET;
+        return INVALID_SOCKET;
     }
 
     return fd;

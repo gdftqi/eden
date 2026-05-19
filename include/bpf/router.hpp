@@ -4,26 +4,27 @@
 
 #include <cstdint>
 
+
 struct bpf_object;
 
 
-namespace typhon {
+namespace typhon::bpf {
 
 
-class BpfRouter {
-    BpfRouter(const BpfRouter&) = delete;
-    BpfRouter& operator=(const BpfRouter&) = delete;
-    BpfRouter(BpfRouter&&) = delete;
-    BpfRouter& operator=(BpfRouter&&) = delete;
+class Router {
+    Router(const Router&) = delete;
+    Router& operator=(const Router&) = delete;
+    Router(Router&&) = delete;
+    Router& operator=(Router&&) = delete;
 
 
 public:
     explicit
-    BpfRouter() noexcept
+    Router() noexcept
     {}
 
 
-    ~BpfRouter() noexcept;
+    ~Router() noexcept;
 
 
     int
@@ -45,7 +46,7 @@ private:
 };
 
 
-} // namespace typhon
+} // namespace typhon::bpf
 
 
 #endif // __TYPHON_BPF_ROUTER_HPP__

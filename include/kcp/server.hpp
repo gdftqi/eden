@@ -1,23 +1,23 @@
-#ifndef __TYPHON_UDP_SERVER_HPP__
-#define __TYPHON_UDP_SERVER_HPP__
+#ifndef __TYPHON_KCP_SERVER_HPP__
+#define __TYPHON_KCP_SERVER_HPP__
 
 
-#include "kcp.hpp"
-#include "package.hpp"
+#include "kcp/session.hpp"
+#include "core/package.hpp"
 
 
-namespace typhon {
+namespace typhon::kcp {
 
 
 constexpr int MAX_RECV = 128;
 constexpr int MAX_SEND = MAX_RECV;
 
 
-class KcpServer {
-    KcpServer(const KcpServer&) = delete;
-    KcpServer& operator=(const KcpServer&) = delete;
-    KcpServer(KcpServer&&) = delete;
-    KcpServer& operator=(KcpServer&&) = delete;
+class Server {
+    Server(const Server&) = delete;
+    Server& operator=(const Server&) = delete;
+    Server(Server&&) = delete;
+    Server& operator=(Server&&) = delete;
 
 
     struct SendBuf {
@@ -25,7 +25,7 @@ class KcpServer {
 
 
         static Ptr
-        create(Kcp::Ptr kcp, const char* buf, uint32_t len) noexcept {
+        create(Session::Ptr kcp, const char* buf, uint32_t len) noexcept {
             return Ptr(new SendBuf(kcp, buf, len));
         }
 
@@ -35,7 +35,7 @@ class KcpServer {
         }
 
 
-        Kcp::Ptr kcp;
+        Session::Ptr kcp;
         uint32_t len;
         char* buf;
 
@@ -46,7 +46,7 @@ class KcpServer {
         SendBuf& operator=(SendBuf&&) = delete;
 
 
-        SendBuf(Kcp::Ptr k, const char* b, uint32_t l) noexcept
+        SendBuf(Session::Ptr k, const char* b, uint32_t l) noexcept
             : kcp(k), len(l) {
             buf = (char*)::mi_malloc(len);
             ::memcpy(buf, b, len);
@@ -55,42 +55,42 @@ class KcpServer {
 
 
 public:
-    typedef std::unique_ptr<KcpServer> Ptr;
-    typedef std::unordered_map<uint32_t, Kcp::Ptr> SessionMap;
+    typedef std::unique_ptr<Server> Ptr;
+    typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
     typedef std::vector<SendBuf::Ptr> SendBufQue;
 
     
     class IEvent {
     public:
         virtual int 
-        on_init(KcpServer*) noexcept { 
+        on_init(Server*) noexcept { 
             return 0; 
         }
 
 
         virtual void 
-        on_stopped(KcpServer*) noexcept 
+        on_stopped(Server*) noexcept 
         {}
 
 
         virtual int 
-        on_connected(Kcp::Ptr) noexcept = 0;
+        on_connected(Session::Ptr) noexcept = 0;
 
 
         virtual void 
-        on_disconnected(Kcp::Ptr) noexcept = 0;
+        on_disconnected(Session::Ptr) noexcept = 0;
 
 
         virtual int 
-        on_data(Kcp::Ptr, const Package*) noexcept = 0;
+        on_data(Session::Ptr, const core::Package*) noexcept = 0;
     }; // class IEvent;
 
 
     explicit 
-    KcpServer(const char* host, IEvent* ev) noexcept;
+    Server(const char* host, IEvent* ev) noexcept;
 
 
-    ~KcpServer() noexcept {
+    ~Server() noexcept {
         // ctor 里 bind 了 sockfd_,run() 没跑(或还没跑完)的话 release 在这里兜底
         release();
         for (int i = 0; i < MAX_RECV; ++i) {
@@ -119,7 +119,7 @@ public:
 
     bool
     running() const noexcept {
-        return state_.load(std::memory_order_relaxed) == State::Running;
+        return state_.load(std::memory_order_relaxed) == core::State::Running;
     }
 
 
@@ -130,8 +130,8 @@ public:
     void
     stop() noexcept {
         if (running()) {
-            State expected = State::Running;
-            if (state_.compare_exchange_strong(expected, State::Stopping)) {
+            core::State expected = core::State::Running;
+            if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
                 static constexpr uint64_t event = 1;
                 ASSERT(::write(stop_evfd_, &event, sizeof(event)) == sizeof(event), "errno = {}, errstr = {}", errno, ::strerror(errno));
             }
@@ -152,7 +152,7 @@ private:
     release() noexcept;
 
 
-    Kcp::Ptr
+    Session::Ptr
     get_session(uint32_t conv) noexcept {
         auto itr = sessions_.find(conv);
         return itr == sessions_.end() ? nullptr : itr->second;
@@ -160,7 +160,7 @@ private:
 
 
     void
-    add_session(uint32_t conv, Kcp::Ptr kcp) noexcept {
+    add_session(uint32_t conv, Session::Ptr kcp) noexcept {
         kcp->set_output(output);
         sessions_.emplace(conv, kcp);
         if (event_->on_connected(kcp)) {
@@ -192,22 +192,22 @@ private:
     update() noexcept;
 
 
-    SOCKET              ufd_               { INVALID_SOCKET };
-    SOCKET              epfd_              { INVALID_SOCKET };
-    SOCKET              stop_evfd_         { INVALID_SOCKET };
-    IEvent*             event_             { nullptr };
-    uint32_t            tnow_              { 0 };
-    std::atomic<State>  state_             { State::Stopped };
-    std::string         host_;
-    SessionMap          sessions_;
-    ::mmsghdr           rmsgs_[MAX_RECV]   {};
-    ::iovec             riovecs_[MAX_RECV] {};
-    ::sockaddr_storage  raddrs_[MAX_RECV]  {};
-    SendBufQue          sque_;
+    core::SOCKET             ufd_               { core::INVALID_SOCKET };
+    core::SOCKET             epfd_              { core::INVALID_SOCKET };
+    core::SOCKET             stop_evfd_         { core::INVALID_SOCKET };
+    IEvent*                  event_             { nullptr };
+    uint32_t                 tnow_              { 0 };
+    std::atomic<core::State> state_             { core::State::Stopped };
+    std::string              host_;
+    SessionMap               sessions_;
+    ::mmsghdr                rmsgs_[MAX_RECV]   {};
+    ::iovec                  riovecs_[MAX_RECV] {};
+    ::sockaddr_storage       raddrs_[MAX_RECV]  {};
+    SendBufQue               sque_;
 };
 
 
-} // namespace typhon;
+} // namespace typhon::kcp;
 
 
-#endif // __TYPHON_UDP_SERVER_HPP__
+#endif // __TYPHON_KCP_SERVER_HPP__

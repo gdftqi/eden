@@ -3,9 +3,9 @@
 
 
 void
-typhon::TyService::run() noexcept {
-    auto stopped = State::Stopped;
-    if (!state_.compare_exchange_strong(stopped, State::Starting)) {
+typhon::Server::run() noexcept {
+    auto stopped = core::State::Stopped;
+    if (!state_.compare_exchange_strong(stopped, core::State::Starting)) {
         return;
     }
 
@@ -16,21 +16,21 @@ typhon::TyService::run() noexcept {
     if (!bpf_obj_path_.empty()) {
         int rc = router_.init(bpf_obj_path_.c_str(), n);
         if (rc != 0) {
-            state_.store(State::Stopped);
+            state_.store(core::State::Stopped);
             return;
         }
     }
 
     // 创建 N 个 KcpServer，每个 ctor 自带 udp_bind（SO_REUSEPORT），sockfd 立即可用
     for (uint32_t i = 0; i < n; ++i) {
-        auto s = std::make_unique<KcpServer>(host_.c_str(), serv_ev_);
-        if (s->fd() == INVALID_SOCKET) {
-            state_.store(State::Stopped);
+        auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_);
+        if (s->fd() == core::INVALID_SOCKET) {
+            state_.store(core::State::Stopped);
             return;
         }
 
         if (!bpf_obj_path_.empty() && router_.register_socket(i, s->fd()) != 0) {
-            state_.store(State::Stopped);
+            state_.store(core::State::Stopped);
             return;
         }
 
@@ -39,16 +39,16 @@ typhon::TyService::run() noexcept {
 
     // 挂载 BPF 程序到 SO_REUSEPORT 组（任一 socket 即可，整组共享）
     if (!bpf_obj_path_.empty() && router_.attach(servers_[0]->fd()) != 0) {
-        state_.store(State::Stopped);
+        state_.store(core::State::Stopped);
         return;
     }
 
     // 启动所有 worker 线程
     for (auto& s : servers_) {
-        threads_.emplace_back(std::bind(&KcpServer::run, s.get()));
+        threads_.emplace_back(std::bind(&kcp::Server::run, s.get()));
     }
 
-    state_.store(State::Running);
+    state_.store(core::State::Running);
 
     for (auto& t : threads_) {
         t.join();
@@ -57,14 +57,14 @@ typhon::TyService::run() noexcept {
     servers_.clear();
     threads_.clear();
 
-    state_.store(State::Stopped);
+    state_.store(core::State::Stopped);
 }
 
 
 void
-typhon::TyService::stop() noexcept {
-    auto running = State::Running;
-    if (!state_.compare_exchange_strong(running, State::Stopping)) {
+typhon::Server::stop() noexcept {
+    auto running = core::State::Running;
+    if (!state_.compare_exchange_strong(running, core::State::Stopping)) {
         return;
     }
 

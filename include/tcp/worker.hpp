@@ -2,18 +2,17 @@
 #define __TYPHON_TCP_WORKER_HPP__
 
 
-#include "package.hpp"
-#include "tcp_session.hpp"
+#include "tcp/session.hpp"
 #include "utils/spsc.hpp"
 
 
-namespace typhon {
+namespace typhon::tcp {
 
 
 struct RcvBuf {
-    SOCKET   fd;
-    uint32_t len;
-    uint8_t  data[];
+    core::SOCKET fd;
+    uint32_t     len;
+    uint8_t      data[];
 };
 
 
@@ -36,34 +35,34 @@ struct QEvent {
 };
 
 
-class TcpServer;
+class Server;
 
 
-class TcpWorker {
-    TcpWorker(const TcpWorker&) = delete;
-    TcpWorker& operator=(const TcpWorker&) = delete;
-    TcpWorker(TcpWorker&&) = delete;
-    TcpWorker& operator=(TcpWorker&&) = delete;
+class Worker {
+    Worker(const Worker&) = delete;
+    Worker& operator=(const Worker&) = delete;
+    Worker(Worker&&) = delete;
+    Worker& operator=(Worker&&) = delete;
 
 
 public:
-    typedef std::unique_ptr<TcpWorker> Ptr;
+    typedef std::unique_ptr<Worker> Ptr;
 
 
     static Ptr
-    create(TcpServer* server) noexcept {
-        return Ptr(new TcpWorker(server));
+    create(Server* server) noexcept {
+        return Ptr(new Worker(server));
     }
 
     
-    ~TcpWorker() noexcept {
+    ~Worker() noexcept {
         release();
     }
 
 
     bool
     running() const noexcept {
-        return state_.load(std::memory_order_relaxed) == State::Running;
+        return state_.load(std::memory_order_relaxed) == core::State::Running;
     }
 
 
@@ -73,8 +72,8 @@ public:
 
     void
     stop() noexcept {
-        State expected = State::Running;
-        if (state_.compare_exchange_strong(expected, State::Stopping)) {
+        auto expected = core::State::Running;
+        if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
             constexpr uint64_t event = 1;
             auto n = ::write(stop_evfd_, &event, sizeof(event));
             if (n != sizeof(event)) {
@@ -99,7 +98,7 @@ public:
 
 private:
     explicit
-    TcpWorker(TcpServer* server) noexcept
+    Worker(Server* server) noexcept
         : server_(server)
     {}
 
@@ -132,17 +131,17 @@ private:
     on_qe_rmv_sess_handle(QEvent* qe) noexcept;
 
 
-    TcpServer*           server_    { nullptr };
-    SOCKET               epfd_      { INVALID_SOCKET };
-    SOCKET               que_evfd_  { INVALID_SOCKET }; // 队列事件
-    SOCKET               stop_evfd_ { INVALID_SOCKET }; // 停止事件
-    std::atomic<State>   state_     { State::Stopped };
-    std::atomic<bool>    sending_   { false };
-    utils::SPSC<QEvent*> rque_;
+    Server*               server_    { nullptr };
+    core::SOCKET             epfd_      { core::INVALID_SOCKET };
+    core::SOCKET             que_evfd_  { core::INVALID_SOCKET }; // 队列事件
+    core::SOCKET             stop_evfd_ { core::INVALID_SOCKET }; // 停止事件
+    std::atomic<core::State> state_     { core::State::Stopped };
+    std::atomic<bool>        sending_   { false };
+    utils::SPSC<QEvent*>     rque_;
 }; // class TcpWorker;
 
     
-} // namespace typhon
+} // namespace typhon::tcp;
 
 
 

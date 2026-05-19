@@ -1,4 +1,4 @@
-#include "bpf_router.hpp"
+#include "bpf/router.hpp"
 
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
@@ -7,7 +7,7 @@
 #include <errno.h>
 
 
-typhon::BpfRouter::~BpfRouter() noexcept {
+typhon::bpf::Router::~Router() noexcept {
     if (obj_) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
@@ -16,7 +16,7 @@ typhon::BpfRouter::~BpfRouter() noexcept {
 
 
 int
-typhon::BpfRouter::init(const char* obj_path, uint32_t num_workers) noexcept {
+typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
     if (num_workers == 0) {
         return -EINVAL;
     }
@@ -71,7 +71,7 @@ typhon::BpfRouter::init(const char* obj_path, uint32_t num_workers) noexcept {
 
 
 int
-typhon::BpfRouter::register_socket(uint32_t idx, int sockfd) noexcept {
+typhon::bpf::Router::register_socket(uint32_t idx, int sockfd) noexcept {
     if (map_fd_ < 0) {
         return -EINVAL;
     }
@@ -82,7 +82,7 @@ typhon::BpfRouter::register_socket(uint32_t idx, int sockfd) noexcept {
 
 
 int
-typhon::BpfRouter::attach(int sockfd) noexcept {
+typhon::bpf::Router::attach(int sockfd) noexcept {
     if (prog_fd_ < 0) {
         return -EINVAL;
     }

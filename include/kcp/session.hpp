@@ -1,30 +1,30 @@
-#ifndef __TYPHON_KCP_EX_HPP__
-#define __TYPHON_KCP_EX_HPP__
+#ifndef __TYPHON_KCP_SESSION_HPP__
+#define __TYPHON_KCP_SESSION_HPP__
 
 
 #include "kcp/ikcp.h"
-#include "typhon.in.hpp"
-#include "package.hpp"
+#include "core/typhon.in.hpp"
+#include "core/package.hpp"
 
 
-namespace typhon {
+namespace typhon::kcp {
 
 
-class KcpServer;
+class Server;
 
 
 /**
  * @brief Kcp 类
  */
-class Kcp: public std::enable_shared_from_this<Kcp> {
-    Kcp(const Kcp&) = delete;
-    Kcp& operator=(const Kcp&) = delete;
-    Kcp(Kcp&&) = delete;
-    Kcp& operator=(Kcp&&) = delete;
+class Session: public std::enable_shared_from_this<Session> {
+    Session(const Session&) = delete;
+    Session& operator=(const Session&) = delete;
+    Session(Session&&) = delete;
+    Session& operator=(Session&&) = delete;
 
 
 public:
-    typedef std::shared_ptr<Kcp> Ptr;
+    typedef std::shared_ptr<Session> Ptr;
 
 
     /**
@@ -33,8 +33,8 @@ public:
      * @param server 所属 KcpServer
      */
     static Ptr
-    create(uint32_t conv, KcpServer* server, const void* addr, socklen_t addrlen) noexcept {
-        return Ptr(new Kcp(conv, server, addr, addrlen));
+    create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
+        return Ptr(new Session(conv, server, addr, addrlen));
     }
 
 
@@ -75,7 +75,7 @@ public:
     /**
      * @brief 析构函数
      */
-    ~Kcp() noexcept {
+    ~Session() noexcept {
         if (kcp_) {
             ::ikcp_release(kcp_);
         }
@@ -94,7 +94,7 @@ public:
     /**
      * @brief 所属服务
      */
-    KcpServer*
+    Server*
     server() noexcept {
         return server_;
     }
@@ -123,7 +123,7 @@ public:
      */
     std::string
     remote_addr() noexcept {
-        return sockaddr_to_string((sockaddr*)&addr_);
+        return core::sockaddr_to_string((sockaddr*)&addr_);
     }
 
 
@@ -206,18 +206,18 @@ public:
      * @return  -1  非法包:长度不足头 / pk_len 不自洽 / idem 违反单调性(重复包)
      */
     int
-    recv_pk(Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
+    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
         int res = recv(buf, len);
         if (res <= 0) {
             return 0;
         }
 
-        if ((size_t)res < PKG_HEADER_LEN || res > PKG_MAX_LEN - PKG_TAIL_LEN) {
+        if ((size_t)res < core::PKG_HEADER_LEN || res > core::PKG_MAX_LEN - core::PKG_TAIL_LEN) {
             return -1;
         }
 
-        *pkg = (Package*)buf;
-        pk_ntoh(*pkg);
+        *pkg = (core::Package*)buf;
+        core::pk_ntoh(*pkg);
         if ((*pkg)->pk_len != res) {
             return -1;
         }
@@ -249,21 +249,21 @@ public:
      */
     int
     send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
-        thread_local static uint8_t buf[PKG_MAX_LEN];
+        thread_local static uint8_t buf[core::PKG_MAX_LEN];
 
-        if (len > PKG_MAX_DATA_LEN) {
+        if (len > core::PKG_MAX_DATA_LEN) {
             return -1;
         }
-        size_t total = PKG_HEADER_LEN + len;
+        size_t total = core::PKG_HEADER_LEN + len;
 
-        auto* pkg = (Package*)buf;
+        auto* pkg = (core::Package*)buf;
         pkg->pk_len = total;
         pkg->pk_id = pk_id;
         pkg->pk_idem = pk_idemp;
         pkg->pk_dst_id = pk_dst_id;
         ::memcpy(pkg->pk_data, data, len);
 
-        pk_hton(pkg);
+        core::pk_hton(pkg);
         return send(buf, total);
     }
 
@@ -273,7 +273,7 @@ private:
      * @brief 构造函数
      */
     explicit
-    Kcp(uint32_t conv, KcpServer* server, const void* addr, socklen_t addrlen) noexcept;
+    Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept;
 
 
     /**
@@ -312,7 +312,7 @@ private:
     }
 
 
-    KcpServer*          server_         { nullptr };
+    Server*          server_         { nullptr };
     uint32_t            last_recv_ms_   { 0 };
     uint32_t            snd_idem_       { 0 };
     uint32_t            rcv_idem_       { 0 };
@@ -322,7 +322,7 @@ private:
 }; // class Kcp;
 
 
-}; // namespace typhon;
+}; // namespace typhon::core;
 
 
-#endif // __TYPHON_KCP_EX_HPP__
+#endif // __TYPHON_KCP_SESSION_HPP__

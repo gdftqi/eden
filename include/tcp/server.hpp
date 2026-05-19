@@ -2,33 +2,33 @@
 #define __TYPHON_TCP_SERVER_HPP__
 
 
-#include "tcp_worker.hpp"
+#include "tcp/worker.hpp"
 
 
-namespace typhon {
+namespace typhon::tcp {
 
 
-class TcpServer {
-    TcpServer(const TcpServer&) = delete;
-    TcpServer& operator=(const TcpServer&) = delete;
-    TcpServer(TcpServer&&) = delete;
-    TcpServer& operator=(TcpServer&&) = delete;
+class Server {
+    Server(const Server&) = delete;
+    Server& operator=(const Server&) = delete;
+    Server(Server&&) = delete;
+    Server& operator=(Server&&) = delete;
 
 
 public:
     static constexpr int MAX_CONN = 1024 * 8;
 
 
-    typedef int (*PackageHandler)(TcpSession* s, const Package* p) noexcept;
+    typedef int (*PackageHandler)(Session* s, const core::Package* p) noexcept;
 
 
     explicit
-    TcpServer(const char* host) noexcept
+    Server(const char* host) noexcept
         : host_(host) 
     {}
 
 
-    ~TcpServer() noexcept {
+    ~Server() noexcept {
         for (auto& w: workers_) {
             w->stop();
         }
@@ -57,7 +57,7 @@ public:
 
     bool
     running() const noexcept {
-        return state_.load(std::memory_order_relaxed) == State::Running;
+        return state_.load(std::memory_order_relaxed) == core::State::Running;
     }
 
 
@@ -68,8 +68,8 @@ public:
     void
     stop() noexcept {
         if (running()) {
-            State expected = State::Running;
-            if (state_.compare_exchange_strong(expected, State::Stopping)) {
+            core::State expected = core::State::Running;
+            if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
                 static constexpr uint64_t event = 1;
                 ASSERT(::write(stop_evfd_, &event, sizeof(event)) == sizeof(event), "errno = {}, errstr = {}", errno, ::strerror(errno));
             }
@@ -77,25 +77,25 @@ public:
     }
 
 
-    TcpSession*
-    get_session(SOCKET fd) noexcept {
+    Session*
+    get_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         return sessions_[fd];
     }
 
 
     void
-    add_session(SOCKET fd) noexcept {
+    add_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (sessions_[fd] != nullptr) {
             delete sessions_[fd];
         }
-        sessions_[fd] = new TcpSession(fd, tnow_);
+        sessions_[fd] = new Session(fd, tnow_);
     }
 
 
     void
-    remove_session(SOCKET fd) noexcept {
+    remove_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         auto* s = sessions_[fd];
         if (s != nullptr) {
@@ -142,20 +142,20 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    SOCKET                      lfd_                  { INVALID_SOCKET };
-    SOCKET                      stop_evfd_            { INVALID_SOCKET };
-    SOCKET                      epfd_                 { INVALID_SOCKET };
+    core::SOCKET                lfd_                  { core::INVALID_SOCKET };
+    core::SOCKET                stop_evfd_            { core::INVALID_SOCKET };
+    core::SOCKET                epfd_                 { core::INVALID_SOCKET };
     uint32_t                    tnow_                 { 0 };
-    std::atomic<State>          state_                { State::Stopped };
+    std::atomic<core::State>    state_                { core::State::Stopped };
     std::string                 host_;
-    std::vector<TcpWorker::Ptr> workers_;
+    std::vector<Worker::Ptr> workers_;
     std::vector<std::thread>    threads_;
-    TcpSession*                 sessions_[MAX_CONN]   { nullptr };
+    Session*                 sessions_[MAX_CONN]   { nullptr };
     PackageHandler              handlers[UINT16_MAX]  { nullptr };
 };
 
     
-} // namespace typhon
+} // namespace typhon::tcp
 
 
 #endif // __TYPHON_TCP_SERVER_HPP__

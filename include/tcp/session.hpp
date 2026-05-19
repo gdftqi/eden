@@ -2,24 +2,24 @@
 #define __TYPHON_TCP_SESSION_HPP__
 
 
-#include "typhon.in.hpp"
-#include "package.hpp"
+#include "core/typhon.in.hpp"
+#include "core/package.hpp"
 
 
-namespace typhon {
+namespace typhon::tcp {
 
 
-class TcpSession {
-    TcpSession(const TcpSession&) = delete;
-    TcpSession& operator=(const TcpSession&) = delete;
-    TcpSession(TcpSession&&) = delete;
-    TcpSession& operator=(TcpSession&&) = delete;
+class Session {
+    Session(const Session&) = delete;
+    Session& operator=(const Session&) = delete;
+    Session(Session&&) = delete;
+    Session& operator=(Session&&) = delete;
 
 
     struct PkgBuf {
         uint32_t rpos { 0 };
         uint32_t wpos { 0 };
-        uint8_t  buf[PKG_MAX_LEN];
+        uint8_t  buf[core::PKG_MAX_LEN];
 
 
         size_t
@@ -30,7 +30,7 @@ class TcpSession {
 
         size_t
         writable() const noexcept {
-            return PKG_MAX_LEN - wpos;
+            return core::PKG_MAX_LEN - wpos;
         }
 
 
@@ -50,12 +50,12 @@ class TcpSession {
 
 
         bool
-        decode(Package** pkg, PackageTail** tail) noexcept {
-            if (readable() < PKG_HEADER_LEN + PKG_TAIL_LEN) {
+        decode(core::Package** pkg, core::PackageTail** pkt) noexcept {
+            if (readable() < core::PKG_HEADER_LEN + core::PKG_TAIL_LEN) {
                 return false;
             }
 
-            auto* p = (Package*)(buf + rpos);
+            auto* p = (core::Package*)(buf + rpos);
             uint16_t pklen = ::ntohs(p->pk_len);
             size_t total = pklen;
             if (readable() < total) {
@@ -63,10 +63,10 @@ class TcpSession {
             }
 
             pk_ntoh(p);
-            auto* t = (PackageTail*)(buf + rpos + pklen);
+            auto* t = (core::PackageTail*)(buf + rpos + pklen);
             pkt_ntoh(t);
             *pkg = p;
-            *tail = t;
+            *pkt = t;
             rpos += total;
             return true;
         }
@@ -97,7 +97,7 @@ class TcpSession {
 
 public:
     explicit
-    TcpSession(SOCKET sockfd, uint32_t tnow) noexcept
+    Session(core::SOCKET sockfd, uint32_t tnow) noexcept
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
         , last_recv_ms_(tnow) {
@@ -105,8 +105,8 @@ public:
     }
 
 
-    ~TcpSession() noexcept {
-        if (sockfd_ != INVALID_SOCKET) {
+    ~Session() noexcept {
+        if (sockfd_ != core::INVALID_SOCKET) {
             ::close(sockfd_);
         }
     }
@@ -118,7 +118,7 @@ public:
     }
 
 
-    SOCKET
+    core::SOCKET
     sockfd() const noexcept {
         return sockfd_;
     }
@@ -132,7 +132,7 @@ public:
 
     std::string
     remote_addr() const {
-        return sockaddr_to_string((const sockaddr*)&addr_);
+        return core::sockaddr_to_string((const sockaddr*)&addr_);
     }
 
 
@@ -143,7 +143,7 @@ public:
 
 
     int
-    recv(Package** pk, PackageTail** pkt, uint32_t tnow) noexcept {
+    recv(core::Package** pk, core::PackageTail** pkt, uint32_t tnow) noexcept {
         if (!pbuf_.decode(pk, pkt)) {
             return -1;
         }
@@ -159,18 +159,18 @@ public:
 
 
 private:
-    bool             authed_        { false };
-    SOCKET           sockfd_        { INVALID_SOCKET };
-    sockaddr_storage addr_          {};
-    socklen_t        addrlen_       { 0 };
-    uint32_t         last_recv_ms_  { 0 };
-    uint32_t         rcv_idem_      { 0 };
-    void*            user_data_     { nullptr };
-    PkgBuf           pbuf_          {};
+    bool             authed_       { false };
+    core::SOCKET     sockfd_       { core::INVALID_SOCKET };
+    sockaddr_storage addr_         {};
+    socklen_t        addrlen_      { 0 };
+    uint32_t         last_recv_ms_ { 0 };
+    uint32_t         rcv_idem_     { 0 };
+    void*            user_data_    { nullptr };
+    PkgBuf           pbuf_         {};
 }; // class TcpSession;
 
     
-} // namespace typhon
+} // namespace typhon::tcp
 
 
 #endif // __TYPHON_TCP_SESSION_HPP__

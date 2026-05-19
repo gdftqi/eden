@@ -1,8 +1,8 @@
-#include "kcp.hpp"
-#include "kcp_server.hpp"
+#include "kcp/session.hpp"
+#include "kcp/server.hpp"
 
 
-typhon::Kcp::Kcp(uint32_t conv, KcpServer* server, const void* addr, socklen_t addrlen) noexcept
+typhon::kcp::Session::Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept
     : server_(server) {
     kcp_ = ::ikcp_create(conv, this);
 
@@ -12,7 +12,7 @@ typhon::Kcp::Kcp(uint32_t conv, KcpServer* server, const void* addr, socklen_t a
     auto& c = conf();
     ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
     ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
-    ::ikcp_setmtu(kcp_, UDP_MTU);
+    ::ikcp_setmtu(kcp_, core::UDP_MTU);
 
     last_recv_ms_ = server->tnow();
 }

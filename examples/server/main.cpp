@@ -5,7 +5,7 @@
 #include "utils/sys.hpp"
 
 
-static typhon::TyService* g_server = nullptr;
+static typhon::Server* g_server = nullptr;
 
 
 static void
@@ -16,42 +16,42 @@ on_signal(int) {
 }
 
 
-class EchoService: public typhon::KcpServer::IEvent {
+class EchoService: public typhon::kcp::Server::IEvent {
 public:
     virtual int 
-    on_init(typhon::KcpServer* server) noexcept {
+    on_init(typhon::kcp::Server* server) noexcept {
         xINFO("{} running on {}", server->host(), ::pthread_self());
         return 0;
     }
 
 
     virtual void
-    on_stopped(typhon::KcpServer* server) noexcept {
+    on_stopped(typhon::kcp::Server* server) noexcept {
         xINFO("{} stopped on {}", server->host(), ::pthread_self());
     }
 
 
     virtual int
-    on_connected(typhon::Kcp::Ptr kcp) noexcept {
+    on_connected(typhon::kcp::Session::Ptr kcp) noexcept {
         xINFO("{} connected on {}", kcp->remote_addr(), ::pthread_self());
         return 0;
     }
 
 
     virtual void
-    on_disconnected(typhon::Kcp::Ptr kcp) noexcept {
+    on_disconnected(typhon::kcp::Session::Ptr kcp) noexcept {
         xINFO("{} disconnected on {}", kcp->remote_addr(), ::pthread_self());
     }
 
 
     virtual int
-    on_data(typhon::Kcp::Ptr kcp, const typhon::Package* pkg) noexcept {
+    on_data(typhon::kcp::Session::Ptr kcp, const typhon::core::Package* pkg) noexcept {
         return kcp->send_pk(
             pkg->pk_id, 
             kcp->next_snd_idem(), 
             pkg->pk_dst_id, 
             pkg->pk_data, 
-            pkg->pk_len - sizeof(typhon::Package)
+            pkg->pk_len - sizeof(typhon::core::Package)
         ) < 0 ? -1 : 0;
     }
 };
@@ -67,7 +67,7 @@ main(int argc, char** argv) {
     }
 
     EchoService echo;
-    typhon::TyService server(&echo, "0.0.0.0:5555", bpf_path);
+    typhon::Server server(&echo, "0.0.0.0:5555", bpf_path);
     g_server = &server;
 
     ::signal(SIGINT, on_signal);

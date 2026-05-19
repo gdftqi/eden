@@ -2,8 +2,8 @@
 #define __TYPHON_HPP__
 
 
-#include "bpf_router.hpp"
-#include "kcp_server.hpp"
+#include "bpf/router.hpp"
+#include "kcp/server.hpp"
 
 
 namespace typhon {
@@ -12,11 +12,11 @@ namespace typhon {
 /**
  * @brief Typhon 服务
  */
-class TyService {
-    TyService(const TyService&) = delete;
-    TyService& operator=(const TyService&) = delete;
-    TyService(TyService&&) = delete;
-    TyService& operator=(TyService&&) = delete;
+class Server {
+    Server(const Server&) = delete;
+    Server& operator=(const Server&) = delete;
+    Server(Server&&) = delete;
+    Server& operator=(Server&&) = delete;
 
 
 public:
@@ -26,7 +26,7 @@ public:
      * @param host 监听端口
      * @param bpf_obj_path eBPF 路径
      */
-    explicit TyService(KcpServer::IEvent* ev, const char* host, const char* bpf_obj_path = "") noexcept
+    explicit Server(kcp::Server::IEvent* ev, const char* host, const char* bpf_obj_path = "") noexcept
         : serv_ev_(ev)
         , host_(host)
         , bpf_obj_path_(bpf_obj_path ? bpf_obj_path : "") {
@@ -49,13 +49,13 @@ public:
 
 
 private:
-    KcpServer::IEvent*          serv_ev_       { nullptr };        // 服务事件
-    std::atomic<State>          state_         { State::Stopped }; // 状态
-    std::string                 host_;                             // 服务地址
-    std::string                 bpf_obj_path_;                     // eBPF 路径
-    BpfRouter                   router_;                           // eBPF 路由
-    std::vector<KcpServer::Ptr> servers_;                          // kcp servers
-    std::vector<std::thread>    threads_;                          // 线程池
+    kcp::Server::IEvent*          serv_ev_       { nullptr };              // 服务事件
+    std::atomic<core::State>      state_         { core::State::Stopped }; // 状态
+    std::string                   host_;                                   // 服务地址
+    std::string                   bpf_obj_path_;                           // eBPF 路径
+    bpf::Router                   router_;                                 // eBPF 路由
+    std::vector<kcp::Server::Ptr> servers_;                                // kcp servers
+    std::vector<std::thread>      threads_;                                // 线程池
 };
 
 

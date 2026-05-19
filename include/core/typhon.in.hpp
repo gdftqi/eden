@@ -26,7 +26,7 @@
 #include "utils/log.hpp"
 
 
-namespace typhon {
+namespace typhon::core {
 
 
 constexpr int UDP_MTU = 1232;
@@ -98,7 +98,7 @@ sockaddr_to_string(const sockaddr* addr) noexcept {
 }
 
 
-} // namespace typhon;
+} // namespace typhon::core;
 
 
 #endif // __TYPHON_IN_HPP__

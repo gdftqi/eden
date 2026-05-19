@@ -1,11 +1,11 @@
-#include "tcp_worker.hpp"
-#include "tcp_server.hpp"
+#include "tcp/worker.hpp"
+#include "tcp/server.hpp"
 
 
 void
-typhon::TcpWorker::run() noexcept {
-    auto expected = State::Stopped;
-    if (!state_.compare_exchange_strong(expected, State::Starting)) {
+typhon::tcp::Worker::run() noexcept {
+    auto expected = core::State::Stopped;
+    if (!state_.compare_exchange_strong(expected, core::State::Starting)) {
         return;
     }
 
@@ -14,7 +14,7 @@ typhon::TcpWorker::run() noexcept {
     int i, n, err;
     ::epoll_event events[2];
 
-    state_.store(State::Running);
+    state_.store(core::State::Running);
 
     while (running()) {
         err = 0;
@@ -44,20 +44,20 @@ typhon::TcpWorker::run() noexcept {
     }
 
     release();
-    state_.store(State::Stopped);
+    state_.store(core::State::Stopped);
 }
 
 
 void
-typhon::TcpWorker::init() noexcept {
+typhon::tcp::Worker::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     que_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(que_evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(que_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.fd = que_evfd_;
@@ -71,20 +71,20 @@ typhon::TcpWorker::init() noexcept {
 
 
 void
-typhon::TcpWorker::release() noexcept {
-    if (epfd_ != INVALID_SOCKET) {
+typhon::tcp::Worker::release() noexcept {
+    if (epfd_ != core::INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = INVALID_SOCKET;
+        epfd_ = core::INVALID_SOCKET;
     }
 
-    if (que_evfd_ != INVALID_SOCKET) {
+    if (que_evfd_ != core::INVALID_SOCKET) {
         ::close(que_evfd_);
-        que_evfd_ = INVALID_SOCKET;
+        que_evfd_ = core::INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != INVALID_SOCKET) {
+    if (stop_evfd_ != core::INVALID_SOCKET) {
         ::close(stop_evfd_);
-        stop_evfd_ = INVALID_SOCKET;
+        stop_evfd_ = core::INVALID_SOCKET;
     }
 
     size_t i, n;
@@ -103,7 +103,7 @@ typhon::TcpWorker::release() noexcept {
 
 
 int
-typhon::TcpWorker::on_stop_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Worker::on_stop_handle(const ::epoll_event& ev) noexcept {
     int err = 0;
 
     if (ev.events & EPOLLIN) {
@@ -125,7 +125,7 @@ typhon::TcpWorker::on_stop_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
     if (!(ev.events & EPOLLIN)) {
         return 0;
     }
@@ -173,7 +173,7 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::TcpWorker::on_qe_recv_handle(QEvent* qe) noexcept {
+typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvBuf*)qe->qe_data;
     auto* sess = server_->get_session(rbuf->fd);
     ASSERT(sess != nullptr, "session not found for fd: {}", rbuf->fd);
@@ -183,8 +183,8 @@ typhon::TcpWorker::on_qe_recv_handle(QEvent* qe) noexcept {
     }
 
     int res;
-    Package* pk;
-    PackageTail* pkt;
+    core::Package* pk;
+    core::PackageTail* pkt;
     while (1) {
         res = sess->recv(&pk, &pkt, server_->tnow());
         if (res < 0) {
@@ -208,16 +208,16 @@ typhon::TcpWorker::on_qe_recv_handle(QEvent* qe) noexcept {
 
 
 int
-typhon::TcpWorker::on_qe_add_sess_handle(QEvent* qe) noexcept {
-    auto fd = (SOCKET)(uintptr_t)qe->qe_data;
+typhon::tcp::Worker::on_qe_add_sess_handle(QEvent* qe) noexcept {
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->add_session(fd);
     return 0;
 }
 
 
 int
-typhon::TcpWorker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
-    auto fd = (SOCKET)(uintptr_t)qe->qe_data;
+typhon::tcp::Worker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->remove_session(fd);
     return 0;
 }
