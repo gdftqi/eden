@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "typhon.hpp"
+#include "utils/sys.hpp"
 
 
 static typhon::TyService* g_server = nullptr;
@@ -60,6 +61,11 @@ int
 main(int argc, char** argv) {
     const char* bpf_path = (argc > 1) ? argv[1] : "";
 
+    if (!typhon::utils::lock_pid("server.pid")) {
+        xERROR("程序已启动");
+        ::exit(EXIT_FAILURE);
+    }
+
     EchoService echo;
     typhon::TyService server(&echo, "0.0.0.0:5555", bpf_path);
     g_server = &server;
@@ -69,5 +75,5 @@ main(int argc, char** argv) {
 
     xINFO("kcp echo listening on 0.0.0.0:5555");
     server.run();
-    exit(0);
+    ::exit(EXIT_SUCCESS);
 }
