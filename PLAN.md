@@ -39,28 +39,36 @@
 
 ### 2c. TcpSession + 消息派发
 
-- [x] TcpSession 抽象：per-fd 切包状态（inbuf + cursor）+ last_recv_ms / last_send_ms + 可选 outbuf
-- [x] TcpServer 维护 `TcpSession* sessions_[65536]`（raw 指针数组，按 fd 索引）。
-      worker 通过 `server_->get_session(fd)` 读；accept / close 时由 server 主线程 add / remove。
-      *注：偏离严格 share-nothing 设计 —— 跨线程访问，已知 race 隐患，生产前需迁移到 per-worker 维护或加并发保护*
-- [x] `handlers[65536]`：按 pk_id O(1) 派发，存于 TcpServer，所有 worker 共享读
-- [x] 注册接口 `regist_handler(pk_id, fn)`（启动期注册，worker 跑起来后不再改写）
-- [ ] `PlayerRoutingTable`：`tbb::concurrent_hash_map<player_id, ClientInfo>`
-      存路由元数据（gateway_fd / scene_id / last_active_ms 等），共享于所有 TcpWorker；
-      登录登出时写，消息处理时读。需引入 `libtbb-dev` 依赖。
+- [x] TcpSession 抽象：per-fd 切包状态（PkgBuf with rpos/wpos）+ last_recv_ms + rcv_idem + authed 标志
+- [x] PkgBuf：65535 字节线性 buffer + 阈值压缩；decode 兼容 client→gateway / gateway→backend 双向 pk_len 语义
+- [x] TcpSession::recv 三态返回：`1` 真包 / `0` 重复或非法（已 drain）/ `-1` buffer 无完整包
+- [x] **统一队列事件 `QEvent { Recv, AddSess, RmvSess }`** —— 取代单一 RcvBuf 队列
+- [x] TcpServer 维护 `TcpSession* sessions_[65536]`（raw 指针数组，按 fd 索引）
+- [x] **session lifecycle 全部走 worker 队列**：server 主线程只 push `AddSess / Recv / RmvSess` 事件，worker 串行处理
+      → 同一 fd 的事件由 SPSC FIFO 保证有序，`sessions_[fd]` 元素只被一个 worker 读写，**消除跨线程 race**
+- [x] `handlers[65536]`：按 pk_id O(1) 派发，存于 TcpServer，所有 worker 共享读（启动期注册后不变）
+- [x] 注册接口 `regist_handler(pk_id, fn)`
+- [x] worker 退出前 drain 队列释放残留 RcvBuf；TcpServer release 时统一 delete 残留 TcpSession
+- [ ] `PlayerRoutingTable`（暂搁置）：原计划用 `tbb::concurrent_hash_map<player_id, ClientInfo>`，
+      若 Phase 3 上 Lua 业务层 + 按 player_id 或 scene_id 分片，则不再需要此全局 map
+      （player → worker 由公式 `id % N` 直接确定，跨 worker 通信走 mailbox 消息）
 
-### 2d. KcpServer ↔ TcpServer 集成
+### 2d. TcpConnector + KcpServer ↔ TcpServer 集成
 
-- [ ] BackendConn：网关侧 TCP 长连客户端，非阻塞 connect / read / write，inbuf 切包 + outbuf + EPOLLOUT
-- [ ] BackendConn fd 加入 KcpServer 主 epoll，主循环按 fd 分发到 `on_backend_handle`
-- [ ] on_data：按 pk_dst_id 选 backend → stamp PackageTail（pkt_src_id / pkt_src_addr）→ write
-- [ ] on_backend_handle：从 BackendConn inbuf 切完整 Package → 查 sessions_ → kcp->send_pk 回客户端
-- [ ] 单 backend instance 端到端跑通
+- [ ] **TcpConnector**：网关侧 TCP 长连客户端
+      - 非阻塞 `connect()`，状态机:`Disconnected` / `Connecting` / `Connected`
+      - inbuf 复用 PkgBuf，按"网关→后端"方向(pk_len 含 tail)切包
+      - outbuf + EPOLLOUT 处理 partial write
+      - 重连(指数退避)留接口,2d 阶段可先不实现完整重连
+- [ ] TcpConnector fd 加入 KcpServer 主 epoll，主循环按 fd 分发到 `on_backend_handle`
+- [ ] `on_data`(KCP → backend)：按 `pk_dst_id` 选 TcpConnector → stamp PackageTail（pkt_src_id / pkt_src_addr） + 重写 pk_len 含 tail → write
+- [ ] `on_backend_handle`(backend → KCP)：TcpConnector inbuf decode → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
+- [ ] 单 backend instance 端到端跑通 (KcpServer 上挂 1 个 TcpConnector,目标地址硬编码)
 
 ### 2e. Echo + PING/PONG
 
 - [ ] EchoBackend 进程（用 TcpServer + TcpWorker + 一个 echo handler）
-- [ ] 跑通完整链路：client → KcpServer → BackendConn → TcpServer → handler → 反向
+- [ ] 跑通完整链路：client → KcpServer → TcpConnector → TcpServer → handler → 反向
 - [ ] PING / PONG handler + Session.last_recv_ms 心跳判定
 - [ ] 验证 handlers[] 派发机制 + 心跳超时清理 session
 
@@ -100,3 +108,10 @@
   - MVP / 开发：网关 + 后端 Docker 同 EC2，localhost 通信，便于调试
   - 生产：网关独立 EC2（c5n/c6gn 网络优化型 + CPU pinning），后端 Docker 跑独立 EC2（同 VPC），etcd 单独一组
   - 同 VPC 内 RTT < 1ms，Docker overhead < 1%，容器化收益（滚动升级 / 隔离 / 镜像分发）远大于损耗
+- [ ] **TcpServer 切换到 io_uring**（需要 kernel ≥ 5.10）
+  - 当前实现：epoll + 非阻塞 recv/send/accept，每次 syscall 都进出内核
+  - io_uring：submission queue 一次性批量提交多个 op，completion queue 异步收割，单 syscall 处理 N 个连接的 I/O → **大幅降低 syscall 开销**
+  - 优势在**高连接数 + 高频小包**场景(典型 MMO 后端);本机基准能看到 30-50% syscall CPU 下降
+  - 代价：编程模型变(从"被动 epoll_wait → 主动处理"变成"submit → poll cqe"),代码改动较大
+  - 时机：profile 数据显示 epoll/recv/send syscall 占 worker CPU > 20% 时再上
+  - 实施提示：先在 TcpWorker 切换(per-worker 一个 ring),TcpServer 主线程(accept)可保留 epoll 不动

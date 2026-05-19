@@ -76,7 +76,7 @@ public:
         State expected = State::Running;
         if (state_.compare_exchange_strong(expected, State::Stopping)) {
             constexpr uint64_t event = 1;
-            auto n = ::write(que_evfd_, &event, sizeof(event));
+            auto n = ::write(stop_evfd_, &event, sizeof(event));
             if (n != sizeof(event)) {
                 xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }

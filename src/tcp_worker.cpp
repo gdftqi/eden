@@ -88,9 +88,8 @@ typhon::TcpWorker::release() noexcept {
     }
 
     size_t i, n;
-    while (!rque_.empty()) {
-        QEvent* qes[16];
-        n = rque_.try_dequeue_bulk(qes, 16);
+    QEvent* qes[16];
+    while ((n = rque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
             auto& qe = qes[i];
             if (qe->qe_type == QEvent::Type::Recv) {
@@ -145,9 +144,8 @@ typhon::TcpWorker::on_que_handle(const ::epoll_event& ev) noexcept {
     sending_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
-    while (!rque_.empty()) {
-        QEvent* qes[16];
-        n = rque_.try_dequeue_bulk(qes, 16);
+     QEvent* qes[16];
+    while ((n = rque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
             switch (qes[i]->qe_type) {
             case QEvent::Type::Recv:

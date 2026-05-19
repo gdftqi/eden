@@ -190,12 +190,7 @@ typhon::TcpServer::on_listen_handle(const ::epoll_event& ev) noexcept {
 int
 typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
     SOCKET fd = ev.data.fd;
-
-    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
-        return 0;
-    }
+    bool del = false;
 
     if (ev.events & EPOLLIN) {
         int n;
@@ -216,8 +211,7 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
                     xERROR("{} recv 失败: errno = {}, errstr = {}", fd, errno, ::strerror(errno));
                 }
 
-                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-                workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
+                del = true;
                 break;
             } else {
                 RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);
@@ -227,6 +221,15 @@ typhon::TcpServer::on_session_handle(const ::epoll_event& ev) noexcept {
                 workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::Recv, rbuf));
             }
         }
+    }
+
+    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+        del = true;
+    }
+
+    if (del) {
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
     }
 
     return 0;
