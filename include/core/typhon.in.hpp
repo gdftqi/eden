@@ -13,7 +13,9 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <immintrin.h>
 #include <netdb.h>
+#include <netinet/tcp.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -75,6 +77,10 @@ udp_bind(const std::string& host) noexcept;
 
 SOCKET
 tcp_listen(const std::string& host) noexcept;
+
+
+SOCKET
+tcp_connect(const std::string& host) noexcept;
 
 
 inline std::string

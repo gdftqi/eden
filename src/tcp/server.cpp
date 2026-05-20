@@ -113,12 +113,8 @@ typhon::tcp::Server::release() noexcept {
 
     workers_.clear();
     threads_.clear();
-
     for (auto& s: sessions_) {
-        if (s != nullptr) {
-            delete s;
-            s = nullptr;
-        }
+        s = nullptr;
     }
 }
 

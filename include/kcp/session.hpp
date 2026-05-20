@@ -34,7 +34,7 @@ public:
      */
     static Ptr
     create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
-        return Ptr(new Session(conv, server, addr, addrlen));
+        return std::make_unique<Session>(conv, server, addr, addrlen);
     }
 
 
@@ -70,6 +70,13 @@ public:
     getconv(const void* data, int len) noexcept {
         return len < 4 ? 0 : ::ikcp_getconv(data);
     }
+
+
+    /**
+     * @brief 构造函数
+     */
+    explicit
+    Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept;
 
 
     /**
@@ -269,13 +276,6 @@ public:
 
 
 private:
-    /**
-     * @brief 构造函数
-     */
-    explicit
-    Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept;
-
-
     /**
      * @brief 从 KCP 接收队列里取出一条完整的应用层消息(对应一次 ikcp_send)。
      *        KCP 是面向消息的:返回的就是对端一次 send 写入的整体,**不会半包也不会粘包**。

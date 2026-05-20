@@ -96,12 +96,27 @@ class Session {
 
 
 public:
+    typedef std::unique_ptr<Session> Ptr;
+
+
+    static Ptr
+    create(core::SOCKET sockfd, uint32_t tnow) noexcept {
+        return std::make_unique<Session>(sockfd, tnow);
+    }
+
+
     explicit
     Session(core::SOCKET sockfd, uint32_t tnow) noexcept
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
         , last_recv_ms_(tnow) {
+        constexpr int on = 1;
+        constexpr int bufsize = 1024 * 1024 * 8;
         ASSERT(::getpeername(sockfd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
+        ASSERT(core::set_nonblocking(sockfd_) == 0, "failed to set non-blocking");
+        ASSERT(::setsockopt(sockfd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == 0, "failed to set TCP_NODELAY");
+        ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) == 0, "failed to set send buffer");
+        ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) == 0, "failed to set receive buffer");
     }
 
 
@@ -156,6 +171,10 @@ public:
         last_recv_ms_ = tnow;
         return 1;
     }
+
+
+    int
+    send(core::Package* pk) noexcept;
 
 
 private:

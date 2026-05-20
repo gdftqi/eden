@@ -62,6 +62,11 @@ public:
     
     class IEvent {
     public:
+        virtual
+        ~IEvent() noexcept
+        {}
+
+
         virtual int 
         on_init(Server*) noexcept { 
             return 0; 
@@ -74,15 +79,20 @@ public:
 
 
         virtual int 
-        on_connected(Session::Ptr) noexcept = 0;
+        on_connected(Session::Ptr) noexcept {
+            return 0;
+        }
 
 
         virtual void 
-        on_disconnected(Session::Ptr) noexcept = 0;
+        on_disconnected(Session::Ptr) noexcept
+        {}
 
 
         virtual int 
-        on_data(Session::Ptr, const core::Package*) noexcept = 0;
+        on_data(Session::Ptr, const core::Package*) noexcept {
+            return 0;
+        }
     }; // class IEvent;
 
 

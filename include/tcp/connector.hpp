@@ -1,0 +1,57 @@
+#ifndef __TYPHON_TCP_CONNECTOR_HPP__
+#define __TYPHON_TCP_CONNECTOR_HPP__
+
+
+#include "core/typhon.in.hpp"
+
+
+namespace typhon::tcp {
+
+
+class Connector {
+    Connector(const Connector&) = delete;
+    Connector& operator=(const Connector&) = delete;
+    Connector(Connector&&) = delete;
+    Connector& operator=(Connector&&) = delete;
+
+
+public:
+    explicit
+    Connector(const char* host) noexcept
+        : host_(host)
+    {}
+
+
+    ~Connector() noexcept {
+        if (cfd_ != core::INVALID_SOCKET) {
+            ::close(cfd_);
+        }
+    }
+
+
+    int
+    connect() noexcept {
+        if (cfd_ == core::INVALID_SOCKET) {
+            cfd_ = core::tcp_connect(host_.c_str());
+            if (cfd_ < 0) {
+                int err = errno;
+                cfd_ = core::INVALID_SOCKET;
+                return -err;
+            }
+        }
+
+        return 0;
+    }
+
+
+private:
+    core::SOCKET cfd_   { core::INVALID_SOCKET };
+    std::string  host_;
+}; // class Connector;
+
+    
+} // namespace typhon::tcp;
+
+
+
+#endif // __TYPHON_TCP_CONNECTOR_HPP__
