@@ -26,6 +26,7 @@ typhon::tcp::Server::run() noexcept {
 
     state_.store(core::State::Running);
 
+    ASSERT(::listen(lfd_, SOMAXCONN) == 0, "监听 TCP fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     while (running()) {
         err = 0;
         n = ::epoll_wait(epfd_, events, MAX_EVENTS, TIMEOUT);
