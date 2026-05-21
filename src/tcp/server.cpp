@@ -14,6 +14,11 @@ typhon::tcp::Server::run() noexcept {
     }
 
     init();
+    if (event_->on_init(this) != 0) {
+        release();
+        state_.store(core::State::Stopped);
+        return;
+    }
 
     int i, n, err;
     ::epoll_event events[MAX_EVENTS];
@@ -60,6 +65,7 @@ typhon::tcp::Server::run() noexcept {
     }
 
     release();
+    event_->on_stopped(this);
 
     state_.store(core::State::Stopped);
 }
@@ -173,7 +179,7 @@ typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
 
             ::epoll_event event;
             event.data.fd = cfd;
-            event.events  = EPOLLIN | EPOLLET;
+            event.events = EPOLLIN | EPOLLET | EPOLLOUT;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             workers_[cfd % workers_.size()]->push(new QEvent(QEvent::Type::AddSess, (void*)(uintptr_t)cfd));
         }
@@ -219,12 +225,15 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
         }
     }
 
+    if (ev.events & EPOLLOUT) {
+        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::Send, (void*)(uintptr_t)fd));
+    }
+
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
         del = true;
     }
 
     if (del) {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
         workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
     }
 

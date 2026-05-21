@@ -4,6 +4,7 @@
 
 #include "bpf/router.hpp"
 #include "kcp/server.hpp"
+#include "tcp/server.hpp"
 
 
 namespace typhon {

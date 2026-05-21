@@ -43,19 +43,13 @@ public:
         virtual void
         on_disconnected(Session*) noexcept
         {}
-
-
-        virtual int
-        on_data(Session*, core::Package*, core::PackageTail*) noexcept {
-            return 0;
-        }
     }; // class IEvent;
 
 
     static constexpr int MAX_CONN = 1024 * 8;
 
 
-    typedef int (*PackageHandler)(Session* s, const core::Package* p) noexcept;
+    typedef int (*PackageHandler)(Session* s, const core::Package* pk, const core::PackageTail* pkt) noexcept;
 
 
     explicit
@@ -126,12 +120,18 @@ public:
     add_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         sessions_[fd] = Session::create(fd, tnow_);
+        if (event_->on_connected(sessions_[fd].get()) != 0) {
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+            sessions_[fd] = nullptr;
+        }
     }
 
 
     void
     remove_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));  
+        event_->on_disconnected(sessions_[fd].get());
         sessions_[fd] = nullptr;
     }
 
@@ -173,17 +173,17 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    core::SOCKET                lfd_                  { core::INVALID_SOCKET };
-    core::SOCKET                stop_evfd_            { core::INVALID_SOCKET };
-    core::SOCKET                epfd_                 { core::INVALID_SOCKET };
-    uint32_t                    tnow_                 { 0 };
-    IEvent*                     event_                { nullptr };
-    std::atomic<core::State>    state_                { core::State::Stopped };
-    std::string                 host_;
+    core::SOCKET             lfd_                     { core::INVALID_SOCKET };
+    core::SOCKET             stop_evfd_               { core::INVALID_SOCKET };
+    core::SOCKET             epfd_                    { core::INVALID_SOCKET };
+    uint32_t                 tnow_                    { 0 };
+    IEvent*                  event_                   { nullptr };
+    std::atomic<core::State> state_                   { core::State::Stopped };
+    std::string              host_;
     std::vector<Worker::Ptr> workers_;
-    std::vector<std::thread>    threads_;
-    Session::Ptr                sessions_[MAX_CONN]   { nullptr };
-    PackageHandler              handlers[UINT16_MAX]  { nullptr };
+    std::vector<std::thread> threads_;
+    Session::Ptr             sessions_[MAX_CONN]      { nullptr };
+    PackageHandler           handlers[UINT16_MAX + 1] { nullptr };
 };
 
     

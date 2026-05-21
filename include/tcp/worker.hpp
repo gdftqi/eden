@@ -19,6 +19,7 @@ struct RcvBuf {
 struct QEvent {
     enum Type: uint8_t {
         Recv,       ///< 收到数据
+        Send,       ///< 发送数据
         AddSess,    ///< 添加会话
         RmvSess,    ///< 移除会话
     };
@@ -124,6 +125,10 @@ private:
 
 
     int
+    on_qe_send_handle(QEvent* qe) noexcept;
+
+
+    int
     on_qe_add_sess_handle(QEvent* qe) noexcept;
 
 
@@ -142,7 +147,6 @@ private:
 
     
 } // namespace typhon::tcp;
-
 
 
 #endif // __TYPHON_TCP_WORKER_HPP__

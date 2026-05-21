@@ -178,14 +178,19 @@ public:
 
 
 private:
-    bool             authed_       { false };
-    core::SOCKET     sockfd_       { core::INVALID_SOCKET };
-    sockaddr_storage addr_         {};
-    socklen_t        addrlen_      { 0 };
-    uint32_t         last_recv_ms_ { 0 };
-    uint32_t         rcv_idem_     { 0 };
-    void*            user_data_    { nullptr };
-    PkgBuf           pbuf_         {};
+    int
+    send(const uint8_t* data, size_t len) noexcept;
+
+
+    bool                 authed_       { false };
+    core::SOCKET         sockfd_       { core::INVALID_SOCKET };
+    sockaddr_storage     addr_         {};
+    socklen_t            addrlen_      { 0 };
+    uint32_t             last_recv_ms_ { 0 };
+    uint32_t             rcv_idem_     { 0 };
+    void*                user_data_    { nullptr };
+    std::vector<uint8_t> sbuf_         {};
+    PkgBuf               pbuf_         {};
 }; // class TcpSession;
 
     

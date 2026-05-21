@@ -46,5 +46,4 @@ lock_pid(const char* fname) noexcept {
 } // namespace typhon::utils
 
 
-
 #endif // __TYPHON_UTILS_SYS_HPP__

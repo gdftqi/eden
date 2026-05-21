@@ -53,5 +53,4 @@ private:
 } // namespace typhon::tcp;
 
 
-
 #endif // __TYPHON_TCP_CONNECTOR_HPP__

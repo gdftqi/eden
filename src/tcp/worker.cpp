@@ -152,6 +152,10 @@ typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
                 on_qe_recv_handle(qes[i]);
                 break;
 
+            case QEvent::Type::Send:
+                on_qe_send_handle(qes[i]);
+                break;
+
             case QEvent::Type::AddSess:
                 on_qe_add_sess_handle(qes[i]);
                 break;
@@ -199,10 +203,24 @@ typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
             continue;
         }
 
-        handler(sess, pk);
+        handler(sess, pk, pkt);
     }
 
     ::mi_free(rbuf);
+    return 0;
+}
+
+
+int
+typhon::tcp::Worker::on_qe_send_handle(QEvent* qe) noexcept {
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
+    auto* sess = server_->get_session(fd);
+    if (sess != nullptr) {
+        int n = sess->send(nullptr);
+        if (n < 0) {
+            xWARN("failed to send data to fd {}, err = {}", fd, -n);
+        }
+    }
     return 0;
 }
 
