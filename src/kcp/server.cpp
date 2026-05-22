@@ -85,8 +85,11 @@ typhon::kcp::Server::run() noexcept {
 
 int
 typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
-    auto kcp = ((Session*)user)->shared_from_this();
-    kcp->server()->sque_.emplace_back(SendBuf::create(kcp, buf, len));
+    auto s = ((Session*)user)->shared_from_this();
+    auto* server = s->server();
+    server->sque_.emplace_back(
+        std::make_unique<core::SndBuf>(s->addr(), s->addrlen(), buf, len, server->tnow())
+    );
     return 0;
 }
 
@@ -262,8 +265,8 @@ typhon::kcp::Server::update() noexcept {
             auto& msg = msgs[i];
             auto& hdr = msg.msg_hdr;
 
-            hdr.msg_name = buf->kcp->addr();
-            hdr.msg_namelen = buf->kcp->addrlen();
+            hdr.msg_name = &buf->addr;
+            hdr.msg_namelen = buf->addrlen;
             hdr.msg_iov = &iovecs[i];
             hdr.msg_iovlen = 1;
 

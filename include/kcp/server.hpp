@@ -2,9 +2,8 @@
 #define __TYPHON_KCP_SERVER_HPP__
 
 
-#include <deque>
-
 #include "kcp/session.hpp"
+#include "core/buffer.hpp"
 #include "core/package.hpp"
 
 
@@ -22,47 +21,9 @@ class Server {
     Server& operator=(Server&&) = delete;
 
 
-    struct SendBuf {
-        typedef std::unique_ptr<SendBuf> Ptr;
-
-
-        static Ptr
-        create(Session::Ptr kcp, const char* buf, uint32_t len) noexcept {
-            return std::make_unique<SendBuf>(kcp, buf, len);
-        }
-
-
-        SendBuf(Session::Ptr k, const char* b, uint32_t l) noexcept
-            : kcp(k), len(l) {
-            buf = (char*)::mi_malloc(len);
-            ASSERT(buf != nullptr, "failed to allocate memory for SendBuf");
-            ::memcpy(buf, b, len);
-            time = kcp->server()->tnow();
-        }
-
-
-        ~SendBuf() noexcept {
-            ::mi_free(buf);
-        }
-
-
-        Session::Ptr kcp;
-        uint32_t len;
-        uint32_t time;
-        char* buf;
-
-
-        SendBuf(const SendBuf&) = delete;
-        SendBuf& operator=(const SendBuf&) = delete;
-        SendBuf(SendBuf&&) = delete;
-        SendBuf& operator=(SendBuf&&) = delete;
-    }; // class SendBuf;
-
-
 public:
     typedef std::unique_ptr<Server> Ptr;
     typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
-    typedef std::deque<SendBuf::Ptr> SendBufQue;
 
     
     class IEvent {
@@ -218,7 +179,7 @@ private:
     ::mmsghdr                rmsgs_[MAX_RECV]   {};
     ::iovec                  riovecs_[MAX_RECV] {};
     ::sockaddr_storage       raddrs_[MAX_RECV]  {};
-    SendBufQue               sque_;
+    core::SndBuf::Que        sque_;
 };
 
 

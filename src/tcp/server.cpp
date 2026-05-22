@@ -217,7 +217,7 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 del = true;
                 break;
             } else {
-                RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);
+                RcvArg* rbuf = (RcvArg*)::mi_malloc(sizeof(RcvArg) + n);
                 ASSERT(rbuf != nullptr, "failed to allocate memory for RcvBuf");
                 rbuf->len = n;
                 rbuf->fd = fd;

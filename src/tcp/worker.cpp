@@ -93,7 +93,7 @@ typhon::tcp::Worker::release() noexcept {
         for (i = 0; i < n; ++i) {
             auto& qe = qes[i];
             if (qe->qe_type == QEvent::Type::Recv) {
-                auto* rbuf = (RcvBuf*)qe->qe_data;
+                auto* rbuf = (RcvArg*)qe->qe_data;
                 ::mi_free(rbuf);
             }
             delete qe;
@@ -178,7 +178,7 @@ typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
 
 int
 typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
-    auto* rbuf = (RcvBuf*)qe->qe_data;
+    auto* rbuf = (RcvArg*)qe->qe_data;
     auto* sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);

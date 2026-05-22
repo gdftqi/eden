@@ -120,7 +120,7 @@ public:
      * @brief Kcp 对端地址长度
      */
     ::socklen_t
-    addrlen() noexcept {
+    addrlen() const noexcept {
         return addrlen_;
     }
 
@@ -129,7 +129,7 @@ public:
      * @brief 对端地址(字符串)
      */
     std::string
-    remote_addr() noexcept {
+    remote_addr() const noexcept {
         return core::sockaddr_to_string((sockaddr*)&addr_);
     }
 

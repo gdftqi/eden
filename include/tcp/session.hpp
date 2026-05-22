@@ -2,7 +2,7 @@
 #define __TYPHON_TCP_SESSION_HPP__
 
 
-#include "core/typhon.in.hpp"
+#include "core/buffer.hpp"
 #include "core/package.hpp"
 
 
@@ -14,85 +14,6 @@ class Session {
     Session& operator=(const Session&) = delete;
     Session(Session&&) = delete;
     Session& operator=(Session&&) = delete;
-
-
-    struct PkgBuf {
-        uint32_t rpos { 0 };
-        uint32_t wpos { 0 };
-        uint8_t  buf[core::PKG_MAX_LEN];
-
-
-        size_t
-        readable() const noexcept {
-            return wpos - rpos;
-        }
-
-
-        size_t
-        writable() const noexcept {
-            return core::PKG_MAX_LEN - wpos;
-        }
-
-
-        bool
-        append(const uint8_t* data, uint32_t len) noexcept {
-            if (writable() < len) {
-                compact();
-                if (writable() < len) {
-                    return false;
-                }
-            }
-
-            ::memcpy(buf + wpos, data, len);
-            wpos += len;
-            return true;
-        }
-
-
-        bool
-        decode(core::Package** pkg, core::PackageTail** pkt) noexcept {
-            if (readable() < core::PKG_HEADER_LEN + core::PKG_TAIL_LEN) {
-                return false;
-            }
-
-            auto* p = (core::Package*)(buf + rpos);
-            uint16_t pklen = ::ntohs(p->pk_len);
-            size_t total = pklen;
-            if (readable() < total) {
-                return false;
-            }
-
-            pk_ntoh(p);
-            auto* t = (core::PackageTail*)(buf + rpos + pklen - core::PKG_TAIL_LEN);
-            pkt_ntoh(t);
-            *pkg = p;
-            *pkt = t;
-            rpos += total;
-            return true;
-        }
-
-        
-        void
-        reset() noexcept {
-            rpos = wpos = 0;
-        }
-
-
-        void
-        compact() noexcept {
-            if (rpos == 0) {
-                return;
-            }
-
-            size_t remaining = readable();
-            if (remaining > 0) {
-                ::memmove(buf, buf + rpos, remaining);
-            }
-
-            rpos = 0;
-            wpos = remaining;
-        }
-    }; // PkgBuf;
 
 
 public:
@@ -213,7 +134,7 @@ private:
     uint32_t             rcv_idem_     { 0 };
     void*                user_data_    { nullptr };
     std::vector<uint8_t> sbuf_         {};
-    PkgBuf               pbuf_         {};
+    core::RcvBuf         pbuf_         {};
 }; // class TcpSession;
 
     

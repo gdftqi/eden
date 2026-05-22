@@ -9,7 +9,7 @@
 namespace typhon::tcp {
 
 
-struct RcvBuf {
+struct RcvArg {
     core::SOCKET fd;
     uint32_t     len;
     uint8_t      data[];
