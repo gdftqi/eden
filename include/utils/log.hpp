@@ -45,7 +45,6 @@ set_log_level(spdlog::level::level_enum level) noexcept {
     do { \
         if (!(expr)) { \
             xFATAL("Assertion failed: {} | " fmt, #expr, ##__VA_ARGS__); \
-            std::abort(); \
         } \
     } while (0)
 

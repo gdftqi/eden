@@ -21,8 +21,8 @@ typhon::tcp::Session::send(core::Package* pk) noexcept {
         return -1;
     }
 
+    core::pk_hton(pk);
     uint8_t* buf = (uint8_t*)pk;
-    core::pk_hton((core::Package*)pk);
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), buf, buf + total);

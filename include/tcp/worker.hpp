@@ -86,7 +86,7 @@ public:
 
     void
     push(QEvent* ev) noexcept {
-        rque_.enqueue(std::move(ev));
+        ASSERT(rque_.enqueue(std::move(ev)), "spsc 队列已满");
         bool expected = false;
         if (sending_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;

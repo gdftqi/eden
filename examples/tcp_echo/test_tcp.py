@@ -28,34 +28,49 @@ TIMEOUT_SEC   = 15.0      # 单条请求超时阈值(超过算 fail)
 
 # ----- Package 协议格式(必须和 typhon C++ 端 package.hpp 保持一致)-----
 # struct Package {
-#     uint16_t pk_len;     // 整包总长 = HEADER_SIZE + payload
+#     uint16_t pk_len;     // 整包总长 = HEADER + payload + TAIL (后端方向 pk_len 含 tail)
 #     uint16_t pk_id;      // 业务消息号
 #     uint32_t pk_idem;    // 幂等 ID,客户端单调递增,必须 ≠ 0
 #     uint32_t pk_dst_id;  // 目标服务类型(路由键)
 #     uint8_t  pk_data[];  // payload
 # };
-# 所有多字节字段一律网络字节序(big-endian)
+# struct PackageTail {        // 网关 stamp,**到 backend 的包必然带这 8 字节**
+#     uint32_t pkt_src_id;    // FromPlayerID
+#     uint32_t pkt_src_addr;  // 客户端 IPv4 地址(uint32)
+# };
+# 所有多字节字段一律网络字节序(big-endian)。
+# 本测试直连 backend,所以自己模拟 gateway 把 tail 也打上。
 HEADER_FMT  = '!HHII'
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
+TAIL_FMT    = '!II'
+TAIL_SIZE   = struct.calcsize(TAIL_FMT)
 assert HEADER_SIZE == 12
+assert TAIL_SIZE   == 8
 
 PK_ID_PING = 1
 PK_DST_ID  = 0
 
+# 模拟 gateway stamp 的 tail 字段(测试里固定值即可)
+PKT_SRC_ID   = 0
+PKT_SRC_ADDR = 0x7f000001   # 127.0.0.1
+
 
 def pack_pk(pk_id, pk_idem, pk_dst_id, payload):
-    pk_len = HEADER_SIZE + len(payload)
-    return struct.pack(HEADER_FMT, pk_len, pk_id, pk_idem, pk_dst_id) + payload
+    pk_len = HEADER_SIZE + len(payload) + TAIL_SIZE
+    return (struct.pack(HEADER_FMT, pk_len, pk_id, pk_idem, pk_dst_id)
+            + payload
+            + struct.pack(TAIL_FMT, PKT_SRC_ID, PKT_SRC_ADDR))
 
 
 def unpack_pk(data):
-    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None """
-    if len(data) < HEADER_SIZE:
+    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None。tail 校验后丢弃 """
+    if len(data) < HEADER_SIZE + TAIL_SIZE:
         return None
     pk_len, pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
     if pk_len != len(data):
         return None
-    return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
+    payload = data[HEADER_SIZE:-TAIL_SIZE]
+    return (pk_id, pk_idem, pk_dst_id, payload)
 
 
 class Stats:
@@ -257,7 +272,8 @@ def main():
     signal.signal(signal.SIGTERM, handle_sig)
 
     print(f'TCP MMO 模拟压测:{NUM_CLIENTS} 个客户端 × {SEND_RATE_HZ} Hz × {DATA_SIZE} B payload '
-          f'(+ {HEADER_SIZE} B header) -> {SERVER_HOST}:{SERVER_PORT}   (按 Ctrl+C 停止)')
+          f'(+ {HEADER_SIZE} B header + {TAIL_SIZE} B tail) -> {SERVER_HOST}:{SERVER_PORT}   '
+          f'(按 Ctrl+C 停止)')
 
     threads = [threading.Thread(target=run_client, args=(i, stats, stop_event))
                for i in range(NUM_CLIENTS)]

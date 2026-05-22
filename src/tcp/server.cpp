@@ -38,7 +38,7 @@ typhon::tcp::Server::run() noexcept {
             break;
         }
 
-        tnow_ = (uint32_t)core::systime_ms() - base_ms;
+        tnow_.store((uint32_t)core::systime_ms() - base_ms, std::memory_order_relaxed);
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
@@ -218,6 +218,7 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 break;
             } else {
                 RcvBuf* rbuf = (RcvBuf*)::mi_malloc(sizeof(RcvBuf) + n);
+                ASSERT(rbuf != nullptr, "failed to allocate memory for RcvBuf");
                 rbuf->len = n;
                 rbuf->fd = fd;
                 ::memcpy(rbuf->data, buf, n);

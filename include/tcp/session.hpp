@@ -63,7 +63,7 @@ class Session {
             }
 
             pk_ntoh(p);
-            auto* t = (core::PackageTail*)(buf + rpos + pklen);
+            auto* t = (core::PackageTail*)(buf + rpos + pklen - core::PKG_TAIL_LEN);
             pkt_ntoh(t);
             *pkg = p;
             *pkt = t;
@@ -163,7 +163,7 @@ public:
             return -1;
         }
 
-        if ((*pk)->pk_idem <= rcv_idem_) {
+        if (rcv_idem_ >= (*pk)->pk_idem) {
             return 0;
         }
 
@@ -173,6 +173,25 @@ public:
     }
 
 
+    /**
+     * @brief 把 Package 发给对端;若内核 buffer 满则把剩余字节挂到 sbuf_ 等下次 flush。
+     *
+     * @warning **就地副作用**:函数内部会调 pk_hton(pk),即**原地把 pk 的 12 字节
+     *          header 翻成网络字节序**。返回后:
+     *            - pk 指向的字段已经是网络序,**不能再当 host 序读**。
+     *            - **不允许对同一个 pk 再次调用 send()** —— 会被 hton 翻回去,
+     *              下游收到字节序错乱的包。
+     *            - 调用方需要拷贝的应是 pk 之前的 host 序字段值,不是 pk 本身。
+     *
+     *          典型用法是 handler 里「decode 出来 → 立即 send → 丢弃 pk」,pk 指向
+     *          PkgBuf 已消费区,decode 已经推过 rpos,后续没人再读这段字节,
+     *          就地翻转无害。
+     *
+     * @param pk  待发送的 Package,允许传 nullptr(仅 flush sbuf_,不追加新包)。
+     * @return  1  整包同步发完(sbuf_ 也已 drain)
+     * @return  0  部分/全部内容被排到 sbuf_,等 EPOLLOUT 触发再 flush
+     * @return <0  socket 错(EAGAIN 不算),负值是 -errno
+     */
     int
     send(core::Package* pk) noexcept;
 

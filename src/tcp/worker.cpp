@@ -141,7 +141,7 @@ typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
         }
     }
 
-    sending_.store(false, std::memory_order_relaxed);
+    sending_.store(false);
 
     size_t i, n;
      QEvent* qes[16];
@@ -180,7 +180,11 @@ int
 typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvBuf*)qe->qe_data;
     auto* sess = server_->get_session(rbuf->fd);
-    ASSERT(sess != nullptr, "session not found for fd: {}", rbuf->fd);
+    if (sess == nullptr) {
+        ::mi_free(rbuf);
+        return 0;
+    }
+
     if (!sess->input(rbuf->data, rbuf->len)) {
         ::mi_free(rbuf);
         return 0;

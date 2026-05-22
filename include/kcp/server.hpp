@@ -2,6 +2,8 @@
 #define __TYPHON_KCP_SERVER_HPP__
 
 
+#include <deque>
+
 #include "kcp/session.hpp"
 #include "core/package.hpp"
 
@@ -37,6 +39,7 @@ class Server {
 
         Session::Ptr kcp;
         uint32_t len;
+        uint32_t time;
         char* buf;
 
     private:
@@ -49,7 +52,9 @@ class Server {
         SendBuf(Session::Ptr k, const char* b, uint32_t l) noexcept
             : kcp(k), len(l) {
             buf = (char*)::mi_malloc(len);
+            ASSERT(buf != nullptr, "failed to allocate memory for SendBuf");
             ::memcpy(buf, b, len);
+            time = kcp->server()->tnow();
         }
     }; // class SendBuf;
 
@@ -57,7 +62,7 @@ class Server {
 public:
     typedef std::unique_ptr<Server> Ptr;
     typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
-    typedef std::vector<SendBuf::Ptr> SendBufQue;
+    typedef std::deque<SendBuf::Ptr> SendBufQue;
 
     
     class IEvent {
@@ -174,7 +179,7 @@ private:
         kcp->set_output(output);
         sessions_.emplace(conv, kcp);
         if (event_->on_connected(kcp)) {
-            remove_session(kcp->conv());
+            sessions_.erase(conv);
         }
     }
 

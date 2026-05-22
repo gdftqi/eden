@@ -83,7 +83,7 @@ public:
 
     uint32_t
     tnow() const noexcept {
-        return tnow_;
+        return tnow_.load(std::memory_order_relaxed);
     }
 
 
@@ -119,7 +119,7 @@ public:
     void
     add_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        sessions_[fd] = Session::create(fd, tnow_);
+        sessions_[fd] = Session::create(fd, tnow());
         if (event_->on_connected(sessions_[fd].get()) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             sessions_[fd] = nullptr;
@@ -142,6 +142,16 @@ public:
     }
 
 
+    /**
+     * @brief 注册 pk_id → handler 路由表项。
+     *
+     * @warning **必须在 run() 之前调用**。handlers[] 是裸数组,运行中由 worker 线程
+     *          只读访问,本函数是唯一写点;没有任何同步原语保护。
+     *          run() 起来之后再 regist_handler 属于跨线程裸读 + 裸写,UB。
+     *
+     * @param pkid    业务消息号
+     * @param handler 处理函数指针;同一 pkid 重复注册会覆盖并打 WARN
+     */
     void
     regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
         if (handlers[pkid] != nullptr) {
@@ -176,7 +186,7 @@ private:
     core::SOCKET             lfd_                     { core::INVALID_SOCKET };
     core::SOCKET             stop_evfd_               { core::INVALID_SOCKET };
     core::SOCKET             epfd_                    { core::INVALID_SOCKET };
-    uint32_t                 tnow_                    { 0 };
+    std::atomic<uint32_t>    tnow_                    { 0 };
     IEvent*                  event_                   { nullptr };
     std::atomic<core::State> state_                   { core::State::Stopped };
     std::string              host_;

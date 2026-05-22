@@ -18,10 +18,9 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
         hdr->msg_namelen = sizeof(raddrs_[i]);
 
         riovecs_[i].iov_base = ::mi_malloc(core::UDP_MTU);
+        ASSERT(riovecs_[i].iov_base != nullptr, "failed to allocate memory for riovec");
         riovecs_[i].iov_len = core::UDP_MTU;
     }
-
-    sque_.reserve(MAX_RECV * 4);
 
     ufd_ = core::udp_bind(host_);
     ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -235,6 +234,16 @@ typhon::kcp::Server::update() noexcept {
             continue;
         } else {
             s->update(tnow_);
+            ++itr;
+        }
+    }
+
+    // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
+    for (auto itr = sque_.begin(); itr != sque_.end();) {
+        auto& buf = *itr;
+        if (buf->time + (Session::conf().timeout / 2) < tnow()) {
+            itr = sque_.erase(itr);
+        } else {
             ++itr;
         }
     }

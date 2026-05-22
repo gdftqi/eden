@@ -34,7 +34,7 @@ public:
      */
     static Ptr
     create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
-        return std::make_unique<Session>(conv, server, addr, addrlen);
+        return std::make_shared<Session>(conv, server, addr, addrlen);
     }
 
 
