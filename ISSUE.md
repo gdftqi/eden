@@ -18,21 +18,7 @@
 
 ## 可以做的优化（不是 bug）
 
-### 2. EPOLLOUT 注册策略
-
-**位置**: [src/tcp/server.cpp:183](src/tcp/server.cpp#L183) `event.events = EPOLLIN | EPOLLET | EPOLLOUT;`
-
-- 每个 cfd 都常驻 EPOLLOUT|ET，刚 accept 就会触发一次 Send 事件去 drain 空 sbuf_，无谓负担。
-- 改成「只在 sbuf_ 第一次堆积时 `EPOLL_CTL_MOD` 加 EPOLLOUT，drain 空后 MOD 去掉」可以省掉 spurious wakeup。代价：每次都要 mod，要权衡。
-
-### 3. Handler 槽换 `std::array` / 分桶
-
-**位置**: [include/tcp/server.hpp:186](include/tcp/server.hpp#L186)
-
-- `handlers[UINT16_MAX + 1]` = 256KB / Server 实例（指针数组）。
-- 如果 pk_id 实际只用低位（< 1024 个业务号），可以分桶减小占用。
-
-### 4. CPU affinity
+### 2. CPU affinity
 
 PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
 
@@ -65,3 +51,5 @@ PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
 - ~~core 反向 include kcp/server.hpp（分层污染）~~ → SndBuf ctor 接 `uint32_t time` 参数，core 层不再依赖 kcp。`src/core/buffer.cpp` 已空，可以从 Makefile 删除。
 - ~~`RcvBuf::decode` 缺 `pklen >= HEADER + TAIL` 校验~~ → 加了 ASSERT；同时保留 `readable() >= PKG_HEADER_LEN` 前置检查（防 TCP 部分到达时读出垃圾 pklen 误触发 ASSERT）。
 - ~~`RcvBuf` compact 时机~~ → 在 `decode` 入口加 `if (rpos > cap/2) compact();` lazy compact，把开销分摊，避免 append 在 wpos 顶满才做大块 memmove。
+- ~~Handler 槽 `[UINT16_MAX + 1]` 占用 256KB~~ → 缩成 `[MAX_HANDLERS = 1024]`（4KB / Server）；`get_handler` 越界返 nullptr，`regist_handler` 越界 ASSERT，保证脏 pk_id 不会 OOB 读 / 程序员漏写不会 OOB 踩内存。
+- ~~EPOLLOUT 注册策略~~ → 维持现状不改。常驻 EPOLLOUT|ET 在 accept 时多触发一次 Send 事件 drain 空 sbuf_，代价比每次 EPOLL_CTL_MOD 更小。

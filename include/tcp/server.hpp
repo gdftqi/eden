@@ -155,6 +155,7 @@ public:
      */
     void
     regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
+        ASSERT(pkid < MAX_HANDLERS, "pkid {} out of range, max = {}", pkid, MAX_HANDLERS);
         if (handlers[pkid] != nullptr) {
             xWARN("handler for pk_id {} already exists, will be overwritten", pkid);
         }
