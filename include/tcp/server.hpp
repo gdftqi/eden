@@ -47,6 +47,7 @@ public:
 
 
     static constexpr int MAX_CONN = 1024 * 8;
+    static constexpr int MAX_HANDLERS = 1024;
 
 
     typedef int (*PackageHandler)(Session* s, const core::Package* pk, const core::PackageTail* pkt) noexcept;
@@ -138,7 +139,7 @@ public:
 
     PackageHandler
     get_handler(uint16_t pkid) const noexcept {
-        return handlers[pkid];
+        return pkid >= MAX_HANDLERS ? nullptr : handlers[pkid];
     }
 
 
@@ -183,17 +184,17 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    core::SOCKET             lfd_                { core::INVALID_SOCKET };
-    core::SOCKET             stop_evfd_          { core::INVALID_SOCKET };
-    core::SOCKET             epfd_               { core::INVALID_SOCKET };
-    std::atomic<uint32_t>    tnow_               { 0 };
-    IEvent*                  event_              { nullptr };
-    std::atomic<core::State> state_              { core::State::Stopped };
-    std::string              host_;
-    std::vector<Worker::Ptr> workers_;
-    std::vector<std::thread> threads_;
-    Session::Ptr             sessions_[MAX_CONN] { nullptr };
-    PackageHandler           handlers[1024]      { nullptr };
+    core::SOCKET             lfd_                   { core::INVALID_SOCKET };
+    core::SOCKET             stop_evfd_             { core::INVALID_SOCKET };
+    core::SOCKET             epfd_                  { core::INVALID_SOCKET };
+    std::atomic<uint32_t>    tnow_                  { 0 };
+    IEvent*                  event_                 { nullptr };
+    std::atomic<core::State> state_                 { core::State::Stopped };
+    std::string              host_;   
+    std::vector<Worker::Ptr> workers_;   
+    std::vector<std::thread> threads_;   
+    Session::Ptr             sessions_[MAX_CONN]    { nullptr };
+    PackageHandler           handlers[MAX_HANDLERS] { nullptr };
 };
 
     
