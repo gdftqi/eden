@@ -183,17 +183,17 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    core::SOCKET             lfd_                     { core::INVALID_SOCKET };
-    core::SOCKET             stop_evfd_               { core::INVALID_SOCKET };
-    core::SOCKET             epfd_                    { core::INVALID_SOCKET };
-    std::atomic<uint32_t>    tnow_                    { 0 };
-    IEvent*                  event_                   { nullptr };
-    std::atomic<core::State> state_                   { core::State::Stopped };
+    core::SOCKET             lfd_                { core::INVALID_SOCKET };
+    core::SOCKET             stop_evfd_          { core::INVALID_SOCKET };
+    core::SOCKET             epfd_               { core::INVALID_SOCKET };
+    std::atomic<uint32_t>    tnow_               { 0 };
+    IEvent*                  event_              { nullptr };
+    std::atomic<core::State> state_              { core::State::Stopped };
     std::string              host_;
     std::vector<Worker::Ptr> workers_;
     std::vector<std::thread> threads_;
-    Session::Ptr             sessions_[MAX_CONN]      { nullptr };
-    PackageHandler           handlers[UINT16_MAX + 1] { nullptr };
+    Session::Ptr             sessions_[MAX_CONN] { nullptr };
+    PackageHandler           handlers[1024]      { nullptr };
 };
 
     

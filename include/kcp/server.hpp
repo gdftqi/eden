@@ -28,7 +28,7 @@ class Server {
 
         static Ptr
         create(Session::Ptr kcp, const char* buf, uint32_t len) noexcept {
-            return Ptr(new SendBuf(kcp, buf, len));
+            return std::make_unique<SendBuf>(kcp, buf, len);
         }
 
 

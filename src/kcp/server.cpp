@@ -190,29 +190,30 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                     continue;
                 }
 
-                auto kcp = get_session(conv);
-                if (kcp == nullptr) {
-                    kcp = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
-                    add_session(conv, kcp);
+                auto s = get_session(conv);
+                if (s == nullptr) {
+                    s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
+                    add_session(conv, s);
                 }
 
-                if (kcp->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
+                if (s->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
                     continue;
                 }
 
                 core::Package* pkg;
                 while (true) {
-                    int rc = kcp->recv_pk(&pkg, rbuf, core::PKG_MAX_LEN, tnow_);
+                    int rc = s->recv_pk(&pkg, rbuf, core::PKG_MAX_LEN, tnow_);
                     if (rc < 0) {
-                        continue;
+                        remove_session(s->conv());
+                        break;
                     }
 
                     if (rc == 0) {
                         break;
                     }
 
-                    if (event_->on_data(kcp, pkg) != 0) {
-                        remove_session(kcp->conv());
+                    if (event_->on_data(s, pkg) != 0) {
+                        remove_session(s->conv());
                         break;
                     }
                 }
