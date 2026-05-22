@@ -24,23 +24,18 @@ typhon::Server::run() noexcept {
     // 创建 N 个 KcpServer，每个 ctor 自带 udp_bind（SO_REUSEPORT），sockfd 立即可用
     for (uint32_t i = 0; i < n; ++i) {
         auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_);
-        if (s->fd() == core::INVALID_SOCKET) {
-            state_.store(core::State::Stopped);
-            return;
-        }
-
-        if (!bpf_obj_path_.empty() && router_.register_socket(i, s->fd()) != 0) {
-            state_.store(core::State::Stopped);
-            return;
+        ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
+        
+        if (!bpf_obj_path_.empty()) {
+            ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
         servers_.emplace_back(std::move(s));
     }
 
     // 挂载 BPF 程序到 SO_REUSEPORT 组（任一 socket 即可，整组共享）
-    if (!bpf_obj_path_.empty() && router_.attach(servers_[0]->fd()) != 0) {
-        state_.store(core::State::Stopped);
-        return;
+    if (!bpf_obj_path_.empty()) {
+        ASSERT(router_.attach(servers_[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
 
     // 启动所有 worker 线程

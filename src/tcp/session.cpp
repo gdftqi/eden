@@ -17,10 +17,6 @@ typhon::tcp::Session::send(core::Package* pk) noexcept {
     }
 
     int total = pk->pk_len;
-    if (total > core::PKG_MAX_LEN - core::PKG_TAIL_LEN) {
-        return -1;
-    }
-
     core::pk_hton(pk);
     uint8_t* buf = (uint8_t*)pk;
 

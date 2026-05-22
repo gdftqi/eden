@@ -35,9 +35,9 @@ typhon::kcp::Server::run() noexcept {
     }
 
     init();
-
     int err = event_->on_init(this);
     if (err) {
+        release();
         state_.store(core::State::Stopped);
         return;
     }
@@ -85,10 +85,9 @@ typhon::kcp::Server::run() noexcept {
 
 int
 typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
-    auto s = ((Session*)user)->shared_from_this();
-    auto* server = s->server();
-    server->sque_.emplace_back(
-        std::make_unique<core::SndBuf>(s->addr(), s->addrlen(), buf, len, server->tnow())
+    auto* s = (Session*)user;
+    s->server()->sque_.emplace_back(
+        std::make_unique<core::SndBuf>(s->addr(), s->addrlen(), buf, len, s->server()->tnow())
     );
     return 0;
 }
@@ -196,7 +195,9 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
-                    add_session(conv, s);
+                    if (add_session(conv, s)) {
+                        continue;
+                    }
                 }
 
                 if (s->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {

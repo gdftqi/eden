@@ -57,14 +57,6 @@ typhon::tcp::Server::run() noexcept {
         // TODO check heartbeat
     }
 
-    for (auto& w: workers_) {
-        w->stop();
-    }
-
-    for (auto& t: threads_) {
-        t.join();
-    }
-
     release();
     event_->on_stopped(this);
 
@@ -74,6 +66,14 @@ typhon::tcp::Server::run() noexcept {
 
 void
 typhon::tcp::Server::init() noexcept {
+    for (auto& w: workers_) {
+        w->stop();
+    }
+
+    for (auto& t: threads_) {
+        t.join();
+    }
+
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != core::INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 

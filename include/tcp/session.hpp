@@ -88,11 +88,6 @@ public:
             return -2;
         }
 
-        if (rcv_idem_ >= (*pk)->pk_idem) {
-            return 0;
-        }
-
-        rcv_idem_ = (*pk)->pk_idem;
         last_recv_ms_ = tnow;
         return 1;
     }
@@ -131,7 +126,6 @@ private:
     sockaddr_storage     addr_         {};
     socklen_t            addrlen_      { 0 };
     uint32_t             last_recv_ms_ { 0 };
-    uint32_t             rcv_idem_     { 0 };
     void*                user_data_    { nullptr };
     std::vector<uint8_t> sbuf_         {};
     core::RcvBuf         pbuf_         {};

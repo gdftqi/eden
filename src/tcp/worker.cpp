@@ -141,7 +141,7 @@ typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
         }
     }
 
-    sending_.store(false);
+    sending_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
      QEvent* qes[16];

@@ -135,13 +135,15 @@ private:
     }
 
 
-    void
+    int
     add_session(uint32_t conv, Session::Ptr kcp) noexcept {
         kcp->set_output(output);
         sessions_.emplace(conv, kcp);
         if (event_->on_connected(kcp)) {
             sessions_.erase(conv);
+            return -1;
         }
+        return 0;
     }
 
 

@@ -22,13 +22,13 @@ struct SndBuf {
     uint8_t            buf[UDP_MTU];
 
 
-    SndBuf(const void* addr, ::socklen_t addrlen, const char* buf, uint32_t len, uint32_t time) noexcept 
+    SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint32_t time) noexcept 
         : addrlen(addrlen)
-        , len(len)
+        , len(l)
         , time(time) {
         ::memcpy(&this->addr, addr, addrlen);
-        ASSERT(len <= UDP_MTU, "len = {}, max = {}", len, UDP_MTU);
-        ::memcpy(this->buf, buf, len);
+        ASSERT(l <= UDP_MTU, "len = {}, max = {}", l, UDP_MTU);
+        ::memcpy(this->buf, b, l);
     }
 
 

@@ -9,6 +9,8 @@
 
 #include <string>
 
+#include "utils/log.hpp"
+
 
 namespace typhon::utils {
     
@@ -33,6 +35,7 @@ lock_pid(const char* fname) noexcept {
     }
 
     auto s = std::to_string(::getpid());
+    ASSERT(::ftruncate(fd, 0) == 0, "ftruncate failed: errno = {}, errstr = {}", errno, ::strerror(errno));
     int n = ::write(fd, s.c_str(), s.size());
     if (n != (ssize_t)s.size()) {
         ::close(fd);
