@@ -32,6 +32,15 @@ class Server {
         }
 
 
+        SendBuf(Session::Ptr k, const char* b, uint32_t l) noexcept
+            : kcp(k), len(l) {
+            buf = (char*)::mi_malloc(len);
+            ASSERT(buf != nullptr, "failed to allocate memory for SendBuf");
+            ::memcpy(buf, b, len);
+            time = kcp->server()->tnow();
+        }
+
+
         ~SendBuf() noexcept {
             ::mi_free(buf);
         }
@@ -42,20 +51,11 @@ class Server {
         uint32_t time;
         char* buf;
 
-    private:
+
         SendBuf(const SendBuf&) = delete;
         SendBuf& operator=(const SendBuf&) = delete;
         SendBuf(SendBuf&&) = delete;
         SendBuf& operator=(SendBuf&&) = delete;
-
-
-        SendBuf(Session::Ptr k, const char* b, uint32_t l) noexcept
-            : kcp(k), len(l) {
-            buf = (char*)::mi_malloc(len);
-            ASSERT(buf != nullptr, "failed to allocate memory for SendBuf");
-            ::memcpy(buf, b, len);
-            time = kcp->server()->tnow();
-        }
     }; // class SendBuf;
 
 
