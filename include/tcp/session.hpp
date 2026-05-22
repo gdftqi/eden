@@ -159,8 +159,12 @@ public:
 
     int
     recv(core::Package** pk, core::PackageTail** pkt, uint32_t tnow) noexcept {
-        if (!pbuf_.decode(pk, pkt)) {
+        if (pbuf_.readable() == 0) {
             return -1;
+        }
+
+        if (!pbuf_.decode(pk, pkt)) {
+            return -2;
         }
 
         if (rcv_idem_ >= (*pk)->pk_idem) {

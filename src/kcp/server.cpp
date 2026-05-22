@@ -203,13 +203,13 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 core::Package* pkg;
                 while (true) {
                     int rc = s->recv_pk(&pkg, rbuf, core::PKG_MAX_LEN, tnow_);
-                    if (rc < 0) {
-                        remove_session(s->conv());
+                    if (rc <= -1) {
+                        if (rc < -1) {
+                            remove_session(s->conv());
+                        }
                         break;
-                    }
-
-                    if (rc == 0) {
-                        break;
+                    } else if (rc == 0) {
+                        continue;
                     }
 
                     if (event_->on_data(s, pkg) != 0) {

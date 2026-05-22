@@ -208,29 +208,38 @@ public:
      * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
-     * @return   1  成功,*pkg 可用
-     * @return   0  当前没消息(rcv_queue 空 / KCP 返回 <=0)
-     * @return  -1  非法包:长度不足头 / pk_len 不自洽 / idem 违反单调性(重复包)
+     * @return   -1  没有包
+     * @return   0  还有数据
+     * @return   1  成功
+     * @return   others 错误
      */
     int
     recv_pk(core::Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
         int res = recv(buf, len);
-        if (res <= 0) {
-            return 0;
+        if (res == 0 || res == -1) {
+            // 没有数据
+            return -1;
+        } else if (res == -2) {
+            // 出错
+            return -2;
+        } else if (res == -3) {
+            // buf 太小,装不下下一条消息;调用方应放大 buf 后重试
+            return -3;
         }
 
-        if ((size_t)res < core::PKG_HEADER_LEN || res > core::PKG_MAX_LEN - core::PKG_TAIL_LEN) {
-            return -1;
+        if (res < core::PKG_HEADER_LEN || res > core::PKG_MAX_LEN - core::PKG_TAIL_LEN) {
+            // 无效的package
+            return -4;
         }
 
         *pkg = (core::Package*)buf;
         core::pk_ntoh(*pkg);
         if ((*pkg)->pk_len != res) {
-            return -1;
+            return -4;
         }
 
         if (rcv_idem_ >= (*pkg)->pk_idem) {
-            return -1;
+            return 0;
         }
 
         last_recv_ms_ = now;
