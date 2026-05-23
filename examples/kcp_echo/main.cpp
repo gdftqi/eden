@@ -18,10 +18,9 @@ on_signal(int) {
 
 class EchoService: public typhon::kcp::Server::IEvent {
 public:
-    virtual int 
+    virtual void 
     on_init(typhon::kcp::Server* server) noexcept {
         xINFO("{} running on {}", server->host(), ::pthread_self());
-        return 0;
     }
 
 

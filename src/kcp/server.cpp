@@ -35,12 +35,7 @@ typhon::kcp::Server::run() noexcept {
     }
 
     init();
-    int err = event_->on_init(this);
-    if (err) {
-        release();
-        state_.store(core::State::Stopped);
-        return;
-    }
+    event_->on_init(this);
 
     int i, n;
     ::epoll_event events[MAX_EVENTS];
@@ -49,13 +44,12 @@ typhon::kcp::Server::run() noexcept {
     state_.store(core::State::Running);
 
     while (running()) {
-        err = 0;
         n = ::epoll_wait(epfd_, events, MAX_EVENTS, TIMEOUT);
         if (n == -1) {
             if (errno == EINTR) {
                 continue;
             }
-            err = -errno;
+            xERROR("epoll_wait failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             break;
         }
 
@@ -63,14 +57,10 @@ typhon::kcp::Server::run() noexcept {
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
-                err = on_stop_handle(ev);
+                on_stop_handle(ev);
             } else if (ev.data.fd == ufd_) {
-                err = on_udp_handle(ev);
+                on_udp_handle(ev);
             }
-        }
-
-        if (err) {
-            break;
         }
 
         update();
@@ -78,7 +68,6 @@ typhon::kcp::Server::run() noexcept {
 
     release();
     event_->on_stopped(this);
-
     state_.store(core::State::Stopped);
 }
 
@@ -86,9 +75,9 @@ typhon::kcp::Server::run() noexcept {
 int
 typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
     auto* s = (Session*)user;
-    s->server()->sque_.emplace_back(
-        std::make_unique<core::SndBuf>(s->addr(), s->addrlen(), buf, len, s->server()->tnow())
-    );
+    auto svr = s->server();
+    auto sb = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    svr->sque_.emplace_back(sb);
     return 0;
 }
 
@@ -107,7 +96,10 @@ typhon::kcp::Server::init() noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ev.data.fd = ufd_;
-    ev.events = EPOLLIN | EPOLLET;
+    // 取消 ET 模式, 目的是加强防御. 
+    // 因为攻击者有可能大量发包, 使用 recvmmsg 不停的读取数据从而导致DOS.
+    // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
+    ev.events = EPOLLIN; 
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, ufd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
@@ -128,63 +120,74 @@ typhon::kcp::Server::release() noexcept {
         ::close(ufd_);
         ufd_ = core::INVALID_SOCKET;
     }
+
+    for (auto& [_, s]: sessions_) {
+        event_->on_disconnected(s);
+    }
+    sessions_.clear();
+
+    for (auto* sb: sque_) {
+        sb_pool_.release(sb);
+    }
+    sque_.clear();
+
+    tnow_ = 0;
 }
 
 
-int
+void
 typhon::kcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
+        uint64_t event;
         while (1) {
-            uint64_t event;
             auto n = ::read(stop_evfd_, &event, sizeof(event));
             if (n == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
                 }
-                return -errno;
             }
         }
-    }
-
-    return 0;
+    } // if (ev.events & EPOLLIN);
 }
 
 
-int
+void
 typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
     thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
 
     int res = 0;
     if (ev.events & EPOLLERR) {
         socklen_t len = sizeof(res);
-        if (::getsockopt(ufd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
-            return -errno;
-        }
-
+        ASSERT(::getsockopt(ufd_, SOL_SOCKET, SO_ERROR, &res, &len) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
         if (res != 0) {
-            return -res;
+            xERROR("socket error: errno = {}, errstr = {}", res, ::strerror(res));
+            return;
         }
     }
     
     if (ev.events & EPOLLIN) {
         int i, n;
-        while (1) {
+        constexpr int MAX_ROUND = 8;
+        int round = 0;
+        while (round++ < MAX_ROUND) {
             for (i = 0; i < MAX_RECV; ++i) {
                 riovecs_[i].iov_len = core::UDP_MTU;
             }
 
-            res = 0;
             n = ::recvmmsg(ufd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
-            if (n == -1) {
-                if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                    res = -errno;
+            if (n <= 0) {
+                if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                    xERROR("recvmsg error: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
-                break;
-            } else if (n == 0) {
                 break;
             }
 
             for (i = 0; i < n; ++i) {
+                if (rmsgs_[i].msg_hdr.msg_flags & MSG_TRUNC) {
+                    xWARN("UDP truncated from {} dropped", core::sockaddr_to_string((sockaddr*)rmsgs_[i].msg_hdr.msg_name));
+                    continue;
+                }
+
                 auto& msg = rmsgs_[i];
                 auto hdr = &rmsgs_[i].msg_hdr;
                 auto conv = Session::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
@@ -207,12 +210,15 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 core::Package* pkg;
                 while (true) {
                     int rc = s->recv_pk(&pkg, rbuf, core::PKG_MAX_LEN, tnow_);
-                    if (rc <= -1) {
-                        if (rc < -1) {
-                            remove_session(s->conv());
-                        }
+                    if (rc < -1) {
+                        // 读取消息出错
+                        remove_session(s->conv());
+                        break;
+                    } else if (rc == -1) {
+                        // 没有消息了
                         break;
                     } else if (rc == 0) {
+                        // 幂等错误, 还有数据
                         continue;
                     }
 
@@ -224,8 +230,6 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
             }
         } // while(1);
     }
-
-    return res;
 }
 
 
@@ -244,14 +248,13 @@ typhon::kcp::Server::update() noexcept {
     }
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
-    for (auto itr = sque_.begin(); itr != sque_.end();) {
-        auto& buf = *itr;
-        if (buf->time + (Session::conf().timeout / 2) < tnow()) {
-            itr = sque_.erase(itr);
-        } else {
-            ++itr;
-        }
+    size_t exp = 0;
+    auto timeout = Session::conf().timeout / 2;
+    while (exp < sque_.size() && sque_[exp]->time + timeout < tnow()) {
+        sb_pool_.release(sque_[exp]);
+        ++exp;
     }
+    sque_.erase(sque_.begin(), sque_.begin() + exp);
 
     ::mmsghdr msgs[MAX_SEND] {};
     ::iovec iovecs[MAX_SEND] {};
@@ -276,7 +279,8 @@ typhon::kcp::Server::update() noexcept {
         }
 
         int res = ::sendmmsg(ufd_, msgs, n, 0);
-        if (res == -1) {
+        if (res < 0) {
+            xERROR("sendmmsg error: errno = {}, errstr = {}", errno, ::strerror(errno));
             break;
         }
 
@@ -286,5 +290,8 @@ typhon::kcp::Server::update() noexcept {
         }
     }
 
+    for (int i = 0; i < nsnd; ++i) {
+        sb_pool_.release(sque_[i]);
+    }
     sque_.erase(sque_.begin(), sque_.begin() + nsnd);
 }

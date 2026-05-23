@@ -14,7 +14,7 @@ class Server;
 
 
 /**
- * @brief Kcp 类
+ * @brief Kcp Session 类
  */
 class Session: public std::enable_shared_from_this<Session> {
     Session(const Session&) = delete;
@@ -55,7 +55,7 @@ public:
 
 
     /**
-     * @brief 进程级共享的 Kcp 配置单例。
+     * @brief 进程级共享的 Kcp 配置单例
      */
     static Conf& conf() noexcept {
         static Conf conf;
@@ -204,14 +204,21 @@ public:
      * @brief 从 KCP 队列读出一条完整 Package,做协议自检 + 单调性幂等校验,
      *        并刷新 last_recv_ms_(用于 session 超时判定)。
      *        相当于 recv() 之上加一层应用协议层处理。
+     *
      * @param[out] pkg 解析成功时指向 buf 起始(host 字节序,可直接访问字段)
      * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
-     * @return   -1  没有包
-     * @return   0  还有数据
-     * @return   1  成功
-     * @return   others 错误
+     *
+     * @return   1   成功:*pkg 可用,已 ntoh 到 host 序,rcv_idem_ / last_recv_ms_ 已更新
+     * @return   0   幂等重复包,跳过(rcv_queue 可能还有,可继续 recv_pk)
+     * @return  -1   rcv_queue 空,当前没有完整消息
+     * @return  -2   KCP peek 失败(内部状态异常,正常路径不应出现)
+     * @return  -3   buf 太小,装不下下一条消息;调用方应放大 buf 后重试
+     * @return  -4   非法包:长度越界 或 pk_len 字段与实际长度不自洽
+     * @return  -5   非法 pk_id(== 0 或 >= 1024)
+     * @return  -6   非法 pk_idem(== 0,违反协议约定)
+     * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
      */
     int
     recv_pk(core::Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
@@ -234,16 +241,29 @@ public:
 
         *pkg = (core::Package*)buf;
         core::pk_ntoh(*pkg);
-        if ((*pkg)->pk_len != res) {
+        auto* p = *pkg;
+        if (p->pk_len != res) {
             return -4;
         }
 
-        if (rcv_idem_ >= (*pkg)->pk_idem) {
+        if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
+            return -5;
+        }
+
+        if (p->pk_idem == 0) {
+            return -6;
+        }
+
+        if (p->pk_dst_id == 0) {
+            return -7;
+        }
+
+        if (rcv_idem_ >= p->pk_idem) {
             return 0;
         }
 
         last_recv_ms_ = now;
-        rcv_idem_ = (*pkg)->pk_idem;
+        rcv_idem_ = p->pk_idem;
         return 1;
     }
 

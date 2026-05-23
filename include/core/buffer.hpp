@@ -11,8 +11,7 @@ namespace typhon::core {
 
 
 struct SndBuf {
-    typedef std::unique_ptr<SndBuf> Ptr;
-    typedef std::deque<SndBuf::Ptr> Que;
+    typedef std::deque<SndBuf*> Que;
 
 
     ::sockaddr_storage addr;

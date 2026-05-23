@@ -47,7 +47,6 @@ public:
 
 
     static constexpr int MAX_CONN = 1024 * 8;
-    static constexpr int MAX_HANDLERS = 1024;
 
 
     typedef int (*PackageHandler)(Session* s, const core::Package* pk, const core::PackageTail* pkt) noexcept;
@@ -62,16 +61,6 @@ public:
 
 
     ~Server() noexcept {
-        for (auto& w: workers_) {
-            w->stop();
-        }
-
-        for (auto& t: threads_) {
-            if (t.joinable()) {
-                t.join();
-            }
-        }
-
         release();
     }
 
@@ -139,7 +128,7 @@ public:
 
     PackageHandler
     get_handler(uint16_t pkid) const noexcept {
-        return pkid >= MAX_HANDLERS ? nullptr : handlers[pkid];
+        return pkid >= core::MAX_HANDLERS ? nullptr : handlers[pkid];
     }
 
 
@@ -155,7 +144,7 @@ public:
      */
     void
     regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
-        ASSERT(pkid < MAX_HANDLERS, "pkid {} out of range, max = {}", pkid, MAX_HANDLERS);
+        ASSERT(pkid < core::MAX_HANDLERS, "pkid {} out of range, max = {}", pkid, core::MAX_HANDLERS);
         if (handlers[pkid] != nullptr) {
             xWARN("handler for pk_id {} already exists, will be overwritten", pkid);
         }
@@ -185,17 +174,17 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    core::SOCKET             lfd_                   { core::INVALID_SOCKET };
-    core::SOCKET             stop_evfd_             { core::INVALID_SOCKET };
-    core::SOCKET             epfd_                  { core::INVALID_SOCKET };
-    std::atomic<uint32_t>    tnow_                  { 0 };
-    IEvent*                  event_                 { nullptr };
-    std::atomic<core::State> state_                 { core::State::Stopped };
+    core::SOCKET             lfd_                         { core::INVALID_SOCKET };
+    core::SOCKET             stop_evfd_                   { core::INVALID_SOCKET };
+    core::SOCKET             epfd_                        { core::INVALID_SOCKET };
+    std::atomic<uint32_t>    tnow_                        { 0 };
+    IEvent*                  event_                       { nullptr };
+    std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   
     std::vector<Worker::Ptr> workers_;   
-    std::vector<std::thread> threads_;   
-    Session::Ptr             sessions_[MAX_CONN]    { nullptr };
-    PackageHandler           handlers[MAX_HANDLERS] { nullptr };
+    std::vector<std::thread> threads_;
+    Session::Ptr             sessions_[MAX_CONN]          { nullptr };
+    PackageHandler           handlers[core::MAX_HANDLERS] { nullptr };
 };
 
     

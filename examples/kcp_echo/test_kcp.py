@@ -43,7 +43,7 @@ HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 12 字节
 assert HEADER_SIZE == 12
 
 PK_ID_PING  = 1     # 测试用消息号
-PK_DST_ID   = 0     # 测试用目标服务（占位）
+PK_DST_ID   = 1     # 测试用目标服务（占位）
 
 
 def pack_pk(pk_id, pk_idem, pk_dst_id, payload):

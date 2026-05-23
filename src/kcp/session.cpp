@@ -2,7 +2,12 @@
 #include "kcp/server.hpp"
 
 
-typhon::kcp::Session::Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept
+typhon::kcp::Session::Session(
+    uint32_t    conv, 
+    Server*     server, 
+    const void* addr, 
+    socklen_t   addrlen
+) noexcept
     : server_(server) {
     kcp_ = ::ikcp_create(conv, this);
 

@@ -2,9 +2,10 @@
 #define __TYPHON_KCP_SERVER_HPP__
 
 
-#include "kcp/session.hpp"
 #include "core/buffer.hpp"
 #include "core/package.hpp"
+#include "kcp/session.hpp"
+#include "utils/obj_pool.hpp"
 
 
 namespace typhon::kcp {
@@ -14,6 +15,10 @@ constexpr int MAX_RECV = 128;
 constexpr int MAX_SEND = MAX_RECV;
 
 
+/**
+ * @brief KCP 协议服务器
+ * @note 线程不安全，必须在单线程中使用
+ */
 class Server {
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
@@ -23,6 +28,7 @@ class Server {
 
 public:
     typedef std::unique_ptr<Server> Ptr;
+    typedef utils::ObjPool<core::SndBuf> SndBufPool;
     typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
 
     
@@ -33,28 +39,44 @@ public:
         {}
 
 
-        virtual int 
-        on_init(Server*) noexcept { 
-            return 0; 
-        }
+        /**
+         * @brief 服务器初始化回调, 在 Server::run() 里 bind() 和 listen() 成功后调用
+         */
+        virtual void 
+        on_init(Server*) noexcept 
+        {}
 
 
+        /**
+         * @brief 服务器停止回调, 在 Server::run() 退出前调用
+         */
         virtual void 
         on_stopped(Server*) noexcept 
         {}
 
 
+        /**
+         * @brief 会话连接回调,在 Server::add_session() 成功后调用
+         * @return 返回非 0 表示拒绝连接, Server 会立刻 remove_session()
+         */
         virtual int 
         on_connected(Session::Ptr) noexcept {
             return 0;
         }
 
 
+        /**
+         * @brief 会话断开回调,在 Server::remove_session() 里调用
+         */
         virtual void 
         on_disconnected(Session::Ptr) noexcept
         {}
 
 
+        /**
+         * @brief 收到数据回调, 在 Session::update() 里调用
+         * @return 返回非 0 表示处理失败, Session 会立刻 remove_session()
+         */
         virtual int 
         on_data(Session::Ptr, const core::Package*) noexcept {
             return 0;
@@ -62,13 +84,13 @@ public:
     }; // class IEvent;
 
 
-    explicit 
+    explicit
     Server(const char* host, IEvent* ev) noexcept;
 
 
     ~Server() noexcept {
-        // ctor 里 bind 了 sockfd_,run() 没跑(或还没跑完)的话 release 在这里兜底
         release();
+
         for (int i = 0; i < MAX_RECV; ++i) {
             ::mi_free(riovecs_[i].iov_base);
         }
@@ -135,11 +157,14 @@ private:
     }
 
 
+    /**
+     * @brief 添加会话,成功后会调用 event_->on_connected() 回调,返回非 0 表示拒绝连接, Server 会立刻移除会话
+     */
     int
-    add_session(uint32_t conv, Session::Ptr kcp) noexcept {
-        kcp->set_output(output);
-        sessions_.emplace(conv, kcp);
-        if (event_->on_connected(kcp)) {
+    add_session(uint32_t conv, Session::Ptr s) noexcept {
+        s->set_output(output);
+        sessions_.emplace(conv, s);
+        if (event_->on_connected(s)) {
             sessions_.erase(conv);
             return -1;
         }
@@ -158,11 +183,11 @@ private:
     }
 
 
-    int
+    void
     on_stop_handle(const ::epoll_event& ev) noexcept;
 
 
-    int
+    void
     on_udp_handle(const ::epoll_event& ev) noexcept;
 
 
@@ -182,6 +207,7 @@ private:
     ::iovec                  riovecs_[MAX_RECV] {};
     ::sockaddr_storage       raddrs_[MAX_RECV]  {};
     core::SndBuf::Que        sque_;
+    SndBufPool               sb_pool_;
 };
 
 

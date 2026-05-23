@@ -25,7 +25,7 @@ struct {
 
 
 // userspace 在 bpf_object__load() 前改写这个值(写到 .rodata 段).
-// 默认 1, 万一 userspace 忘改也只是全打到 worker 0, 不会崩。
+// 默认 1, 万一 userspace 忘改也只是全打到 worker 0, 不会崩.
 const volatile __u32 num_workers = 1;
 
 
