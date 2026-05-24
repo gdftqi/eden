@@ -32,6 +32,25 @@ public:
     typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
 
     
+    /**
+     * @brief KCP 服务事件回调接口。
+     *
+     * @warning **所有回调可能被多个线程并发触发** —— `typhon::Server` 会构造
+     *          N 个 `kcp::Server`(每个对应一个 worker 线程,SO_REUSEPORT 分流),
+     *          这 N 个 Server 实例**共享同一个 IEvent**。也就是说:
+     *            - on_init / on_stopped:每个 Server 启停一次 → N 次,跨 N 个线程
+     *            - on_connected / on_disconnected / on_data:在各自 Server 的
+     *              线程里触发,**同一时刻不同 conv 可能在不同线程同时调到**
+     *
+     *          实现方必须**自己保证线程安全**:
+     *            - 写共享容器要加锁 / 用并发数据结构 / shard by conv 等
+     *            - 读全局只读状态(配置 / 静态表)无需保护
+     *            - 调 spdlog 等 thread-safe 库直接用即可
+     *
+     *          单 `kcp::Server` 实例内部是单线程,因此**同一 session 上的回调
+     *          不会重入**(on_connected → on_data → on_disconnected 串行)。
+     *          跨 session / 跨 Server 实例的并发要业务自处理。
+     */
     class IEvent {
     public:
         virtual
@@ -42,8 +61,8 @@ public:
         /**
          * @brief 服务器初始化回调, 在 Server::run() 里 bind() 和 listen() 成功后调用
          */
-        virtual void 
-        on_init(Server*) noexcept 
+        virtual void
+        on_init(Server*) noexcept
         {}
 
 
