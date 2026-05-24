@@ -2,7 +2,7 @@
 #define __TYPHON_TCP_SERVER_HPP__
 
 
-#include "tcp/worker.hpp"
+#include "tcp/proc.hpp"
 
 
 namespace typhon::tcp {
@@ -141,7 +141,7 @@ public:
 
 
     void
-    add_session(core::SOCKET fd, Worker* w) noexcept {
+    add_session(core::SOCKET fd, Proc* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         sessions_[fd] = Session::create(fd, tnow(), w);
         if (event_->on_connected(sessions_[fd].get()) != 0) {
@@ -217,7 +217,7 @@ private:
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   
-    std::vector<Worker::Ptr> workers_;   
+    std::vector<Proc::Ptr> workers_;   
     std::vector<std::thread> threads_;
     Session::Ptr             sessions_[MAX_CONN]          { nullptr };
     PackageHandler           handlers[core::MAX_HANDLERS] { nullptr };

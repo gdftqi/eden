@@ -1,10 +1,10 @@
 #include "tcp/config.hpp"
 #include "tcp/server.hpp"
-#include "tcp/worker.hpp"
+#include "tcp/proc.hpp"
 
 
 void
-typhon::tcp::Worker::run() noexcept {
+typhon::tcp::Proc::run() noexcept {
     auto expected = core::State::Stopped;
     if (!state_.compare_exchange_strong(expected, core::State::Starting)) {
         return;
@@ -56,7 +56,7 @@ typhon::tcp::Worker::run() noexcept {
 
 
 void
-typhon::tcp::Worker::init() noexcept {
+typhon::tcp::Proc::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
@@ -78,7 +78,7 @@ typhon::tcp::Worker::init() noexcept {
 
 
 void
-typhon::tcp::Worker::release() noexcept {
+typhon::tcp::Proc::release() noexcept {
     if (epfd_ != core::INVALID_SOCKET) {
         ::close(epfd_);
         epfd_ = core::INVALID_SOCKET;
@@ -110,7 +110,7 @@ typhon::tcp::Worker::release() noexcept {
 
 
 int
-typhon::tcp::Worker::on_stop_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Proc::on_stop_handle(const ::epoll_event& ev) noexcept {
     int err = 0;
 
     if (ev.events & EPOLLIN) {
@@ -132,7 +132,7 @@ typhon::tcp::Worker::on_stop_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
     if (!(ev.events & EPOLLIN)) {
         return 0;
     }
@@ -184,7 +184,7 @@ typhon::tcp::Worker::on_que_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvArg*)qe->qe_data;
     auto* sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
@@ -223,7 +223,7 @@ typhon::tcp::Worker::on_qe_recv_handle(QEvent* qe) noexcept {
 
 
 int
-typhon::tcp::Worker::on_qe_send_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     auto* sess = server_->get_session(fd);
     if (sess != nullptr) {
@@ -237,7 +237,7 @@ typhon::tcp::Worker::on_qe_send_handle(QEvent* qe) noexcept {
 
 
 int
-typhon::tcp::Worker::on_qe_add_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_qe_add_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->add_session(fd, this);
     return 0;
@@ -245,7 +245,7 @@ typhon::tcp::Worker::on_qe_add_sess_handle(QEvent* qe) noexcept {
 
 
 int
-typhon::tcp::Worker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->remove_session(fd);
     return 0;
@@ -253,7 +253,7 @@ typhon::tcp::Worker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
 
 
 void
-typhon::tcp::Worker::check_timeout() noexcept {
+typhon::tcp::Proc::check_timeout() noexcept {
     const auto tn = server_->tnow();
     const auto timeout = Conf::instance()->timeout();
     const int  n  = Server::MAX_CONN;

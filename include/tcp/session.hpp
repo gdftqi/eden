@@ -9,7 +9,7 @@
 namespace typhon::tcp {
 
 
-class Worker;
+class Proc;
 
 
 class Session {
@@ -24,13 +24,13 @@ public:
 
 
     static Ptr
-    create(core::SOCKET sockfd, uint32_t tnow, Worker* w) noexcept {
+    create(core::SOCKET sockfd, uint32_t tnow, Proc* w) noexcept {
         return std::make_unique<Session>(sockfd, tnow, w);
     }
 
 
     explicit
-    Session(core::SOCKET sockfd, uint32_t tnow, Worker* w) noexcept
+    Session(core::SOCKET sockfd, uint32_t tnow, Proc* w) noexcept
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
         , last_recv_ms_(tnow)
@@ -70,7 +70,7 @@ public:
     }
 
 
-    const Worker*
+    const Proc*
     worker() const noexcept {
         return worker_;
     }
@@ -137,7 +137,7 @@ private:
     socklen_t            addrlen_      { 0 };
     uint32_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
-    Worker*              worker_       { nullptr };
+    Proc*              worker_       { nullptr };
     std::vector<uint8_t> sbuf_         {};
     core::RcvBuf         pbuf_         {};
 }; // class TcpSession;

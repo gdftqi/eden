@@ -1,5 +1,5 @@
-#ifndef __TYPHON_TCP_WORKER_HPP__
-#define __TYPHON_TCP_WORKER_HPP__
+#ifndef __TYPHON_TCP_PROC_HPP__
+#define __TYPHON_TCP_PROC_HPP__
 
 
 #include "tcp/session.hpp"
@@ -39,24 +39,24 @@ struct QEvent {
 class Server;
 
 
-class Worker {
-    Worker(const Worker&) = delete;
-    Worker& operator=(const Worker&) = delete;
-    Worker(Worker&&) = delete;
-    Worker& operator=(Worker&&) = delete;
+class Proc {
+    Proc(const Proc&) = delete;
+    Proc& operator=(const Proc&) = delete;
+    Proc(Proc&&) = delete;
+    Proc& operator=(Proc&&) = delete;
 
 
 public:
-    typedef std::unique_ptr<Worker> Ptr;
+    typedef std::unique_ptr<Proc> Ptr;
 
 
     static Ptr
     create(Server* server, int id) noexcept {
-        return Ptr(new Worker(server, id));
+        return Ptr(new Proc(server, id));
     }
 
     
-    ~Worker() noexcept {
+    ~Proc() noexcept {
         release();
     }
 
@@ -99,7 +99,7 @@ public:
 
 private:
     explicit
-    Worker(Server* server, int id) noexcept
+    Proc(Server* server, int id) noexcept
         : server_(server)
         , id_(id)
     {}
@@ -150,10 +150,10 @@ private:
     std::atomic<core::State> state_          { core::State::Stopped };
     std::atomic<bool>        sending_        { false };
     utils::SPSC<QEvent*>     rque_;
-}; // class TcpWorker;
+}; // class Proc;
 
     
 } // namespace typhon::tcp;
 
 
-#endif // __TYPHON_TCP_WORKER_HPP__
+#endif // __TYPHON_TCP_PROC_HPP__

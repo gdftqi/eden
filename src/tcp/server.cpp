@@ -86,8 +86,8 @@ typhon::tcp::Server::init() noexcept {
     n = n > 2 ? n - 2 : 2;
 
     for (uint32_t i = 0; i < n; ++i) {
-        workers_.emplace_back(Worker::create(this, (int)i));
-        threads_.emplace_back(std::thread(std::bind(&Worker::run, workers_[i].get())));
+        workers_.emplace_back(Proc::create(this, (int)i));
+        threads_.emplace_back(std::thread(std::bind(&Proc::run, workers_[i].get())));
     }
 }
 
