@@ -17,7 +17,7 @@ constexpr int MAX_SEND = MAX_RECV;
 
 /**
  * @brief KCP 协议服务器
- * @note 线程不安全，必须在单线程中使用
+ * @note 线程不安全, 必须在单线程中使用
  */
 class Server {
     Server(const Server&) = delete;
