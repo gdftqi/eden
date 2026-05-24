@@ -51,8 +51,8 @@ public:
 
 
     static Ptr
-    create(Server* server) noexcept {
-        return Ptr(new Worker(server));
+    create(Server* server, int id) noexcept {
+        return Ptr(new Worker(server, id));
     }
 
     
@@ -99,8 +99,9 @@ public:
 
 private:
     explicit
-    Worker(Server* server) noexcept
+    Worker(Server* server, int id) noexcept
         : server_(server)
+        , id_(id)
     {}
 
 
@@ -136,12 +137,18 @@ private:
     on_qe_rmv_sess_handle(QEvent* qe) noexcept;
 
 
-    Server*               server_    { nullptr };
-    core::SOCKET             epfd_      { core::INVALID_SOCKET };
-    core::SOCKET             que_evfd_  { core::INVALID_SOCKET }; // 队列事件
-    core::SOCKET             stop_evfd_ { core::INVALID_SOCKET }; // 停止事件
-    std::atomic<core::State> state_     { core::State::Stopped };
-    std::atomic<bool>        sending_   { false };
+    void
+    check_timeout() noexcept;
+
+
+    Server*                  server_         { nullptr };
+    int                      id_             { -1 };      
+    uint32_t                 last_check_ms_  { 0 };
+    core::SOCKET             epfd_           { core::INVALID_SOCKET };
+    core::SOCKET             que_evfd_       { core::INVALID_SOCKET };   // 队列事件
+    core::SOCKET             stop_evfd_      { core::INVALID_SOCKET };   // 停止事件
+    std::atomic<core::State> state_          { core::State::Stopped };
+    std::atomic<bool>        sending_        { false };
     utils::SPSC<QEvent*>     rque_;
 }; // class TcpWorker;
 

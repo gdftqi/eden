@@ -3,6 +3,7 @@
 
 
 #include "core/typhon.in.hpp"
+#include "tcp/config.hpp"
 
 
 namespace typhon::tcp {
@@ -32,7 +33,7 @@ public:
     int
     connect() noexcept {
         if (cfd_ == core::INVALID_SOCKET) {
-            cfd_ = core::tcp_connect(host_.c_str());
+            cfd_ = core::tcp_connect(host_.c_str(), Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
             if (cfd_ < 0) {
                 int err = errno;
                 cfd_ = core::INVALID_SOCKET;

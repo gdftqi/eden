@@ -14,9 +14,9 @@ typhon::kcp::Session::Session(
     ::memcpy(&addr_, addr, addrlen);
     addrlen_ = addrlen;
 
-    auto& c = conf();
-    ::ikcp_wndsize(kcp_, c.sndwnd, c.rcvwnd);
-    ::ikcp_nodelay(kcp_, c.nodelay, c.interval, c.resend, c.nc);
+    auto* c = Conf::instance();
+    ::ikcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
+    ::ikcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
     ::ikcp_setmtu(kcp_, core::UDP_MTU);
 
     last_recv_ms_ = server->tnow();

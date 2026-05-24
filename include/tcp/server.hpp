@@ -8,6 +8,9 @@
 namespace typhon::tcp {
 
 
+/**
+ * @brief TcpServer TCP 服务端
+ */
 class Server {
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
@@ -94,6 +97,18 @@ public:
     tnow() const noexcept {
         return tnow_.load(std::memory_order_relaxed);
     }
+    
+
+    const Session::Ptr*
+    sessions() const noexcept {
+        return sessions_;
+    }
+
+
+    int
+    worker_size() const noexcept {
+        return (int)workers_.size();
+    }
 
 
     bool
@@ -126,9 +141,9 @@ public:
 
 
     void
-    add_session(core::SOCKET fd) noexcept {
+    add_session(core::SOCKET fd, Worker* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        sessions_[fd] = Session::create(fd, tnow());
+        sessions_[fd] = Session::create(fd, tnow(), w);
         if (event_->on_connected(sessions_[fd].get()) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             sessions_[fd] = nullptr;
@@ -139,9 +154,11 @@ public:
     void
     remove_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));  
-        event_->on_disconnected(sessions_[fd].get());
-        sessions_[fd] = nullptr;
+        if (sessions_[fd]) {
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));  
+            event_->on_disconnected(sessions_[fd].get());
+            sessions_[fd] = nullptr;
+        }
     }
 
 

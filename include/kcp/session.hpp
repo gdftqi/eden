@@ -2,9 +2,10 @@
 #define __TYPHON_KCP_SESSION_HPP__
 
 
-#include "kcp/ikcp.h"
 #include "core/typhon.in.hpp"
 #include "core/package.hpp"
+#include "kcp/config.hpp"
+#include "kcp/ikcp.h"
 
 
 namespace typhon::kcp {
@@ -35,31 +36,6 @@ public:
     static Ptr
     create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
         return std::make_shared<Session>(conv, server, addr, addrlen);
-    }
-
-
-    /**
-     * @brief KCP 行为参数(对应 ikcp_nodelay / ikcp_wndsize + session timeout)。
-     *        进程级单例,**在创建任何 Kcp 实例前修改才生效**;已存在的 Kcp 不受影响,
-     *        因为 KCP 参数在 ctor 里就被 snapshot 进 ikcpcb。
-     */
-    struct Conf {
-        int      sndwnd   { 128 };   ///< 发送窗口
-        int      rcvwnd   { 128 };   ///< 接收窗口
-        int      nodelay  { 1 };     ///< 是否开启低延迟模式
-        int      interval { 10 };    ///< update 间隔
-        int      resend   { 3 };     ///< 快速重传, 表示连接跳过3个包的时候就会重传
-        int      nc       { 1 };     ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
-        uint32_t timeout  { 30000 }; ///< 超时(ms)
-    };
-
-
-    /**
-     * @brief 进程级共享的 Kcp 配置单例
-     */
-    static Conf& conf() noexcept {
-        static Conf conf;
-        return conf;
     }
 
 
@@ -148,7 +124,7 @@ public:
      */
     bool
     check_timeout(uint32_t tnow) const noexcept {
-        return tnow - last_recv_ms_ > conf().timeout;
+        return tnow - last_recv_ms_ > Conf::instance()->timeout();
     }
 
 

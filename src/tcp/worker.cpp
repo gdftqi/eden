@@ -1,5 +1,6 @@
-#include "tcp/worker.hpp"
+#include "tcp/config.hpp"
 #include "tcp/server.hpp"
+#include "tcp/worker.hpp"
 
 
 void
@@ -12,13 +13,14 @@ typhon::tcp::Worker::run() noexcept {
     init();
 
     int i, n, err;
+    uint32_t now;
     ::epoll_event events[2];
 
     state_.store(core::State::Running);
 
     while (running()) {
         err = 0;
-        n = ::epoll_wait(epfd_, events, 2, -1);
+        n = ::epoll_wait(epfd_, events, 2, 10);
         if (n < 0) {
             if (errno == EINTR) {
                 continue;
@@ -26,6 +28,8 @@ typhon::tcp::Worker::run() noexcept {
             err = -errno;
             break;
         }
+
+        now = server_->tnow();
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
@@ -40,7 +44,10 @@ typhon::tcp::Worker::run() noexcept {
             break;
         }
 
-        // TODO 发送数据
+        if (last_check_ms_ + 1000 < now) {
+            check_timeout();
+            last_check_ms_ = now;
+        }
     }
 
     release();
@@ -232,7 +239,7 @@ typhon::tcp::Worker::on_qe_send_handle(QEvent* qe) noexcept {
 int
 typhon::tcp::Worker::on_qe_add_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
-    server_->add_session(fd);
+    server_->add_session(fd, this);
     return 0;
 }
 
@@ -242,4 +249,25 @@ typhon::tcp::Worker::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->remove_session(fd);
     return 0;
+}
+
+
+void
+typhon::tcp::Worker::check_timeout() noexcept {
+    const auto tn = server_->tnow();
+    const auto timeout = Conf::instance()->timeout();
+    const int  n  = Server::MAX_CONN;
+    const int  ws = server_->worker_size();
+
+    auto* ss = server_->sessions();
+    for (int i = id_; i < n; i += ws) {
+        auto& s = ss[i];
+        if (!s) {
+            continue;
+        }
+
+        if (s->last_recv_ms() + timeout < tn) {
+            server_->remove_session(s->sockfd());
+        }
+    }
 }

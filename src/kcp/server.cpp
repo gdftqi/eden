@@ -22,7 +22,7 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
         riovecs_[i].iov_len = core::UDP_MTU;
     }
 
-    ufd_ = core::udp_bind(host_);
+    ufd_ = core::udp_bind(host_, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
     ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
@@ -249,7 +249,7 @@ typhon::kcp::Server::update() noexcept {
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
     size_t exp = 0;
-    auto timeout = Session::conf().timeout / 2;
+    auto timeout = Conf::instance()->timeout() / 2;
     while (exp < sque_.size() && sque_[exp]->time + timeout < tnow()) {
         sb_pool_.release(sque_[exp]);
         ++exp;

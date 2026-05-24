@@ -9,6 +9,9 @@
 namespace typhon::tcp {
 
 
+class Worker;
+
+
 class Session {
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
@@ -21,16 +24,17 @@ public:
 
 
     static Ptr
-    create(core::SOCKET sockfd, uint32_t tnow) noexcept {
-        return std::make_unique<Session>(sockfd, tnow);
+    create(core::SOCKET sockfd, uint32_t tnow, Worker* w) noexcept {
+        return std::make_unique<Session>(sockfd, tnow, w);
     }
 
 
     explicit
-    Session(core::SOCKET sockfd, uint32_t tnow) noexcept
+    Session(core::SOCKET sockfd, uint32_t tnow, Worker* w) noexcept
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
-        , last_recv_ms_(tnow) {
+        , last_recv_ms_(tnow)
+        , worker_(w) {
         constexpr int on = 1;
         constexpr int bufsize = 1024 * 1024 * 8;
         ASSERT(::getpeername(sockfd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
@@ -63,6 +67,12 @@ public:
     uint32_t
     last_recv_ms() const noexcept {
         return last_recv_ms_;
+    }
+
+
+    const Worker*
+    worker() const noexcept {
+        return worker_;
     }
 
 
@@ -127,6 +137,7 @@ private:
     socklen_t            addrlen_      { 0 };
     uint32_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
+    Worker*              worker_       { nullptr };
     std::vector<uint8_t> sbuf_         {};
     core::RcvBuf         pbuf_         {};
 }; // class TcpSession;

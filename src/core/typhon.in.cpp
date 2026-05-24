@@ -2,7 +2,7 @@
 
 
 typhon::core::SOCKET
-typhon::core::udp_bind(const std::string& host) noexcept {
+typhon::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     if (host.empty()) {
         return INVALID_SOCKET;
     }
@@ -42,8 +42,6 @@ typhon::core::udp_bind(const std::string& host) noexcept {
         }
 
         static constexpr int reuseport = 1;
-        static constexpr int sndbuf = 1024 * 1024 * 4;
-        static constexpr int rcvbuf = sndbuf * 2;
         if (set_nonblocking(fd) ||
             ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
@@ -70,7 +68,7 @@ typhon::core::udp_bind(const std::string& host) noexcept {
 
 
 typhon::core::SOCKET
-typhon::core::tcp_listen(const std::string& host) noexcept {
+typhon::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     std::string host_str(host);
     if (host_str.empty()) {
         return INVALID_SOCKET;
@@ -111,14 +109,11 @@ typhon::core::tcp_listen(const std::string& host) noexcept {
             continue;
         }
 
-        if (set_nonblocking(lfd) < 0) {
-            ::close(lfd);
-            lfd = INVALID_SOCKET;
-            continue;
-        }
-
         constexpr int optval = 1;
-        if (::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
+        if (set_nonblocking(lfd) ||
+            ::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) ||
+            ::setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
+            ::setsockopt(lfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
             ::close(lfd);
             lfd = INVALID_SOCKET;
             continue;
@@ -139,7 +134,7 @@ typhon::core::tcp_listen(const std::string& host) noexcept {
 
 
 typhon::core::SOCKET
-typhon::core::tcp_connect(const std::string& host) noexcept {
+typhon::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     if (host.empty()) {
         return INVALID_SOCKET;
     }
@@ -178,11 +173,10 @@ typhon::core::tcp_connect(const std::string& host) noexcept {
         }
 
         constexpr int on = 1;
-        constexpr int bufsize = 1024 * 1024 * 8;
         if (set_nonblocking(cfd) < 0 ||
             ::setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) ||
-            ::setsockopt(cfd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) ||
-            ::setsockopt(cfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize))) {
+            ::setsockopt(cfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
+            ::setsockopt(cfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
             ::close(cfd);
             cfd = INVALID_SOCKET;
             continue;
