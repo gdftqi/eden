@@ -99,7 +99,7 @@ typhon::kcp::Server::init() noexcept {
     // 取消 ET 模式, 目的是加强防御. 
     // 因为攻击者有可能大量发包, 使用 recvmmsg 不停的读取数据从而导致DOS.
     // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
-    ev.events = EPOLLIN; 
+    ev.events = EPOLLIN;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, ufd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
