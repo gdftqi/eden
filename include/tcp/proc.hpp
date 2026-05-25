@@ -61,6 +61,12 @@ public:
     }
 
 
+    uint64_t
+    tnow() const noexcept {
+        return tnow_;
+    }
+
+
     bool
     running() const noexcept {
         return state_.load(std::memory_order_relaxed) == core::State::Running;
@@ -89,7 +95,7 @@ public:
         ASSERT(rque_.enqueue(std::move(ev)), "spsc 队列已满");
         bool expected = false;
         if (sending_.compare_exchange_strong(expected, true)) {
-            constexpr uint64_t event = 1;
+            static constexpr uint64_t event = 1;
             if (::write(que_evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
@@ -113,27 +119,27 @@ private:
     release() noexcept;
 
 
-    int
+    void
     on_stop_handle(const ::epoll_event& ev) noexcept;
 
 
-    int
+    void
     on_que_handle(const ::epoll_event& ev) noexcept;
 
 
-    int
+    void
     on_qe_recv_handle(QEvent* qe) noexcept;
 
 
-    int
+    void
     on_qe_send_handle(QEvent* qe) noexcept;
 
 
-    int
+    void
     on_qe_add_sess_handle(QEvent* qe) noexcept;
 
 
-    int
+    void
     on_qe_rmv_sess_handle(QEvent* qe) noexcept;
 
 
@@ -142,11 +148,12 @@ private:
 
 
     Server*                  server_         { nullptr };
-    int                      id_             { -1 };      
-    uint64_t                 last_check_ms_  { 0 };
+    int                      id_             { -1 };
     core::SOCKET             epfd_           { core::INVALID_SOCKET };
     core::SOCKET             que_evfd_       { core::INVALID_SOCKET };   // 队列事件
     core::SOCKET             stop_evfd_      { core::INVALID_SOCKET };   // 停止事件
+    uint64_t                 tnow_           { 0 };
+    uint64_t                 last_check_ms_  { 0 };
     std::atomic<core::State> state_          { core::State::Stopped };
     std::atomic<bool>        sending_        { false };
     utils::SPSC<QEvent*>     rque_;

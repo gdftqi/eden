@@ -2,7 +2,6 @@
 #include "tcp/config.hpp"
 
 
-static constexpr int MAX_EVENTS = 1024;
 static constexpr int TIMEOUT = 1000;
 static constexpr int RBUF_SIZE = 1500;
 
@@ -15,43 +14,34 @@ typhon::tcp::Server::run() noexcept {
     }
 
     init();
-    if (event_->on_init(this) != 0) {
-        release();
-        state_.store(core::State::Stopped);
-        return;
-    }
+    event_->on_init(this);
 
-    int i, n, err;
+    int i, n;
+    constexpr size_t MAX_EVENTS = MAX_CONN + 2;
     ::epoll_event events[MAX_EVENTS];
 
     state_.store(core::State::Running);
 
     ASSERT(::listen(lfd_, SOMAXCONN) == 0, "监听 TCP fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     while (running()) {
-        err = 0;
         n = ::epoll_wait(epfd_, events, MAX_EVENTS, TIMEOUT);
         if (n == -1) {
             if (errno == EINTR) {
                 continue;
             }
-            err = -errno;
+            xERROR("epoll_wait failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             break;
         }
 
-        tnow_.store(core::systime_ms(), std::memory_order_relaxed);
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
-                err = on_stop_handle(ev);
+                on_stop_handle(ev);
             } else if (ev.data.fd == lfd_) {
-                err = on_listen_handle(ev);
+                on_listen_handle(ev);
             } else {
-                err = on_session_handle(ev);
+                on_session_handle(ev);
             }
-        }
-
-        if (err) {
-            break;
         }
     }
 
@@ -81,25 +71,28 @@ typhon::tcp::Server::init() noexcept {
     ev.data.fd = lfd_;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    uint32_t n = std::thread::hardware_concurrency();
+    int n = std::thread::hardware_concurrency();
     n = n > 2 ? n - 2 : 2;
 
-    for (uint32_t i = 0; i < n; ++i) {
-        workers_.emplace_back(Proc::create(this, (int)i));
-        threads_.emplace_back(std::thread(std::bind(&Proc::run, workers_[i].get())));
+    for (int i = 0; i < n; ++i) {
+        procs_.emplace_back(Proc::create(this, i));
+        threads_.emplace_back((std::bind(&Proc::run, procs_[i].get())));
     }
 }
 
 
 void
 typhon::tcp::Server::release() noexcept {
-    for (auto& w: workers_) {
+    for (auto& w: procs_) {
         w->stop();
     }
 
     for (auto& t: threads_) {
         t.join();
     }
+    
+    threads_.clear();
+    procs_.clear();
 
     if (epfd_ != core::INVALID_SOCKET) {
         ::close(epfd_);
@@ -116,8 +109,6 @@ typhon::tcp::Server::release() noexcept {
         lfd_ = core::INVALID_SOCKET;
     }
 
-    workers_.clear();
-    threads_.clear();
     for (auto& s: sessions_) {
         if (s) {
             event_->on_disconnected(s);
@@ -127,37 +118,42 @@ typhon::tcp::Server::release() noexcept {
 }
 
 
-int
+void
 typhon::tcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
             auto n = ::read(stop_evfd_, &event, sizeof(event));
             if (n == -1) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    break;
+                int err = errno;
+                if (err == EINTR) {
+                    continue;
                 }
-                return -errno;
+
+                if (err != EAGAIN && err != EWOULDBLOCK) {
+                    xERROR("read failed: errno = {}, errstr = {}", err, ::strerror(err));
+                }
+                break;
             }
         }
     }
-
-    return 0;
 }
 
 
-int
+void
 typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
-    int res = 0;
-
+    int err;
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-        socklen_t len = sizeof(res);
-        if (::getsockopt(lfd_, SOL_SOCKET, SO_ERROR, &res, &len)) {
-            return -errno;
+        socklen_t len = sizeof(err);
+        if (::getsockopt(lfd_, SOL_SOCKET, SO_ERROR, &err, &len)) {
+            err = errno;
+            xERROR("getsockopt failed: errno = {}, errstr = {}", err, ::strerror(err));
+            return;
         }
 
-        if (res != 0) {
-            return -res;
+        if (err) {
+            xERROR("listen socket error: errno = {}, errstr = {}", err, ::strerror(err));
+            return;
         }
     }
 
@@ -165,15 +161,13 @@ typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
         while (1) {
             core::SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
             if (cfd < 0) {
-                int err = errno;
+                err = errno;
                 if (err == EINTR) {
                     continue;
                 }
 
-                if (err == EAGAIN || err == EWOULDBLOCK) {
-                    res = 0;
-                } else {
-                    res = -err;
+                if (err != EAGAIN && err != EWOULDBLOCK) {
+                    xERROR("accept failed: errno = {}, errstr = {}", err, ::strerror(err));
                 }
 
                 break;
@@ -183,22 +177,20 @@ typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events = EPOLLIN | EPOLLET | EPOLLOUT;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            workers_[cfd % workers_.size()]->push(new QEvent(QEvent::Type::AddSess, (void*)(uintptr_t)cfd));
+            procs_[cfd % procs_.size()]->push(new QEvent(QEvent::Type::AddSess, (void*)(uintptr_t)cfd));
         }
     }
-
-    return res;
 }
 
 
-int
+void
 typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
     core::SOCKET fd = ev.data.fd;
     bool del = false;
 
     if (ev.events & EPOLLIN) {
         int n;
-        thread_local static uint8_t buf[RBUF_SIZE];
+        static uint8_t buf[RBUF_SIZE];
 
         while (1) {
             n = ::recv(fd, buf, RBUF_SIZE, 0);
@@ -208,14 +200,12 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        break;
+                    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                        del = true;
+                        xERROR("recv failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                     }
-
-                    xERROR("{} recv 失败: errno = {}, errstr = {}", fd, errno, ::strerror(errno));
                 }
-
-                del = true;
+                
                 break;
             } else {
                 RcvArg* rbuf = (RcvArg*)::mi_malloc(sizeof(RcvArg) + n);
@@ -223,13 +213,13 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 rbuf->len = n;
                 rbuf->fd = fd;
                 ::memcpy(rbuf->data, buf, n);
-                workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::Recv, rbuf));
+                procs_[fd % procs_.size()]->push(new QEvent(QEvent::Type::Recv, rbuf));
             }
         }
     }
 
     if (ev.events & EPOLLOUT) {
-        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::Send, (void*)(uintptr_t)fd));
+        procs_[fd % procs_.size()]->push(new QEvent(QEvent::Type::Send, (void*)(uintptr_t)fd));
     }
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
@@ -237,8 +227,7 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (del) {
-        workers_[fd % workers_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+        procs_[fd % procs_.size()]->push(new QEvent(QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
     }
-
-    return 0;
 }

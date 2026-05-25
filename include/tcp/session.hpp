@@ -24,25 +24,13 @@ public:
 
 
     static Ptr
-    create(core::SOCKET sockfd, uint64_t tnow, Proc* w) noexcept {
-        return std::make_unique<Session>(sockfd, tnow, w);
+    create(core::SOCKET sockfd, Proc* w) noexcept {
+        return std::make_shared<Session>(sockfd, w);
     }
 
 
     explicit
-    Session(core::SOCKET sockfd, uint64_t tnow, Proc* w) noexcept
-        : sockfd_(sockfd)
-        , addrlen_(sizeof(addr_))
-        , last_recv_ms_(tnow)
-        , proc_(w) {
-        constexpr int on = 1;
-        constexpr int bufsize = 1024 * 1024 * 8;
-        ASSERT(::getpeername(sockfd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
-        ASSERT(core::set_nonblocking(sockfd_) == 0, "failed to set non-blocking");
-        ASSERT(::setsockopt(sockfd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == 0, "failed to set TCP_NODELAY");
-        ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) == 0, "failed to set send buffer");
-        ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) == 0, "failed to set receive buffer");
-    }
+    Session(core::SOCKET sockfd, Proc* w) noexcept;
 
 
     ~Session() noexcept {
@@ -52,6 +40,9 @@ public:
     }
 
 
+    /**
+     * @brief 是否鉴权
+     */
     bool
     authed() const noexcept {
         return authed_;
@@ -82,25 +73,33 @@ public:
     }
 
 
+    template<typename T>
+    T*
+    get_user_data() noexcept {
+        return static_cast<T*>(user_data_);
+    }
+
+
+    void
+    set_user_data(void* data) noexcept {
+        user_data_ = data;
+    }
+
+
     bool
     input(const uint8_t* buf, size_t len) noexcept {
-        return pbuf_.append(buf, len);
+        return rbuf_.append(buf, len);
     }
 
 
+    /**
+     * @brief 从 pbuf_ 里 decode 出一个 PackageEx,并更新 last_recv_ms_。
+     * @return  1 成功 decode 出一个完整 PackageEx, *pke 已指向该包
+     * @return  0 pbuf_ 中没有足够数据 decode 出一个完整 PackageEx, *pke 不变
+     * @return <0 decode 失败, -errno, *pke 不变
+     */
     int
-    recv(core::PackageEx** pke, uint64_t tnow) noexcept {
-        if (pbuf_.readable() == 0) {
-            return -1;
-        }
-
-        if (!pbuf_.decode(pke)) {
-            return -2;
-        }
-
-        last_recv_ms_ = tnow;
-        return 1;
-    }
+    recv(core::PackageEx** pke) noexcept;
 
 
     /**
@@ -140,7 +139,7 @@ private:
     void*                user_data_    { nullptr };
     Proc*                proc_         { nullptr };
     std::vector<uint8_t> sbuf_         {};
-    core::RcvBuf         pbuf_         {};
+    core::RcvBuf         rbuf_         {};
 }; // class TcpSession;
 
     

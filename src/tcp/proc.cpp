@@ -12,41 +12,35 @@ typhon::tcp::Proc::run() noexcept {
 
     init();
 
-    int i, n, err;
-    uint64_t now;
+    int i, n;
     ::epoll_event events[2];
 
     state_.store(core::State::Running);
 
     while (running()) {
-        err = 0;
         n = ::epoll_wait(epfd_, events, 2, 10);
         if (n < 0) {
             if (errno == EINTR) {
                 continue;
             }
-            err = -errno;
+            xERROR("epoll_wait failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             break;
         }
 
-        now = server_->tnow();
+        tnow_ = core::systime_ms();
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
-                err = on_stop_handle(ev);
+                on_stop_handle(ev);
             } else if (ev.data.fd == que_evfd_) {
-                err = on_que_handle(ev);
+                on_que_handle(ev);
             }
         }
 
-        if (err) {
-            break;
-        }
-
-        if (last_check_ms_ + 1000 < now) {
+        if (last_check_ms_ + 1000 < tnow_) {
             check_timeout();
-            last_check_ms_ = now;
+            last_check_ms_ = tnow_;
         }
     }
 
@@ -109,49 +103,56 @@ typhon::tcp::Proc::release() noexcept {
 }
 
 
-int
+void
 typhon::tcp::Proc::on_stop_handle(const ::epoll_event& ev) noexcept {
-    int err = 0;
-
     if (ev.events & EPOLLIN) {
         int n;
         while (1) {
             uint64_t event;
             n = ::read(stop_evfd_, &event, sizeof(event));
             if (n < 0) {
-                if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                    err = -errno;
+                int err = errno;
+                if (err == EINTR) {
+                    continue;
+                }
+
+                if (err != EAGAIN && err != EWOULDBLOCK) {
+                    xERROR("read failed: errno = {}, errstr = {}", err, ::strerror(err));
                 }
                 break;
             }
         }
     }
-
-    return err;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
     if (!(ev.events & EPOLLIN)) {
-        return 0;
+        return;
     }
 
+    int err = 0;
     while (1) {
         uint64_t event;
         auto n = ::read(que_evfd_, &event, sizeof(event));
         if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                break;
+            err = errno;
+            if (err == EINTR) {
+                continue;
             }
-            return -errno;
+
+            if (err != EAGAIN && err != EWOULDBLOCK) {
+                xERROR("read failed: errno = {}, errstr = {}", err, ::strerror(err));
+            }
+            break;
         }
     }
 
     sending_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
-     QEvent* qes[16];
+    QEvent* qes[16];
     while ((n = rque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
             switch (qes[i]->qe_type) {
@@ -178,30 +179,28 @@ typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
             delete qes[i];
         }
     }
-
-    return 0;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvArg*)qe->qe_data;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);
-        return 0;
+        return;
     }
 
     if (!sess->input(rbuf->data, rbuf->len)) {
         ::mi_free(rbuf);
-        return 0;
+        return;
     }
 
     int res;
     core::PackageEx* pke;
     core::Package* pk;
     while (1) {
-        res = sess->recv(&pke, server_->tnow());
+        res = sess->recv(&pke);
         if (res < 0) {
             break;
         } else if (res == 0) {
@@ -219,11 +218,10 @@ typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
     }
 
     ::mi_free(rbuf);
-    return 0;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     auto sess = server_->get_session(fd);
@@ -233,29 +231,26 @@ typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
             xWARN("failed to send data to fd {}, err = {}", fd, -n);
         }
     }
-    return 0;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_qe_add_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->add_session(fd, this);
-    return 0;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
-    server_->remove_session(fd);
-    return 0;
+    server_->remove_session(fd, false);
 }
 
 
 void
 typhon::tcp::Proc::check_timeout() noexcept {
-    const auto tn = server_->tnow();
+    const auto tn = tnow_;
     const auto timeout = Conf::instance()->timeout();
     const int  n  = Server::MAX_CONN;
     const int  ws = server_->worker_size();

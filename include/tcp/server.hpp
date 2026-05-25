@@ -45,10 +45,9 @@ public:
         {}
 
 
-        virtual int
-        on_init(Server*) noexcept {
-            return 0;
-        }
+        virtual void
+        on_init(Server*) noexcept
+        {}
 
 
         virtual void
@@ -68,10 +67,10 @@ public:
     }; // class IEvent;
 
 
-    static constexpr int MAX_CONN = 1024 * 8;
+    static constexpr int MAX_CONN = 1024 * 2; ///< 最大连接数
 
 
-    typedef int (*PackageHandler)(Session::Ptr s, const core::PackageEx* pke) noexcept;
+    typedef void (*PackageHandler)(Session::Ptr s, const core::PackageEx* pke) noexcept;
 
 
     explicit
@@ -93,12 +92,6 @@ public:
     }
 
 
-    uint64_t
-    tnow() const noexcept {
-        return tnow_.load(std::memory_order_relaxed);
-    }
-    
-
     const Session::Ptr*
     sessions() const noexcept {
         return sessions_;
@@ -107,7 +100,7 @@ public:
 
     int
     worker_size() const noexcept {
-        return (int)workers_.size();
+        return (int)procs_.size();
     }
 
 
@@ -145,7 +138,7 @@ public:
     void
     add_session(core::SOCKET fd, Proc* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        sessions_[fd] = Session::create(fd, tnow(), w);
+        sessions_[fd] = Session::create(fd, w);
         if (event_->on_connected(sessions_[fd]) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             sessions_[fd] = nullptr;
@@ -154,10 +147,12 @@ public:
 
 
     void
-    remove_session(core::SOCKET fd) noexcept {
+    remove_session(core::SOCKET fd, bool del_from_epoll = true) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (sessions_[fd]) {
-            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));  
+            if (del_from_epoll) {
+                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+            }
             event_->on_disconnected(sessions_[fd]);
             sessions_[fd] = nullptr;
         }
@@ -200,26 +195,25 @@ private:
     release() noexcept;
 
 
-    int
+    void
     on_stop_handle(const ::epoll_event& ev) noexcept;
 
 
-    int
+    void
     on_listen_handle(const ::epoll_event& ev) noexcept;
 
 
-    int
+    void
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
     core::SOCKET             lfd_                         { core::INVALID_SOCKET };
     core::SOCKET             stop_evfd_                   { core::INVALID_SOCKET };
     core::SOCKET             epfd_                        { core::INVALID_SOCKET };
-    std::atomic<uint64_t>    tnow_                        { 0 };
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   
-    std::vector<Proc::Ptr> workers_;   
+    std::vector<Proc::Ptr>   procs_;   
     std::vector<std::thread> threads_;
     Session::Ptr             sessions_[MAX_CONN]          { nullptr };
     PackageHandler           handlers[core::MAX_HANDLERS] { nullptr };
