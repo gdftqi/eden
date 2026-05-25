@@ -71,7 +71,7 @@ public:
     static constexpr int MAX_CONN = 1024 * 8;
 
 
-    typedef int (*PackageHandler)(Session* s, const core::Package* pk, const core::PackageTail* pkt) noexcept;
+    typedef int (*PackageHandler)(Session* s, const core::PackageEx* pke) noexcept;
 
 
     explicit

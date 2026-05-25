@@ -108,7 +108,7 @@ struct RcvBuf {
 
 
     bool
-    decode(core::Package** pkg, core::PackageTail** pkt) noexcept {
+    decode(core::PackageEx** pke) noexcept {
         // Lazy compact: rpos 越过 buf 中线时把 readable 区回搬到 buf 起始,
         // 把代价分摊到 decode 路径,避免 append 在 wpos 顶满时被迫做大块 memmove。
         // 这一步安全的前提是:调用方在拿到新 *pkg 之前,上一次 decode 返回的 *pkg
@@ -117,24 +117,23 @@ struct RcvBuf {
             compact();
         }
 
-        if (readable() < core::PKG_HEADER_LEN) {
+        if (readable() < core::PKG_HDR_EX_LEN) {
             return false;
         }
 
-        auto* p = (core::Package*)(buf + rpos);
-        uint16_t pklen = ::ntohs(p->pk_len);
+        auto* p = (core::PackageEx*)(buf + rpos);
+        uint16_t pklen = ::ntohs(p->pke_len);
 
-        ASSERT(pklen >= core::PKG_HEADER_LEN + core::PKG_TAIL_LEN, "invalid package length: {}", pklen);
+        ASSERT(pklen >= core::PKG_HDR_EX_LEN, "invalid package ex length: {}", pklen);
 
         if (readable() < pklen) {
             return false;
         }
 
-        pk_ntoh(p);
-        auto* t = (core::PackageTail*)(buf + rpos + pklen - core::PKG_TAIL_LEN);
-        pkt_ntoh(t);
-        *pkg = p;
-        *pkt = t;
+        pke_ntoh(p);
+        *pke = p;
+        auto* pk = pke_get_pk(p);
+        pk_ntoh(pk);
         rpos += pklen;
         return true;
     }

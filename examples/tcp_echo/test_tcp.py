@@ -26,50 +26,55 @@ DATA_SIZE     = 800       # 典型 MMO 移动/事件包 100-300B,取 800B
 SEND_RATE_HZ  = 20        # 典型 MMO 同步 10-20 Hz,取 20 Hz
 TIMEOUT_SEC   = 15.0      # 单条请求超时阈值(超过算 fail)
 
-# ----- Package 协议格式(必须和 typhon C++ 端 package.hpp 保持一致)-----
-# struct Package {
-#     uint16_t pk_len;     // 整包总长 = HEADER + payload + TAIL (后端方向 pk_len 含 tail)
-#     uint16_t pk_id;      // 业务消息号
-#     uint32_t pk_idem;    // 幂等 ID,客户端单调递增,必须 ≠ 0
-#     uint32_t pk_dst_id;  // 目标服务类型(路由键)
-#     uint8_t  pk_data[];  // payload
+# ----- Package / PackageEx 协议格式(必须和 typhon C++ 端 package.hpp 保持一致)-----
+# 网关 → 后端 方向走 PackageEx,网关 prepend 10B 头后送给 backend.
+# wire frame = PackageEx 头 (10B) + 内嵌 Package wire frame (10B 头 + payload)
+#
+# struct Package {            // 内嵌于 PackageEx
+#     uint16_t pk_id;         // 业务消息号
+#     uint32_t pk_idem;       // 幂等 ID,客户端单调递增,必须 ≠ 0
+#     uint32_t pk_dst_id;     // 目标服务类型(路由键)
+#     uint8_t  pk_payload[];  // payload
 # };
-# struct PackageTail {        // 网关 stamp,**到 backend 的包必然带这 8 字节**
-#     uint32_t pkt_src_id;    // FromPlayerID
-#     uint32_t pkt_src_addr;  // 客户端 IPv4 地址(uint32)
+# struct PackageEx {
+#     uint16_t pke_len;       // PackageEx wire frame 总长(含本头 + 内嵌 Package)
+#     uint32_t pke_src_id;    // FromPlayerID, 网关查表填写
+#     uint32_t pke_src_addr;  // 客户端 IPv4 地址(uint32 host order → big-endian on wire)
+#     uint8_t  pke_pk[];      // 内嵌 Package wire frame
 # };
 # 所有多字节字段一律网络字节序(big-endian)。
-# 本测试直连 backend,所以自己模拟 gateway 把 tail 也打上。
-HEADER_FMT  = '!HHII'
-HEADER_SIZE = struct.calcsize(HEADER_FMT)
-TAIL_FMT    = '!II'
-TAIL_SIZE   = struct.calcsize(TAIL_FMT)
-assert HEADER_SIZE == 12
-assert TAIL_SIZE   == 8
+# 本测试直连 backend,模拟网关已经 wrap 好 PackageEx 的流量。
+PK_HDR_FMT   = '!HII'                          # 内嵌 Package 头: pk_id / pk_idem / pk_dst_id
+PK_HDR_SIZE  = struct.calcsize(PK_HDR_FMT)
+PKE_HDR_FMT  = '!HII'                          # PackageEx 头: pke_len / pke_src_id / pke_src_addr
+PKE_HDR_SIZE = struct.calcsize(PKE_HDR_FMT)
+assert PK_HDR_SIZE  == 10
+assert PKE_HDR_SIZE == 10
 
 PK_ID_PING = 1
-PK_DST_ID  = 0
+PK_DST_ID  = 1                  # backend 不强校验,但 ≥ 1 与协议一致
 
-# 模拟 gateway stamp 的 tail 字段(测试里固定值即可)
-PKT_SRC_ID   = 0
-PKT_SRC_ADDR = 0x7f000001   # 127.0.0.1
-
-
-def pack_pk(pk_id, pk_idem, pk_dst_id, payload):
-    pk_len = HEADER_SIZE + len(payload) + TAIL_SIZE
-    return (struct.pack(HEADER_FMT, pk_len, pk_id, pk_idem, pk_dst_id)
-            + payload
-            + struct.pack(TAIL_FMT, PKT_SRC_ID, PKT_SRC_ADDR))
+# 模拟 gateway stamp 的 PackageEx 字段(测试里固定值即可)
+PKE_SRC_ID   = 1                # FromPlayerID,占位非 0
+PKE_SRC_ADDR = 0x7f000001       # 127.0.0.1
 
 
-def unpack_pk(data):
-    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None。tail 校验后丢弃 """
-    if len(data) < HEADER_SIZE + TAIL_SIZE:
+def pack_pke(pk_id, pk_idem, pk_dst_id, payload):
+    pk_bytes = struct.pack(PK_HDR_FMT, pk_id, pk_idem, pk_dst_id) + payload
+    pke_len  = PKE_HDR_SIZE + len(pk_bytes)
+    return struct.pack(PKE_HDR_FMT, pke_len, PKE_SRC_ID, PKE_SRC_ADDR) + pk_bytes
+
+
+def unpack_pke(data):
+    """ 解一个完整 PackageEx wire frame,返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None """
+    if len(data) < PKE_HDR_SIZE + PK_HDR_SIZE:
         return None
-    pk_len, pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
-    if pk_len != len(data):
+    pke_len, _src_id, _src_addr = struct.unpack(PKE_HDR_FMT, data[:PKE_HDR_SIZE])
+    if pke_len != len(data):
         return None
-    payload = data[HEADER_SIZE:-TAIL_SIZE]
+    pk_off = PKE_HDR_SIZE
+    pk_id, pk_idem, pk_dst_id = struct.unpack(PK_HDR_FMT, data[pk_off:pk_off + PK_HDR_SIZE])
+    payload = data[pk_off + PK_HDR_SIZE:]
     return (pk_id, pk_idem, pk_dst_id, payload)
 
 
@@ -168,7 +173,7 @@ def run_client(client_id, stats, stop_event):
                 idem    = next_idem
                 next_idem += 1
 
-                pkg_bytes = pack_pk(PK_ID_PING, idem, PK_DST_ID, payload)
+                pkg_bytes = pack_pke(PK_ID_PING, idem, PK_DST_ID, payload)
                 try:
                     # TCP 一次 sendall(底层已建立连接)
                     total = len(pkg_bytes)
@@ -207,15 +212,15 @@ def run_client(client_id, stats, stop_event):
             except Exception:
                 break
 
-            # 3. 按 pk_len 切完整 Package,按 idem 配对 pending
-            while len(recv_buf) >= HEADER_SIZE:
-                pk_len = struct.unpack('!H', bytes(recv_buf[:2]))[0]
-                if pk_len > len(recv_buf):
+            # 3. 按 pke_len 切完整 PackageEx,按 idem 配对 pending
+            while len(recv_buf) >= PKE_HDR_SIZE:
+                pke_len = struct.unpack('!H', bytes(recv_buf[:2]))[0]
+                if pke_len > len(recv_buf):
                     break       # 还没收齐
-                pkg_bytes = bytes(recv_buf[:pk_len])
-                del recv_buf[:pk_len]
+                pkg_bytes = bytes(recv_buf[:pke_len])
+                del recv_buf[:pke_len]
 
-                parsed = unpack_pk(pkg_bytes)
+                parsed = unpack_pke(pkg_bytes)
                 if parsed is None:
                     continue
                 rcv_id, rcv_idem, _, rcv_payload = parsed
@@ -272,7 +277,7 @@ def main():
     signal.signal(signal.SIGTERM, handle_sig)
 
     print(f'TCP MMO 模拟压测:{NUM_CLIENTS} 个客户端 × {SEND_RATE_HZ} Hz × {DATA_SIZE} B payload '
-          f'(+ {HEADER_SIZE} B header + {TAIL_SIZE} B tail) -> {SERVER_HOST}:{SERVER_PORT}   '
+          f'(+ {PKE_HDR_SIZE} B PackageEx 头 + {PK_HDR_SIZE} B Package 头) -> {SERVER_HOST}:{SERVER_PORT}   '
           f'(按 Ctrl+C 停止)')
 
     threads = [threading.Thread(target=run_client, args=(i, stats, stop_event))

@@ -44,13 +44,13 @@ public:
 
 
     virtual int
-    on_data(typhon::kcp::Session::Ptr kcp, const typhon::core::Package* pkg) noexcept {
+    on_data(typhon::kcp::Session::Ptr kcp, const typhon::core::Package* pk, int len) noexcept {
         return kcp->send_pk(
-            pkg->pk_id, 
+            pk->pk_id, 
             kcp->next_snd_idem(), 
-            pkg->pk_dst_id, 
-            pkg->pk_data, 
-            pkg->pk_len - sizeof(typhon::core::Package)
+            pk->pk_dst_id, 
+            pk->pk_payload, 
+            len - sizeof(typhon::core::Package)
         ) < 0 ? -1 : 0;
     }
 };

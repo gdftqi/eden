@@ -186,12 +186,14 @@ public:
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      *
-     * @return   1   成功:*pkg 可用,已 ntoh 到 host 序,rcv_idem_ / last_recv_ms_ 已更新
+     * @return  >0   成功:返回值为 wire frame 字节数(Package 头 + payload, >= PKG_HDR_LEN);
+     *               *pkg 可用,已 ntoh 到 host 序,rcv_idem_ / last_recv_ms_ 已更新.
+     *               payload 长度 = 返回值 - PKG_HDR_LEN.
      * @return   0   幂等重复包,跳过(rcv_queue 可能还有,可继续 recv_pk)
      * @return  -1   rcv_queue 空,当前没有完整消息
      * @return  -2   KCP peek 失败(内部状态异常,正常路径不应出现)
      * @return  -3   buf 太小,装不下下一条消息;调用方应放大 buf 后重试
-     * @return  -4   非法包:长度越界 或 pk_len 字段与实际长度不自洽
+     * @return  -4   非法包:长度越界(< PKG_HDR_LEN 或 > PKG_MAX_LEN)
      * @return  -5   非法 pk_id(== 0 或 >= 1024)
      * @return  -6   非法 pk_idem(== 0,违反协议约定)
      * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
@@ -210,7 +212,7 @@ public:
             return -3;
         }
 
-        if (res < core::PKG_HEADER_LEN || res > core::PKG_MAX_LEN - core::PKG_TAIL_LEN) {
+        if (res < core::PKG_HDR_LEN || res > core::PKG_MAX_LEN) {
             // 无效的package
             return -4;
         }
@@ -218,10 +220,6 @@ public:
         *pkg = (core::Package*)buf;
         core::pk_ntoh(*pkg);
         auto* p = *pkg;
-        if (p->pk_len != res) {
-            return -4;
-        }
-
         if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
             return -5;
         }
@@ -240,7 +238,7 @@ public:
 
         last_recv_ms_ = now;
         rcv_idem_ = p->pk_idem;
-        return 1;
+        return res;
     }
 
 
@@ -254,26 +252,26 @@ public:
      * @param pk_idemp  幂等 ID,**必须 != 0**;0 会被对端 recv_pk 视为非法包丢弃
      * @param pk_dst_id 目标服务类型(路由键);客户端发出时填,echo 时透传
      * @param data      payload 起始
-     * @param len       payload 字节数;不可超过 PKG_MAX_DATA_LEN(预留 PackageTail 空间)
+     * @param len       payload 字节数;不可超过 PKG_MAX_PAYLOAD
+     *                  (上限按更严的 TCP 后端方向算,客户端发的包经网关 wrap PackageEx 后仍能装下)
      * @return   0  入队成功(等 update() 触发出网卡)
-     * @return  -1  payload 太大(> PKG_MAX_DATA_LEN)
+     * @return  -1  payload 太大(> PKG_MAX_PAYLOAD)
      * @return  -2  KCP 拒绝入队(分片数 >= rcvwnd),见 send() 注释
      */
     int
     send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
         thread_local static uint8_t buf[core::PKG_MAX_LEN];
 
-        if (len > core::PKG_MAX_DATA_LEN) {
+        if (len > core::PKG_MAX_PAYLOAD) {
             return -1;
         }
-        size_t total = core::PKG_HEADER_LEN + len;
+        size_t total = core::PKG_HDR_LEN + len;
 
         auto* pkg = (core::Package*)buf;
-        pkg->pk_len = total;
         pkg->pk_id = pk_id;
         pkg->pk_idem = pk_idemp;
         pkg->pk_dst_id = pk_dst_id;
-        ::memcpy(pkg->pk_data, data, len);
+        ::memcpy(pkg->pk_payload, data, len);
 
         core::pk_hton(pkg);
         return send(buf, total);

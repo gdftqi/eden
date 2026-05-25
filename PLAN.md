@@ -115,3 +115,39 @@
   - 代价：编程模型变(从"被动 epoll_wait → 主动处理"变成"submit → poll cqe"),代码改动较大
   - 时机：profile 数据显示 epoll/recv/send syscall 占 worker CPU > 20% 时再上
   - 实施提示：先在 TcpWorker 切换(per-worker 一个 ring),TcpServer 主线程(accept)可保留 epoll 不动
+
+- [ ] **XDP envelope MAC：内核层 DoS 过滤**
+  - 目的：垃圾 / 伪造 UDP 包在 XDP(网卡驱动层)就 drop，**不进 userland、不进 KCP**，避免攻击者用乱包耗 KcpServer worker CPU
+  - 协议布局（envelope 与 KCP 平行，不动 ikcp）:
+    ```
+    UDP payload:
+    +--------------+--------------------+
+    | siphash 8B   | KCP frame (原样)   |
+    +--------------+--------------------+
+    ```
+  - **算法：SipHash-2-4 截到 64-bit**
+    - 输入：`(src_ip, src_port, KCP frame 字节)`，把 5-tuple 也喂进去做 binding，防异端口重放
+    - 输出 8B tag 拼在 UDP payload 最前面
+    - 选 SipHash 不选 ChaCha20-Poly1305 的理由:eBPF verifier 容量有限，SipHash 几百条指令搞定，verifier 轻松过;Poly1305 在 BPF 里需要 130-bit 多精度乘法 + 全 unroll，**指令数膨胀到三万+，且没有 SIMD 加速反而比 userland 慢**
+    - 64-bit tag 对 DoS 防御足够(攻击者要碰一个合法 tag 平均 2^63 次尝试)
+  - **secret 管理**：userland 持有 master secret，定期 rotate(例:1h 一换，保留前一把 key 做过渡)，通过 BPF map (`BPF_MAP_TYPE_ARRAY`，2 槽位:current / previous) 共享给 XDP
+  - **XDP 流程**：
+    1. 解析 IP/UDP 头拿到 5-tuple
+    2. 读 UDP payload 前 8B 为 tag
+    3. 算 SipHash(secret, src_ip || src_port || payload[8..])
+    4. 对比，不匹配试 previous key；都不过 → `XDP_DROP`
+    5. 过的包**原样**送 socket(不剥 envelope，userland 自己跳过前 8B)
+  - **userland 流程**：
+    - 发：`ikcp_output` 回调拿到要发的 KCP frame → prepend 8B SipHash → sendto
+    - 收：从 socket 读到 payload → 跳过前 8B → 交给 `ikcp_input`
+    - KCP 本身完全不知道这层存在，**ikcp.c/.h 一字不改**，上游升级照单全收
+  - **与应用层加密的关系**：envelope MAC 只做 DoS 过滤，**不替代** Package payload 的 ChaCha20-Poly1305 加密
+    - envelope：8B SipHash，XDP 防垃圾流量
+    - 应用层：28B AEAD overhead(12B nonce + 16B Poly1305 tag)，userland 解密，保密 + 完整性
+    - 总 overhead = 8 + 24(KCP hdr) + 28 = 60B / 1376B MTU ≈ 4.4%
+  - **rate-limit 配合**：XDP 同时维护一个 per-src-IP LRU map，对 tag 校验**失败**的源做指数惩罚 / 直接 blacklist；通过的不计费
+  - 时机：Phase 2 全部跑通后；先压测 baseline 看看垃圾流量在 worker CPU 占多少，profile 驱动决定是否上
+  - 实施提示：
+    - 先在 userland 写好 SipHash send/recv 路径(纯库函数，不依赖 BPF)，跑通后再写 XDP 版本
+    - XDP 程序参考 [libbpf](https://github.com/libbpf/libbpf) 例子，attach 到 KcpServer 监听的网卡接口
+    - 注意 SipHash secret 是字节数组，按 byte-order-neutral 处理；tag 也不做 hton/ntoh

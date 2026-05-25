@@ -31,33 +31,31 @@ TIMEOUT_SEC   = 15.0     # 单条请求超时阈值（超过算 fail）
 
 # ----- Package 协议格式（必须和 typhon C++ 端 package.hpp 保持一致）-----
 # struct Package {
-#     uint16_t pk_len;     // 整包总长 = HEADER_SIZE + payload
-#     uint16_t pk_id;      // 业务消息号
-#     uint32_t pk_idem;    // 幂等 ID，客户端单调递增，必须 ≠ 0
-#     uint32_t pk_dst_id;  // 目标服务类型（路由键）
-#     uint8_t  pk_data[];  // payload
+#     uint16_t pk_id;        // 业务消息号
+#     uint32_t pk_idem;      // 幂等 ID，客户端单调递增，必须 ≠ 0
+#     uint32_t pk_dst_id;    // 目标服务类型（路由键），必须 > 0
+#     uint8_t  pk_payload[]; // payload
 # };
-# 所有多字节字段一律网络字节序（big-endian）
-HEADER_FMT  = '!HHII'                       # big-endian: u16, u16, u32, u32
-HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 12 字节
-assert HEADER_SIZE == 12
+# 所有多字节字段一律网络字节序（big-endian）。
+# KCP 方向 Package 不带长度字段，长度由 KCP 消息边界给定（ikcp_recv 返回值）。
+HEADER_FMT  = '!HII'                        # big-endian: u16, u32, u32
+HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 10 字节
+assert HEADER_SIZE == 10
 
 PK_ID_PING  = 1     # 测试用消息号
-PK_DST_ID   = 1     # 测试用目标服务（占位）
+PK_DST_ID   = 1     # 测试用目标服务（占位）；必须 > 0，否则被 recv_pk 判定 -7 非法
 
 
 def pack_pk(pk_id, pk_idem, pk_dst_id, payload):
-    pk_len = HEADER_SIZE + len(payload)
-    return struct.pack(HEADER_FMT, pk_len, pk_id, pk_idem, pk_dst_id) + payload
+    return struct.pack(HEADER_FMT, pk_id, pk_idem, pk_dst_id) + payload
 
 
 def unpack_pk(data):
-    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None """
+    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None.
+        长度从 data 总长推，Package 自身无长度字段。 """
     if len(data) < HEADER_SIZE:
         return None
-    pk_len, pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
-    if pk_len != len(data):
-        return None
+    pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
     return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
 
 

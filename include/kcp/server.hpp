@@ -97,7 +97,7 @@ public:
          * @return 返回非 0 表示处理失败, Session 会立刻 remove_session()
          */
         virtual int 
-        on_data(Session::Ptr, const core::Package*) noexcept {
+        on_data(Session::Ptr, const core::Package*, int) noexcept {
             return 0;
         }
     }; // class IEvent;

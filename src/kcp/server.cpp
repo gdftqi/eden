@@ -222,7 +222,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (event_->on_data(s, pkg) != 0) {
+                    if (event_->on_data(s, pkg, rc) != 0) {
                         remove_session(s->conv());
                         break;
                     }

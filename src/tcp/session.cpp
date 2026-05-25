@@ -2,7 +2,7 @@
 
 
 int
-typhon::tcp::Session::send(core::Package* pk) noexcept {
+typhon::tcp::Session::send(core::PackageEx* pke) noexcept {
     if (sbuf_.size() > 0) {
         int n = send(sbuf_.data(), sbuf_.size());
         if (n < 0) {
@@ -12,13 +12,15 @@ typhon::tcp::Session::send(core::Package* pk) noexcept {
         }
     }
 
-    if (pk == nullptr) {
+    if (pke == nullptr) {
         return 0;
     }
 
-    int total = pk->pk_len;
+    int total = pke->pke_len;
+    core::pke_hton(pke);
+    auto* pk = core::pke_get_pk(pke);
     core::pk_hton(pk);
-    uint8_t* buf = (uint8_t*)pk;
+    uint8_t* buf = (uint8_t*)pke;
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), buf, buf + total);

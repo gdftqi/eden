@@ -198,23 +198,24 @@ typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
     }
 
     int res;
+    core::PackageEx* pke;
     core::Package* pk;
-    core::PackageTail* pkt;
     while (1) {
-        res = sess->recv(&pk, &pkt, server_->tnow());
+        res = sess->recv(&pke, server_->tnow());
         if (res < 0) {
             break;
         } else if (res == 0) {
             continue;
         }
 
+        pk = core::pke_get_pk(pke);
         auto handler = server_->get_handler(pk->pk_id);
         if (!handler) {
             xWARN("no handler for pk_id {}, from {}", pk->pk_id, sess->remote_addr());
             continue;
         }
 
-        handler(sess, pk, pkt);
+        handler(sess, pke);
     }
 
     ::mi_free(rbuf);

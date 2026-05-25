@@ -34,7 +34,7 @@ public:
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
         , last_recv_ms_(tnow)
-        , worker_(w) {
+        , proc_(w) {
         constexpr int on = 1;
         constexpr int bufsize = 1024 * 1024 * 8;
         ASSERT(::getpeername(sockfd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
@@ -71,8 +71,8 @@ public:
 
 
     const Proc*
-    worker() const noexcept {
-        return worker_;
+    proc() const noexcept {
+        return proc_;
     }
 
 
@@ -89,12 +89,12 @@ public:
 
 
     int
-    recv(core::Package** pk, core::PackageTail** pkt, uint32_t tnow) noexcept {
+    recv(core::PackageEx** pke, uint32_t tnow) noexcept {
         if (pbuf_.readable() == 0) {
             return -1;
         }
 
-        if (!pbuf_.decode(pk, pkt)) {
+        if (!pbuf_.decode(pke)) {
             return -2;
         }
 
@@ -104,26 +104,27 @@ public:
 
 
     /**
-     * @brief 把 Package 发给对端;若内核 buffer 满则把剩余字节挂到 sbuf_ 等下次 flush。
+     * @brief 把 PackageEx 发给对端;若内核 buffer 满则把剩余字节挂到 sbuf_ 等下次 flush。
      *
-     * @warning **就地副作用**:函数内部会调 pk_hton(pk),即**原地把 pk 的 12 字节
-     *          header 翻成网络字节序**。返回后:
-     *            - pk 指向的字段已经是网络序,**不能再当 host 序读**。
-     *            - **不允许对同一个 pk 再次调用 send()** —— 会被 hton 翻回去,
+     * @warning **就地副作用**:函数内部会先后调 pke_hton(pke) + pk_hton(内嵌 Package),
+     *          即**原地把 PackageEx 头 10B + 内嵌 Package 头 10B 共 20B 翻成网络字节序**。
+     *          返回后:
+     *            - pke 指向的字段(含内嵌 Package)已经是网络序,**不能再当 host 序读**。
+     *            - **不允许对同一个 pke 再次调用 send()** —— 会被 hton 翻回去,
      *              下游收到字节序错乱的包。
-     *            - 调用方需要拷贝的应是 pk 之前的 host 序字段值,不是 pk 本身。
+     *            - 调用方需要拷贝的应是 pke 之前的 host 序字段值,不是 pke 本身。
      *
-     *          典型用法是 handler 里「decode 出来 → 立即 send → 丢弃 pk」,pk 指向
+     *          典型用法是 handler 里「decode 出来 → 立即 send → 丢弃 pke」,pke 指向
      *          PkgBuf 已消费区,decode 已经推过 rpos,后续没人再读这段字节,
      *          就地翻转无害。
      *
-     * @param pk  待发送的 Package,允许传 nullptr(仅 flush sbuf_,不追加新包)。
+     * @param pke 待发送的 PackageEx,允许传 nullptr(仅 flush sbuf_,不追加新包)。
      * @return  1  整包同步发完(sbuf_ 也已 drain)
      * @return  0  部分/全部内容被排到 sbuf_,等 EPOLLOUT 触发再 flush
      * @return <0  socket 错(EAGAIN 不算),负值是 -errno
      */
     int
-    send(core::Package* pk) noexcept;
+    send(core::PackageEx* pke) noexcept;
 
 
 private:
@@ -137,7 +138,7 @@ private:
     socklen_t            addrlen_      { 0 };
     uint32_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
-    Proc*              worker_       { nullptr };
+    Proc*                proc_         { nullptr };
     std::vector<uint8_t> sbuf_         {};
     core::RcvBuf         pbuf_         {};
 }; // class TcpSession;

@@ -50,13 +50,11 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static int
-echo_handler(typhon::tcp::Session* sess,
-             const typhon::core::Package* pk,
-             const typhon::core::PackageTail* /*pkt*/) noexcept {
+echo_handler(typhon::tcp::Session* sess, const typhon::core::PackageEx* pke) noexcept {
     // Session::send 接收非 const Package*(因为内部要 pk_hton 翻字节序)。
     // 这里直接复用入站 buffer,handler 返回后 worker 才会推进 PkgBuf 游标,
     // 在此期间 buffer 不会被覆盖。
-    int rc = sess->send(const_cast<typhon::core::Package*>(pk));
+    int rc = sess->send(const_cast<typhon::core::PackageEx*>(pke));
     if (rc < 0) {
         xWARN("echo send failed: fd={}, rc={}", sess->sockfd(), rc);
     }
