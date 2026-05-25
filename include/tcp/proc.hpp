@@ -143,7 +143,7 @@ private:
 
     Server*                  server_         { nullptr };
     int                      id_             { -1 };      
-    uint32_t                 last_check_ms_  { 0 };
+    uint64_t                 last_check_ms_  { 0 };
     core::SOCKET             epfd_           { core::INVALID_SOCKET };
     core::SOCKET             que_evfd_       { core::INVALID_SOCKET };   // 队列事件
     core::SOCKET             stop_evfd_      { core::INVALID_SOCKET };   // 停止事件

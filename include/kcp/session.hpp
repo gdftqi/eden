@@ -72,6 +72,12 @@ public:
     conv() const noexcept {
         return kcp_->conv;
     }
+
+
+    std::string
+    to_string() const noexcept {
+        return desc_;
+    }
     
 
     /**
@@ -123,8 +129,8 @@ public:
      * @brief 检测超时
      */
     bool
-    check_timeout(uint32_t tnow) const noexcept {
-        return tnow - last_recv_ms_ > Conf::instance()->timeout();
+    check_timeout(uint64_t tnow) const noexcept {
+        return tnow - last_recv_ms_ > (uint64_t)Conf::instance()->timeout();
     }
 
 
@@ -136,8 +142,9 @@ public:
      *                调用必须用同一时间源)。典型用 CLOCK_MONOTONIC 转 ms。
      */
     void
-    update(uint32_t current) noexcept {
-        ::ikcp_update(kcp_, current);
+    update(uint64_t current) noexcept {
+        // ikcp 协议层用 uint32 ms (内部 _itimediff 是 wrap-safe), cast 后正确.
+        ::ikcp_update(kcp_, (uint32_t)current);
     }
 
 
@@ -199,7 +206,7 @@ public:
      * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
      */
     int
-    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint32_t now) noexcept {
+    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64_t now) noexcept {
         int res = recv(buf, len);
         if (res == 0 || res == -1) {
             // 没有数据
@@ -315,13 +322,14 @@ private:
     }
 
 
-    Server*          server_         { nullptr };
-    uint32_t            last_recv_ms_   { 0 };
-    uint32_t            snd_idem_       { 0 };
-    uint32_t            rcv_idem_       { 0 };
-    ::ikcpcb*           kcp_            { nullptr };
-    ::sockaddr_storage  addr_           {};
-    ::socklen_t         addrlen_        { sizeof(addr_) };
+    Server*            server_         { nullptr };
+    uint64_t           last_recv_ms_   { 0 };
+    uint32_t           snd_idem_       { 0 };
+    uint32_t           rcv_idem_       { 0 };
+    ::ikcpcb*          kcp_            { nullptr };
+    ::sockaddr_storage addr_           {};
+    ::socklen_t        addrlen_        { sizeof(addr_) };
+    std::string        desc_;
 }; // class Kcp;
 
 

@@ -122,7 +122,7 @@ public:
     }
 
 
-    uint32_t
+    uint64_t
     tnow() const noexcept {
         return tnow_;
     }
@@ -218,7 +218,7 @@ private:
     core::SOCKET             epfd_              { core::INVALID_SOCKET };
     core::SOCKET             stop_evfd_         { core::INVALID_SOCKET };
     IEvent*                  event_             { nullptr };
-    uint32_t                 tnow_              { 0 };
+    uint64_t                 tnow_              { 0 };
     std::atomic<core::State> state_             { core::State::Stopped };
     std::string              host_;
     SessionMap               sessions_;

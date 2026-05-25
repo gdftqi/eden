@@ -23,7 +23,6 @@ typhon::tcp::Server::run() noexcept {
 
     int i, n, err;
     ::epoll_event events[MAX_EVENTS];
-    auto base_ms = (uint32_t)core::systime_ms();
 
     state_.store(core::State::Running);
 
@@ -39,7 +38,7 @@ typhon::tcp::Server::run() noexcept {
             break;
         }
 
-        tnow_.store((uint32_t)core::systime_ms() - base_ms, std::memory_order_relaxed);
+        tnow_.store(core::systime_ms(), std::memory_order_relaxed);
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
@@ -120,7 +119,10 @@ typhon::tcp::Server::release() noexcept {
     workers_.clear();
     threads_.clear();
     for (auto& s: sessions_) {
-        s = nullptr;
+        if (s) {
+            event_->on_disconnected(s);
+            s = nullptr;
+        }
     }
 }
 

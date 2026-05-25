@@ -57,13 +57,13 @@ public:
 
 
         virtual int
-        on_connected(Session*) noexcept {
+        on_connected(Session::Ptr) noexcept {
             return 0;
         }
 
 
         virtual void
-        on_disconnected(Session*) noexcept
+        on_disconnected(Session::Ptr) noexcept
         {}
     }; // class IEvent;
 
@@ -71,7 +71,7 @@ public:
     static constexpr int MAX_CONN = 1024 * 8;
 
 
-    typedef int (*PackageHandler)(Session* s, const core::PackageEx* pke) noexcept;
+    typedef int (*PackageHandler)(Session::Ptr s, const core::PackageEx* pke) noexcept;
 
 
     explicit
@@ -93,7 +93,7 @@ public:
     }
 
 
-    uint32_t
+    uint64_t
     tnow() const noexcept {
         return tnow_.load(std::memory_order_relaxed);
     }
@@ -127,16 +127,18 @@ public:
             core::State expected = core::State::Running;
             if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
                 static constexpr uint64_t event = 1;
-                ASSERT(::write(stop_evfd_, &event, sizeof(event)) == sizeof(event), "errno = {}, errstr = {}", errno, ::strerror(errno));
+                if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
+                    xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+                }
             }
         }
     }
 
 
-    Session*
+    Session::Ptr
     get_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        return sessions_[fd].get();
+        return sessions_[fd];
     }
 
 
@@ -144,7 +146,7 @@ public:
     add_session(core::SOCKET fd, Proc* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         sessions_[fd] = Session::create(fd, tnow(), w);
-        if (event_->on_connected(sessions_[fd].get()) != 0) {
+        if (event_->on_connected(sessions_[fd]) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             sessions_[fd] = nullptr;
         }
@@ -156,7 +158,7 @@ public:
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (sessions_[fd]) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));  
-            event_->on_disconnected(sessions_[fd].get());
+            event_->on_disconnected(sessions_[fd]);
             sessions_[fd] = nullptr;
         }
     }
@@ -213,7 +215,7 @@ private:
     core::SOCKET             lfd_                         { core::INVALID_SOCKET };
     core::SOCKET             stop_evfd_                   { core::INVALID_SOCKET };
     core::SOCKET             epfd_                        { core::INVALID_SOCKET };
-    std::atomic<uint32_t>    tnow_                        { 0 };
+    std::atomic<uint64_t>    tnow_                        { 0 };
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   

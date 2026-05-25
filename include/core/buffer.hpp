@@ -17,11 +17,11 @@ struct SndBuf {
     ::sockaddr_storage addr;
     ::socklen_t        addrlen;
     uint32_t           len;
-    uint32_t           time;
+    uint64_t           time;
     uint8_t            buf[UDP_MTU];
 
 
-    SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint32_t time) noexcept 
+    SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
         , len(l)
         , time(time) {

@@ -1,5 +1,6 @@
 #include "kcp/session.hpp"
 #include "kcp/server.hpp"
+#include <format>
 
 
 typhon::kcp::Session::Session(
@@ -8,7 +9,8 @@ typhon::kcp::Session::Session(
     const void* addr, 
     socklen_t   addrlen
 ) noexcept
-    : server_(server) {
+    : server_(server)
+    , desc_(std::format("[{}]{}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
     kcp_ = ::ikcp_create(conv, this);
 
     ::memcpy(&addr_, addr, addrlen);

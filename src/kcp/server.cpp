@@ -39,7 +39,6 @@ typhon::kcp::Server::run() noexcept {
 
     int i, n;
     ::epoll_event events[MAX_EVENTS];
-    auto base_ms = (uint32_t)core::systime_ms();
 
     state_.store(core::State::Running);
 
@@ -53,7 +52,7 @@ typhon::kcp::Server::run() noexcept {
             break;
         }
 
-        tnow_ = (uint32_t)core::systime_ms() - base_ms;
+        tnow_ = core::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
@@ -249,7 +248,7 @@ typhon::kcp::Server::update() noexcept {
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
     size_t exp = 0;
-    auto timeout = Conf::instance()->timeout() / 2;
+    auto timeout = (uint64_t)Conf::instance()->timeout() / 2;
     while (exp < sque_.size() && sque_[exp]->time + timeout < tnow()) {
         sb_pool_.release(sque_[exp]);
         ++exp;

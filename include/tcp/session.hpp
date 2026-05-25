@@ -20,17 +20,17 @@ class Session {
 
 
 public:
-    typedef std::unique_ptr<Session> Ptr;
+    typedef std::shared_ptr<Session> Ptr;
 
 
     static Ptr
-    create(core::SOCKET sockfd, uint32_t tnow, Proc* w) noexcept {
+    create(core::SOCKET sockfd, uint64_t tnow, Proc* w) noexcept {
         return std::make_unique<Session>(sockfd, tnow, w);
     }
 
 
     explicit
-    Session(core::SOCKET sockfd, uint32_t tnow, Proc* w) noexcept
+    Session(core::SOCKET sockfd, uint64_t tnow, Proc* w) noexcept
         : sockfd_(sockfd)
         , addrlen_(sizeof(addr_))
         , last_recv_ms_(tnow)
@@ -64,7 +64,7 @@ public:
     }
 
 
-    uint32_t
+    uint64_t
     last_recv_ms() const noexcept {
         return last_recv_ms_;
     }
@@ -89,7 +89,7 @@ public:
 
 
     int
-    recv(core::PackageEx** pke, uint32_t tnow) noexcept {
+    recv(core::PackageEx** pke, uint64_t tnow) noexcept {
         if (pbuf_.readable() == 0) {
             return -1;
         }
@@ -136,7 +136,7 @@ private:
     core::SOCKET         sockfd_       { core::INVALID_SOCKET };
     sockaddr_storage     addr_         {};
     socklen_t            addrlen_      { 0 };
-    uint32_t             last_recv_ms_ { 0 };
+    uint64_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
     Proc*                proc_         { nullptr };
     std::vector<uint8_t> sbuf_         {};

@@ -13,7 +13,7 @@ typhon::tcp::Proc::run() noexcept {
     init();
 
     int i, n, err;
-    uint32_t now;
+    uint64_t now;
     ::epoll_event events[2];
 
     state_.store(core::State::Running);
@@ -186,7 +186,7 @@ typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
 int
 typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvArg*)qe->qe_data;
-    auto* sess = server_->get_session(rbuf->fd);
+    auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);
         return 0;
@@ -226,7 +226,7 @@ typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
 int
 typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
-    auto* sess = server_->get_session(fd);
+    auto sess = server_->get_session(fd);
     if (sess != nullptr) {
         int n = sess->send(nullptr);
         if (n < 0) {
@@ -267,7 +267,7 @@ typhon::tcp::Proc::check_timeout() noexcept {
             continue;
         }
 
-        if (s->last_recv_ms() + timeout < tn) {
+        if (s->last_recv_ms() + (uint64_t)timeout < tn) {
             server_->remove_session(s->sockfd());
         }
     }
