@@ -7,8 +7,14 @@ WIN_CFLAGS  := -O2 -Wall -Wextra -I../../include
 
 BUILD_DIR   := build
 LIB         := ../../build/libtyphon.a
-BPF_OBJ_SRC := ../../build/bpf/kcp.bpf.o
-BPF_OBJ_DST := $(BUILD_DIR)/kcp.bpf.o
+
+# 两个 BPF 对象都从顶层 build/bpf 拷过来:
+#   kcp.bpf.o      — sk_reuseport 路由 (按 conv 分流到 worker)
+#   envelope.bpf.o — XDP MAC 校验 (envelope MAC DoS 过滤)
+KCP_BPF_SRC      := ../../build/bpf/kcp.bpf.o
+KCP_BPF_DST      := $(BUILD_DIR)/kcp.bpf.o
+ENVELOPE_BPF_SRC := ../../build/bpf/envelope.bpf.o
+ENVELOPE_BPF_DST := $(BUILD_DIR)/envelope.bpf.o
 
 SERVER      := $(BUILD_DIR)/server
 LIBKCP_SO   := libkcp.so
@@ -19,13 +25,16 @@ OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 
 .PHONY: all clean
 
-all: $(SERVER) $(LIBKCP_SO) $(LIBKCP_DLL) $(BPF_OBJ_DST)
+all: $(SERVER) $(LIBKCP_SO) $(LIBKCP_DLL) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST)
 
 # typhon 主库 / BPF 对象:任一过期就回顶层 make 重新构建
 $(LIB):
 	@$(MAKE) -C ../..
 
-$(BPF_OBJ_SRC):
+$(KCP_BPF_SRC):
+	@$(MAKE) -C ../..
+
+$(ENVELOPE_BPF_SRC):
 	@$(MAKE) -C ../..
 
 # C++ echo server
@@ -41,8 +50,11 @@ $(LIBKCP_SO): ../../src/kcp/ikcp.c
 $(LIBKCP_DLL): ../../src/kcp/ikcp.c
 	$(WIN_CC) $(WIN_CFLAGS) -shared -o $@ $< -static-libgcc -Wl,--out-implib,$@.a
 
-# 把 BPF 对象拷到本地 build,server 启动时方便用相对路径加载
-$(BPF_OBJ_DST): $(BPF_OBJ_SRC) | $(BUILD_DIR)
+# 把 BPF 对象拷到本地 build,server 启动时方便用相对路径加载 (build/kcp.bpf.o 等)
+$(KCP_BPF_DST): $(KCP_BPF_SRC) | $(BUILD_DIR)
+	cp $< $@
+
+$(ENVELOPE_BPF_DST): $(ENVELOPE_BPF_SRC) | $(BUILD_DIR)
 	cp $< $@
 
 # C++ object 编译

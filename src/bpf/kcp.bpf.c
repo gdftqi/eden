@@ -30,19 +30,23 @@ const volatile __u32 num_workers = 1;
 
 
 // kernel 传给 sk_reuseport BPF 程序的 ctx->data 指向 UDP **头** (不是 payload).
-// UDP 头固定 8 字节, KCP conv 紧随其后。所以我们要读 [data+8, data+12).
-#define UDP_HDR_LEN 8
+// UDP payload 布局 (与 envelope.bpf.c / cryptor.cpp / buffer.hpp 严格对齐):
+//   [UDP 头 8B][envelope MAC 8B][KCP frame: conv(4B) + cmd(1B) + ...]
+//                                ↑ KCP conv 起始
+// 所以 conv 在 ctx->data 偏移 8 + 8 = 16 字节处.
+#define UDP_HDR_LEN         8
+#define ENVELOPE_MAC_LEN    8     // 与 core::ENVELOPE_MAC_LEN 同
 
 SEC("sk_reuseport") int
 select_by_conv(struct sk_reuseport_md *ctx) {
     void* data = ctx->data;
     void* data_end = ctx->data_end;
 
-    if (data + UDP_HDR_LEN + 4 > data_end) {
+    if (data + UDP_HDR_LEN + ENVELOPE_MAC_LEN + 4 > data_end) {
         return SK_DROP;
     }
 
-    __u32 conv = read_conv_le(*(__u32*)((char*)data + UDP_HDR_LEN));
+    __u32 conv = read_conv_le(*(__u32*)((char*)data + UDP_HDR_LEN + ENVELOPE_MAC_LEN));
     __u32 idx = conv % num_workers;
     return bpf_sk_select_reuseport(ctx, &sock_map, &idx, 0) == 0 ? SK_PASS : SK_DROP;
 }

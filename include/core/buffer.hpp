@@ -5,6 +5,7 @@
 #include <deque>
 #include "core/typhon.in.hpp"
 #include "core/package.hpp"
+#include "utils/cryptor.hpp"
 
 
 namespace typhon::core {
@@ -18,16 +19,18 @@ struct SndBuf {
     ::socklen_t        addrlen;
     uint32_t           len;
     uint64_t           time;
+    uint64_t*          siphash;
     uint8_t            buf[UDP_MTU];
 
 
     SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
-        , len(l)
+        , len(l + ENVELOPE_MAC_LEN)
         , time(time) {
+        siphash = (uint64_t*)this->buf;
         ::memcpy(&this->addr, addr, addrlen);
-        ASSERT(l <= UDP_MTU, "len = {}, max = {}", l, UDP_MTU);
-        ::memcpy(this->buf, b, l);
+        ASSERT(l <= KCP_MTU, "len = {}, max = {}", l, KCP_MTU);
+        ::memcpy(this->buf + ENVELOPE_MAC_LEN, b, l);
     }
 
 

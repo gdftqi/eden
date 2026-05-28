@@ -31,7 +31,58 @@
 namespace typhon::core {
 
 
+/**
+ * @brief 单个 UDP datagram 的 payload 上限 (字节).
+ *
+ * 推算:
+ *   IPv6 协议规定的最小 MTU = 1280  (RFC 8200,任何 IPv6 节点必须支持)
+ *   - IPv6 头                = 40
+ *   - UDP 头                 =  8
+ *   ─────────────────────────────
+ *   UDP payload 安全上限     = 1232
+ *
+ * 取这个值的含义:**只要单个 UDP datagram payload <= 1232,无论 IPv6 还是
+ * IPv4、无论中间路径多复杂(VPN / 隧道 / PPPoE / NAT / 6to4),都不会被 IP
+ * 层分片,也不会被中间 router 因 MTU 太小而 drop**。
+ *
+ * 为什么避免 IP 分片:UDP 上的 IP 分片在丢包场景里很糟糕——
+ *   1. 任一分片丢失 → 整个 datagram 丢弃 (KCP 都不知道丢了多少)
+ *   2. 很多 NAT / 防火墙直接 drop IP fragment
+ *   3. 重组失败率高,延迟和重传都难看
+ *
+ * 同类项目参照: QUIC initial 1252、WireGuard 默认 ifmtu 1420、skywind3000
+ * KCP 默认 1400。typhon 选 1232 是**最保守、最稳健**的 IPv6 兼容值,
+ * 玩家在地铁 / 4G / 双重 NAT / 公司 VPN 后面也能稳定收发。
+ */
 constexpr int UDP_MTU = 1232;
+
+
+/**
+ * @brief Envelope MAC (SipHash-2-4 tag) 长度,prepend 在 KCP frame 前面做 DoS 防御.
+ *
+ * 详见 [[xdp_envelope]] 在 PLAN.md 的设计说明。
+ */
+constexpr int ENVELOPE_MAC_LEN = 8;
+
+
+/**
+ * @brief 传给 ikcp_setmtu() 的值 —— KCP 自己出网卡那段的字节数上限.
+ *
+ * `ikcp_setmtu(mtu)` 的语义是"KCP 每次 ikcp_output 送出的字节数上限"
+ * (含 KCP 24B segment header + segment payload)。
+ *
+ *   wire on UDP:  [MAC 8B][KCP frame ≤ KCP_MTU]
+ *                 │       │
+ *                 │       └─ KCP header 24B + segment payload (mss = KCP_MTU - 24)
+ *                 └─ envelope MAC, KCP 不知道
+ *
+ * 整个 UDP payload <= MAC + KCP_MTU = ENVELOPE_MAC_LEN + KCP_MTU = UDP_MTU.
+ */
+constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
+
+
+constexpr int KCP_HDR_LEN = 24;
+
 
 typedef int SOCKET;
 constexpr SOCKET INVALID_SOCKET = -1;

@@ -4,7 +4,6 @@
 static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 10;
 
-
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
     , host_(host) {
@@ -76,6 +75,7 @@ typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexc
     auto* s = (Session*)user;
     auto svr = s->server();
     auto sb = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->shkey()));
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -188,8 +188,15 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto& msg = rmsgs_[i];
-                auto hdr = &rmsgs_[i].msg_hdr;
-                auto conv = Session::getconv(hdr->msg_iov[0].iov_base, msg.msg_len);
+                if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
+                    continue;
+                }
+
+                auto  hdr    = &rmsgs_[i].msg_hdr;
+                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base + core::ENVELOPE_MAC_LEN;
+                auto  msglen = msg.msg_len - core::ENVELOPE_MAC_LEN;
+
+                auto conv = Session::getconv(pbuf, msglen);
                 if (conv == 0) {
                     continue;
                 }
@@ -202,7 +209,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
                 }
 
-                if (s->input(hdr->msg_iov[0].iov_base, msg.msg_len, hdr->msg_name, hdr->msg_namelen)) {
+                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen)) {
                     continue;
                 }
 

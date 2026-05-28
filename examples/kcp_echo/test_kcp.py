@@ -59,6 +59,74 @@ def unpack_pk(data):
     return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
 
 
+# ===== Envelope MAC (SipHash-2-4) =====
+# typhon 在 UDP wire 上套了一层 envelope MAC:
+#   wire = [SipHash tag 8B][KCP frame]
+# 客户端发包时必须按同样的 key 算 SipHash 并 prepend,否则被 server 端 XDP DROP.
+# key 必须与 server 端 kcp::Conf::shkey_ 完全一致。
+#
+# C++ 端 (kcp/config.hpp): uint64_t a[2] = { 0x0102030405060708, 0x090A0B0C0D0E0FAA };
+#                          memcpy(shkey_, a, 16)
+# LE 平台上等价于 16 字节: 08 07 06 05 04 03 02 01 AA 0F 0E 0D 0C 0B 0A 09
+SH_KEY = struct.pack('<QQ', 0x0102030405060708, 0x090A0B0C0D0E0FAA)
+assert len(SH_KEY) == 16
+
+ENVELOPE_MAC_LEN = 8
+# MAC 只覆盖 KCP frame 前 24 字节 (KCP wire header),与 C++ 端 ENVELOPE_MAC_HASH_LEN 一致.
+# 设计目标是 DoS 防御:攻击者必须猜对 conv/sn 才能算出合法 MAC.
+ENVELOPE_MAC_HASH_LEN = 24
+
+
+def _siphash24(data: bytes, key: bytes) -> int:
+    """SipHash-2-4 (Aumasson & Bernstein 2012), 与 utils::siphash24 / envelope.bpf.c 位等价.
+    返回 host-order 64-bit int."""
+    MASK64 = (1 << 64) - 1
+    def rotl(x, b):
+        return ((x << b) | (x >> (64 - b))) & MASK64
+
+    k0 = int.from_bytes(key[:8], 'little')
+    k1 = int.from_bytes(key[8:], 'little')
+
+    v0 = (k0 ^ 0x736f6d6570736575) & MASK64    # "somepseu"
+    v1 = (k1 ^ 0x646f72616e646f6d) & MASK64    # "dorandom"
+    v2 = (k0 ^ 0x6c7967656e657261) & MASK64    # "lygenera"
+    v3 = (k1 ^ 0x7465646279746573) & MASK64    # "tedbytes"
+
+    def sipround():
+        nonlocal v0, v1, v2, v3
+        v0 = (v0 + v1) & MASK64; v1 = rotl(v1, 13); v1 ^= v0; v0 = rotl(v0, 32)
+        v2 = (v2 + v3) & MASK64; v3 = rotl(v3, 16); v3 ^= v2
+        v0 = (v0 + v3) & MASK64; v3 = rotl(v3, 21); v3 ^= v0
+        v2 = (v2 + v1) & MASK64; v1 = rotl(v1, 17); v1 ^= v2; v2 = rotl(v2, 32)
+
+    n = len(data)
+    nblocks = n // 8
+    for i in range(nblocks):
+        m = int.from_bytes(data[i*8 : i*8 + 8], 'little')
+        v3 ^= m
+        sipround()
+        sipround()
+        v0 ^= m
+
+    b = (n & 0xFF) << 56
+    tail = data[nblocks * 8:]
+    for i, byte in enumerate(tail):
+        b |= byte << (i * 8)
+
+    v3 ^= b
+    sipround()
+    sipround()
+    v0 ^= b
+
+    v2 ^= 0xFF
+    sipround()
+    sipround()
+    sipround()
+    sipround()
+
+    return (v0 ^ v1 ^ v2 ^ v3) & MASK64
+
+
 _lib_name = 'libkcp.dll' if sys.platform == 'win32' else 'libkcp.so'
 _lib = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), _lib_name))
 
@@ -155,11 +223,19 @@ def run_client(client_id, stats, stop_event):
     kcp = _lib.ikcp_create(conv, None)
     _lib.ikcp_wndsize(kcp, 128, 128)
     _lib.ikcp_nodelay(kcp, 1, 10, 3, 1)
-    _lib.ikcp_setmtu(kcp, 1232)
+    # KCP mtu = UDP_MTU(1232) - ENVELOPE_MAC_LEN(8) = 1224
+    # 这样 KCP frame 出 output 时最大 1224, prepend 8B MAC 后 wire 总长 1232,
+    # 正好 IPv6 minimum MTU 兼容, 不会被 IP 分片.
+    _lib.ikcp_setmtu(kcp, 1224)
 
     def output(buf, length, _kcp, _user):
-        sock.sendto(ctypes.string_at(buf, length), server_addr)
-        stats.record_bytes_out(length)
+        frame = ctypes.string_at(buf, length)
+        # MAC 只算前 24 字节 (KCP wire header), 与 server 端约定一致
+        hash_len = min(length, ENVELOPE_MAC_HASH_LEN)
+        mac = _siphash24(frame[:hash_len], SH_KEY).to_bytes(ENVELOPE_MAC_LEN, 'little')
+        packet = mac + frame
+        sock.sendto(packet, server_addr)
+        stats.record_bytes_out(len(packet))
         return length
     cb = OutputFn(output)
     _lib.ikcp_setoutput(kcp, cb)
@@ -198,8 +274,13 @@ def run_client(client_id, stats, stop_event):
             try:
                 data, _ = sock.recvfrom(2048)
                 stats.record_bytes_in(len(data))
-                ibuf = ctypes.create_string_buffer(data, len(data))
-                _lib.ikcp_input(kcp, ibuf, len(data))
+                # 跳过前 8 字节 envelope MAC (server 发回来的包也带 MAC).
+                # 严格起见可以本地再算一次 SipHash 验证, 但 server 不会发坏 MAC,
+                # 这里简化只 strip.
+                if len(data) >= ENVELOPE_MAC_LEN:
+                    frame = data[ENVELOPE_MAC_LEN:]
+                    ibuf = ctypes.create_string_buffer(frame, len(frame))
+                    _lib.ikcp_input(kcp, ibuf, len(frame))
             except socket.timeout:
                 pass
 
