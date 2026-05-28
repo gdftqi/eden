@@ -6,6 +6,7 @@
 #include <net/if.h>             // if_nametoindex
 #include <cstring>
 #include <errno.h>
+#include "utils/log.hpp"
 
 
 namespace {
@@ -131,18 +132,23 @@ typhon::bpf::EnvelopeFilter::attach(const char* ifname) noexcept {
 
     // 先试 native mode (网卡驱动直接处理 XDP, 性能最优).
     int err = ::bpf_xdp_attach(idx, prog_fd_, XDP_FLAGS_DRV_MODE, nullptr);
-    unsigned int flags_used = XDP_FLAGS_DRV_MODE;
+    xdp_flags_ = XDP_FLAGS_DRV_MODE;
     if (err) {
         // fallback generic / SKB mode (内核协议栈处理后再丢, 兼容性最好).
         err = ::bpf_xdp_attach(idx, prog_fd_, XDP_FLAGS_SKB_MODE, nullptr);
         if (err) {
             return err;
         }
-        flags_used = XDP_FLAGS_SKB_MODE;
+        xdp_flags_ = XDP_FLAGS_SKB_MODE;
     }
 
-    if_index_  = idx;
-    xdp_flags_ = flags_used;
+    if (xdp_flags_ == XDP_FLAGS_DRV_MODE) {
+        xINFO("----- XDP DRV MODE(native) -----");
+    } else {
+        xINFO("----- XDP SKB MODE(generic) -----");
+    }
+
+    if_index_ = idx;
     return 0;
 }
 
