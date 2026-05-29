@@ -2,7 +2,7 @@
 
 
 static constexpr int MAX_EVENTS = 2;
-static constexpr int TIMEOUT = 10;
+static constexpr int TIMEOUT = 5;
 
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
