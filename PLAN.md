@@ -26,29 +26,35 @@
 
 ### 2a. 消息协议层
 
-- [x] Package（12B 头）+ PackageTail（8B 网关 stamp）
-- [x] 字节序转换（pk_hton / pk_ntoh / pkt_hton / pkt_ntoh）
+- [x] **Package（10B 头,客户端↔网关 KCP 方向）+ PackageEx（10B 头,网关→后端 TCP 方向）**
+      - 旧设计是 Package(12B) + 挂尾 PackageTail(8B) + 回写 pk_len;
+        已重构为 **PackageEx 前置封装内嵌 Package**(`pke_pk[]` FAM),网关 prepend 10B 头,
+        wire 是标准 length-prefix(`pke_len` 在最前 2B),后端 peek 2B 即可切包
+      - Package 自身**不带长度字段**:KCP 方向由消息边界给定,TCP 方向由 pke_len 推
+- [x] 字节序转换（pk_hton / pk_ntoh / pke_hton / pke_ntoh,只翻头部字段不递归翻内嵌）
 - [x] KCP session 幂等校验（rcv_idem_ 单调递增）
 - [x] Kcp::ctor 初始化 last_recv_ms_，避免新 session 立即超时被踢
 - [x] C# Unity 客户端消息格式与服务端对齐（Package 编解码 + idem 单调递增）
+- [x] SipHash-2-4 实现（utils/cryptor，64 个官方 vector 验证位等价）
+- [x] AES-128-CTR 实现（utils/cryptor，AES-NI intrinsics，NIST SP800-38A vector 验证）
 
 ### 2b. 后端服务框架（基础骨架）
 
 - [x] TcpServer：listen + accept + 按 `fd % N` 派发到 worker
-- [x] TcpWorker：1 个 IO 线程 + SPSC 队列接收 RcvBuf + 双 eventfd（stop / que）
+- [x] tcp::Proc：1 个 IO 线程 + SPSC 队列接收 RcvBuf + 双 eventfd（stop / que）
 
 ### 2c. TcpSession + 消息派发
 
-- [x] TcpSession 抽象：per-fd 切包状态（PkgBuf with rpos/wpos）+ last_recv_ms + rcv_idem + authed 标志
-- [x] PkgBuf：65535 字节线性 buffer + 阈值压缩；decode 兼容 client→gateway / gateway→backend 双向 pk_len 语义
-- [x] TcpSession::recv 三态返回：`1` 真包 / `0` 重复或非法（已 drain）/ `-1` buffer 无完整包
-- [x] **统一队列事件 `QEvent { Recv, AddSess, RmvSess }`** —— 取代单一 RcvBuf 队列
-- [x] TcpServer 维护 `TcpSession* sessions_[65536]`（raw 指针数组，按 fd 索引）
-- [x] **session lifecycle 全部走 worker 队列**：server 主线程只 push `AddSess / Recv / RmvSess` 事件，worker 串行处理
-      → 同一 fd 的事件由 SPSC FIFO 保证有序，`sessions_[fd]` 元素只被一个 worker 读写，**消除跨线程 race**
-- [x] `handlers[65536]`：按 pk_id O(1) 派发，存于 TcpServer，所有 worker 共享读（启动期注册后不变）
+- [x] tcp::Session 抽象：per-fd 切包状态（RcvBuf with rpos/wpos）+ last_recv_ms + authed + user_data
+- [x] RcvBuf：lazy 分配 PKG_MAX_LEN 线性 buffer + 阈值 compact；decode 解 PackageEx(peek `pke_len` 2B 切包)
+- [x] tcp::Session::recv 三态返回：`1` 真包 / `0`(已废弃,半加密后无 idem 重复态) / `<0` buffer 无完整包或协议错
+- [x] **统一队列事件 `QEvent { Recv, Send, AddSess, RmvSess }`**(SPSC 无锁队列 + eventfd 唤醒)
+- [x] TcpServer 维护 `Session::Ptr sessions_[MAX_CONN]`（shared_ptr 数组，按 fd 索引;业务可跨调用安全持有）
+- [x] **session lifecycle 全部走 worker(Proc)队列**：server 主线程只 push `AddSess / Recv / Send / RmvSess`，Proc 串行处理
+      → 同一 fd 始终落同一 Proc(`fd % ws`)，`sessions_[fd]` 只被该 Proc 读写，**消除跨线程 race**
+- [x] `handlers[MAX_HANDLERS]`：按 pk_id O(1) 派发，存于 TcpServer，所有 Proc 共享读（启动期注册后不变）
 - [x] 注册接口 `regist_handler(pk_id, fn)`
-- [x] worker 退出前 drain 队列释放残留 RcvBuf；TcpServer release 时统一 delete 残留 TcpSession
+- [x] Proc 退出前 drain 队列释放残留 RcvArg；TcpServer release 时遍历 sessions_ 调 on_disconnected 再清空
 - [ ] `PlayerRoutingTable`（暂搁置）：原计划用 `tbb::concurrent_hash_map<player_id, ClientInfo>`，
       若 Phase 3 上 Lua 业务层 + 按 player_id 或 scene_id 分片，则不再需要此全局 map
       （player → worker 由公式 `id % N` 直接确定，跨 worker 通信走 mailbox 消息）
@@ -57,17 +63,17 @@
 
 - [ ] **TcpConnector**：网关侧 TCP 长连客户端
       - 非阻塞 `connect()`，状态机:`Disconnected` / `Connecting` / `Connected`
-      - inbuf 复用 PkgBuf，按"网关→后端"方向(pk_len 含 tail)切包
+      - inbuf 复用 RcvBuf，按 PackageEx 方向(peek `pke_len` 2B 切包)切包
       - outbuf + EPOLLOUT 处理 partial write
       - 重连(指数退避)留接口,2d 阶段可先不实现完整重连
 - [ ] TcpConnector fd 加入 KcpServer 主 epoll，主循环按 fd 分发到 `on_backend_handle`
-- [ ] `on_data`(KCP → backend)：按 `pk_dst_id` 选 TcpConnector → stamp PackageTail（pkt_src_id / pkt_src_addr） + 重写 pk_len 含 tail → write
-- [ ] `on_backend_handle`(backend → KCP)：TcpConnector inbuf decode → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
+- [ ] `on_data`(KCP → backend)：按 `pk_dst_id` 选 TcpConnector → **prepend PackageEx 头**(`pke_len` / `pke_src_id` = FromPlayerID / `pke_src_addr`),内嵌原始 Package wire frame → write
+- [ ] `on_backend_handle`(backend → KCP)：TcpConnector inbuf decode PackageEx → 剥头取内嵌 Package → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
 - [ ] 单 backend instance 端到端跑通 (KcpServer 上挂 1 个 TcpConnector,目标地址硬编码)
 
 ### 2e. Echo + PING/PONG
 
-- [ ] EchoBackend 进程（用 TcpServer + TcpWorker + 一个 echo handler）
+- [ ] EchoBackend 进程（用 TcpServer + tcp::Proc + 一个 echo handler）
 - [ ] 跑通完整链路：client → KcpServer → TcpConnector → TcpServer → handler → 反向
 - [ ] PING / PONG handler + Session.last_recv_ms 心跳判定
 - [ ] 验证 handlers[] 派发机制 + 心跳超时清理 session
@@ -97,11 +103,61 @@
 
 ---
 
+## 传输安全层（已实现）
+
+两层独立、可分别开关:**XDP envelope MAC**(内核态 DoS 过滤) + **AES-128-CTR**(payload 加密)。
+
+### envelope MAC（XDP DoS 过滤）
+
+- [x] **SipHash-2-4 截 64-bit**,8B tag prepend 在 KCP frame 前
+      ```
+      UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
+      ```
+- [x] **MAC 只覆盖 KCP frame 前 24B（= KCP header）**,不是整个 frame
+      - 攻击者必须猜对 conv/sn/cmd 才能伪造合法 MAC,24B 足够
+      - payload 完整性交应用层加密;24B = 3 个 SipHash block,XDP 全展开 verifier 秒过、无 tail
+      - 选 fixed-24B 而非全 frame:bpf_loop / 全展开 153 block 撞 verifier
+        (callback 被内联、dynamic 长度的 packet bounds check 过不了),固定 3-block 绕开
+- [x] **envelope.bpf.c（XDP）+ EnvelopeFilter（userland 加载器,bpf/envelope_filter）**
+      - attach 先试 `XDP_DRV_MODE`(native),失败 fallback `XDP_SKB_MODE`(generic,lo 上走这个)
+      - key 走 BPF map(`BPF_MAP_TYPE_ARRAY` 2 槽:current/previous),`rotate_key()` 旧 key 搬 slot1
+      - `target_port` 走 `.rodata`(const volatile),userland 从 host 字符串解析端口写入
+- [x] sk_reuseport（kcp.bpf.c）conv 读取偏移 **+8**（MAC 在 conv 之前）
+- [x] userland send（output 回调）prepend MAC / recv（on_udp_handle）偏移 8B 喂 ikcp_input,
+      **ikcp.c/.h 一字不改**
+- [x] 启动顺序:EnvelopeFilter attach → KcpServer socket bind → Router attach
+      （XDP 先于 socket 生效,启动期被攻击也挡得住）
+
+### payload 加密（AES-128-CTR 半加密）
+
+- [x] **半加密**:Package header（10B）明文,只加密 pk_payload
+      - header 明文让网关读 pk_dst_id 路由 / pk_idem 做 IV;header 完整性已由 envelope MAC 覆盖
+- [x] **per-packet IV**:`[conv 4B][idem 4B][dir 1B][block counter 7B=0]`
+      - conv+idem 保证 (key,IV) 唯一;dir(0 上行/1 下行)防同 conv+idem 跨方向 keystream 复用;
+        低 7B 留给 CTR 内部 block counter 递增,与高位不重叠
+- [x] send_pk 加密(DIR_S2C)/ recv_pk 解密(DIR_C2S);非法 / 重放包先 drop 不浪费解密
+- [x] AES-NI 实现(utils/cryptor) + test_kcp.py 客户端对齐
+      (ctypes 调 libcrypto `EVP_aes_128_ctr`,IV 布局 / 方向 / key 与服务端一致)
+
+### 待办 / 已知短板
+
+- [ ] **payload 完整性**:AES-CTR 不带认证,bit-flip 可定向改游戏数据且不可检测
+      → 换 **AES-128-GCM**(一步拿机密性+完整性)或 encrypt-then-MAC ★最高优先
+- [ ] **key 复用**:SipHash envelope key 与 AES key 当前共享 `shkey()`
+      → HKDF 从 master key 派生独立 mac_key / enc_key
+- [ ] **conv 服务端分配**:conv 现由客户端选,两客户端 conv 撞 + idem 撞 → IV 复用
+      → 服务端分配唯一 conv,或 per-session 派生 key
+- [ ] **envelope 5-tuple binding**:MAC 当前不含 src_ip/port,可被异源重放(idem 去重兜底)
+- [ ] **per-src-IP rate-limit**:XDP LRU map 对 MAC 校验失败源做指数惩罚 / blacklist
+- [ ] **secret 自动 rotate**:`rotate_key()` 接口已就绪,缺定时触发 + 客户端 key 协商
+
+---
+
 ## 后期优化（待 profile 数据驱动）
 
 - [x] eBPF SO_REUSEPORT 路由（已随 Phase 1 完成）
 - [ ] **网关 worker CPU 亲和性绑定（pthread_setaffinity_np）**
-  - 仅作用于 KcpServer worker；后端 TcpWorker 不做（业务 CPU 不可预测，pinning 收益低）
+  - 仅作用于 KcpServer worker；后端 tcp::Proc 不做（业务 CPU 不可预测，pinning 收益低）
   - 与 BPF 路由配合：BPF 把 conv→worker N，worker N 绑核 N，整条数据路径 L1/L2 cache 命中
   - 主要消除 KCP `update()` 周期调用的调度抖动
 - [ ] **部署拓扑**
@@ -114,40 +170,6 @@
   - 优势在**高连接数 + 高频小包**场景(典型 MMO 后端);本机基准能看到 30-50% syscall CPU 下降
   - 代价：编程模型变(从"被动 epoll_wait → 主动处理"变成"submit → poll cqe"),代码改动较大
   - 时机：profile 数据显示 epoll/recv/send syscall 占 worker CPU > 20% 时再上
-  - 实施提示：先在 TcpWorker 切换(per-worker 一个 ring),TcpServer 主线程(accept)可保留 epoll 不动
+  - 实施提示：先在 tcp::Proc 切换(per-worker 一个 ring),TcpServer 主线程(accept)可保留 epoll 不动
 
-- [ ] **XDP envelope MAC：内核层 DoS 过滤**
-  - 目的：垃圾 / 伪造 UDP 包在 XDP(网卡驱动层)就 drop，**不进 userland、不进 KCP**，避免攻击者用乱包耗 KcpServer worker CPU
-  - 协议布局（envelope 与 KCP 平行，不动 ikcp）:
-    ```
-    UDP payload:
-    +--------------+--------------------+
-    | siphash 8B   | KCP frame (原样)   |
-    +--------------+--------------------+
-    ```
-  - **算法：SipHash-2-4 截到 64-bit**
-    - 输入：`(src_ip, src_port, KCP frame 字节)`，把 5-tuple 也喂进去做 binding，防异端口重放
-    - 输出 8B tag 拼在 UDP payload 最前面
-    - 选 SipHash 不选 ChaCha20-Poly1305 的理由:eBPF verifier 容量有限，SipHash 几百条指令搞定，verifier 轻松过;Poly1305 在 BPF 里需要 130-bit 多精度乘法 + 全 unroll，**指令数膨胀到三万+，且没有 SIMD 加速反而比 userland 慢**
-    - 64-bit tag 对 DoS 防御足够(攻击者要碰一个合法 tag 平均 2^63 次尝试)
-  - **secret 管理**：userland 持有 master secret，定期 rotate(例:1h 一换，保留前一把 key 做过渡)，通过 BPF map (`BPF_MAP_TYPE_ARRAY`，2 槽位:current / previous) 共享给 XDP
-  - **XDP 流程**：
-    1. 解析 IP/UDP 头拿到 5-tuple
-    2. 读 UDP payload 前 8B 为 tag
-    3. 算 SipHash(secret, src_ip || src_port || payload[8..])
-    4. 对比，不匹配试 previous key；都不过 → `XDP_DROP`
-    5. 过的包**原样**送 socket(不剥 envelope，userland 自己跳过前 8B)
-  - **userland 流程**：
-    - 发：`ikcp_output` 回调拿到要发的 KCP frame → prepend 8B SipHash → sendto
-    - 收：从 socket 读到 payload → 跳过前 8B → 交给 `ikcp_input`
-    - KCP 本身完全不知道这层存在，**ikcp.c/.h 一字不改**，上游升级照单全收
-  - **与应用层加密的关系**：envelope MAC 只做 DoS 过滤，**不替代** Package payload 的 ChaCha20-Poly1305 加密
-    - envelope：8B SipHash，XDP 防垃圾流量
-    - 应用层：28B AEAD overhead(12B nonce + 16B Poly1305 tag)，userland 解密，保密 + 完整性
-    - 总 overhead = 8 + 24(KCP hdr) + 28 = 60B / 1376B MTU ≈ 4.4%
-  - **rate-limit 配合**：XDP 同时维护一个 per-src-IP LRU map，对 tag 校验**失败**的源做指数惩罚 / 直接 blacklist；通过的不计费
-  - 时机：Phase 2 全部跑通后；先压测 baseline 看看垃圾流量在 worker CPU 占多少，profile 驱动决定是否上
-  - 实施提示：
-    - 先在 userland 写好 SipHash send/recv 路径(纯库函数，不依赖 BPF)，跑通后再写 XDP 版本
-    - XDP 程序参考 [libbpf](https://github.com/libbpf/libbpf) 例子，attach 到 KcpServer 监听的网卡接口
-    - 注意 SipHash secret 是字节数组，按 byte-order-neutral 处理；tag 也不做 hton/ntoh
+- [x] **XDP envelope MAC：内核层 DoS 过滤** —— 已实现,详见上方「传输安全层」章节

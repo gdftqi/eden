@@ -21,10 +21,10 @@ import time
 from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
-# SERVER_HOST   = '44.197.226.175'
-SERVER_HOST = '127.0.0.1'
+SERVER_HOST   = '13.250.22.130'
+# SERVER_HOST = '127.0.0.1'
 SERVER_PORT   = 5555
-NUM_CLIENTS   = 5      # localhost 没带宽限制，1k 起步；想测上限可继续加
+NUM_CLIENTS   = 5        # localhost 没带宽限制，1k 起步；想测上限可继续加
 DATA_SIZE     = 800      # 典型 MMO 移动/事件包 100-300B，取 200B
 SEND_RATE_HZ  = 20       # 典型 MMO 同步 10-20 Hz，取 15 Hz
 TIMEOUT_SEC   = 15.0     # 单条请求超时阈值（超过算 fail）

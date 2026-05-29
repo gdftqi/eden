@@ -26,7 +26,7 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
                        └─── etcd (服务发现)
 ```
 
-- **客户端 ↔ 网关**:KCP over UDP,带应用层加密 + DoS 防御 envelope MAC(规划中)
+- **客户端 ↔ 网关**:KCP over UDP,带 AES-128-CTR payload 加密 + XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
 - **网关 ↔ 后端**:TCP 长连,wire frame 走 length-prefix `PackageEx`,网关 stamp `pke_src_id` (FromPlayerID) 让后端拿到来源信息
 - **后端 ↔ 后端**:暂未规划(后期通过 etcd 服务发现 + sticky routing 接入)
 
@@ -69,6 +69,35 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
 - `pke_src_id`:网关从 conv 查到的 FromPlayerID,**后端无需信任客户端身份信息**
 
 详见 [include/core/package.hpp](include/core/package.hpp)。
+
+### 传输安全层
+
+客户端 ↔ 网关这一跳两层独立防护,可分别开关:
+
+**1. envelope MAC —— XDP 内核态 DoS 过滤**
+
+```
+UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
+```
+
+- UDP payload 前 8B 是 SipHash-2-4 tag,**覆盖 KCP frame 前 24B(KCP header)**
+- XDP 在网卡驱动层校验,不过直接 `XDP_DROP` —— 垃圾 / 伪造包**不进 socket、不进 KCP**,不耗 worker CPU
+- key 走 BPF map(current / previous 双槽,支持热 rotate 不停服)
+- **ikcp.c/.h 一字不改**,envelope 套在 KCP frame 外;sk_reuseport 路由的 conv 读取偏移 +8
+- 选 fixed-24B 而非全 frame:避开 eBPF verifier 对 bpf_loop / 大循环展开的限制
+
+**2. AES-128-CTR payload 加密 —— 半加密**
+
+- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_idem` 做 IV),只加密 `pk_payload`
+- per-packet IV = `[conv 4B][idem 4B][dir 1B][block counter 7B]`,保证 (key, IV) 全局唯一:
+  - `conv + idem` 每包唯一;`dir` 区分上 / 下行防跨方向复用;低 7B 留 CTR 递增
+- AES-NI 硬件指令实现(无外部库依赖,无 timing side-channel)
+
+两套算法(SipHash / AES-128)都有官方 test vector 验证位等价,客户端([test_kcp.py](examples/kcp_echo/test_kcp.py) 用同 spec 实现)可互操作。
+
+> ⚠️ **已知短板**:CTR 不带认证(payload 可被 bit-flip 定向篡改且不可检测);SipHash 与 AES 当前共享同一 key。生产前需换 **AES-128-GCM**(一步拿完整性)+ **HKDF 派生独立 key**。详见 [PLAN.md](PLAN.md)「传输安全层 → 待办」。
+
+详见 [src/bpf/envelope.bpf.c](src/bpf/envelope.bpf.c)、[src/utils/cryptor.cpp](src/utils/cryptor.cpp)、[src/kcp/session.cpp](src/kcp/session.cpp)。
 
 ### 后端层 (`tcp::Server` + `tcp::Proc`)
 
@@ -125,11 +154,11 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
 
 - [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
 - [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
+- [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + AES-128-CTR payload 半加密(均已实现并跑通)
 - [ ] **Phase 2d** —— TcpConnector(网关 → 后端转发链路)
 - [ ] **Phase 2e** —— 端到端 PING/PONG 闭环
 - [ ] **Phase 2f** —— etcd 服务注册发现 + REGIST 握手
-- [ ] **加密层** —— KCP payload 上的 ChaCha20-Poly1305
-- [ ] **防御层** —— XDP envelope MAC (SipHash-2-4 截 64 bit)
+- [ ] **安全层加固** —— AES-128-GCM(payload 完整性) + HKDF 派生独立 key
 
 完整规划见 [PLAN.md](PLAN.md)。
 
@@ -138,20 +167,24 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
 ## 构建与运行
 
 依赖:
-- Linux,kernel ≥ 5.10(可选 io_uring)
+- Linux,kernel ≥ 5.x(XDP envelope 过滤;io_uring 可选需 ≥ 5.10)
+- **x86-64 CPU 带 AES-NI**(payload AES-128-CTR 硬件加速,2010 年后的 x86 都有)
 - C++20 编译器(g++ ≥ 11 / clang ≥ 13)
 - [mimalloc](https://github.com/microsoft/mimalloc) (高性能内存分配器)
 - [spdlog](https://github.com/gabime/spdlog) (日志)
-- (可选) libbpf,用于 eBPF SO_REUSEPORT 路由
+- libbpf(eBPF SO_REUSEPORT 路由 + XDP envelope MAC 过滤;clang 编译 BPF 对象)
+- (仅压测客户端)OpenSSL `libcrypto`,[test_kcp.py](examples/kcp_echo/test_kcp.py) 用它做 AES-128-CTR
 
 ```bash
-make                    # 编译
-./build/kcp_echo        # 启 KCP echo 服务,监听 0.0.0.0:5555
-./build/tcp_echo        # 启 TCP echo 服务,监听 0.0.0.0:6688
+make                            # 编译 lib + bpf 对象
+make -C examples/kcp_echo       # 编译 echo server + 拷 bpf 对象到 build/
 
-# 跑压测
-python3 examples/kcp_echo/test_kcp.py
-python3 examples/tcp_echo/test_tcp.py
+cd examples/kcp_echo
+# 参数: <ifname> <kcp.bpf.o> <envelope.bpf.o>  (需 root / CAP_BPF 加载 XDP)
+sudo ./build/server lo build/kcp.bpf.o build/envelope.bpf.o   # 监听 0.0.0.0:5555
+
+# 跑压测 (另一终端)
+python3 test_kcp.py
 ```
 
 ---
@@ -163,7 +196,7 @@ python3 examples/tcp_echo/test_tcp.py
 - **share-nothing > 加锁**:网关 by conv、后端 by fd,worker 之间物理隔离
 - **明确的数据所有权**:Session 由 server 持有,worker 通过 shared_ptr 拿副本,业务跨调用安全
 - **fail-fast > silent error**:后端 `ASSERT abort` 暴露 bug,而不是 swallow + 继续运行;客户端入口走 graceful drop
-- **KCP 协议不动**:envelope MAC / 加密都做成可插拔层,套在 KCP frame 外面,**上游升级照单全收**
+- **KCP 协议不动**:envelope MAC 套在 KCP frame 外、payload 加密在 ikcp_send 之前完成,**ikcp.c/.h 一字不改,上游升级照单全收**
 - **时间戳一律 monotonic uint64 ms**:全程一种类型,免 wrap、免 cast
 - **接口契约写在 doxygen 里**:并发性、线程归属、生命周期、调用顺序约束都明确文档化
 
