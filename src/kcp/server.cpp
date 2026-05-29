@@ -54,8 +54,8 @@ typhon::kcp::Server::run() noexcept {
         tnow_ = core::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == stop_evfd_) {
-                on_stop_handle(ev);
+            if (ev.data.fd == evfd_) {
+                on_event_handle(ev);
             } else if (ev.data.fd == ufd_) {
                 on_udp_handle(ev);
             }
@@ -86,13 +86,13 @@ typhon::kcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != core::INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = stop_evfd_;
+    ev.data.fd = evfd_;
     ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ev.data.fd = ufd_;
     // 取消 ET 模式, 目的是加强防御. 
@@ -110,9 +110,9 @@ typhon::kcp::Server::release() noexcept {
         epfd_ = core::INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != core::INVALID_SOCKET) {
-        ::close(stop_evfd_);
-        stop_evfd_ = core::INVALID_SOCKET;
+    if (evfd_ != core::INVALID_SOCKET) {
+        ::close(evfd_);
+        evfd_ = core::INVALID_SOCKET;
     }
 
     if (ufd_ != core::INVALID_SOCKET) {
@@ -129,17 +129,24 @@ typhon::kcp::Server::release() noexcept {
         sb_pool_.release(sb);
     }
     sque_.clear();
-
     tnow_ = 0;
+
+    size_t i, n;
+    core::QEvent* qes[16];
+    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
+        for (i = 0; i < n; ++i) {
+            delete qes[i];
+        }
+    }
 }
 
 
 void
-typhon::kcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
+typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         uint64_t event;
         while (1) {
-            auto n = ::read(stop_evfd_, &event, sizeof(event));
+            auto n = ::read(evfd_, &event, sizeof(event));
             if (n == -1) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     break;
@@ -147,6 +154,29 @@ typhon::kcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
             }
         }
     } // if (ev.events & EPOLLIN);
+
+    evflag_.store(false, std::memory_order_relaxed);
+
+    size_t i, n;
+    core::QEvent* qes[16];
+    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
+        for (i = 0; i < n; ++i) {
+            switch (qes[i]->qe_type) {
+            case core::QEvent::Type::Stop:
+                // nothing to do
+                break;
+
+            case core::QEvent::Type::NewBnd:
+                on_new_bnd(qes[i]);
+                break;
+
+            default:
+                break;
+            }
+
+            delete qes[i];
+        }
+    }
 }
 
 
@@ -236,6 +266,12 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
             }
         } // while(1);
     }
+}
+
+
+void
+typhon::kcp::Server::on_new_bnd(core::QEvent* qe) noexcept {
+    // TODO
 }
 
 

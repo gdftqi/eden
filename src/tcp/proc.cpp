@@ -75,11 +75,11 @@ typhon::tcp::Proc::release() noexcept {
     }
 
     size_t i, n;
-    QEvent* qes[16];
-    while ((n = rque_.try_dequeue_bulk(qes, 16)) > 0) {
+    core::QEvent* qes[16];
+    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
             auto& qe = qes[i];
-            if (qe->qe_type == QEvent::Type::Recv) {
+            if (qe->qe_type == core::QEvent::Type::Recv) {
                 auto* rbuf = (RcvArg*)qe->qe_data;
                 ::mi_free(rbuf);
             }
@@ -112,31 +112,31 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
         }
     }
 
-    sending_.store(false, std::memory_order_relaxed);
+    evflag_.store(false, std::memory_order_relaxed);
 
     size_t i, n;
-    QEvent* qes[16];
-    while ((n = rque_.try_dequeue_bulk(qes, 16)) > 0) {
+    core::QEvent* qes[16];
+    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
             switch (qes[i]->qe_type) {
-            case QEvent::Type::Recv:
+            case core::QEvent::Type::Stop:
+                // nothing to do
+                break;
+
+            case core::QEvent::Type::Recv:
                 on_recv_handle(qes[i]);
                 break;
 
-            case QEvent::Type::Send:
+            case core::QEvent::Type::Send:
                 on_send_handle(qes[i]);
                 break;
 
-            case QEvent::Type::AddSess:
+            case core::QEvent::Type::AddSess:
                 on_add_sess_handle(qes[i]);
                 break;
 
-            case QEvent::Type::RmvSess:
+            case core::QEvent::Type::RmvSess:
                 on_rmv_sess_handle(qes[i]);
-                break;
-
-            case QEvent::Type::Stop:
-                // nothing to do
                 break;
 
             default:
@@ -150,7 +150,7 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::tcp::Proc::on_recv_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
     auto* rbuf = (RcvArg*)qe->qe_data;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
@@ -189,7 +189,7 @@ typhon::tcp::Proc::on_recv_handle(QEvent* qe) noexcept {
 
 
 void
-typhon::tcp::Proc::on_send_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
@@ -202,14 +202,14 @@ typhon::tcp::Proc::on_send_handle(QEvent* qe) noexcept {
 
 
 void
-typhon::tcp::Proc::on_add_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_add_sess_handle(core::QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->add_session(fd, this);
 }
 
 
 void
-typhon::tcp::Proc::on_rmv_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_rmv_sess_handle(core::QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->remove_session(fd, false);
 }

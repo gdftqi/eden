@@ -73,6 +73,7 @@ typhon::Server::run() noexcept {
     }
 
     state_.store(core::State::Running);
+    // TODO: etcd watch
 
     for (auto& t : threads_) {
         t.join();

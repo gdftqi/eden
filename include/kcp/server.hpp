@@ -4,8 +4,10 @@
 
 #include "core/buffer.hpp"
 #include "core/package.hpp"
+#include "core/qevent.hpp"
 #include "kcp/session.hpp"
 #include "utils/obj_pool.hpp"
+#include "utils/spsc.hpp"
 
 
 namespace typhon::kcp {
@@ -27,8 +29,9 @@ class Server {
 
 
 public:
-    typedef std::unique_ptr<Server> Ptr;
-    typedef utils::ObjPool<core::SndBuf> SndBufPool;
+    typedef utils::SPSC<core::QEvent*>                 EvQue;
+    typedef std::unique_ptr<Server>                    Ptr;
+    typedef utils::ObjPool<core::SndBuf>               SndBufPool;
     typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
 
     
@@ -149,8 +152,20 @@ public:
         if (running()) {
             core::State expected = core::State::Running;
             if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-                static constexpr uint64_t event = 1;
-                ASSERT(::write(stop_evfd_, &event, sizeof(event)) == sizeof(event), "errno = {}, errstr = {}", errno, ::strerror(errno));
+                notify(new core::QEvent(core::QEvent::Type::Stop, nullptr));
+            }
+        }
+    }
+
+
+    void
+    notify(core::QEvent* ev) noexcept {
+        ASSERT(evque_.enqueue(std::move(ev)), "事件队列已满");
+        bool expected = false;
+        if (evflag_.compare_exchange_strong(expected, true)) {
+            static constexpr uint64_t event = 1;
+            if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
+                xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
         }
     }
@@ -203,11 +218,15 @@ private:
 
 
     void
-    on_stop_handle(const ::epoll_event& ev) noexcept;
+    on_event_handle(const ::epoll_event& ev) noexcept;
 
 
     void
     on_udp_handle(const ::epoll_event& ev) noexcept;
+
+
+    void
+    on_new_bnd(core::QEvent* qe) noexcept;
 
 
     void
@@ -216,16 +235,18 @@ private:
 
     core::SOCKET             ufd_               { core::INVALID_SOCKET };
     core::SOCKET             epfd_              { core::INVALID_SOCKET };
-    core::SOCKET             stop_evfd_         { core::INVALID_SOCKET };
+    core::SOCKET             evfd_              { core::INVALID_SOCKET };
     IEvent*                  event_             { nullptr };
     uint64_t                 tnow_              { 0 };
     std::atomic<core::State> state_             { core::State::Stopped };
+    std::atomic_bool         evflag_            { false };
     std::string              host_;
     SessionMap               sessions_;
     ::mmsghdr                rmsgs_[MAX_RECV]   {};
     ::iovec                  riovecs_[MAX_RECV] {};
     ::sockaddr_storage       raddrs_[MAX_RECV]  {};
     core::SndBuf::Que        sque_;
+    EvQue                    evque_;
     SndBufPool               sb_pool_;
 };
 

@@ -2,6 +2,7 @@
 #define __TYPHON_TCP_PROC_HPP__
 
 
+#include "core/qevent.hpp"
 #include "tcp/session.hpp"
 #include "utils/spsc.hpp"
 
@@ -13,27 +14,6 @@ struct RcvArg {
     core::SOCKET fd;
     uint32_t     len;
     uint8_t      data[];
-};
-
-
-struct QEvent {
-    enum Type: uint8_t {
-        Stop,       ///< 停止
-        Recv,       ///< 收到数据
-        Send,       ///< 发送数据
-        AddSess,    ///< 添加会话
-        RmvSess,    ///< 移除会话
-    };
-
-
-    explicit
-    QEvent(Type t, void* data) 
-        : qe_type(t), qe_data(data) 
-    {}
-
-
-    Type  qe_type; ///< 事件类型
-    void* qe_data; ///< 事件数据
 };
 
 
@@ -82,16 +62,16 @@ public:
     stop() noexcept {
         auto expected = core::State::Running;
         if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-            push(new QEvent(QEvent::Type::Stop, nullptr));
+            notify(new core::QEvent(core::QEvent::Type::Stop, nullptr));
         }
     }
 
 
     void
-    push(QEvent* ev) noexcept {
-        ASSERT(rque_.enqueue(std::move(ev)), "spsc 队列已满");
+    notify(core::QEvent* ev) noexcept {
+        ASSERT(evque_.enqueue(std::move(ev)), "spsc 队列已满");
         bool expected = false;
-        if (sending_.compare_exchange_strong(expected, true)) {
+        if (evflag_.compare_exchange_strong(expected, true)) {
             static constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -121,34 +101,34 @@ private:
 
 
     void
-    on_recv_handle(QEvent* qe) noexcept;
+    on_recv_handle(core::QEvent* qe) noexcept;
 
 
     void
-    on_send_handle(QEvent* qe) noexcept;
+    on_send_handle(core::QEvent* qe) noexcept;
 
 
     void
-    on_add_sess_handle(QEvent* qe) noexcept;
+    on_add_sess_handle(core::QEvent* qe) noexcept;
 
 
     void
-    on_rmv_sess_handle(QEvent* qe) noexcept;
+    on_rmv_sess_handle(core::QEvent* qe) noexcept;
 
 
     void
     check_timeout() noexcept;
 
 
-    Server*                  server_         { nullptr };
-    int                      id_             { -1 };
-    core::SOCKET             epfd_           { core::INVALID_SOCKET };
-    core::SOCKET             evfd_           { core::INVALID_SOCKET };   // 队列事件
-    uint64_t                 tnow_           { 0 };
-    uint64_t                 last_check_ms_  { 0 };
-    std::atomic<core::State> state_          { core::State::Stopped };
-    std::atomic<bool>        sending_        { false };
-    utils::SPSC<QEvent*>     rque_;
+    Server*                    server_        { nullptr };
+    int                        id_            { -1 };
+    core::SOCKET               epfd_          { core::INVALID_SOCKET };
+    core::SOCKET               evfd_          { core::INVALID_SOCKET };   // 队列事件
+    uint64_t                   tnow_          { 0 };
+    uint64_t                   last_check_ms_ { 0 };
+    std::atomic<core::State>   state_         { core::State::Stopped };
+    std::atomic<bool>          evflag_        { false };
+    utils::SPSC<core::QEvent*> evque_;
 }; // class Proc;
 
     

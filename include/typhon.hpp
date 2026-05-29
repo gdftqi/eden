@@ -84,7 +84,7 @@ private:
     bpf::Router                   router_;                                     // SO_REUSEPORT 路由
     std::vector<kcp::Server::Ptr> servers_;                                    // kcp servers
     std::vector<std::thread>      threads_;                                    // 线程池
-};
+}; // class Server;
 
 
 } // namespace typhon;
