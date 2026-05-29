@@ -46,17 +46,72 @@ PK_ID_PING  = 1     # 测试用消息号
 PK_DST_ID   = 1     # 测试用目标服务（占位）；必须 > 0，否则被 recv_pk 判定 -7 非法
 
 
-def pack_pk(pk_id, pk_idem, pk_dst_id, payload):
-    return struct.pack(HEADER_FMT, pk_id, pk_idem, pk_dst_id) + payload
+# ===== AES-128-CTR payload 加密 (半加密: header 明文, 只加密 pk_payload) =====
+# 用 ctypes 调系统 libcrypto 的 EVP_aes_128_ctr, 与 C++ 端 AES-NI 实现位等价.
+# AES key 与 SipHash envelope key 是同一个 (服务端 kcp::Conf::shkey_ 同时用于两者).
+_AES_KEY = struct.pack('<QQ', 0x0102030405060708, 0x090A0B0C0D0E0FAA)   # == SH_KEY
+assert len(_AES_KEY) == 16
+
+# IV 方向标记, 与 C++ 端 (src/kcp/session.cpp) 完全一致.
+DIR_C2S = 0     # client → server (上行): 客户端 send 加密用
+DIR_S2C = 1     # server → client (下行): 客户端 recv 解密用
+
+_libcrypto = ctypes.CDLL("libcrypto.so.3")
+_libcrypto.EVP_CIPHER_CTX_new.restype   = ctypes.c_void_p
+_libcrypto.EVP_CIPHER_CTX_new.argtypes  = []
+_libcrypto.EVP_CIPHER_CTX_free.argtypes = [ctypes.c_void_p]
+_libcrypto.EVP_aes_128_ctr.restype      = ctypes.c_void_p
+_libcrypto.EVP_aes_128_ctr.argtypes     = []
+_libcrypto.EVP_EncryptInit_ex.restype   = ctypes.c_int
+_libcrypto.EVP_EncryptInit_ex.argtypes  = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                           ctypes.c_char_p, ctypes.c_char_p]
+_libcrypto.EVP_EncryptUpdate.restype    = ctypes.c_int
+_libcrypto.EVP_EncryptUpdate.argtypes   = [ctypes.c_void_p, ctypes.c_char_p,
+                                           ctypes.POINTER(ctypes.c_int), ctypes.c_char_p, ctypes.c_int]
 
 
-def unpack_pk(data):
-    """ 返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None.
-        长度从 data 总长推，Package 自身无长度字段。 """
+def make_iv(conv, idem, direction):
+    """构造 16B AES-CTR IV, 与 C++ 端 make_iv 完全一致:
+       [conv 4B LE][idem 4B LE][dir 1B][7B 0]
+       conv/idem 用 little-endian (x86 host 序, 与 C++ memcpy 一致)。"""
+    iv = bytearray(16)
+    iv[0:4] = struct.pack('<I', conv & 0xFFFFFFFF)
+    iv[4:8] = struct.pack('<I', idem & 0xFFFFFFFF)
+    iv[8]   = direction
+    return bytes(iv)
+
+
+def aes128_ctr(key, iv, data):
+    """AES-128-CTR. CTR 模式 encrypt == decrypt, 一个函数双用; data 任意长度, 输出等长。"""
+    if not data:
+        return b''
+    ctx = _libcrypto.EVP_CIPHER_CTX_new()
+    try:
+        if _libcrypto.EVP_EncryptInit_ex(ctx, _libcrypto.EVP_aes_128_ctr(), None, key, iv) != 1:
+            raise RuntimeError("EVP_EncryptInit_ex failed")
+        out = ctypes.create_string_buffer(len(data) + 16)
+        outlen = ctypes.c_int(0)
+        if _libcrypto.EVP_EncryptUpdate(ctx, out, ctypes.byref(outlen), data, len(data)) != 1:
+            raise RuntimeError("EVP_EncryptUpdate failed")
+        return out.raw[:outlen.value]   # CTR 流模式, Final 无额外输出, 省略
+    finally:
+        _libcrypto.EVP_CIPHER_CTX_free(ctx)
+
+
+def pack_pk(conv, pk_id, pk_idem, pk_dst_id, payload):
+    """半加密: header 明文 + 只加密 payload (上行 DIR_C2S)。"""
+    enc = aes128_ctr(_AES_KEY, make_iv(conv, pk_idem, DIR_C2S), payload)
+    return struct.pack(HEADER_FMT, pk_id, pk_idem, pk_dst_id) + enc
+
+
+def unpack_pk(conv, data):
+    """返回 (pk_id, pk_idem, pk_dst_id, payload) 或 None.
+       header 明文读 pk_idem 后, 用它构造 IV 解密 payload (下行 DIR_S2C)。"""
     if len(data) < HEADER_SIZE:
         return None
     pk_id, pk_idem, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
-    return (pk_id, pk_idem, pk_dst_id, data[HEADER_SIZE:])
+    payload = aes128_ctr(_AES_KEY, make_iv(conv, pk_idem, DIR_S2C), data[HEADER_SIZE:])
+    return (pk_id, pk_idem, pk_dst_id, payload)
 
 
 # ===== Envelope MAC (SipHash-2-4) =====
@@ -257,7 +312,7 @@ def run_client(client_id, stats, stop_event):
                 idem    = next_idem
                 next_idem += 1
 
-                pkg_bytes = pack_pk(PK_ID_PING, idem, PK_DST_ID, payload)
+                pkg_bytes = pack_pk(conv, PK_ID_PING, idem, PK_DST_ID, payload)
                 sbuf = ctypes.create_string_buffer(pkg_bytes, len(pkg_bytes))
                 _lib.ikcp_send(kcp, sbuf, len(pkg_bytes))
                 _lib.ikcp_flush(kcp)
@@ -289,7 +344,7 @@ def run_client(client_id, stats, stop_event):
                 n = _lib.ikcp_recv(kcp, rbuf, 65536)
                 if n <= 0:
                     break
-                parsed = unpack_pk(bytes(rbuf.raw[:n]))
+                parsed = unpack_pk(conv, bytes(rbuf.raw[:n]))
                 if parsed is None:
                     continue
                 rcv_id, rcv_idem, _, rcv_payload = parsed

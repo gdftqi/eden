@@ -206,47 +206,7 @@ public:
      * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
      */
     int
-    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64_t now) noexcept {
-        int res = recv(buf, len);
-        if (res == 0 || res == -1) {
-            // 没有数据
-            return -1;
-        } else if (res == -2) {
-            // 出错
-            return -2;
-        } else if (res == -3) {
-            // buf 太小,装不下下一条消息;调用方应放大 buf 后重试
-            return -3;
-        }
-
-        if (res < core::PKG_HDR_LEN || res > core::PKG_MAX_LEN) {
-            // 无效的package
-            return -4;
-        }
-
-        *pkg = (core::Package*)buf;
-        core::pk_ntoh(*pkg);
-        auto* p = *pkg;
-        if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
-            return -5;
-        }
-
-        if (p->pk_idem == 0) {
-            return -6;
-        }
-
-        if (p->pk_dst_id == 0) {
-            return -7;
-        }
-
-        if (rcv_idem_ >= p->pk_idem) {
-            return 0;
-        }
-
-        last_recv_ms_ = now;
-        rcv_idem_ = p->pk_idem;
-        return res;
-    }
+    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64_t now) noexcept;
 
 
     /**
@@ -266,23 +226,7 @@ public:
      * @return  -2  KCP 拒绝入队(分片数 >= rcvwnd),见 send() 注释
      */
     int
-    send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
-        thread_local static uint8_t buf[core::PKG_MAX_LEN];
-
-        if (len > core::PKG_MAX_PAYLOAD) {
-            return -1;
-        }
-        size_t total = core::PKG_HDR_LEN + len;
-
-        auto* pkg = (core::Package*)buf;
-        pkg->pk_id = pk_id;
-        pkg->pk_idem = pk_idemp;
-        pkg->pk_dst_id = pk_dst_id;
-        ::memcpy(pkg->pk_payload, data, len);
-
-        core::pk_hton(pkg);
-        return send(buf, total);
-    }
+    send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept;
 
 
 private:
