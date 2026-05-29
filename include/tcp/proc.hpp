@@ -18,6 +18,7 @@ struct RcvArg {
 
 struct QEvent {
     enum Type: uint8_t {
+        Stop,       ///< 停止
         Recv,       ///< 收到数据
         Send,       ///< 发送数据
         AddSess,    ///< 添加会话
@@ -81,11 +82,7 @@ public:
     stop() noexcept {
         auto expected = core::State::Running;
         if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-            constexpr uint64_t event = 1;
-            auto n = ::write(stop_evfd_, &event, sizeof(event));
-            if (n != sizeof(event)) {
-                xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            }
+            push(new QEvent(QEvent::Type::Stop, nullptr));
         }
     }
 
@@ -96,7 +93,7 @@ public:
         bool expected = false;
         if (sending_.compare_exchange_strong(expected, true)) {
             static constexpr uint64_t event = 1;
-            if (::write(que_evfd_, &event, sizeof(event)) != sizeof(event)) {
+            if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
         }
@@ -120,27 +117,23 @@ private:
 
 
     void
-    on_stop_handle(const ::epoll_event& ev) noexcept;
+    on_event_handle(const ::epoll_event& ev) noexcept;
 
 
     void
-    on_que_handle(const ::epoll_event& ev) noexcept;
+    on_recv_handle(QEvent* qe) noexcept;
 
 
     void
-    on_qe_recv_handle(QEvent* qe) noexcept;
+    on_send_handle(QEvent* qe) noexcept;
 
 
     void
-    on_qe_send_handle(QEvent* qe) noexcept;
+    on_add_sess_handle(QEvent* qe) noexcept;
 
 
     void
-    on_qe_add_sess_handle(QEvent* qe) noexcept;
-
-
-    void
-    on_qe_rmv_sess_handle(QEvent* qe) noexcept;
+    on_rmv_sess_handle(QEvent* qe) noexcept;
 
 
     void
@@ -150,8 +143,7 @@ private:
     Server*                  server_         { nullptr };
     int                      id_             { -1 };
     core::SOCKET             epfd_           { core::INVALID_SOCKET };
-    core::SOCKET             que_evfd_       { core::INVALID_SOCKET };   // 队列事件
-    core::SOCKET             stop_evfd_      { core::INVALID_SOCKET };   // 停止事件
+    core::SOCKET             evfd_           { core::INVALID_SOCKET };   // 队列事件
     uint64_t                 tnow_           { 0 };
     uint64_t                 last_check_ms_  { 0 };
     std::atomic<core::State> state_          { core::State::Stopped };

@@ -31,10 +31,8 @@ typhon::tcp::Proc::run() noexcept {
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == stop_evfd_) {
-                on_stop_handle(ev);
-            } else if (ev.data.fd == que_evfd_) {
-                on_que_handle(ev);
+            if (ev.data.fd == evfd_) {
+                on_event_handle(ev);
             }
         }
 
@@ -54,20 +52,13 @@ typhon::tcp::Proc::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    que_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(que_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-
-    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = que_evfd_;
+    ev.data.fd = evfd_;
     ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, que_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-
-    ev.data.fd = stop_evfd_;
-    ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -78,14 +69,9 @@ typhon::tcp::Proc::release() noexcept {
         epfd_ = core::INVALID_SOCKET;
     }
 
-    if (que_evfd_ != core::INVALID_SOCKET) {
-        ::close(que_evfd_);
-        que_evfd_ = core::INVALID_SOCKET;
-    }
-
-    if (stop_evfd_ != core::INVALID_SOCKET) {
-        ::close(stop_evfd_);
-        stop_evfd_ = core::INVALID_SOCKET;
+    if (evfd_ != core::INVALID_SOCKET) {
+        ::close(evfd_);
+        evfd_ = core::INVALID_SOCKET;
     }
 
     size_t i, n;
@@ -104,30 +90,7 @@ typhon::tcp::Proc::release() noexcept {
 
 
 void
-typhon::tcp::Proc::on_stop_handle(const ::epoll_event& ev) noexcept {
-    if (ev.events & EPOLLIN) {
-        int n;
-        while (1) {
-            uint64_t event;
-            n = ::read(stop_evfd_, &event, sizeof(event));
-            if (n < 0) {
-                int err = errno;
-                if (err == EINTR) {
-                    continue;
-                }
-
-                if (err != EAGAIN && err != EWOULDBLOCK) {
-                    xERROR("read failed: errno = {}, errstr = {}", err, ::strerror(err));
-                }
-                break;
-            }
-        }
-    }
-}
-
-
-void
-typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
+typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
     if (!(ev.events & EPOLLIN)) {
         return;
     }
@@ -135,7 +98,7 @@ typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
     int err = 0;
     while (1) {
         uint64_t event;
-        auto n = ::read(que_evfd_, &event, sizeof(event));
+        auto n = ::read(evfd_, &event, sizeof(event));
         if (n < 0) {
             err = errno;
             if (err == EINTR) {
@@ -157,19 +120,23 @@ typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
         for (i = 0; i < n; ++i) {
             switch (qes[i]->qe_type) {
             case QEvent::Type::Recv:
-                on_qe_recv_handle(qes[i]);
+                on_recv_handle(qes[i]);
                 break;
 
             case QEvent::Type::Send:
-                on_qe_send_handle(qes[i]);
+                on_send_handle(qes[i]);
                 break;
 
             case QEvent::Type::AddSess:
-                on_qe_add_sess_handle(qes[i]);
+                on_add_sess_handle(qes[i]);
                 break;
 
             case QEvent::Type::RmvSess:
-                on_qe_rmv_sess_handle(qes[i]);
+                on_rmv_sess_handle(qes[i]);
+                break;
+
+            case QEvent::Type::Stop:
+                // nothing to do
                 break;
 
             default:
@@ -183,7 +150,7 @@ typhon::tcp::Proc::on_que_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_recv_handle(QEvent* qe) noexcept {
     auto* rbuf = (RcvArg*)qe->qe_data;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
@@ -222,7 +189,7 @@ typhon::tcp::Proc::on_qe_recv_handle(QEvent* qe) noexcept {
 
 
 void
-typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_send_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
@@ -235,14 +202,14 @@ typhon::tcp::Proc::on_qe_send_handle(QEvent* qe) noexcept {
 
 
 void
-typhon::tcp::Proc::on_qe_add_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_add_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->add_session(fd, this);
 }
 
 
 void
-typhon::tcp::Proc::on_qe_rmv_sess_handle(QEvent* qe) noexcept {
+typhon::tcp::Proc::on_rmv_sess_handle(QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     server_->remove_session(fd, false);
 }
