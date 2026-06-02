@@ -80,9 +80,17 @@
 
 ### 2f. ETCD 服务注册与发现 + REGIST 握手
 
-- [ ] ServiceRegistry 模块封装 etcd 客户端
+- [x] **网关侧 control loop 骨架**：typhon::Server 主线程兼 control 线程
+      - epoll_wait timeout(1s) 当定时节拍 + stop_evfd 即时唤醒退出
+      - kcp::Server 加 `evque_`(SPSC) + `notify()` —— typhon 主线程是唯一生产者,
+        单生产者约束成立;QEvent(Stop/NewBnd/...) 抽到 core/qevent.hpp
+      - `update()` 钩子已就位(每秒触发),etcd 拉取 + 分发逻辑待填
+- [ ] **etcd 客户端**：用 **HTTP/JSON gateway**(cpp-httplib + nlohmann/json,**不用 gRPC**)
+      - 定时 `POST /v3/kv/range` 拉 service_type 前缀全量(key/value base64,调用设超时)
+      - 不用 watch(定时 poll 足够,简单无重连/revision 复杂度)
+- [ ] `update()` 填充：拉到列表 → 构造 `shared_ptr<const BackendTable>` 快照
+      → 每个 kcp::Server `notify(new QEvent(NewBnd, 快照))` 分发(零 diff,换本地指针)
 - [ ] 后端启动注册 service_type + addr + lease，定期续约
-- [ ] 网关 watch service_type 前缀，动态维护 backends_
 - [ ] 多 instance + conv 一致性 hash（同 conv 始终落同 instance）
 - [ ] REGIST_REQ / REGIST_RSP 握手协议（backend 上线后跟 gateway 握手）
 - [ ] instance 加入 / 退出时的连接迁移（新 instance dial → 老 instance drain → close）

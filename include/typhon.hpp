@@ -59,6 +59,12 @@ public:
     }
 
 
+    bool
+    running() const noexcept {
+        return state_.load(std::memory_order_relaxed) == core::State::Running;
+    }
+
+
     /**
      * @brief 启动服务
      */
@@ -70,10 +76,32 @@ public:
      * @brief 停止服务
      */
     void
-    stop() noexcept;
+    stop() noexcept {
+        auto running = core::State::Running;
+        if (state_.compare_exchange_strong(running, core::State::Stopping)) {
+            uint64_t event = 1;
+            if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
+                xERROR("write to stop_evfd_ failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            }
+        }
+    }
 
 
 private:
+    void
+    init() noexcept;
+
+
+    void
+    release() noexcept;
+
+
+    void
+    update() noexcept;
+
+
+    core::SOCKET                  epfd_              { core::INVALID_SOCKET };
+    core::SOCKET                  stop_evfd_         { core::INVALID_SOCKET };
     kcp::Server::IEvent*          serv_ev_           { nullptr };              // 服务事件
     std::atomic<core::State>      state_             { core::State::Stopped }; // 状态
     std::string                   host_;                                       // 监听 host:port

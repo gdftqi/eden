@@ -10,7 +10,7 @@ typhon::Server::run() noexcept {
         return;
     }
 
-    uint32_t n = std::thread::hardware_concurrency();
+    int n = std::thread::hardware_concurrency();
     n = n > 1 ? n - 1 : 1;
 
     // 1. XDP envelope MAC 过滤先 attach.
@@ -50,7 +50,7 @@ typhon::Server::run() noexcept {
     }
 
     // 3. 创建 N 个 KcpServer, 各自 udp_bind (SO_REUSEPORT), sockfd 立即可用.
-    for (uint32_t i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_);
         ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
 
@@ -72,8 +72,32 @@ typhon::Server::run() noexcept {
         threads_.emplace_back(std::bind(&kcp::Server::run, s.get()));
     }
 
+    init();
+    constexpr int MAX_EVENTS  = 1;
+    constexpr int INTERVAL_MS = 1000;
+    ::epoll_event evs[MAX_EVENTS];
     state_.store(core::State::Running);
-    // TODO: etcd watch
+    
+    while (running()) {
+        n = ::epoll_wait(epfd_, evs, MAX_EVENTS, INTERVAL_MS);
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            xERROR("epoll_wait failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            break;
+        }
+
+        if (n > 0 && evs[0].data.fd == stop_evfd_) {
+            break;
+        }
+
+        update();
+    }
+
+    for (auto& s : servers_) {
+        s->stop();
+    }
 
     for (auto& t : threads_) {
         t.join();
@@ -82,20 +106,41 @@ typhon::Server::run() noexcept {
     servers_.clear();
     threads_.clear();
 
-    // EnvelopeFilter 析构链自动 detach + close BPF object,
-    // Router 析构链自动 close BPF object.
+    release();
     state_.store(core::State::Stopped);
 }
 
 
 void
-typhon::Server::stop() noexcept {
-    auto running = core::State::Running;
-    if (!state_.compare_exchange_strong(running, core::State::Stopping)) {
-        return;
+typhon::Server::init() noexcept {
+    epfd_ = ::epoll_create1(0);
+    ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    ::epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.fd = stop_evfd_;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+}
+
+
+void
+typhon::Server::release() noexcept {
+    if (epfd_ != core::INVALID_SOCKET) {
+        ::close(epfd_);
+        epfd_ = core::INVALID_SOCKET;
     }
 
-    for (auto& s : servers_) {
-        s->stop();
+    if (stop_evfd_ != core::INVALID_SOCKET) {
+        ::close(stop_evfd_);
+        stop_evfd_ = core::INVALID_SOCKET;
     }
+}
+
+
+void
+typhon::Server::update() noexcept {
+    // TODO 获取后端服务列表
 }

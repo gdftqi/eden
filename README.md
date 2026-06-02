@@ -155,9 +155,9 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 - [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
 - [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
 - [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + AES-128-CTR payload 半加密(均已实现并跑通)
-- [ ] **Phase 2d** —— TcpConnector(网关 → 后端转发链路)
+- [ ] **Phase 2d** —— TcpConnector(网关 → 后端转发链路) ← **下一步**
 - [ ] **Phase 2e** —— 端到端 PING/PONG 闭环
-- [ ] **Phase 2f** —— etcd 服务注册发现 + REGIST 握手
+- [ ] **Phase 2f** —— etcd 服务注册发现 + REGIST 握手(网关侧 control loop 骨架已就位:typhon::Server 定时节拍 + notify 分发 + SPSC evque;etcd 拉取待填)
 - [ ] **安全层加固** —— AES-128-GCM(payload 完整性) + HKDF 派生独立 key
 
 完整规划见 [PLAN.md](PLAN.md)。
