@@ -1,4 +1,5 @@
 #include "kcp/server.hpp"
+#include "tcp/connector.hpp"
 
 
 static constexpr int MAX_EVENTS = 2;
@@ -58,6 +59,8 @@ typhon::kcp::Server::run() noexcept {
                 on_event_handle(ev);
             } else if (ev.data.fd == ufd_) {
                 on_udp_handle(ev);
+            } else {
+                on_bnd_handle(ev);
             }
         }
 
@@ -270,8 +273,40 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::kcp::Server::on_new_bnd(core::QEvent* qe) noexcept {
+typhon::kcp::Server::on_bnd_handle(const ::epoll_event& ev) noexcept {
     // TODO
+}
+
+
+void
+typhon::kcp::Server::on_new_bnd(core::QEvent* qe) noexcept {
+    auto* arg = (core::NewBndArg*)qe->qe_data;
+
+    if (bnds_.find(arg->id) != bnds_.end()) {
+        xWARN("已经存在相同 id 的后端服务了: id = {}, host = {}", arg->id, arg->host);
+        ::mi_free(arg);
+        return;
+    }
+
+    auto conn = tcp::Connector::create(arg->id, arg->host);
+    if (conn->connect()) {
+        xERROR("连接到后端服务失败: id = {}, host = {}", arg->id, arg->host);
+        ::mi_free(arg);
+        return;
+    }
+
+    ::epoll_event ev;
+    ev.data.fd = conn->fd();
+    ev.events = EPOLLIN | EPOLLET;
+    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev)) {
+        xERROR("epoll_ctl add backend fd failed: id = {}, host = {}, errno = {}, errstr = {}", arg->id, arg->host, errno, ::strerror(errno));
+        ::mi_free(arg);
+        return;
+    }
+
+    bnds_[arg->id] = std::move(conn);
+    xINFO("连接到后端服务成功: id = {}, host = {}", arg->id, arg->host);
+    ::mi_free(arg);
 }
 
 

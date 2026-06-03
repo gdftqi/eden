@@ -142,5 +142,11 @@ typhon::Server::release() noexcept {
 
 void
 typhon::Server::update() noexcept {
-    // TODO 获取后端服务列表
+    for (auto& s : servers_) {
+        auto* arg = (core::NewBndArg*)::mi_malloc(sizeof(core::NewBndArg));
+        ::memset(arg, 0, sizeof(core::NewBndArg));
+        arg->id = 10000;
+        ::strcpy(arg->host, "127.0.0.1:6688");
+        s->notify(new core::QEvent(core::QEvent::Type::NewBnd, arg));
+    }
 }

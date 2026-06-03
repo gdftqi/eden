@@ -6,6 +6,7 @@
 #include "core/package.hpp"
 #include "core/qevent.hpp"
 #include "kcp/session.hpp"
+#include "tcp/connector.hpp"
 #include "utils/obj_pool.hpp"
 #include "utils/spsc.hpp"
 
@@ -29,10 +30,11 @@ class Server {
 
 
 public:
-    typedef utils::SPSC<core::QEvent*>                 EvQue;
-    typedef std::unique_ptr<Server>                    Ptr;
-    typedef utils::ObjPool<core::SndBuf>               SndBufPool;
-    typedef std::unordered_map<uint32_t, Session::Ptr> SessionMap;
+    typedef utils::SPSC<core::QEvent*>                        EvQue;
+    typedef std::unique_ptr<Server>                           Ptr;
+    typedef utils::ObjPool<core::SndBuf>                      SndBufPool;
+    typedef std::unordered_map<uint32_t, Session::Ptr>        SessionMap;
+    typedef std::unordered_map<uint32_t, tcp::Connector::Ptr> BndMap;
 
     
     /**
@@ -226,6 +228,10 @@ private:
 
 
     void
+    on_bnd_handle(const ::epoll_event& ev) noexcept;
+
+
+    void
     on_new_bnd(core::QEvent* qe) noexcept;
 
 
@@ -248,6 +254,7 @@ private:
     core::SndBuf::Que        sque_;
     EvQue                    evque_;
     SndBufPool               sb_pool_;
+    BndMap                   bnds_;
 };
 
 

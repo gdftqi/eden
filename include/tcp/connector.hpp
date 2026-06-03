@@ -17,9 +17,18 @@ class Connector {
 
 
 public:
+    typedef std::shared_ptr<Connector> Ptr;
+    
+
+    static Ptr
+    create(uint32_t id, const char* host) noexcept {
+        return std::make_shared<Connector>(id, host);
+    }
+
+
     explicit
-    Connector(const char* host) noexcept
-        : host_(host)
+    Connector(uint32_t id, const char* host) noexcept
+        : id_(id), host_(host)
     {}
 
 
@@ -27,6 +36,12 @@ public:
         if (cfd_ != core::INVALID_SOCKET) {
             ::close(cfd_);
         }
+    }
+
+
+    core::SOCKET
+    fd() const noexcept {
+        return cfd_;
     }
 
 
@@ -46,6 +61,7 @@ public:
 
 
 private:
+    uint32_t     id_    { 0 };
     core::SOCKET cfd_   { core::INVALID_SOCKET };
     std::string  host_;
 }; // class Connector;

@@ -10,13 +10,6 @@
 namespace typhon::tcp {
 
 
-struct RcvArg {
-    core::SOCKET fd;
-    uint32_t     len;
-    uint8_t      data[];
-};
-
-
 class Server;
 
 

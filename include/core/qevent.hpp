@@ -7,12 +7,12 @@ namespace typhon::core {
 
 struct QEvent {
     enum Type: __UINT8_TYPE__ {
-        Stop,       ///< 停止
-        NewBnd,     ///< 新的后端服务
-        Recv,       ///< 收到数据
-        Send,       ///< 发送数据
-        AddSess,    ///< 添加会话
-        RmvSess,    ///< 移除会话
+        Stop,       ///< 停止         data => nullptr
+        NewBnd,     ///< 新的后端服务 data => NewBndArg
+        Recv,       ///< 收到数据     data => RecvArg
+        Send,       ///< 发送数据     data => sock fd
+        AddSess,    ///< 添加会话     data => sock fd
+        RmvSess,    ///< 移除会话     data => sock fd
     };
 
 
@@ -32,6 +32,19 @@ private:
     QEvent(QEvent&&) = delete;
     QEvent& operator=(QEvent&&) = delete;
 }; // struct QEvent;
+
+
+struct RecvArg {
+    core::SOCKET fd;
+    uint32_t     len;
+    uint8_t      data[];
+};
+
+
+struct NewBndArg {
+    uint32_t id;
+    char     host[32];
+};
 
 
 } // namespace typhon::core;
