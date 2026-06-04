@@ -79,7 +79,7 @@ public:
     stop() noexcept {
         auto running = core::State::Running;
         if (state_.compare_exchange_strong(running, core::State::Stopping)) {
-            uint64_t event = 1;
+            static constexpr uint64_t event = 1;
             if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write to stop_evfd_ failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
@@ -96,12 +96,15 @@ private:
     release() noexcept;
 
 
+    /**
+     * @brief 定时更新后台服务状态, 每次 epoll_wait 超时后调用
+     */
     void
-    update() noexcept;
+    update_serv() noexcept;
 
 
-    core::SOCKET                  epfd_              { core::INVALID_SOCKET };
-    core::SOCKET                  stop_evfd_         { core::INVALID_SOCKET };
+    core::SOCKET                  epfd_              { core::INVALID_SOCKET }; // epoll fd
+    core::SOCKET                  stop_evfd_         { core::INVALID_SOCKET }; // stop event fd
     kcp::Server::IEvent*          serv_ev_           { nullptr };              // 服务事件
     std::atomic<core::State>      state_             { core::State::Stopped }; // 状态
     std::string                   host_;                                       // 监听 host:port

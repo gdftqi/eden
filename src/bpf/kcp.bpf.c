@@ -37,6 +37,7 @@ const volatile __u32 num_workers = 1;
 #define UDP_HDR_LEN         8
 #define ENVELOPE_MAC_LEN    8     // 与 core::ENVELOPE_MAC_LEN 同
 
+
 SEC("sk_reuseport") int
 select_by_conv(struct sk_reuseport_md *ctx) {
     void* data = ctx->data;
@@ -47,6 +48,10 @@ select_by_conv(struct sk_reuseport_md *ctx) {
     }
 
     __u32 conv = read_conv_le(*(__u32*)((char*)data + UDP_HDR_LEN + ENVELOPE_MAC_LEN));
+    if (conv == 0) {
+        return SK_DROP;
+    }
+
     __u32 idx = conv % num_workers;
     return bpf_sk_select_reuseport(ctx, &sock_map, &idx, 0) == 0 ? SK_PASS : SK_DROP;
 }

@@ -23,14 +23,13 @@ typhon::Server::run() noexcept {
         int port = ::atoi(host_.c_str() + colon + 1);
         ASSERT(port > 0 && port <= 65535, "invalid port in host {}", host_);
 
-        int rc = envelope_.init(envelope_bpf_path_.c_str(),
-                                (uint16_t)port,
-                                kcp::Conf::instance()->shkey());
+        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, kcp::Conf::instance()->shkey());
         if (rc != 0) {
             xERROR("envelope filter init failed: rc = {}", rc);
             state_.store(core::State::Stopped);
             return;
         }
+
         rc = envelope_.attach(ifname_.c_str());
         if (rc != 0) {
             xERROR("envelope filter attach to {} failed: rc = {}", ifname_, rc);
@@ -49,20 +48,20 @@ typhon::Server::run() noexcept {
         }
     }
 
-    // 3. 创建 N 个 KcpServer, 各自 udp_bind (SO_REUSEPORT), sockfd 立即可用.
+    // 3. 创建 KcpServer
     for (int i = 0; i < n; ++i) {
         auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_);
         ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
 
-        // 4a. 注册 socket 进 sock_map.
         if (!kcp_bpf_path_.empty()) {
+            // 注册 socket fd 到 BPF map, 让 BPF 程序能找到对应 worker 线程.
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
         ks_pool_.emplace_back(std::move(s));
     }
 
-    // 4b. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组 (任一 socket 即可, 整组共享).
+    // 4. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组
     if (!kcp_bpf_path_.empty()) {
         ASSERT(router_.attach(ks_pool_[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
@@ -73,7 +72,7 @@ typhon::Server::run() noexcept {
     }
 
     init();
-    constexpr int MAX_EVENTS  = 1;
+    constexpr int MAX_EVENTS  = 1;    // 只有一个 stop evfd
     constexpr int INTERVAL_MS = 1000;
     ::epoll_event evs[MAX_EVENTS];
     state_.store(core::State::Running);
@@ -92,7 +91,7 @@ typhon::Server::run() noexcept {
             break;
         }
 
-        update();
+        update_serv();
     }
 
     for (auto& s : ks_pool_) {
@@ -141,7 +140,8 @@ typhon::Server::release() noexcept {
 
 
 void
-typhon::Server::update() noexcept {
+typhon::Server::update_serv() noexcept {
+    // TODO: 改为ETCD 查询服务
     for (auto& s : ks_pool_) {
         auto* arg = (core::NewServArg*)::mi_malloc(sizeof(core::NewServArg));
         ::memset(arg, 0, sizeof(core::NewServArg));

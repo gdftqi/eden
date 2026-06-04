@@ -235,10 +235,21 @@ private:
     on_new_serv(core::QEvent* qe) noexcept;
 
 
-    // 移除一个后端连接: 先 epoll_ctl DEL(fd 还活着), 再 servs_.erase(析构 → close fd)。
-    // 顺序不能反, 否则 erase 先 close fd, DEL 已关的 fd 会 EBADF。
     void
-    remove_serv(tcp::Connector* conn) noexcept;
+    add_serv(tcp::Connector::Ptr conn) noexcept {
+        ::epoll_event ev;
+        ev.data.ptr = conn.get();
+        ev.events = EPOLLOUT | EPOLLET;
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
+        servs_.insert(std::make_pair(conn->id(), conn));
+    }
+
+
+    void
+    remove_serv(tcp::Connector* conn) noexcept {
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        servs_.erase(conn->id());
+    }
 
 
     void

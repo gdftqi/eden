@@ -2,7 +2,7 @@
 #include "tcp/config.hpp"
 
 
-static constexpr int TIMEOUT = 1000;
+static constexpr int INTERVAL_MS = 1000;
 static constexpr int RBUF_SIZE = 1500;
 
 
@@ -24,7 +24,7 @@ typhon::tcp::Server::run() noexcept {
 
     ASSERT(::listen(lfd_, SOMAXCONN) == 0, "监听 TCP fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     while (running()) {
-        n = ::epoll_wait(epfd_, events, MAX_EVENTS, TIMEOUT);
+        n = ::epoll_wait(epfd_, events, MAX_EVENTS, INTERVAL_MS);
         if (n == -1) {
             if (errno == EINTR) {
                 continue;

@@ -2,14 +2,10 @@
 #include "tcp/connector.hpp"
 
 
-static constexpr int MAX_EVENTS = 2;
-static constexpr int TIMEOUT = 5;
+static constexpr int MAX_EVENTS  = 64;
+static constexpr int INTERVAL_MS = 5;
+static constexpr int EVQUE_BATCH = 16;
 
-// epoll data.ptr 的 sentinel 标记: evfd_/ufd_ 用这两个特殊值, backend 用真 Connector*。
-// (void*)1 / (void*)2 是非法堆地址(0 页 + 对齐排除), 与真指针永不冲突, 于是 run loop
-// 分发统一比 .ptr, 不再有 union .fd / .ptr 混读的歧义。
-static void* const EVFD_TAG = reinterpret_cast<void*>(1);
-static void* const UFD_TAG  = reinterpret_cast<void*>(2);
 
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
@@ -45,11 +41,13 @@ typhon::kcp::Server::run() noexcept {
 
     int i, n;
     ::epoll_event events[MAX_EVENTS];
+    const auto* const evptr = &evfd_;
+    const auto* const ufdptr = &ufd_;
 
     state_.store(core::State::Running);
 
     while (running()) {
-        n = ::epoll_wait(epfd_, events, MAX_EVENTS, TIMEOUT);
+        n = ::epoll_wait(epfd_, events, MAX_EVENTS, INTERVAL_MS);
         if (n == -1) {
             if (errno == EINTR) {
                 continue;
@@ -61,16 +59,32 @@ typhon::kcp::Server::run() noexcept {
         tnow_ = core::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.ptr == EVFD_TAG) {
+            if (ev.data.ptr == evptr) {
                 on_event_handle(ev);
-            } else if (ev.data.ptr == UFD_TAG) {
+            } else if (ev.data.ptr == ufdptr) {
                 on_udp_handle(ev);
             } else {
-                on_serv_handle(ev);   // ev.data.ptr 是 Connector*
+                on_serv_handle(ev);
             }
         }
 
         update();
+    }
+
+    sessions_.clear();
+    servs_.clear();
+
+    for (auto* sb: sque_) {
+        sb_pool_.release(sb);
+    }
+    sque_.clear();
+    tnow_ = 0;
+
+    core::QEvent* qes[EVQUE_BATCH];
+    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
+        for (i = 0; i < n; ++i) {
+            delete qes[i];
+        }
     }
 
     release();
@@ -99,11 +113,11 @@ typhon::kcp::Server::init() noexcept {
     ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.ptr = EVFD_TAG;
+    ev.data.ptr = &evfd_;
     ev.events = EPOLLIN | EPOLLET;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    ev.data.ptr = UFD_TAG;
+    ev.data.ptr = &ufd_;
     // 取消 ET 模式, 目的是加强防御.
     // 因为攻击者有可能大量发包, 使用 recvmmsg 不停的读取数据从而导致DOS.
     // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
@@ -128,27 +142,6 @@ typhon::kcp::Server::release() noexcept {
         ::close(ufd_);
         ufd_ = core::INVALID_SOCKET;
     }
-
-    for (auto& [_, s]: sessions_) {
-        event_->on_disconnected(s);
-    }
-    sessions_.clear();
-
-    servs_.clear();
-
-    for (auto* sb: sque_) {
-        sb_pool_.release(sb);
-    }
-    sque_.clear();
-    tnow_ = 0;
-
-    size_t i, n;
-    core::QEvent* qes[16];
-    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
-        for (i = 0; i < n; ++i) {
-            delete qes[i];
-        }
-    }
 }
 
 
@@ -159,32 +152,23 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
         while (1) {
             auto n = ::read(evfd_, &event, sizeof(event));
             if (n == -1) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    break;
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    xERROR("read eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
+                break;
             }
         }
     } // if (ev.events & EPOLLIN);
 
     evflag_.store(false, std::memory_order_relaxed);
 
-    size_t i, n;
-    core::QEvent* qes[16];
-    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
+    int i, n;
+    core::QEvent* qes[EVQUE_BATCH];
+    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
         for (i = 0; i < n; ++i) {
-            switch (qes[i]->qe_type) {
-            case core::QEvent::Type::Stop:
-                // nothing to do
-                break;
-
-            case core::QEvent::Type::NewServ:
+            if (qes[i]->qe_type == core::QEvent::Type::NewServ) {
                 on_new_serv(qes[i]);
-                break;
-
-            default:
-                break;
             }
-
             delete qes[i];
         }
     }
@@ -224,12 +208,16 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
             for (i = 0; i < n; ++i) {
                 if (rmsgs_[i].msg_hdr.msg_flags & MSG_TRUNC) {
+                    // 判断 UDP 包被截断了.
+                    //  内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃.
+                    //  如果出现这种情况, 一定是攻击行为.
                     xWARN("UDP truncated from {} dropped", core::sockaddr_to_string((sockaddr*)rmsgs_[i].msg_hdr.msg_name));
                     continue;
                 }
 
                 auto& msg = rmsgs_[i];
                 if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
+                    // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法.
                     continue;
                 }
 
@@ -238,10 +226,6 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto  msglen = msg.msg_len - core::ENVELOPE_MAC_LEN;
 
                 auto conv = Session::getconv(pbuf, msglen);
-                if (conv == 0) {
-                    continue;
-                }
-
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
@@ -281,14 +265,6 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::kcp::Server::remove_serv(tcp::Connector* conn) noexcept {
-    // 先 DEL(此刻 fd 还活着), 再 erase(析构 Connector → close fd)。顺序不能反。
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-    servs_.erase(conn->id());   // conn 在此之后悬空, 调用方不得再用
-}
-
-
-void
 typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     auto* conn = (tcp::Connector*)ev.data.ptr;
 
@@ -305,17 +281,16 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             int err = 0;
             socklen_t len = sizeof(err);
             if (::getsockopt(conn->fd(), SOL_SOCKET, SO_ERROR, &err, &len) != 0 || err != 0) {
-                xERROR("后端连接失败: id = {}, host = {}, err = {}, errstr = {}",
-                       conn->id(), conn->host(), err, ::strerror(err));
+                xERROR("后端连接失败: id = {}, host = {}, err = {}, errstr = {}", conn->id(), conn->host(), err, ::strerror(err));
                 remove_serv(conn);
                 return;
             }
 
-            // 连上了: 转 Connected, epoll 从 EPOLLOUT 改成 EPOLLIN(读后端回程数据)
+            // 连上成功: 转 Connected
             conn->set_state(tcp::Connector::State::Connected);
             ::epoll_event nev;
             nev.data.ptr = conn;
-            nev.events = EPOLLIN | EPOLLET;
+            nev.events = EPOLLIN | EPOLLET | EPOLLOUT;
             if (::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) != 0) {
                 xERROR("epoll_ctl mod backend fd failed: id = {}, errno = {}, errstr = {}",
                        conn->id(), errno, ::strerror(errno));
@@ -327,11 +302,8 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         return;
     }
 
-    // Connected: 后端有回程数据可读
     if (ev.events & EPOLLIN) {
-        // TODO: backend → KCP 回程
-        //   recv backend TCP 字节 → RcvBuf decode PackageEx
-        //   → 取内嵌 Package + pke_src_id(=conv) → 查 sessions_ → kcp->send_pk 回客户端
+        // TODO: 从 serv 读取数据
     }
 }
 
@@ -341,6 +313,7 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
     auto* arg = (core::NewServArg*)qe->qe_data;
 
     if (servs_.find(arg->id) != servs_.end()) {
+        // 如果存在, 直接返回
         ::mi_free(arg);
         return;
     }
@@ -352,19 +325,7 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
         return;
     }
 
-    // 非阻塞 connect 已发起(Connecting), 监听 EPOLLOUT 等连接完成;
-    // data.ptr 直接存 Connector*, on_serv_handle 拿到即用, 无需 fd→Connector 查找。
-    ::epoll_event ev;
-    ev.data.ptr = conn.get();
-    ev.events = EPOLLOUT | EPOLLET;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev)) {
-        xERROR("epoll_ctl add backend fd failed: id = {}, host = {}, errno = {}, errstr = {}", arg->id, arg->host, errno, ::strerror(errno));
-        ::mi_free(arg);
-        return;
-    }
-
-    servs_[arg->id] = std::move(conn);   // move 不改变对象地址, 上面 epoll 里的 ptr 仍有效
-    xINFO("发起后端连接: id = {}, host = {} (Connecting, 等 EPOLLOUT 确认)", arg->id, arg->host);
+    add_serv(conn);
     ::mi_free(arg);
 }
 
