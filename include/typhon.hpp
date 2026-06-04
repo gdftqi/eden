@@ -110,7 +110,7 @@ private:
     std::string                   envelope_bpf_path_;                          // envelope.bpf.o 路径
     bpf::EnvelopeFilter           envelope_;                                   // XDP MAC 过滤
     bpf::Router                   router_;                                     // SO_REUSEPORT 路由
-    std::vector<kcp::Server::Ptr> servers_;                                    // kcp servers
+    std::vector<kcp::Server::Ptr> ks_pool_;                                    // kcp server pool
     std::vector<std::thread>      threads_;                                    // 线程池
 }; // class Server;
 

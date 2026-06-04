@@ -5,6 +5,12 @@
 static constexpr int MAX_EVENTS = 2;
 static constexpr int TIMEOUT = 5;
 
+// epoll data.ptr 的 sentinel 标记: evfd_/ufd_ 用这两个特殊值, backend 用真 Connector*。
+// (void*)1 / (void*)2 是非法堆地址(0 页 + 对齐排除), 与真指针永不冲突, 于是 run loop
+// 分发统一比 .ptr, 不再有 union .fd / .ptr 混读的歧义。
+static void* const EVFD_TAG = reinterpret_cast<void*>(1);
+static void* const UFD_TAG  = reinterpret_cast<void*>(2);
+
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
     , host_(host) {
@@ -55,12 +61,12 @@ typhon::kcp::Server::run() noexcept {
         tnow_ = core::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == evfd_) {
+            if (ev.data.ptr == EVFD_TAG) {
                 on_event_handle(ev);
-            } else if (ev.data.fd == ufd_) {
+            } else if (ev.data.ptr == UFD_TAG) {
                 on_udp_handle(ev);
             } else {
-                on_bnd_handle(ev);
+                on_serv_handle(ev);   // ev.data.ptr 是 Connector*
             }
         }
 
@@ -93,12 +99,12 @@ typhon::kcp::Server::init() noexcept {
     ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = evfd_;
+    ev.data.ptr = EVFD_TAG;
     ev.events = EPOLLIN | EPOLLET;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    ev.data.fd = ufd_;
-    // 取消 ET 模式, 目的是加强防御. 
+    ev.data.ptr = UFD_TAG;
+    // 取消 ET 模式, 目的是加强防御.
     // 因为攻击者有可能大量发包, 使用 recvmmsg 不停的读取数据从而导致DOS.
     // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
     ev.events = EPOLLIN;
@@ -127,6 +133,8 @@ typhon::kcp::Server::release() noexcept {
         event_->on_disconnected(s);
     }
     sessions_.clear();
+
+    servs_.clear();
 
     for (auto* sb: sque_) {
         sb_pool_.release(sb);
@@ -169,8 +177,8 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
                 // nothing to do
                 break;
 
-            case core::QEvent::Type::NewBnd:
-                on_new_bnd(qes[i]);
+            case core::QEvent::Type::NewServ:
+                on_new_serv(qes[i]);
                 break;
 
             default:
@@ -273,39 +281,90 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-typhon::kcp::Server::on_bnd_handle(const ::epoll_event& ev) noexcept {
-    // TODO
+typhon::kcp::Server::remove_serv(tcp::Connector* conn) noexcept {
+    // 先 DEL(此刻 fd 还活着), 再 erase(析构 Connector → close fd)。顺序不能反。
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    servs_.erase(conn->id());   // conn 在此之后悬空, 调用方不得再用
 }
 
 
 void
-typhon::kcp::Server::on_new_bnd(core::QEvent* qe) noexcept {
-    auto* arg = (core::NewBndArg*)qe->qe_data;
+typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
+    auto* conn = (tcp::Connector*)ev.data.ptr;
 
-    if (bnds_.find(arg->id) != bnds_.end()) {
-        xWARN("已经存在相同 id 的后端服务了: id = {}, host = {}", arg->id, arg->host);
+    // 连接错误 / 对端关闭 → 清理(后续可在这里做指数退避重连, 现留给上层)
+    if (ev.events & (EPOLLERR | EPOLLHUP)) {
+        xERROR("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
+        remove_serv(conn);
+        return;
+    }
+
+    // Connecting: EPOLLOUT 触发表示连接完成(或失败), 用 SO_ERROR 确认
+    if (conn->state() == tcp::Connector::State::Connecting) {
+        if (ev.events & EPOLLOUT) {
+            int err = 0;
+            socklen_t len = sizeof(err);
+            if (::getsockopt(conn->fd(), SOL_SOCKET, SO_ERROR, &err, &len) != 0 || err != 0) {
+                xERROR("后端连接失败: id = {}, host = {}, err = {}, errstr = {}",
+                       conn->id(), conn->host(), err, ::strerror(err));
+                remove_serv(conn);
+                return;
+            }
+
+            // 连上了: 转 Connected, epoll 从 EPOLLOUT 改成 EPOLLIN(读后端回程数据)
+            conn->set_state(tcp::Connector::State::Connected);
+            ::epoll_event nev;
+            nev.data.ptr = conn;
+            nev.events = EPOLLIN | EPOLLET;
+            if (::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) != 0) {
+                xERROR("epoll_ctl mod backend fd failed: id = {}, errno = {}, errstr = {}",
+                       conn->id(), errno, ::strerror(errno));
+                remove_serv(conn);
+                return;
+            }
+            xINFO("后端连接成功: id = {}, host = {}", conn->id(), conn->host());
+        }
+        return;
+    }
+
+    // Connected: 后端有回程数据可读
+    if (ev.events & EPOLLIN) {
+        // TODO: backend → KCP 回程
+        //   recv backend TCP 字节 → RcvBuf decode PackageEx
+        //   → 取内嵌 Package + pke_src_id(=conv) → 查 sessions_ → kcp->send_pk 回客户端
+    }
+}
+
+
+void
+typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
+    auto* arg = (core::NewServArg*)qe->qe_data;
+
+    if (servs_.find(arg->id) != servs_.end()) {
         ::mi_free(arg);
         return;
     }
 
     auto conn = tcp::Connector::create(arg->id, arg->host);
     if (conn->connect()) {
-        xERROR("连接到后端服务失败: id = {}, host = {}", arg->id, arg->host);
+        xERROR("发起后端连接失败: id = {}, host = {}", arg->id, arg->host);
         ::mi_free(arg);
         return;
     }
 
+    // 非阻塞 connect 已发起(Connecting), 监听 EPOLLOUT 等连接完成;
+    // data.ptr 直接存 Connector*, on_serv_handle 拿到即用, 无需 fd→Connector 查找。
     ::epoll_event ev;
-    ev.data.fd = conn->fd();
-    ev.events = EPOLLIN | EPOLLET;
+    ev.data.ptr = conn.get();
+    ev.events = EPOLLOUT | EPOLLET;
     if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev)) {
         xERROR("epoll_ctl add backend fd failed: id = {}, host = {}, errno = {}, errstr = {}", arg->id, arg->host, errno, ::strerror(errno));
         ::mi_free(arg);
         return;
     }
 
-    bnds_[arg->id] = std::move(conn);
-    xINFO("连接到后端服务成功: id = {}, host = {}", arg->id, arg->host);
+    servs_[arg->id] = std::move(conn);   // move 不改变对象地址, 上面 epoll 里的 ptr 仍有效
+    xINFO("发起后端连接: id = {}, host = {} (Connecting, 等 EPOLLOUT 确认)", arg->id, arg->host);
     ::mi_free(arg);
 }
 

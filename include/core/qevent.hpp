@@ -2,13 +2,16 @@
 #define __TYPHON_CORE_QEVENT_HPP__
 
 
+#include "core/typhon.in.hpp"   // core::SOCKET / uint32_t / uint8_t 等类型定义
+
+
 namespace typhon::core {
     
 
 struct QEvent {
     enum Type: __UINT8_TYPE__ {
         Stop,       ///< 停止         data => nullptr
-        NewBnd,     ///< 新的后端服务 data => NewBndArg
+        NewServ,     ///< 新的后端服务 data => NewServArg
         Recv,       ///< 收到数据     data => RecvArg
         Send,       ///< 发送数据     data => sock fd
         AddSess,    ///< 添加会话     data => sock fd
@@ -41,7 +44,7 @@ struct RecvArg {
 };
 
 
-struct NewBndArg {
+struct NewServArg {
     uint32_t id;
     char     host[32];
 };

@@ -34,7 +34,7 @@ public:
     typedef std::unique_ptr<Server>                           Ptr;
     typedef utils::ObjPool<core::SndBuf>                      SndBufPool;
     typedef std::unordered_map<uint32_t, Session::Ptr>        SessionMap;
-    typedef std::unordered_map<uint32_t, tcp::Connector::Ptr> BndMap;
+    typedef std::unordered_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
     
     /**
@@ -228,11 +228,17 @@ private:
 
 
     void
-    on_bnd_handle(const ::epoll_event& ev) noexcept;
+    on_serv_handle(const ::epoll_event& ev) noexcept;
 
 
     void
-    on_new_bnd(core::QEvent* qe) noexcept;
+    on_new_serv(core::QEvent* qe) noexcept;
+
+
+    // 移除一个后端连接: 先 epoll_ctl DEL(fd 还活着), 再 servs_.erase(析构 → close fd)。
+    // 顺序不能反, 否则 erase 先 close fd, DEL 已关的 fd 会 EBADF。
+    void
+    remove_serv(tcp::Connector* conn) noexcept;
 
 
     void
@@ -254,7 +260,7 @@ private:
     core::SndBuf::Que        sque_;
     EvQue                    evque_;
     SndBufPool               sb_pool_;
-    BndMap                   bnds_;
+    ServMap                  servs_;
 };
 
 

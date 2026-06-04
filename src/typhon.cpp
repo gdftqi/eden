@@ -59,16 +59,16 @@ typhon::Server::run() noexcept {
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
-        servers_.emplace_back(std::move(s));
+        ks_pool_.emplace_back(std::move(s));
     }
 
     // 4b. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组 (任一 socket 即可, 整组共享).
     if (!kcp_bpf_path_.empty()) {
-        ASSERT(router_.attach(servers_[0]->fd()) == 0, "挂载 BPF 程序失败");
+        ASSERT(router_.attach(ks_pool_[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
 
     // 5. 启动所有 worker 线程
-    for (auto& s : servers_) {
+    for (auto& s : ks_pool_) {
         threads_.emplace_back(std::bind(&kcp::Server::run, s.get()));
     }
 
@@ -95,7 +95,7 @@ typhon::Server::run() noexcept {
         update();
     }
 
-    for (auto& s : servers_) {
+    for (auto& s : ks_pool_) {
         s->stop();
     }
 
@@ -103,7 +103,7 @@ typhon::Server::run() noexcept {
         t.join();
     }
 
-    servers_.clear();
+    ks_pool_.clear();
     threads_.clear();
 
     release();
@@ -142,11 +142,11 @@ typhon::Server::release() noexcept {
 
 void
 typhon::Server::update() noexcept {
-    for (auto& s : servers_) {
-        auto* arg = (core::NewBndArg*)::mi_malloc(sizeof(core::NewBndArg));
-        ::memset(arg, 0, sizeof(core::NewBndArg));
+    for (auto& s : ks_pool_) {
+        auto* arg = (core::NewServArg*)::mi_malloc(sizeof(core::NewServArg));
+        ::memset(arg, 0, sizeof(core::NewServArg));
         arg->id = 10000;
         ::strcpy(arg->host, "127.0.0.1:6688");
-        s->notify(new core::QEvent(core::QEvent::Type::NewBnd, arg));
+        s->notify(new core::QEvent(core::QEvent::Type::NewServ, arg));
     }
 }

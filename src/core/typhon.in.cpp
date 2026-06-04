@@ -182,7 +182,13 @@ typhon::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexc
             continue;
         }
 
-        if (::connect(cfd, rp->ai_addr, rp->ai_addrlen) == 0) {
+        // 非阻塞 socket 上 connect:
+        //   rc == 0            -> 立即连上 (localhost 可能)
+        //   rc < 0 && EINPROGRESS -> 连接已发起, 正在进行 (跨机最常见),
+        //                            保留 fd, 调用方加 epoll 等 EPOLLOUT 确认连上
+        //   rc < 0 && 其他      -> 真错误, close 换下一个 addrinfo
+        int rc = ::connect(cfd, rp->ai_addr, rp->ai_addrlen);
+        if (rc == 0 || (rc < 0 && errno == EINPROGRESS)) {
             break;
         }
 
