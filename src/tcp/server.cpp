@@ -199,13 +199,13 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                     if (errno == EINTR) {
                         continue;
                     }
-
-                    if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                        del = true;
-                        xERROR("recv failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;   // 数据读完了, 不是断开
                     }
+                    xERROR("recv failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
-                
+                // n == 0 (对端 close 的 EOF) 或 n < 0 真错误 → 连接断开
+                del = true;
                 break;
             } else {
                 auto* rbuf = (core::RecvArg*)::mi_malloc(sizeof(core::RecvArg) + n);
