@@ -2,8 +2,7 @@
 #define __TYPHON_PACKAGE_HPP__
 
 
-#include <arpa/inet.h>
-#include <inttypes.h>
+#include "core/typhon.in.hpp"
 
 
 namespace typhon::core {
@@ -206,6 +205,7 @@ pke_hton(PackageEx* p) noexcept {
     p->pke_len      = htons(p->pke_len);
     p->pke_src_id   = htonl(p->pke_src_id);
     p->pke_src_addr = htonl(p->pke_src_addr);
+    pk_hton((Package*)p->pke_pk);
 }
 
 
@@ -223,6 +223,7 @@ pke_ntoh(PackageEx* p) noexcept {
     p->pke_len      = ntohs(p->pke_len);
     p->pke_src_id   = ntohl(p->pke_src_id);
     p->pke_src_addr = ntohl(p->pke_src_addr);
+    pk_ntoh((Package*)p->pke_pk);
 }
 
 

@@ -275,10 +275,9 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         return;
     }
 
-    // Connecting: EPOLLOUT 触发表示连接完成(或失败), 用 SO_ERROR 确认
-    if (conn->state() == tcp::Connector::State::Connecting) {
-        if (ev.events & EPOLLOUT) {
-            int err = 0;
+    int err = 0;
+    if (ev.events & EPOLLOUT) {
+        if (conn->state() == tcp::Connector::State::Connecting) {
             socklen_t len = sizeof(err);
             if (::getsockopt(conn->fd(), SOL_SOCKET, SO_ERROR, &err, &len) != 0 || err != 0) {
                 xERROR("后端连接失败: id = {}, host = {}, err = {}, errstr = {}", conn->id(), conn->host(), err, ::strerror(err));
@@ -291,15 +290,14 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             ::epoll_event nev;
             nev.data.ptr = conn;
             nev.events = EPOLLIN | EPOLLET | EPOLLOUT;
-            if (::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) != 0) {
-                xERROR("epoll_ctl mod backend fd failed: id = {}, errno = {}, errstr = {}",
-                       conn->id(), errno, ::strerror(errno));
-                remove_serv(conn);
-                return;
+    
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) == 0, "修改后端连接事件失败: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
+        } else if (conn->state() == tcp::Connector::State::Connected) {
+            err = conn->send();
+            if (err < 0) {
+                xERROR("发送数据到后端失败: id = {}, host = {}, err = {}", conn->id(), conn->host(), -err);
             }
-            xINFO("后端连接成功: id = {}, host = {}", conn->id(), conn->host());
         }
-        return;
     }
 
     if (ev.events & EPOLLIN) {
@@ -319,13 +317,9 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
     }
 
     auto conn = tcp::Connector::create(arg->id, arg->host);
-    if (conn->connect()) {
-        xERROR("发起后端连接失败: id = {}, host = {}", arg->id, arg->host);
-        ::mi_free(arg);
-        return;
+    if (conn) {
+        add_serv(conn);
     }
-
-    add_serv(conn);
     ::mi_free(arg);
 }
 

@@ -134,6 +134,10 @@ SOCKET
 tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexcept;
 
 
+ssize_t
+writen(SOCKET fd, const void* buf, size_t len) noexcept;
+
+
 inline std::string
 sockaddr_to_string(const sockaddr* addr) noexcept {
     char ip[INET6_ADDRSTRLEN] = {0};

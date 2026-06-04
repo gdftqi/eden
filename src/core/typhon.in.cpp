@@ -200,3 +200,34 @@ typhon::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexc
 
     return cfd;
 }
+
+
+
+ssize_t
+typhon::core::writen(SOCKET fd, const void* buf, size_t len) noexcept {
+    ssize_t nleft = len, n;
+    uint8_t* ptr = (uint8_t*)buf;
+
+    while (nleft > 0) {
+        n = ::write(fd, ptr, nleft);
+        if (n < 0) {
+            int err = errno;
+            if (err == EINTR) {
+                continue;
+            }
+
+            if (err != EWOULDBLOCK && err != EAGAIN) {
+                return -err;
+            }
+            break;
+        }
+        else if (n == 0) {
+            break;
+        }
+
+        nleft -= n;
+        ptr += n;
+    }
+
+    return len - nleft;
+}

@@ -34,8 +34,8 @@ public:
 
 
     ~Session() noexcept {
-        if (sockfd_ != core::INVALID_SOCKET) {
-            ::close(sockfd_);
+        if (fd_ != core::INVALID_SOCKET) {
+            ::close(fd_);
         }
     }
 
@@ -51,7 +51,7 @@ public:
 
     core::SOCKET
     sockfd() const noexcept {
-        return sockfd_;
+        return fd_;
     }
 
 
@@ -105,34 +105,32 @@ public:
     /**
      * @brief 把 PackageEx 发给对端;若内核 buffer 满则把剩余字节挂到 sbuf_ 等下次 flush。
      *
-     * @warning **就地副作用**:函数内部会先后调 pke_hton(pke) + pk_hton(内嵌 Package),
-     *          即**原地把 PackageEx 头 10B + 内嵌 Package 头 10B 共 20B 翻成网络字节序**。
-     *          返回后:
-     *            - pke 指向的字段(含内嵌 Package)已经是网络序,**不能再当 host 序读**。
-     *            - **不允许对同一个 pke 再次调用 send()** —— 会被 hton 翻回去,
-     *              下游收到字节序错乱的包。
-     *            - 调用方需要拷贝的应是 pke 之前的 host 序字段值,不是 pke 本身。
+     * @warning **只翻外层**:函数内部只调 pke_hton(pke),即**原地把 PackageEx 头 10B
+     *          翻成网络字节序**。**内嵌 Package 不翻** —— 调用方必须在调 send() 之前
+     *          自行保证内嵌 Package 已是网络序(回程 handler 构造完 Package 后调
+     *          pk_hton(pke_get_pk(pke)))。漏翻则网关侧 pk_ntoh 读出乱码。
+     *          (对比: 网关→后端方向内嵌来自 KCP 透传, 天然网络序, 不必翻; 后端→网关
+     *           回程是后端本地构造, host 序, 必须由调用方翻。)
      *
-     *          典型用法是 handler 里「decode 出来 → 立即 send → 丢弃 pke」,pke 指向
-     *          PkgBuf 已消费区,decode 已经推过 rpos,后续没人再读这段字节,
-     *          就地翻转无害。
+     *          就地副作用 —— 返回后:
+     *            - pke 外层字段已是网络序,**不能再当 host 序读**。
+     *            - **不允许对同一个 pke 再次调用 send()**(pke_hton 会把它翻回去)。
+     *
+     *          典型用法是 handler 里「decode → 改内容 → pk_hton 内嵌 → send → 丢弃 pke」,
+     *          pke 指向已消费区, 就地翻转无害。
      *
      * @param pke 待发送的 PackageEx,允许传 nullptr(仅 flush sbuf_,不追加新包)。
      * @return  1  整包同步发完(sbuf_ 也已 drain)
      * @return  0  部分/全部内容被排到 sbuf_,等 EPOLLOUT 触发再 flush
      * @return <0  socket 错(EAGAIN 不算),负值是 -errno
      */
-    int
-    send(core::PackageEx* pke) noexcept;
+    ssize_t
+    send(core::PackageEx* pke = nullptr) noexcept;
 
 
 private:
-    int
-    send(const uint8_t* data, size_t len) noexcept;
-
-
     bool                 authed_       { false };
-    core::SOCKET         sockfd_       { core::INVALID_SOCKET };
+    core::SOCKET         fd_           { core::INVALID_SOCKET };
     sockaddr_storage     addr_         {};
     socklen_t            addrlen_      { 0 };
     uint64_t             last_recv_ms_ { 0 };

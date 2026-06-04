@@ -4,18 +4,18 @@
 
 
 typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
-    : sockfd_(sockfd)
+    : fd_(sockfd)
     , addrlen_(sizeof(addr_))
     , last_recv_ms_(w->tnow())
     , proc_(w) {
     static constexpr int on = 1;
     const int sndbuf = Conf::instance()->sndbuf();
     const int rcvbuf = Conf::instance()->rcvbuf();
-    ASSERT(::getpeername(sockfd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
-    ASSERT(core::set_nonblocking(sockfd_) == 0, "failed to set non-blocking");
-    ASSERT(::setsockopt(sockfd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == 0, "failed to set TCP_NODELAY");
-    ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) == 0, "failed to set send buffer");
-    ASSERT(::setsockopt(sockfd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) == 0, "failed to set receive buffer");
+    ASSERT(::getpeername(fd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
+    ASSERT(core::set_nonblocking(fd_) == 0, "failed to set non-blocking");
+    ASSERT(::setsockopt(fd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == 0, "failed to set TCP_NODELAY");
+    ASSERT(::setsockopt(fd_, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) == 0, "failed to set send buffer");
+    ASSERT(::setsockopt(fd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) == 0, "failed to set receive buffer");
 }
 
 
@@ -34,10 +34,12 @@ typhon::tcp::Session::recv(core::PackageEx** pke) noexcept {
 }
 
 
-int
+ssize_t
 typhon::tcp::Session::send(core::PackageEx* pke) noexcept {
+    ssize_t n;
+
     if (sbuf_.size() > 0) {
-        int n = send(sbuf_.data(), sbuf_.size());
+        n = core::writen(fd_, sbuf_.data(), sbuf_.size());
         if (n < 0) {
             return n;
         } else if (n > 0) {
@@ -49,54 +51,24 @@ typhon::tcp::Session::send(core::PackageEx* pke) noexcept {
         return 0;
     }
 
-    int total = pke->pke_len;
+    ssize_t total = pke->pke_len;
     core::pke_hton(pke);
-    auto* pk = core::pke_get_pk(pke);
-    core::pk_hton(pk);
-    uint8_t* buf = (uint8_t*)pke;
+    uint8_t* p = (uint8_t*)pke;
 
     if (sbuf_.size() > 0) {
-        sbuf_.insert(sbuf_.end(), buf, buf + total);
+        sbuf_.insert(sbuf_.end(), p, p + total);
         return 0;
     }
     
-    int n = send(buf, total);
+    n = core::writen(fd_, p, total);
     if (n < 0) {
         return n;
     }
     
     if (n < total) {
-        sbuf_.insert(sbuf_.end(), buf + n, buf + total);
+        sbuf_.insert(sbuf_.end(), p + n, p + total);
         return 0;
     }
 
     return 1;
-}
-
-
-int
-typhon::tcp::Session::send(const uint8_t* data, size_t len) noexcept {
-    int err = 0;
-    size_t nleft = len;
-    const uint8_t* buf = data;
-    while (nleft > 0) {
-        int n = ::send(sockfd_, buf, nleft, 0);
-        if (n < 0) {
-            err = errno;
-            if (err == EINTR) {
-                continue;
-            } else if (err == EAGAIN || err == EWOULDBLOCK) {
-                break;
-            } else {
-                return -err;
-            }
-        } else if (n == 0) {
-            break;
-        }
-
-        buf += n;
-        nleft -= n;
-    }
-
-    return len - nleft;
 }

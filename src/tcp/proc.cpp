@@ -193,7 +193,7 @@ typhon::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
     auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
-        int n = sess->send(nullptr);
+        int n = sess->send();
         if (n < 0) {
             xWARN("failed to send data to fd {}, err = {}", fd, -n);
         }
