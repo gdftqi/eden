@@ -50,10 +50,10 @@ public:
  */
 static void
 echo_handler(typhon::tcp::Session::Ptr sess, const typhon::core::PackageEx* pke) noexcept {
-    // Session::send 接收非 const Package*(因为内部要 pk_hton 翻字节序)。
-    // 这里直接复用入站 buffer,handler 返回后 worker 才会推进 PkgBuf 游标,
-    // 在此期间 buffer 不会被覆盖.
-    int rc = sess->send(const_cast<typhon::core::PackageEx*>(pke));
+    // Session::send 现在收 Pke<Host>(host 序视图, 内部 hton 后发出)。
+    // pke 是 proc decode 出来的 host 序包, 这里包成 Pke<Host> 原样回 echo;
+    // 直接复用入站 buffer, handler 返回后 worker 才推进游标, 期间不会被覆盖。
+    int rc = sess->send(typhon::core::Pke<typhon::core::Host>(const_cast<typhon::core::PackageEx*>(pke)));
     if (rc < 0) {
         xWARN("echo send failed: fd={}, rc={}", sess->sockfd(), rc);
     }

@@ -3,6 +3,7 @@
 
 
 #include "core/typhon.in.hpp"
+#include <type_traits>
 
 
 namespace typhon::core {
@@ -191,45 +192,100 @@ pk_ntoh(Package* p) noexcept {
 }
 
 
-/**
- * @brief 本机字节序 → 网络字节序（发送 PackageEx 前调用）
- *
- * **只翻外层 3 个字段**(pke_len / pke_src_id / pke_src_addr)，不递归翻内嵌
- * Package。典型用法：网关 prepend 头时，内嵌 Package 已是网络序(KCP 直送)，
- * 只调 pke_hton 即可。详见 @ref byteorder 的 warning。
- *
- * @param p 待转换的 PackageEx 头指针
- */
-inline void
-pke_hton(PackageEx* p) noexcept {
-    p->pke_len      = htons(p->pke_len);
-    p->pke_src_id   = htonl(p->pke_src_id);
-    p->pke_src_addr = htonl(p->pke_src_addr);
-    pk_hton((Package*)p->pke_pk);
-}
-
-
-/**
- * @brief 网络字节序 → 本机字节序（接收 PackageEx 后调用）
- *
- * **只翻外层 3 个字段**，不递归翻内嵌 Package。后端解析流程：
- *   1. pke_ntoh(pe) 读 pke_len / pke_src_id / pke_src_addr
- *   2. pk_ntoh((Package*)pe->pke_pk) 才能读内嵌 Package 字段
- *
- * @param p 待转换的 PackageEx 头指针
- */
-inline void
-pke_ntoh(PackageEx* p) noexcept {
-    p->pke_len      = ntohs(p->pke_len);
-    p->pke_src_id   = ntohl(p->pke_src_id);
-    p->pke_src_addr = ntohl(p->pke_src_addr);
-    pk_ntoh((Package*)p->pke_pk);
-}
-
+// PackageEx 的字节序转换统一走下面 Pke<O> 体系的 hton()/ntoh(), 不再提供
+// 裸的 pke_hton/pke_ntoh —— 避免"两套并存 + 翻几层不定"的混乱。
 
 inline Package*
 pke_get_pk(PackageEx* p) noexcept {
-    return (Package*)p->pke_pk;
+    return (Package*)p->pke_pk;   // 纯访问, 不翻字节序(字节序由 Pke 体系的 hton/ntoh 统一管)
+}
+
+
+// ════════════════════ 字节序: phantom-type 强制 ════════════════════
+// 痛点: Package/PackageEx overlay 在 buffer 上, 一块内存当前是 host 还是网络序
+// 全靠人脑追踪。这里把字节序状态提进类型:
+//   - Pke<Host>: 内存里待读写的对象, host 序。**只有它能读写字段**(operator-> / pk())。
+//   - Pke<Net> : 待发 / 刚收的 wire 字节, 网络序。**只能 raw() 交给 writen**, 读字段编译不过。
+// 不变量: 对象恒 host, wire 恒 net, 转换只在 hton/ntoh 各一次。
+// 单 tag = 外层 + 内嵌**整体同序**(hton/ntoh 递归翻两层); 转发的"外 host / 内 net"
+// 混合态**不进这个体系**, 由 on_data 转发入口单独处理(见 ISSUE #6)。
+struct Host {};
+struct Net  {};
+
+
+template<typename O>
+class Pke {
+    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>,
+                  "Pke 的 Order 只能是 Host 或 Net");
+    PackageEx* p_;
+
+public:
+    explicit Pke(void* buf) noexcept : p_(reinterpret_cast<PackageEx*>(buf)) {}
+
+    void* raw() const noexcept { return p_; }
+
+    // 只有 host 序视图能读写字段; 对 Pke<Net> 调以下两个会 SFINAE 失败 → 编译报错。
+    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    PackageEx* operator->() const noexcept { return p_; }
+
+    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    Package* pk() const noexcept { return reinterpret_cast<Package*>(p_->pke_pk); }
+};
+
+
+// host → net: 原地递归翻外层 + 内嵌, 消费 host 视图、产出 net 视图。
+inline Pke<Net>
+hton(Pke<Host> v) noexcept {
+    auto* p = reinterpret_cast<PackageEx*>(v.raw());
+    p->pke_len      = htons(p->pke_len);
+    p->pke_src_id   = htonl(p->pke_src_id);
+    p->pke_src_addr = htonl(p->pke_src_addr);
+    pk_hton(reinterpret_cast<Package*>(p->pke_pk));
+    return Pke<Net>(p);
+}
+
+
+// net → host: 原地递归翻外层 + 内嵌。
+inline Pke<Host>
+ntoh(Pke<Net> v) noexcept {
+    auto* p = reinterpret_cast<PackageEx*>(v.raw());
+    p->pke_len      = ntohs(p->pke_len);
+    p->pke_src_id   = ntohl(p->pke_src_id);
+    p->pke_src_addr = ntohl(p->pke_src_addr);
+    pk_ntoh(reinterpret_cast<Package*>(p->pke_pk));
+    return Pke<Host>(p);
+}
+
+
+// Package(KCP 段, 客户端↔网关)的同款视图。单层、无内嵌, 比 Pke 简单。
+// 同一对 Host/Net tag; hton/ntoh 按参数类型(Pk vs Pke)重载。
+template<typename O>
+class Pk {
+    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>,
+                  "Pk 的 Order 只能是 Host 或 Net");
+    Package* p_;
+
+public:
+    explicit Pk(void* buf) noexcept : p_(reinterpret_cast<Package*>(buf)) {}
+
+    void* raw() const noexcept { return p_; }
+
+    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    Package* operator->() const noexcept { return p_; }
+};
+
+
+inline Pk<Net>
+hton(Pk<Host> v) noexcept {
+    pk_hton(reinterpret_cast<Package*>(v.raw()));
+    return Pk<Net>(v.raw());
+}
+
+
+inline Pk<Host>
+ntoh(Pk<Net> v) noexcept {
+    pk_ntoh(reinterpret_cast<Package*>(v.raw()));
+    return Pk<Host>(v.raw());
 }
 
 

@@ -1,30 +1,39 @@
 #include "tcp/connector.hpp"
 
 
+// 纯 flush: 把 sbuf_ 里积压的字节尽量写出去(EPOLLOUT 续发用)。
 ssize_t
-typhon::tcp::Connector::send(core::PackageEx* pke, uint64_t now) noexcept {
-    ssize_t n;
-
-    if (sbuf_.size() > 0) {
-        n = core::writen(fd_, sbuf_.data(), sbuf_.size());
-        if (n < 0) {
-            return n;
-        }
-        else if (n > 0) {
-            last_send_ms_ = now;
-            sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
-        }
-    }
-
-    if (pke == nullptr) {
+typhon::tcp::Connector::send(uint64_t now) noexcept {
+    if (sbuf_.empty()) {
         return 0;
     }
 
-    ssize_t total = pke->pke_len;
-    core::pke_hton(pke);
-    uint8_t* p = (uint8_t*)pke;
+    ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
+    if (n < 0) {
+        return n;
+    }
+    if (n > 0) {
+        last_send_ms_ = now;
+        sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
+    }
+    return 0;
+}
 
-    if (sbuf_.size() > 0) {
+
+// 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
+ssize_t
+typhon::tcp::Connector::send(core::Pke<core::Host> pke, uint64_t now) noexcept {
+    ssize_t n = send(now);
+    if (n < 0) {
+        return n;
+    }
+
+    // hton 前取 host 序的总长; hton 后 pke 变 Pke<Net>, 只能 raw()。
+    ssize_t  total = pke->pke_len;
+    auto     net   = core::hton(pke);
+    uint8_t* p     = (uint8_t*)net.raw();
+
+    if (sbuf_.size() > 0) {              // 残留没 flush 完 → 新包排队保序
         sbuf_.insert(sbuf_.end(), p, p + total);
         return 0;
     }
@@ -39,21 +48,22 @@ typhon::tcp::Connector::send(core::PackageEx* pke, uint64_t now) noexcept {
         sbuf_.insert(sbuf_.end(), p + n, p + total);
         return 0;
     }
-
     return 1;
 }
 
 
 int
-typhon::tcp::Connector::recv(core::PackageEx** pke, uint64_t now) noexcept {
+typhon::tcp::Connector::recv(core::Pke<core::Host>* pke, uint64_t now) noexcept {
     if (rbuf_.readable() == 0) {
         return -1;
     }
 
-    if (!rbuf_.decode(pke)) {
+    core::PackageEx* raw;
+    if (!rbuf_.decode(&raw)) {           // decode 内部已 ntoh → host 序
         return -2;
     }
 
+    *pke = core::Pke<core::Host>(raw);
     last_recv_ms_ = now;
     return 1;
 }
@@ -73,11 +83,10 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
 
         if (now - last_send_ms_ > timeout) {
             uint8_t buf[core::PKG_HDR_EX_LEN + core::PKG_HDR_LEN] = {0};
-            core::PackageEx* pke = (core::PackageEx*)buf;
-            auto* pk = core::pke_get_pk(pke);
-            pk->pk_dst_id = id_;
-            pk->pk_id = PKID_PING;
-            pke->pke_len = sizeof(buf);
+            core::Pke<core::Host> pke{buf};
+            pke->pke_len        = sizeof(buf);
+            pke.pk()->pk_id     = PKID_PING;
+            pke.pk()->pk_dst_id = id_;
             if (send(pke, now) < 0) {
                 return -1;
             }

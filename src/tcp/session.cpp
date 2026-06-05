@@ -20,55 +20,65 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
 
 
 int
-typhon::tcp::Session::recv(core::PackageEx** pke) noexcept {
+typhon::tcp::Session::recv(core::Pke<core::Host>* pke) noexcept {
     if (rbuf_.readable() == 0) {
         return -1;
     }
 
-    if (!rbuf_.decode(pke)) {
+    core::PackageEx* raw;
+    if (!rbuf_.decode(&raw)) {           // decode 内部已 ntoh → host 序
         return -2;
     }
 
+    *pke = core::Pke<core::Host>(raw);
     last_recv_ms_ = proc_->tnow();
     return 1;
 }
 
 
+// 纯 flush: 把 sbuf_ 积压字节尽量写出(EPOLLOUT 续发用)。
 ssize_t
-typhon::tcp::Session::send(core::PackageEx* pke) noexcept {
-    ssize_t n;
-
-    if (sbuf_.size() > 0) {
-        n = core::writen(fd_, sbuf_.data(), sbuf_.size());
-        if (n < 0) {
-            return n;
-        } else if (n > 0) {
-            sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
-        }
-    }
-
-    if (pke == nullptr) {
+typhon::tcp::Session::send() noexcept {
+    if (sbuf_.empty()) {
         return 0;
     }
 
-    ssize_t total = pke->pke_len;
-    core::pke_hton(pke);
-    uint8_t* p = (uint8_t*)pke;
+    ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
+    if (n < 0) {
+        return n;
+    }
+    if (n > 0) {
+        sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
+    }
+    return 0;
+}
 
-    if (sbuf_.size() > 0) {
+
+// 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
+ssize_t
+typhon::tcp::Session::send(core::Pke<core::Host> pke) noexcept {
+    ssize_t n = send();
+    if (n < 0) {
+        return n;
+    }
+
+    ssize_t  total = pke->pke_len;       // hton 前取 host 序总长
+    auto     net   = core::hton(pke);    // host → net (递归翻外 + 内)
+    uint8_t* p     = (uint8_t*)net.raw();
+
+    if (sbuf_.size() > 0) {              // 残留没 flush 完 → 新包排队保序
         sbuf_.insert(sbuf_.end(), p, p + total);
         return 0;
     }
-    
+
     n = core::writen(fd_, p, total);
     if (n < 0) {
         return n;
     }
-    
+
     if (n < total) {
         sbuf_.insert(sbuf_.end(), p + n, p + total);
         return 0;
     }
-
     return 1;
 }

@@ -93,39 +93,25 @@ public:
 
 
     /**
-     * @brief 从 pbuf_ 里 decode 出一个 PackageEx,并更新 last_recv_ms_。
-     * @return  1 成功 decode 出一个完整 PackageEx, *pke 已指向该包
-     * @return  0 pbuf_ 中没有足够数据 decode 出一个完整 PackageEx, *pke 不变
-     * @return <0 decode 失败, -errno, *pke 不变
+     * @brief 从 rbuf_ decode 出一个完整 PackageEx(decode 内部已 ntoh → host 序视图)。
+     * @return  1 取到一个完整包, *pke 指向它(host 序)
+     * @return -1 无数据 / -2 半包, *pke 不变
      */
     int
-    recv(core::PackageEx** pke) noexcept;
+    recv(core::Pke<core::Host>* pke) noexcept;
 
 
     /**
-     * @brief 把 PackageEx 发给对端;若内核 buffer 满则把剩余字节挂到 sbuf_ 等下次 flush。
-     *
-     * @warning **只翻外层**:函数内部只调 pke_hton(pke),即**原地把 PackageEx 头 10B
-     *          翻成网络字节序**。**内嵌 Package 不翻** —— 调用方必须在调 send() 之前
-     *          自行保证内嵌 Package 已是网络序(回程 handler 构造完 Package 后调
-     *          pk_hton(pke_get_pk(pke)))。漏翻则网关侧 pk_ntoh 读出乱码。
-     *          (对比: 网关→后端方向内嵌来自 KCP 透传, 天然网络序, 不必翻; 后端→网关
-     *           回程是后端本地构造, host 序, 必须由调用方翻。)
-     *
-     *          就地副作用 —— 返回后:
-     *            - pke 外层字段已是网络序,**不能再当 host 序读**。
-     *            - **不允许对同一个 pke 再次调用 send()**(pke_hton 会把它翻回去)。
-     *
-     *          典型用法是 handler 里「decode → 改内容 → pk_hton 内嵌 → send → 丢弃 pke」,
-     *          pke 指向已消费区, 就地翻转无害。
-     *
-     * @param pke 待发送的 PackageEx,允许传 nullptr(仅 flush sbuf_,不追加新包)。
-     * @return  1  整包同步发完(sbuf_ 也已 drain)
-     * @return  0  部分/全部内容被排到 sbuf_,等 EPOLLOUT 触发再 flush
-     * @return <0  socket 错(EAGAIN 不算),负值是 -errno
+     * @brief 发一个包: 内部 hton(递归翻外层 + 内嵌)成网络序再写; 部分写挂 sbuf_ 等 flush。
+     *        入参是 host 序视图 Pke<Host>, 字节序由类型保证, 不再需要调用方手翻内嵌。
+     * @return 1 整包发完 / 0 部分或全部排进 sbuf_ / <0 socket 错(EAGAIN 不算)
      */
     ssize_t
-    send(core::PackageEx* pke = nullptr) noexcept;
+    send(core::Pke<core::Host> pke) noexcept;
+
+    /** @brief 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。 */
+    ssize_t
+    send() noexcept;
 
 
 private:

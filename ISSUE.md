@@ -35,23 +35,21 @@ if (rcv_idem_ >= (*pk)->pk_idem) {
 
 ---
 
-### 6. `pke_hton` / `pke_ntoh` 无条件翻内嵌 Package → 转发路径会翻反
+### 6. 转发路径的内嵌字节序 —— `Pke` 递归翻 vs KCP 透传来的 net 序
 
-**位置**: [include/core/package.hpp](include/core/package.hpp)（`pke_hton` / `pke_ntoh` 内部递归调 `pk_hton` / `pk_ntoh`）
+**位置**: [include/core/package.hpp](include/core/package.hpp)（`Pke<O>` 的 `hton`/`ntoh` 递归翻外层+内嵌）
 
-`pke_hton` / `pke_ntoh` 现在连内嵌 Package 一起翻。对「**本地构造**」的包是对的：
-- 心跳（`Connector::update` 本地填 host 序内嵌）✅
+字节序已全栈 phantom 化(见 memory `project-typhon-pke-send-byteorder`)：`Pke` 的 `hton`/`ntoh` **递归翻外层+内嵌**(即原 A 方案被固化)，`Pke<Host>` 的语义是"外层+内嵌**整体** host 序"。对「**本地构造**」的包正确：
+- 心跳（`Connector::update` 构造 `Pke<Host>`）✅
 - 回程（`Session::send` 后端 host 序构造）✅
 
-但对「**转发**」错：网关 `on_data` 把客户端包转后端时，内嵌 Package 是 KCP 透传来的、**本来就是网络序**，再经 `pke_hton` 翻一次内嵌 → 翻回 host 序 → 后端 `pke_ntoh` 又翻 → 字节序错乱。而转发是最高频路径。
+但「**转发**」是个**混合态**，不符合 `Pke<Host>` 的前提：网关 `on_data` 把客户端包转后端时，内嵌 Package 是 KCP 透传来的、**本来就是网络序**，而新 prepend 的 PackageEx 外层头是 host 序 —— 这是"外 host / 内 net"，**不能直接塞进 `Pke<Host>` 然后 `hton`**（会把已经是 net 的内嵌又翻回去）。转发又是最高频路径。
 
-现在没爆，是因为 `on_data` 转发还没实现。接转发时必须二选一定型：
-- **A（现状，pke_hton 翻内嵌）**：转发前对内嵌 `pk_ntoh` 抵消，或转发走「不翻内嵌」的发送路径。
-- **B（旧约定，pke_hton 只翻外层）**：心跳/回程调用方自己 `pk_hton`，转发省事。
+现在没爆，是因为 `on_data` 转发还没实现。**接转发时必须给这条混合态单独的路**，候选：
+- 转发入口只翻外层 PackageEx 头(`htons/htonl` 三个字段)，内嵌原样不动 —— 需要一个绕过 `Pke` 递归 `hton` 的"只翻外层"发送路径；
+- 或转发前先对内嵌 `pk_ntoh` 抵消，让它能走统一的 `Pke<Host> → hton`（多两次 byteswap，热路径上不划算）。
 
-权衡：转发是热路径，B 让最忙的路不做多余翻转，可能更合理。**接 `on_data` 转发时定**。
-
-注：此改动作废了「send 只翻外层」的旧约定（见 memory `project-typhon-pke-send-byteorder`，那条届时要一并更新）。
+**接 `on_data` 转发时定**，倾向第一个(热路径不做多余翻转)。
 
 ---
 

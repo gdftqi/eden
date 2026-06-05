@@ -164,27 +164,26 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
     }
 
     int res;
-    core::PackageEx* pke;
-    core::Package* pk;
+    core::Pke<core::Host> pke{nullptr};
     while (1) {
         res = sess->recv(&pke);
         if (res < 0) {
             break;
         }
 
-        pk = core::pke_get_pk(pke);
-        if (pk->pk_id == PKID_PING) {
-            pk->pk_id = PKID_PONG;
+        // 心跳是协议控制包, 在 get_handler 之前拦; pke.pk() 纯访问(host 序, 不翻)。
+        if (pke.pk()->pk_id == PKID_PING) {
+            pke.pk()->pk_id = PKID_PONG;
             sess->send(pke);
             continue;
         }
 
-        auto handler = server_->get_handler(pk->pk_id);
+        auto handler = server_->get_handler(pke.pk()->pk_id);
         if (!handler) {
-            xWARN("no handler for pk_id {}, from {}", pk->pk_id, sess->remote_addr());
+            xWARN("no handler for pk_id {}, from {}", pke.pk()->pk_id, sess->remote_addr());
             continue;
         }
-        handler(sess, pke);
+        handler(sess, (const core::PackageEx*)pke.raw());
     }
 
     ::mi_free(rbuf);

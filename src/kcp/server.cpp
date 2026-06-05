@@ -294,7 +294,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) == 0, "修改后端连接事件失败: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
         } else if (conn->state() == tcp::Connector::State::Connected) {
-            err = conn->send(nullptr, tnow_);
+            err = conn->send(tnow_);
             if (err < 0) {
                 xERROR("发送数据到后端失败: id = {}, host = {}, err = {}", conn->id(), conn->host(), -err);
             }
@@ -330,10 +330,9 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::PackageEx *pke;
+        core::Pke<core::Host> pke{nullptr};
         while (conn->recv(&pke, tnow_) == 1) {
-            auto* pk = core::pke_get_pk(pke);
-            if (pk->pk_id == PKID_PONG) {
+            if (pke.pk()->pk_id == PKID_PONG) {
                 xINFO("收到心跳回包");
             }
         }

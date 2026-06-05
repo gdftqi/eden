@@ -60,8 +60,8 @@ typhon::kcp::Session::recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64
 
     // 半加密: header 明文, 先 ntoh 读出来做合法性 / 重放校验,
     // 非法包 / 重放包直接丢, 不浪费 payload 解密.
+    core::ntoh(core::Pk<core::Net>(buf));   // net → host (原地翻 header)
     *pkg = (core::Package*)buf;
-    core::pk_ntoh(*pkg);
     auto* p = *pkg;
 
     if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
@@ -109,7 +109,7 @@ typhon::kcp::Session::send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst
 
     const size_t total = core::PKG_HDR_LEN + len;
 
-    auto* pkg = (core::Package*)buf;
+    core::Pk<core::Host> pkg{buf};
     pkg->pk_id = pk_id;
     pkg->pk_idem = pk_idemp;
     pkg->pk_dst_id = pk_dst_id;
@@ -126,6 +126,6 @@ typhon::kcp::Session::send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst
                                          pkg->pk_payload, pkg->pk_payload, len) == 0, "加密失败");
     }
 
-    core::pk_hton(pkg);
+    core::hton(pkg);   // host → net (原地翻 header), 之后 buf 是 wire-ready
     return send(buf, total);
 }

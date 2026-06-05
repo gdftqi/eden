@@ -94,18 +94,24 @@ public:
     }
 
 
+    // 发一个包: 内部 hton 成网络序再写; 部分写存 sbuf_ 等 EPOLLOUT 续发。
     ssize_t
-    send(core::PackageEx* pke, uint64_t now) noexcept;
+    send(core::Pke<core::Host> pke, uint64_t now) noexcept;
+
+    // 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。
+    ssize_t
+    send(uint64_t now) noexcept;
 
 
+    // 喂 TCP 读到的原始字节进 rbuf_。
     bool
     input(const uint8_t* data, size_t len) noexcept {
         return rbuf_.append(data, len);
     }
 
-
+    // 从 rbuf_ 取一个完整包(decode 内部已 ntoh → host 序): 1 取到 / -1 无数据 / -2 半包。
     int
-    recv(core::PackageEx** pke, uint64_t now) noexcept;
+    recv(core::Pke<core::Host>* pke, uint64_t now) noexcept;
 
 
     int

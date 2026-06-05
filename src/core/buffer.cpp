@@ -42,10 +42,8 @@ typhon::core::RcvBuf::decode(core::PackageEx** pke) noexcept {
         return false;
     }
 
-    pke_ntoh(p);
+    ntoh(Pke<Net>(p));   // net → host: 外层 + 内嵌各翻一次(替代旧的三重翻转)
     *pke = p;
-    auto* pk = pke_get_pk(p);
-    pk_ntoh(pk);
     rpos += pklen;
     return true;
 }
