@@ -170,17 +170,20 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
         res = sess->recv(&pke);
         if (res < 0) {
             break;
-        } else if (res == 0) {
-            continue;
         }
 
         pk = core::pke_get_pk(pke);
+        if (pk->pk_id == PKID_PING) {
+            pk->pk_id = PKID_PONG;
+            sess->send(pke);
+            continue;
+        }
+
         auto handler = server_->get_handler(pk->pk_id);
         if (!handler) {
             xWARN("no handler for pk_id {}, from {}", pk->pk_id, sess->remote_addr());
             continue;
         }
-
         handler(sess, pke);
     }
 

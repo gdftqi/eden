@@ -159,6 +159,25 @@ sockaddr_to_string(const sockaddr* addr) noexcept {
 }
 
 
+// IPv4 sockaddr ↔ uint32_t 互转。返回/接收的 u32 一律 **host 序**,
+// 以配合 Package 体系"本地 host 序、发送前 pke_hton 统一 htonl"的约定:
+// 网关从客户端 sockaddr 取 IP → sockaddr_to_u32 → 存 pke_src_addr(host 序)。
+inline uint32_t
+sockaddr_to_u32(const sockaddr_in* addr) noexcept {
+    // s_addr 本身是网络序, 转成 host 序返回。
+    return ::ntohl(addr->sin_addr.s_addr);
+}
+
+
+inline void
+u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
+    // v 是 host 序 IPv4, 写回 sockaddr_in(s_addr 网络序)。port 不在入参里, 清 0。
+    addr->sin_family      = AF_INET;
+    addr->sin_port        = 0;
+    addr->sin_addr.s_addr = ::htonl(v);
+}
+
+
 } // namespace typhon::core;
 
 

@@ -243,6 +243,10 @@ static_assert(PKG_HDR_LEN == 10, "Package header size changed");
 static_assert(PKG_HDR_EX_LEN == 10, "PackageEx header size changed");
 
 
+#define PKID_PING (100)
+#define PKID_PONG (101)
+
+
 } // namespace typhon::core
 
 

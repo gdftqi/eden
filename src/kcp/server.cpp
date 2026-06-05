@@ -294,7 +294,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) == 0, "修改后端连接事件失败: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
         } else if (conn->state() == tcp::Connector::State::Connected) {
-            err = conn->send();
+            err = conn->send(nullptr, tnow_);
             if (err < 0) {
                 xERROR("发送数据到后端失败: id = {}, host = {}, err = {}", conn->id(), conn->host(), -err);
             }
@@ -332,7 +332,10 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
         core::PackageEx *pke;
         while (conn->recv(&pke, tnow_) == 1) {
-            // TODO:  使用 pke
+            auto* pk = core::pke_get_pk(pke);
+            if (pk->pk_id == PKID_PONG) {
+                xINFO("收到心跳回包");
+            }
         }
     }
 }
@@ -358,14 +361,15 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
 
 void
 typhon::kcp::Server::update() noexcept {
+    auto now = tnow_;
     for (auto itr = sessions_.begin(); itr != sessions_.end();) {
         auto s = itr->second;
-        if (s->check_timeout(tnow_)) {
+        if (s->check_timeout(now)) {
             itr = sessions_.erase(itr);
             event_->on_disconnected(s);
             continue;
         } else {
-            s->update(tnow_);
+            s->update(now);
             ++itr;
         }
     }
@@ -373,7 +377,7 @@ typhon::kcp::Server::update() noexcept {
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
     size_t exp = 0;
     auto timeout = (uint64_t)Conf::instance()->timeout() / 2;
-    while (exp < sque_.size() && sque_[exp]->time + timeout < tnow()) {
+    while (exp < sque_.size() && sque_[exp]->time + timeout < now) {
         sb_pool_.release(sque_[exp]);
         ++exp;
     }
@@ -417,4 +421,14 @@ typhon::kcp::Server::update() noexcept {
         sb_pool_.release(sque_[i]);
     }
     sque_.erase(sque_.begin(), sque_.begin() + nsnd);
+
+    for (auto itr = servs_.begin(); itr != servs_.end();) {
+        auto& conn = itr->second;
+        if (conn->update(now) < 0) {
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            itr = servs_.erase(itr);
+        } else {
+            ++itr;
+        }
+    }
 }

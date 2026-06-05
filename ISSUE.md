@@ -35,6 +35,26 @@ if (rcv_idem_ >= (*pk)->pk_idem) {
 
 ---
 
+### 6. `pke_hton` / `pke_ntoh` 无条件翻内嵌 Package → 转发路径会翻反
+
+**位置**: [include/core/package.hpp](include/core/package.hpp)（`pke_hton` / `pke_ntoh` 内部递归调 `pk_hton` / `pk_ntoh`）
+
+`pke_hton` / `pke_ntoh` 现在连内嵌 Package 一起翻。对「**本地构造**」的包是对的：
+- 心跳（`Connector::update` 本地填 host 序内嵌）✅
+- 回程（`Session::send` 后端 host 序构造）✅
+
+但对「**转发**」错：网关 `on_data` 把客户端包转后端时，内嵌 Package 是 KCP 透传来的、**本来就是网络序**，再经 `pke_hton` 翻一次内嵌 → 翻回 host 序 → 后端 `pke_ntoh` 又翻 → 字节序错乱。而转发是最高频路径。
+
+现在没爆，是因为 `on_data` 转发还没实现。接转发时必须二选一定型：
+- **A（现状，pke_hton 翻内嵌）**：转发前对内嵌 `pk_ntoh` 抵消，或转发走「不翻内嵌」的发送路径。
+- **B（旧约定，pke_hton 只翻外层）**：心跳/回程调用方自己 `pk_hton`，转发省事。
+
+权衡：转发是热路径，B 让最忙的路不做多余翻转，可能更合理。**接 `on_data` 转发时定**。
+
+注：此改动作废了「send 只翻外层」的旧约定（见 memory `project-typhon-pke-send-byteorder`，那条届时要一并更新）。
+
+---
+
 ## 可以做的优化（不是 bug）
 
 ### 3. `RcvBuf::buf` 是堆指针，`SndBuf::buf` 是 inline 数组 —— 同名不同物

@@ -46,6 +46,7 @@ public:
         : id_(id)
         , fd_(fd)
         , host_(host) {
+        last_recv_ms_ = last_send_ms_ = core::systime_ms();
         state_ = State::Connecting;
     }
 
@@ -94,7 +95,7 @@ public:
 
 
     ssize_t
-    send(core::PackageEx* pke = nullptr) noexcept;
+    send(core::PackageEx* pke, uint64_t now) noexcept;
 
 
     bool
@@ -107,11 +108,16 @@ public:
     recv(core::PackageEx** pke, uint64_t now) noexcept;
 
 
+    int
+    update(uint64_t now) noexcept;
+
+
 private:
     uint32_t             id_           { 0 };
     core::SOCKET         fd_           { core::INVALID_SOCKET };
     State                state_        { State::Disconnected };
     uint64_t             last_recv_ms_ { 0 };
+    uint64_t             last_send_ms_ { 0 };
     std::string          host_;
     core::RcvBuf         rbuf_;
     std::vector<uint8_t> sbuf_;
