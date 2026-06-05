@@ -3,7 +3,7 @@
 
 
 #include "core/typhon.in.hpp"
-#include "core/package.hpp"
+#include "core/buffer.hpp"
 #include "tcp/config.hpp"
 
 
@@ -97,11 +97,23 @@ public:
     send(core::PackageEx* pke = nullptr) noexcept;
 
 
+    bool
+    input(const uint8_t* data, size_t len) noexcept {
+        return rbuf_.append(data, len);
+    }
+
+
+    int
+    recv(core::PackageEx** pke, uint64_t now) noexcept;
+
+
 private:
-    uint32_t             id_    { 0 };
-    core::SOCKET         fd_    { core::INVALID_SOCKET };
-    State                state_ { State::Disconnected };
+    uint32_t             id_           { 0 };
+    core::SOCKET         fd_           { core::INVALID_SOCKET };
+    State                state_        { State::Disconnected };
+    uint64_t             last_recv_ms_ { 0 };
     std::string          host_;
+    core::RcvBuf         rbuf_;
     std::vector<uint8_t> sbuf_;
 }; // class Connector;
 

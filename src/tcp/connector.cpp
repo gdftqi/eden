@@ -40,3 +40,18 @@ typhon::tcp::Connector::send(core::PackageEx* pke) noexcept {
 
     return 1;
 }
+
+
+int
+typhon::tcp::Connector::recv(core::PackageEx** pke, uint64_t now) noexcept {
+    if (rbuf_.readable() == 0) {
+        return -1;
+    }
+
+    if (!rbuf_.decode(pke)) {
+        return -2;
+    }
+
+    last_recv_ms_ = now;
+    return 1;
+}

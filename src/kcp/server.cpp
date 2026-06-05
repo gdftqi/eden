@@ -2,9 +2,10 @@
 #include "tcp/connector.hpp"
 
 
-static constexpr int MAX_EVENTS  = 64;
-static constexpr int INTERVAL_MS = 5;
-static constexpr int EVQUE_BATCH = 16;
+static constexpr int MAX_EVENTS    = 64;
+static constexpr int INTERVAL_MS   = 5;
+static constexpr int EVQUE_BATCH   = 16;
+static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
@@ -301,7 +302,38 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (ev.events & EPOLLIN) {
-        // TODO: 从 serv 读取数据
+        thread_local static uint8_t rbuf[TCP_RBUF_SIZE];
+        while (1) {
+            ssize_t n = ::read(conn->fd(), rbuf, TCP_RBUF_SIZE);
+            if (n < 0) {
+                err = errno;
+                if (err == EWOULDBLOCK || err == EAGAIN) {
+                    err = 0;
+                } else {
+                    xERROR("{} read failed: errno = {}, errstr = {}", conn->host(), err, ::strerror(err));
+                }
+                
+                break;
+            } else if (n == 0) {
+                err = EOF;
+                break;
+            }
+
+            if (!conn->input(rbuf, n)) {
+                err = EOF;
+                break;
+            }
+        }
+
+        if (err != 0) {
+            remove_serv(conn);
+            return;
+        }
+
+        core::PackageEx *pke;
+        while (conn->recv(&pke, tnow_) == 1) {
+            // TODO:  使用 pke
+        }
     }
 }
 

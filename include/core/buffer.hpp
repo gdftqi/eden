@@ -89,57 +89,11 @@ struct RcvBuf {
 
 
     bool
-    append(const uint8_t* data, uint32_t len) noexcept {
-        if (!buf) {
-            buf = (uint8_t*)::mi_malloc(core::PKG_MAX_LEN);
-            if (!buf) {
-                return false;
-            }
-        }
-
-        if (writable() < len) {
-            compact();
-            if (writable() < len) {
-                return false;          // readable + len > PKG_MAX_LEN,装不下了
-            }
-        }
-
-        ::memcpy(buf + wpos, data, len);
-        wpos += len;
-        return true;
-    }
+    append(const uint8_t* data, uint32_t len) noexcept;
 
 
     bool
-    decode(core::PackageEx** pke) noexcept {
-        // Lazy compact: rpos 越过 buf 中线时把 readable 区回搬到 buf 起始,
-        // 把代价分摊到 decode 路径,避免 append 在 wpos 顶满时被迫做大块 memmove。
-        // 这一步安全的前提是:调用方在拿到新 *pkg 之前,上一次 decode 返回的 *pkg
-        // 必然已经消费完,搬动数据不会让任何在用指针失效。
-        if (rpos > core::PKG_MAX_LEN / 2) {
-            compact();
-        }
-
-        if (readable() < core::PKG_HDR_EX_LEN) {
-            return false;
-        }
-
-        auto* p = (core::PackageEx*)(buf + rpos);
-        uint16_t pklen = ::ntohs(p->pke_len);
-
-        ASSERT(pklen >= core::PKG_HDR_EX_LEN, "invalid package ex length: {}", pklen);
-
-        if (readable() < pklen) {
-            return false;
-        }
-
-        pke_ntoh(p);
-        *pke = p;
-        auto* pk = pke_get_pk(p);
-        pk_ntoh(pk);
-        rpos += pklen;
-        return true;
-    }
+    decode(core::PackageEx** pke) noexcept;
 
 
     void
