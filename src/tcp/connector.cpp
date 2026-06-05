@@ -22,7 +22,7 @@ typhon::tcp::Connector::send(uint64_t now) noexcept {
 
 // 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
 ssize_t
-typhon::tcp::Connector::send(core::Pke<core::Host> pke, uint64_t now) noexcept {
+typhon::tcp::Connector::send(core::PKx<core::Host> pke, uint64_t now) noexcept {
     ssize_t n = send(now);
     if (n < 0) {
         return n;
@@ -53,7 +53,7 @@ typhon::tcp::Connector::send(core::Pke<core::Host> pke, uint64_t now) noexcept {
 
 
 int
-typhon::tcp::Connector::recv(core::Pke<core::Host>* pke, uint64_t now) noexcept {
+typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept {
     if (rbuf_.readable() == 0) {
         return -1;
     }
@@ -63,7 +63,7 @@ typhon::tcp::Connector::recv(core::Pke<core::Host>* pke, uint64_t now) noexcept 
         return -2;
     }
 
-    *pke = core::Pke<core::Host>(raw);
+    *pke = core::PKx<core::Host>(raw);
     last_recv_ms_ = now;
     return 1;
 }
@@ -82,8 +82,8 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
         }
 
         if (now - last_send_ms_ > timeout) {
-            uint8_t buf[core::PKG_HDR_EX_LEN + core::PKG_HDR_LEN] = {0};
-            core::Pke<core::Host> pke{buf};
+            uint8_t buf[core::PKX_HDR_LEN + core::PKG_HDR_LEN] = {0};
+            core::PKx<core::Host> pke{buf};
             pke->pke_len        = sizeof(buf);
             pke.pk()->pk_id     = PKID_PING;
             pke.pk()->pk_dst_id = id_;

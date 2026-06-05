@@ -29,20 +29,20 @@ typhon::core::RcvBuf::decode(core::PackageEx** pke) noexcept {
         compact();
     }
 
-    if (readable() < core::PKG_HDR_EX_LEN) {
+    if (readable() < core::PKX_HDR_LEN) {
         return false;
     }
 
     auto* p = (core::PackageEx*)(buf + rpos);
     uint16_t pklen = ::ntohs(p->pke_len);
 
-    ASSERT(pklen >= core::PKG_HDR_EX_LEN, "invalid package ex length: {}", pklen);
+    ASSERT(pklen >= core::PKX_HDR_LEN, "invalid package ex length: {}", pklen);
 
     if (readable() < pklen) {
         return false;
     }
 
-    ntoh(Pke<Net>(p));   // net → host: 外层 + 内嵌各翻一次(替代旧的三重翻转)
+    ntoh(PKx<Net>(p));   // net → host: 外层 + 内嵌各翻一次(替代旧的三重翻转)
     *pke = p;
     rpos += pklen;
     return true;

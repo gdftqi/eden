@@ -98,7 +98,7 @@ public:
      * @return -1 无数据 / -2 半包, *pke 不变
      */
     int
-    recv(core::Pke<core::Host>* pke) noexcept;
+    recv(core::PKx<core::Host>* pke) noexcept;
 
 
     /**
@@ -107,7 +107,7 @@ public:
      * @return 1 整包发完 / 0 部分或全部排进 sbuf_ / <0 socket 错(EAGAIN 不算)
      */
     ssize_t
-    send(core::Pke<core::Host> pke) noexcept;
+    send(core::PKx<core::Host> pke) noexcept;
 
     /** @brief 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。 */
     ssize_t

@@ -96,7 +96,7 @@ public:
 
     // 发一个包: 内部 hton 成网络序再写; 部分写存 sbuf_ 等 EPOLLOUT 续发。
     ssize_t
-    send(core::Pke<core::Host> pke, uint64_t now) noexcept;
+    send(core::PKx<core::Host> pke, uint64_t now) noexcept;
 
     // 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。
     ssize_t
@@ -111,7 +111,7 @@ public:
 
     // 从 rbuf_ 取一个完整包(decode 内部已 ntoh → host 序): 1 取到 / -1 无数据 / -2 半包。
     int
-    recv(core::Pke<core::Host>* pke, uint64_t now) noexcept;
+    recv(core::PKx<core::Host>* pke, uint64_t now) noexcept;
 
 
     int

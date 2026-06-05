@@ -123,8 +123,7 @@ struct Package {
     uint16_t pk_id;        // 业务消息号. 合法范围 [1, MAX_HANDLERS) = [1, 1024).
     uint32_t pk_idem;      // 幂等 ID. **必须 > 0**, 客户端 session 内单调递增.
     uint32_t pk_dst_id;    // 目标服务类型(路由键). **必须 > 0**, 0 视为非法(recv 返 -7).
-    uint8_t  pk_payload[]; // 业务 payload. 长度从外层推: KCP 端由消息边界给定;
-                           //                              TCP 端 = pke_len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
+    uint8_t  pk_payload[]; // 业务 payload. 长度从外层推: KCP 端由消息边界给定; TCP 端 = pke_len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
 
@@ -145,33 +144,6 @@ struct PackageEx {
 #pragma pack(pop)
 
 
-/**
- * @defgroup byteorder 字节序转换
- *
- * 协议字节序分层：
- *   - KCP 协议层（conv / sn / ts / ...）：**小端序**，由 ikcp.c 决定，对应用层透明
- *   - Package / PackageEx（应用层）：**大端序（网络字节序）**
- *
- * 两层互不影响 —— KCP 只解析自身头部，Package 字节对 KCP 是 opaque payload。
- *
- * 用法：
- *   - 发送前：本地填 host 序 → 调用 pk_hton / pke_hton
- *   - 接收后：cast 为 Package* / PackageEx* → 调用 pk_ntoh / pke_ntoh → 读字段
- *
- * @note 在大端机上 htons/htonl 是空操作，跨平台自动正确。
- * @warning 转换为**原地修改**；同一字段重复调用一次会自己还原。
- * @warning pke_hton / pke_ntoh **只翻 PackageEx 头自身 3 个字段**，不递归翻内嵌
- *          Package。内嵌 Package 是否需要单独 pk_hton / pk_ntoh 取决于上下文：
- *          - 网关 prepend 头时，内嵌 Package 已是网络序(KCP 直送)，只调 pke_hton 即可。
- *          - 后端解析时，先 pke_ntoh 读 PackageEx 头，再对内嵌 Package 调 pk_ntoh
- *            才能读 pk_id 等字段。
- * @{
- */
-
-/**
- * @brief 本机字节序 → 网络字节序（发送 Package 前调用）
- * @param p 待转换的 Package 头指针
- */
 inline void
 pk_hton(Package* p) noexcept {
     p->pk_id     = htons(p->pk_id);
@@ -180,10 +152,6 @@ pk_hton(Package* p) noexcept {
 }
 
 
-/**
- * @brief 网络字节序 → 本机字节序（接收 Package 后调用）
- * @param p 待转换的 Package 头指针
- */
 inline void
 pk_ntoh(Package* p) noexcept {
     p->pk_id     = ntohs(p->pk_id);
@@ -192,111 +160,119 @@ pk_ntoh(Package* p) noexcept {
 }
 
 
-// PackageEx 的字节序转换统一走下面 Pke<O> 体系的 hton()/ntoh(), 不再提供
-// 裸的 pke_hton/pke_ntoh —— 避免"两套并存 + 翻几层不定"的混乱。
-
 inline Package*
 pke_get_pk(PackageEx* p) noexcept {
-    return (Package*)p->pke_pk;   // 纯访问, 不翻字节序(字节序由 Pke 体系的 hton/ntoh 统一管)
+    return (Package*)p->pke_pk;
 }
 
 
-// ════════════════════ 字节序: phantom-type 强制 ════════════════════
-// 痛点: Package/PackageEx overlay 在 buffer 上, 一块内存当前是 host 还是网络序
-// 全靠人脑追踪。这里把字节序状态提进类型:
-//   - Pke<Host>: 内存里待读写的对象, host 序。**只有它能读写字段**(operator-> / pk())。
-//   - Pke<Net> : 待发 / 刚收的 wire 字节, 网络序。**只能 raw() 交给 writen**, 读字段编译不过。
-// 不变量: 对象恒 host, wire 恒 net, 转换只在 hton/ntoh 各一次。
-// 单 tag = 外层 + 内嵌**整体同序**(hton/ntoh 递归翻两层); 转发的"外 host / 内 net"
-// 混合态**不进这个体系**, 由 on_data 转发入口单独处理(见 ISSUE #6)。
 struct Host {};
 struct Net  {};
 
 
 template<typename O>
-class Pke {
-    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>,
-                  "Pke 的 Order 只能是 Host 或 Net");
+class PKx {
+    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>, "PKx 的 Order 只能是 Host 或 Net");
     PackageEx* p_;
 
 public:
-    explicit Pke(void* buf) noexcept : p_(reinterpret_cast<PackageEx*>(buf)) {}
+    explicit
+    PKx(void* buf) noexcept 
+        : p_(reinterpret_cast<PackageEx*>(buf)) 
+    {}
 
-    void* raw() const noexcept { return p_; }
 
-    // 只有 host 序视图能读写字段; 对 Pke<Net> 调以下两个会 SFINAE 失败 → 编译报错。
+    void*
+    raw() const noexcept { 
+        return p_; 
+    }
+
+
     template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
-    PackageEx* operator->() const noexcept { return p_; }
+    PackageEx*
+    operator->() const noexcept { 
+        return p_; 
+    }
+
 
     template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
-    Package* pk() const noexcept { return reinterpret_cast<Package*>(p_->pke_pk); }
+    Package*
+    pk() const noexcept { 
+        return reinterpret_cast<Package*>(p_->pke_pk);
+    }
 };
 
 
-// host → net: 原地递归翻外层 + 内嵌, 消费 host 视图、产出 net 视图。
-inline Pke<Net>
-hton(Pke<Host> v) noexcept {
+inline PKx<Net>
+hton(PKx<Host> v) noexcept {
     auto* p = reinterpret_cast<PackageEx*>(v.raw());
     p->pke_len      = htons(p->pke_len);
     p->pke_src_id   = htonl(p->pke_src_id);
     p->pke_src_addr = htonl(p->pke_src_addr);
     pk_hton(reinterpret_cast<Package*>(p->pke_pk));
-    return Pke<Net>(p);
+    return PKx<Net>(p);
 }
 
 
-// net → host: 原地递归翻外层 + 内嵌。
-inline Pke<Host>
-ntoh(Pke<Net> v) noexcept {
+inline PKx<Host>
+ntoh(PKx<Net> v) noexcept {
     auto* p = reinterpret_cast<PackageEx*>(v.raw());
     p->pke_len      = ntohs(p->pke_len);
     p->pke_src_id   = ntohl(p->pke_src_id);
     p->pke_src_addr = ntohl(p->pke_src_addr);
     pk_ntoh(reinterpret_cast<Package*>(p->pke_pk));
-    return Pke<Host>(p);
+    return PKx<Host>(p);
 }
 
 
-// Package(KCP 段, 客户端↔网关)的同款视图。单层、无内嵌, 比 Pke 简单。
-// 同一对 Host/Net tag; hton/ntoh 按参数类型(Pk vs Pke)重载。
 template<typename O>
-class Pk {
-    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>,
-                  "Pk 的 Order 只能是 Host 或 Net");
+class PK {
+    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>, "Pk 的 Order 只能是 Host 或 Net");
     Package* p_;
 
-public:
-    explicit Pk(void* buf) noexcept : p_(reinterpret_cast<Package*>(buf)) {}
 
-    void* raw() const noexcept { return p_; }
+public:
+    explicit
+    PK(void* buf) noexcept 
+        : p_(reinterpret_cast<Package*>(buf))
+    {}
+
+
+    void*
+    raw() const noexcept {
+        return p_;
+    }
+
 
     template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
-    Package* operator->() const noexcept { return p_; }
+    Package*
+    operator->() const noexcept {
+        return p_;
+    }
 };
 
 
-inline Pk<Net>
-hton(Pk<Host> v) noexcept {
+inline PK<Net>
+hton(PK<Host> v) noexcept {
     pk_hton(reinterpret_cast<Package*>(v.raw()));
-    return Pk<Net>(v.raw());
+    return PK<Net>(v.raw());
 }
 
 
-inline Pk<Host>
-ntoh(Pk<Net> v) noexcept {
+inline PK<Host>
+ntoh(PK<Net> v) noexcept {
     pk_ntoh(reinterpret_cast<Package*>(v.raw()));
-    return Pk<Host>(v.raw());
+    return PK<Host>(v.raw());
 }
 
 
-// 协议常量。语义见文件顶部"单包上限"注释。
-constexpr int PKG_MAX_LEN     = 65535;                                       // wire frame 总长上限 (任意方向)
-constexpr int PKG_HDR_LEN     = sizeof(Package);                             // 10, Package 头长度
-constexpr int PKG_HDR_EX_LEN  = sizeof(PackageEx);                           // 10, PackageEx 头长度 (FAM 不计)
-constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_EX_LEN - PKG_HDR_LEN;  // 65515, pk_payload 上限 (取约束更严的 TCP 方向)
+constexpr int PKG_MAX_LEN     = 65535;                                    // wire frame 总长上限 (任意方向)
+constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 10, Package 头长度
+constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10, PackageEx 头长度 (FAM 不计)
+constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKX_HDR_LEN - PKG_HDR_LEN;  // 65515, pk_payload 上限 (取约束更严的 TCP 方向)
 
 static_assert(PKG_HDR_LEN == 10, "Package header size changed");
-static_assert(PKG_HDR_EX_LEN == 10, "PackageEx header size changed");
+static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
 
 
 #define PKID_PING (100)

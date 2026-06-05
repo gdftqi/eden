@@ -164,7 +164,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
     }
 
     int res;
-    core::Pke<core::Host> pke{nullptr};
+    core::PKx<core::Host> pke{nullptr};
     while (1) {
         res = sess->recv(&pke);
         if (res < 0) {

@@ -20,7 +20,7 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
 
 
 int
-typhon::tcp::Session::recv(core::Pke<core::Host>* pke) noexcept {
+typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
     if (rbuf_.readable() == 0) {
         return -1;
     }
@@ -30,7 +30,7 @@ typhon::tcp::Session::recv(core::Pke<core::Host>* pke) noexcept {
         return -2;
     }
 
-    *pke = core::Pke<core::Host>(raw);
+    *pke = core::PKx<core::Host>(raw);
     last_recv_ms_ = proc_->tnow();
     return 1;
 }
@@ -56,7 +56,7 @@ typhon::tcp::Session::send() noexcept {
 
 // 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
 ssize_t
-typhon::tcp::Session::send(core::Pke<core::Host> pke) noexcept {
+typhon::tcp::Session::send(core::PKx<core::Host> pke) noexcept {
     ssize_t n = send();
     if (n < 0) {
         return n;

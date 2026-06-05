@@ -330,7 +330,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::Pke<core::Host> pke{nullptr};
+        core::PKx<core::Host> pke{nullptr};
         while (conn->recv(&pke, tnow_) == 1) {
             if (pke.pk()->pk_id == PKID_PONG) {
                 xINFO("收到心跳回包");
