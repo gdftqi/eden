@@ -334,11 +334,15 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         core::PKx<core::Host> pke;
         while (conn->recv(&pke, tnow_) == 1) {
             switch (pke.pk()->pk_id) {
-            case PKID_PING:
-                on_pong();
+            case PKID_PONG:
+                on_pong(conn, pke);
+                break;
+
+            case PKID_REGIST_RSP:
+                on_regist(conn, pke);
                 break;
             }
-        }
+        } // while;
     }
 }
 
@@ -437,6 +441,17 @@ typhon::kcp::Server::update() noexcept {
 
 
 void
-typhon::kcp::Server::on_pong() noexcept {
-    xINFO("心跳延迟");
+typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
+    if (pkx.payload_len() != sizeof(uint64_t)) {
+        xERROR("错误的PONG 长度");
+        return;
+    }
+
+    xINFO("与 {} 延迟 {} ms", conn->host(), tnow_ - *(uint64_t*)pkx.pk()->pk_payload);
+}
+
+
+void
+typhon::kcp::Server::on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
+    xINFO("....");
 }

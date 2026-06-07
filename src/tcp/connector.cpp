@@ -82,11 +82,13 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
         }
 
         if (now - last_send_ms_ > timeout) {
-            uint8_t buf[core::PKX_HDR_LEN + core::PKG_HDR_LEN] = {0};
+            static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
+            uint8_t buf[BUF_SIZE] = {0};
             core::PKx<core::Host> pke{buf};
-            pke->pke_len        = sizeof(buf);
+            pke->pke_len        = BUF_SIZE;
             pke.pk()->pk_id     = PKID_PING;
             pke.pk()->pk_dst_id = id_;
+            (*(uint64_t*)pke.pk()->pk_payload) = now;
             if (send(pke, now) < 0) {
                 return -1;
             }

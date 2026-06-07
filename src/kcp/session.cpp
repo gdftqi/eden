@@ -85,9 +85,8 @@ typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, u
     if (payload_len > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), p->pk_idem, DIR_C2S);
-        if (utils::aes128_ctr_decrypt(Conf::instance()->shkey(), iv,
-                                      buf + core::PKG_HDR_LEN, buf + core::PKG_HDR_LEN, payload_len)) {
-            return -8;   // 解密失败 (参数非法 / 无 AES-NI, 正常路径不会到)
+        if (utils::aes128_ctr_decrypt(Conf::instance()->shkey(), iv, buf + core::PKG_HDR_LEN, buf + core::PKG_HDR_LEN, payload_len)) {
+            return -8;
         }
     }
 
@@ -114,15 +113,10 @@ typhon::kcp::Session::send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst
     pkg->pk_dst_id = pk_dst_id;
     ::memcpy(pkg->pk_payload, data, len);
 
-    // 半加密: 只加密 payload, header 保持明文. IV = (conv, pk_idem, 下行方向).
-    // pk_idem 单调递增 → 同 session 同方向不复用; dir 区分上下行.
-    // **加密在 pk_hton 之前** —— payload 是 opaque 字节, 跟 header 字节序无关;
-    // header 字段稍后单独 pk_hton.
     if (len > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), pk_idemp, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->shkey(), iv,
-                                         pkg->pk_payload, pkg->pk_payload, len) == 0, "加密失败");
+        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->shkey(), iv, pkg->pk_payload, pkg->pk_payload, len) == 0, "加密失败");
     }
 
     core::hton(pkg);   // host → net (原地翻 header), 之后 buf 是 wire-ready

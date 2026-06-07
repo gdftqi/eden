@@ -154,12 +154,6 @@ pk_ntoh(Package* p) noexcept {
 }
 
 
-inline Package*
-pke_get_pk(PackageEx* p) noexcept {
-    return (Package*)p->pke_pk;
-}
-
-
 struct Host {};
 struct Net  {};
 
@@ -196,6 +190,13 @@ public:
     Package*
     pk() const noexcept { 
         return (Package*)p_->pke_pk;
+    }
+
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    int
+    payload_len() const noexcept {
+        static constexpr int HDR_SIZE = (int)sizeof(PackageEx) + (int)sizeof(Package);
+        return (int)p_->pke_len - HDR_SIZE;
     }
 };
 
@@ -272,8 +273,10 @@ static_assert(PKG_HDR_LEN == 10, "Package header size changed");
 static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
 
 
-#define PKID_PING (100)
-#define PKID_PONG (101)
+#define PKID_PING       (100) ///< 心跳 PING
+#define PKID_PONG       (101) ///< 心跳 PONG
+#define PKID_REGIST_REQ (102) ///< 注册请求
+#define PKID_REGIST_RSP (103) ///< 注册应答
 
 
 } // namespace typhon::core

@@ -257,7 +257,11 @@ private:
 
 
     void
-    on_pong() noexcept;
+    on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+
+
+    void
+    on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
 
 
     core::SOCKET             ufd_               { core::INVALID_SOCKET };
