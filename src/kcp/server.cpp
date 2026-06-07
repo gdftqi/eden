@@ -4,7 +4,6 @@
 
 static constexpr int MAX_EVENTS    = 64;
 static constexpr int INTERVAL_MS   = 5;
-static constexpr int EVQUE_BATCH   = 16;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
@@ -81,12 +80,9 @@ typhon::kcp::Server::run() noexcept {
     sque_.clear();
     tnow_ = 0;
 
-    core::QEvent* qes[EVQUE_BATCH];
-    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
-        for (i = 0; i < n; ++i) {
-            delete qes[i];
-        }
-    }
+    evque_.clear([](core::QEvent* qe) {
+        delete qe;
+    });
 
     release();
     event_->on_stopped(this);
@@ -163,6 +159,7 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
 
     evflag_.store(false, std::memory_order_relaxed);
 
+    static constexpr int EVQUE_BATCH = 16;
     int i, n;
     core::QEvent* qes[EVQUE_BATCH];
     while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
@@ -386,24 +383,25 @@ typhon::kcp::Server::update() noexcept {
     }
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
+    // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次。
+    // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动。b
     size_t exp = 0;
     auto timeout = (uint64_t)Conf::instance()->timeout() / 2;
     while (exp < sque_.size() && sque_[exp]->time + timeout < now) {
         sb_pool_.release(sque_[exp]);
         ++exp;
     }
-    sque_.erase(sque_.begin(), sque_.begin() + exp);
 
     ::mmsghdr msgs[MAX_SEND] {};
     ::iovec iovecs[MAX_SEND] {};
-    int nsnd = 0, total = sque_.size();
+    int nsnd = 0, total = (int)sque_.size() - (int)exp;
 
     while (nsnd < total) {
         int n = total - nsnd;
         n = n > MAX_SEND ? MAX_SEND : n;
 
         for (int i = 0; i < n; ++i) {
-            auto& buf = sque_[nsnd + i];
+            auto& buf = sque_[exp + nsnd + i];
             auto& msg = msgs[i];
             auto& hdr = msg.msg_hdr;
 
@@ -429,9 +427,9 @@ typhon::kcp::Server::update() noexcept {
     }
 
     for (int i = 0; i < nsnd; ++i) {
-        sb_pool_.release(sque_[i]);
+        sb_pool_.release(sque_[exp + i]);
     }
-    sque_.erase(sque_.begin(), sque_.begin() + nsnd);
+    sque_.erase(sque_.begin(), sque_.begin() + exp + nsnd);
 
     for (auto itr = servs_.begin(); itr != servs_.end();) {
         auto& conn = itr->second;

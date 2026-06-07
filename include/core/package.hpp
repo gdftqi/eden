@@ -21,7 +21,7 @@ static constexpr int MAX_HANDLERS = 1024;
 // =============================================================================
 //
 // 字节序：所有多字节字段一律 big-endian（网络字节序）。本地处理用 host 序，
-//          发送前调 pk_hton / pke_hton 转换，接收后调 pk_ntoh / pke_ntoh 转回。
+//          收发的字节序转换统一走 PK<Host/Net> / PKx<Host/Net> 的 hton/ntoh（见下方）。
 //
 // 单包上限：PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限。
 //

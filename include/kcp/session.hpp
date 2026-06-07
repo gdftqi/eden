@@ -17,7 +17,7 @@ class Server;
 /**
  * @brief Kcp Session 类
  */
-class Session: public std::enable_shared_from_this<Session> {
+class Session {
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
     Session(Session&&) = delete;

@@ -97,12 +97,6 @@ struct RcvBuf {
 
 
     void
-    reset() noexcept {
-        rpos = wpos = 0;
-    }
-
-
-    void
     compact() noexcept {
         if (rpos == 0) {
             return;

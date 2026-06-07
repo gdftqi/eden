@@ -33,6 +33,38 @@
 
 ---
 
+## Bug / 容量（2026-06-08 全量审查）
+
+### B1. `tcp::Server::sessions_[fd]` 用 fd 直接索引 → 实际容量远小于 `MAX_CONN`，超限直接 abort
+
+**位置**: [include/tcp/server.hpp:218](include/tcp/server.hpp#L218)（`sessions_[MAX_CONN]` + `get/add/remove_session` 的 `ASSERT(fd < MAX_CONN)`）
+
+`sessions_[MAX_CONN]`(2048) 用 **fd 号**当下标，但 fd 是进程全局分配的——`lfd`/`epfd`/`stop_evfd` + 每个 proc 的 `evfd` + 后端 Connector fd 等都占号。连接数接近 2048 时新 `accept` 的 fd 会 **>2048**，命中 `ASSERT` → **abort 整个进程**（硬崩，不是优雅拒绝）。`accept4` 返回的 fd 没有 `< MAX_CONN` 的保证。
+
+- 改法候选：① `fd → Session` 的 `unordered_map`（容量不再受 fd 号约束）；② 保留数组但 `fd >= MAX_CONN` 时优雅 `close(fd)` 拒绝 + 把 `MAX_CONN` 调到远高于预期连接数。
+
+### B2. `epfd_` 的 `epoll_ctl` 被主线程和 worker 线程分裂管理
+
+**位置**: [src/tcp/server.cpp](src/tcp/server.cpp) `on_listen_handle`(主线程 ADD) vs [server.hpp:143](include/tcp/server.hpp#L143) `add_session` 里 on_connected 拒绝时的 DEL(worker)
+
+主线程 `accept` 后 ADD，worker 在 `add_session`(on_connected 非 0)里 DEL 同一 fd。`epoll_ctl` 内核侧线程安全、当前时序也对(ADD 同步先于 notify)，但"epfd 增删"被切成两半跨线程，很脆弱，以后加重连/复用极易踩。建议把 epoll 增删收敛到单一线程。
+
+### B3. `udp_bind`/`tcp_connect` 用 `find(':')`，`tcp_listen` 用 `find_last_of(':')`
+
+**位置**: [src/core/typhon.in.cpp:10/142](src/core/typhon.in.cpp#L10) vs :77
+
+三个解析 host 的函数对冒号处理不一致。IPv4 单冒号没事，但传 IPv6 字面量(`[::1]:port`)时 `find(':')` 会切错。当前 IPv6 未支持所以不爆，是埋着的不一致。
+
+---
+
+## 冗余 / 死代码（2026-06-08 全量审查）
+
+### R4. `tcp::Session::user_data_` + `set_user_data`/`get_user_data` 全死
+
+[include/tcp/session.hpp](include/tcp/session.hpp) — 无调用者。后来加的 `id_`/`set_id()` 取代了它，现在是死成员 + 死方法。删。
+
+---
+
 ## 可以做的优化（不是 bug）
 
 ### 3. `RcvBuf::buf` 是堆指针，`SndBuf::buf` 是 inline 数组 —— 同名不同物
@@ -48,3 +80,7 @@
 ### 5. CPU affinity
 
 PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
+
+### O4. `on_udp_handle` / `on_serv_handle` 各持一块 thread_local 大 buf
+
+[src/kcp/server.cpp](src/kcp/server.cpp) — `rbuf[PKG_MAX_LEN]`(64KB) + `rbuf[TCP_RBUF_SIZE]`(8KB) 每 worker 线程各一份，worker 多时累加。都是一次性 thread_local，可接受；worker 数很大时可考虑共用一块。低优先级。

@@ -74,18 +74,13 @@ typhon::tcp::Proc::release() noexcept {
         evfd_ = core::INVALID_SOCKET;
     }
 
-    size_t i, n;
-    core::QEvent* qes[16];
-    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
-        for (i = 0; i < n; ++i) {
-            auto& qe = qes[i];
-            if (qe->qe_type == core::QEvent::Type::Recv) {
-                auto* rbuf = (core::RecvArg*)qe->qe_data;
-                ::mi_free(rbuf);
-            }
-            delete qe;
+    evque_.clear([](core::QEvent* qe) {
+        if (qe->qe_type == core::QEvent::Type::Recv) {
+            auto* rbuf = (core::RecvArg*)qe->qe_data;
+            ::mi_free(rbuf);
         }
-    }
+        delete qe;
+    });
 }
 
 
