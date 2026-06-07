@@ -171,19 +171,20 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
             break;
         }
 
-        // 心跳是协议控制包, 在 get_handler 之前拦; pke.pk() 纯访问(host 序, 不翻)。
-        if (pkx.pk()->pk_id == PKID_PING) {
-            pkx.pk()->pk_id = PKID_PONG;
-            sess->send(pkx);
-            continue;
-        }
 
-        auto handler = server_->get_handler(pkx.pk()->pk_id);
-        if (!handler) {
-            xWARN("no handler for pk_id {}, from {}", pkx.pk()->pk_id, sess->remote_addr());
-            continue;
+        switch (pkx.pk()->pk_id) {
+        case PKID_PING:
+            on_ping(sess, pkx);
+            break;
+
+        case PKID_REGIST_REQ:
+            on_regist(sess, pkx);
+            break;
+
+        default:
+            on_handle(sess, pkx);
+            break;
         }
-        handler(sess, pkx);
     }
 
     ::mi_free(rbuf);
@@ -235,4 +236,44 @@ typhon::tcp::Proc::check_timeout() noexcept {
             server_->remove_session(s->sockfd());
         }
     }
+}
+
+
+int
+typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
+    pkx.pk()->pk_id = PKID_PONG;
+    if (s->send(pkx) < 0) {
+        xERROR("发送消息失败");
+    }
+
+    return 0;
+}
+
+
+int
+typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
+    uint32_t id = *(uint32_t*)pkx.pk()->pk_payload;
+    xINFO("网关 {} 注册成功", id);
+
+    pkx.pk()->pk_id = PKID_REGIST_RSP;
+    *(uint32_t*)pkx.pk()->pk_payload = 0;
+
+    if (s->send(pkx) < 0) {
+        xERROR("消息发送失败");
+    }
+
+    return 0;
+}
+
+
+int
+typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
+    auto h = server_->get_handler(pkx.pk()->pk_id);
+    if (!h) {
+        xWARN("no handler for pk_id {}, from {}", pkx.pk()->pk_id, s->remote_addr());
+        return -1;
+    }
+    h(s, pkx);
+
+    return 0;
 }

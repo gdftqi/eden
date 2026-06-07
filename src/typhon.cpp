@@ -3,6 +3,10 @@
 #include <functional>
 
 
+static constexpr int MAX_EVENTS  = 1;    // 只有一个 stop evfd
+static constexpr int INTERVAL_MS = 10000;
+
+
 void
 typhon::Server::run() noexcept {
     auto stopped = core::State::Stopped;
@@ -72,8 +76,6 @@ typhon::Server::run() noexcept {
     }
 
     init();
-    constexpr int MAX_EVENTS  = 1;    // 只有一个 stop evfd
-    constexpr int INTERVAL_MS = 1000;
     ::epoll_event evs[MAX_EVENTS];
     state_.store(core::State::Running);
     

@@ -84,14 +84,32 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
         if (now - last_send_ms_ > timeout) {
             static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
-            core::PKx<core::Host> pke{buf};
-            pke->pke_len        = BUF_SIZE;
-            pke.pk()->pk_id     = PKID_PING;
-            pke.pk()->pk_dst_id = id_;
-            (*(uint64_t*)pke.pk()->pk_payload) = now;
-            if (send(pke, now) < 0) {
+            core::PKx<core::Host> pkx{ buf };
+            pkx->pke_len        = BUF_SIZE;
+            pkx.pk()->pk_id     = PKID_PING;
+            (*(uint64_t*)pkx.pk()->pk_payload) = now;
+            if (send(pkx, now) < 0) {
                 return -1;
             }
+        }
+    }
+
+    return 0;
+}
+
+
+int
+typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
+    if (is_connected()) {
+        static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
+        uint8_t buf[BUF_SIZE] = {0};
+        core::PKx<core::Host> pkx{ buf };
+        pkx->pke_len = BUF_SIZE;
+        pkx.pk()->pk_id = PKID_REGIST_REQ;
+
+        (*(uint32_t*)pkx.pk()->pk_payload) = id;
+        if (send(pkx, now) < 0) {
+            return -1;
         }
     }
 

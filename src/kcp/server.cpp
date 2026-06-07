@@ -293,6 +293,11 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             nev.events = EPOLLIN | EPOLLET | EPOLLOUT;
     
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) == 0, "修改后端连接事件失败: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
+
+            if (conn->regist(Conf::instance()->id(), tnow_) < 0) {
+                remove_serv(conn);
+                return;
+            }
         } else if (conn->state() == tcp::Connector::State::Connected) {
             err = conn->send(tnow_);
             if (err < 0) {
@@ -453,5 +458,15 @@ typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) n
 
 void
 typhon::kcp::Server::on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
-    xINFO("....");
+    if (pkx.payload_len() != sizeof(uint32_t)) {
+        xERROR("错误的 REGIST_RSP 长度");
+        return;
+    }
+    
+    uint32_t res = *((uint32_t*)pkx.pk()->pk_payload);
+    if (res == 0) {
+        xINFO("注册服务 {} 成功", conn->id());
+    } else {
+        xERROR("注册服务 {} 失败 {}", conn->id(), res);
+    }
 }

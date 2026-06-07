@@ -113,6 +113,18 @@ private:
     check_timeout() noexcept;
 
 
+    int
+    on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+
+
+    int
+    on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+
+
+    int
+    on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+
+
     Server*                    server_        { nullptr };
     int                        id_            { -1 };
     core::SOCKET               epfd_          { core::INVALID_SOCKET };

@@ -34,6 +34,12 @@ public:
     {}
 
 
+    uint32_t
+    id() const noexcept {
+        return id_;
+    }
+
+
     /**
      * @brief 发送缓冲区大小
      */
@@ -137,6 +143,7 @@ private:
     }
 
 
+    uint32_t id_       { 1000 };
     int      sndbuf_   { 1024 * 1024 * 2 };   ///< 发送缓冲区大小
     int      rcvbuf_   { 1024 * 1024 * 4 };   ///< 接收缓冲区大小
     int      sndwnd_   { 128 };               ///< 发送窗口

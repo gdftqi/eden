@@ -118,6 +118,10 @@ public:
     update(uint64_t now) noexcept;
 
 
+    int
+    regist(uint32_t id, uint64_t now) noexcept;
+
+
 private:
     uint32_t             id_           { 0 };
     core::SOCKET         fd_           { core::INVALID_SOCKET };
