@@ -171,7 +171,6 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
             break;
         }
 
-
         switch (pkx.pk()->pk_id) {
         case PKID_PING:
             on_ping(sess, pkx);
@@ -253,23 +252,29 @@ typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
 int
 typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
     uint32_t id = ntohl(*(uint32_t*)pkx.pk()->pk_payload);
-    xINFO("网关 {} 注册成功", id);
 
     pkx.pk()->pk_id = PKID_REGIST_RSP;
-    *(uint32_t*)pkx.pk()->pk_payload = 0;
+    *(uint32_t*)pkx.pk()->pk_payload = htonl(0);
 
     s->set_id(id);
 
     if (s->send(pkx) < 0) {
         xERROR("消息发送失败");
+    } else {
+        xINFO("网关 {} 注册成功", id);
     }
-
+    
     return 0;
 }
 
 
 int
 typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
+    if (!s->authed()) {
+        xWARN("{} 网关未鉴权", s->remote_addr());
+        return -1;
+    }
+
     auto h = server_->get_handler(pkx.pk()->pk_id);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pkx.pk()->pk_id, s->remote_addr());

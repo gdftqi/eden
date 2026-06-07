@@ -76,12 +76,13 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
         timeout = Conf::instance()->timeout() / 3;
     }
 
-    if (is_connected() && authed_) {
+    if (is_connected()) {
         if (now - last_recv_ms_ > (uint64_t)Conf::instance()->timeout()) {
             return -1;
         }
 
-        if (now - last_send_ms_ > timeout) {
+        // 心跳: 仅注册确认(authed)后才发。
+        if (authed_ && now - last_send_ms_ > timeout) {
             static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
             core::PKx<core::Host> pkx{ buf };
