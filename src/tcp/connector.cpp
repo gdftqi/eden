@@ -111,8 +111,6 @@ typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
         if (send(pkx, now) < 0) {
             return -1;
         }
-
-        authed_ = true;
     }
 
     return 0;

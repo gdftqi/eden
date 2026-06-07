@@ -463,9 +463,10 @@ typhon::kcp::Server::on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx)
         return;
     }
     
-    uint32_t res = *((uint32_t*)pkx.pk()->pk_payload);
+    uint32_t res = ntohl(*((uint32_t*)pkx.pk()->pk_payload));
     if (res == 0) {
         xINFO("注册服务 {} 成功", conn->id());
+        conn->set_authed(true);
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
     }

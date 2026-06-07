@@ -64,6 +64,18 @@ public:
     }
 
 
+    bool
+    authed() const noexcept {
+        return authed_;
+    }
+
+
+    void
+    set_authed(bool authed) noexcept {
+        authed_ = authed;
+    }
+
+
     uint32_t
     id() const noexcept {
         return id_;
