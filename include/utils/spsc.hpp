@@ -113,11 +113,12 @@ public:
     template<typename Fn>
     void
     clear(Fn&& handle) noexcept {
-        T es[16];
+        static constexpr int BATCH = 16;
+        T es[BATCH];
         size_t n;
-        while ((n = try_dequeue_bulk(es, 16)) > 0) {
+        while ((n = try_dequeue_bulk(es, BATCH)) > 0) {
             for (size_t i = 0; i < n; ++i) {
-                handle(es[i]);
+                handle(std::move(es[i]));
             }
         }
     }
