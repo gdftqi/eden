@@ -76,7 +76,7 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
         timeout = Conf::instance()->timeout() / 3;
     }
 
-    if (is_connected()) {
+    if (is_connected() && authed_) {
         if (now - last_recv_ms_ > (uint64_t)Conf::instance()->timeout()) {
             return -1;
         }
@@ -107,10 +107,12 @@ typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
         pkx->pke_len = BUF_SIZE;
         pkx.pk()->pk_id = PKID_REGIST_REQ;
 
-        (*(uint32_t*)pkx.pk()->pk_payload) = id;
+        (*(uint32_t*)pkx.pk()->pk_payload) = htonl(id);
         if (send(pkx, now) < 0) {
             return -1;
         }
+
+        authed_ = true;
     }
 
     return 0;

@@ -45,7 +45,19 @@ public:
      */
     bool
     authed() const noexcept {
-        return authed_;
+        return id_ != 0;
+    }
+
+
+    uint32_t
+    id() const noexcept {
+        return id_;
+    }
+
+
+    void
+    set_id(uint32_t id) noexcept {
+        id_ = id;
     }
 
 
@@ -115,7 +127,7 @@ public:
 
 
 private:
-    bool                 authed_       { false };
+    uint32_t             id_           { 0 };
     core::SOCKET         fd_           { core::INVALID_SOCKET };
     sockaddr_storage     addr_         {};
     socklen_t            addrlen_      { 0 };

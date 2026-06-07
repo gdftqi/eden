@@ -123,6 +123,7 @@ public:
 
 
 private:
+    bool                 authed_       { false };
     uint32_t             id_           { 0 };
     core::SOCKET         fd_           { core::INVALID_SOCKET };
     State                state_        { State::Disconnected };

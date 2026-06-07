@@ -252,11 +252,13 @@ typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
 
 int
 typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
-    uint32_t id = *(uint32_t*)pkx.pk()->pk_payload;
+    uint32_t id = ntohl(*(uint32_t*)pkx.pk()->pk_payload);
     xINFO("网关 {} 注册成功", id);
 
     pkx.pk()->pk_id = PKID_REGIST_RSP;
     *(uint32_t*)pkx.pk()->pk_payload = 0;
+
+    s->set_id(id);
 
     if (s->send(pkx) < 0) {
         xERROR("消息发送失败");
