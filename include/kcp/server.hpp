@@ -256,6 +256,10 @@ private:
     update() noexcept;
 
 
+    void
+    on_pong() noexcept;
+
+
     core::SOCKET             ufd_               { core::INVALID_SOCKET };
     core::SOCKET             epfd_              { core::INVALID_SOCKET };
     core::SOCKET             evfd_              { core::INVALID_SOCKET };

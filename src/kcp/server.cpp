@@ -303,6 +303,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & EPOLLIN) {
         thread_local static uint8_t rbuf[TCP_RBUF_SIZE];
+
         while (1) {
             ssize_t n = ::read(conn->fd(), rbuf, TCP_RBUF_SIZE);
             if (n < 0) {
@@ -330,10 +331,12 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::PKx<core::Host> pke{nullptr};
+        core::PKx<core::Host> pke;
         while (conn->recv(&pke, tnow_) == 1) {
-            if (pke.pk()->pk_id == PKID_PONG) {
-                xINFO("收到心跳回包");
+            switch (pke.pk()->pk_id) {
+            case PKID_PING:
+                on_pong();
+                break;
             }
         }
     }
@@ -430,4 +433,10 @@ typhon::kcp::Server::update() noexcept {
             ++itr;
         }
     }
+}
+
+
+void
+typhon::kcp::Server::on_pong() noexcept {
+    xINFO("心跳延迟");
 }

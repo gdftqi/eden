@@ -114,30 +114,24 @@ static constexpr int MAX_HANDLERS = 1024;
 
 
 /**
- * @brief 客户端 / 网关 之间的应用层消息头。
- *
- * 详细协议语义(字段合法值、方向语义、字节序)见文件顶部块注释。
- * 这里只列每字段的快速描述,完整约束以顶部为准。
+ * @brief 客户端 / 网关 之间的应用层消息头
  */
 struct Package {
-    uint16_t pk_id;        // 业务消息号. 合法范围 [1, MAX_HANDLERS) = [1, 1024).
-    uint32_t pk_idem;      // 幂等 ID. **必须 > 0**, 客户端 session 内单调递增.
-    uint32_t pk_dst_id;    // 目标服务类型(路由键). **必须 > 0**, 0 视为非法(recv 返 -7).
-    uint8_t  pk_payload[]; // 业务 payload. 长度从外层推: KCP 端由消息边界给定; TCP 端 = pke_len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
+    uint16_t pk_id;        // 业务消息号, [1, 1024)
+    uint32_t pk_idem;      // 幂等 ID, 必须 > 0
+    uint32_t pk_dst_id;    // 目标服务id (路由键)
+    uint8_t  pk_payload[]; // 业务 payloadKCP 端由消息边界给定; TCP 端 = pke_len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
 
 /**
- * @brief 扩展包, 网关 / 后台 之间的应用层消息头.
- *
- * 网关从 KCP 收到 Package 后, prepend 10B PackageEx 头送给后端.
- * 详细协议语义(字段合法值、方向语义、字节序)见文件顶部块注释。
+ * @brief 扩展包, 网关 / 后台 之间的应用层消息头
  */
 struct PackageEx {
-    uint16_t pke_len;       // PackageEx wire frame 总长(含本头 + pke_pk).
-    uint32_t pke_src_id;    // FromPlayerID, 网关查表填写, 客户端无法伪造.
-    uint32_t pke_src_addr;  // 客户端 IPv4 地址(IPv6 暂不支持).
-    uint8_t  pke_pk[];      // 内嵌 Package wire frame (完整 10B 头 + pk_payload).
+    uint16_t pke_len;       // PackageEx wire frame 总长(含本头 + pke_pk)
+    uint32_t pke_src_id;    // FromPlayerID, 网关查表填写, 客户端无法伪造
+    uint32_t pke_src_addr;  // 客户端 IPv4 地址(IPv6 暂不支持)
+    uint8_t  pke_pk[];      // 内嵌 Package
 };
 
 
@@ -170,15 +164,18 @@ struct Host {};
 struct Net  {};
 
 
-template<typename O>
+/**
+ * @brief PackageEx 封装类型
+ */
+template<typename T>
 class PKx {
-    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>, "PKx 的 Order 只能是 Host 或 Net");
-    PackageEx* p_;
+    static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "PKx 的 Order 只能是 Host 或 Net");
+    PackageEx* p_ { nullptr };
 
 public:
     explicit
-    PKx(void* buf) noexcept 
-        : p_(reinterpret_cast<PackageEx*>(buf)) 
+    PKx(void* buf = nullptr) noexcept 
+        : p_((PackageEx*)buf) 
     {}
 
 
@@ -188,46 +185,46 @@ public:
     }
 
 
-    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     PackageEx*
     operator->() const noexcept { 
         return p_; 
     }
 
 
-    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     Package*
     pk() const noexcept { 
-        return reinterpret_cast<Package*>(p_->pke_pk);
+        return (Package*)p_->pke_pk;
     }
 };
 
 
 inline PKx<Net>
 hton(PKx<Host> v) noexcept {
-    auto* p = reinterpret_cast<PackageEx*>(v.raw());
+    auto* p         = (PackageEx*)v.raw();
     p->pke_len      = htons(p->pke_len);
     p->pke_src_id   = htonl(p->pke_src_id);
     p->pke_src_addr = htonl(p->pke_src_addr);
-    pk_hton(reinterpret_cast<Package*>(p->pke_pk));
+    pk_hton((Package*)p->pke_pk);
     return PKx<Net>(p);
 }
 
 
 inline PKx<Host>
 ntoh(PKx<Net> v) noexcept {
-    auto* p = reinterpret_cast<PackageEx*>(v.raw());
+    auto* p         = (PackageEx*)v.raw();
     p->pke_len      = ntohs(p->pke_len);
     p->pke_src_id   = ntohl(p->pke_src_id);
     p->pke_src_addr = ntohl(p->pke_src_addr);
-    pk_ntoh(reinterpret_cast<Package*>(p->pke_pk));
+    pk_ntoh((Package*)p->pke_pk);
     return PKx<Host>(p);
 }
 
 
-template<typename O>
+template<typename T>
 class PK {
-    static_assert(std::is_same_v<O, Host> || std::is_same_v<O, Net>, "Pk 的 Order 只能是 Host 或 Net");
+    static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "Pk 的 Order 只能是 Host 或 Net");
     Package* p_;
 
 
@@ -244,7 +241,7 @@ public:
     }
 
 
-    template<typename U = O, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     Package*
     operator->() const noexcept {
         return p_;
@@ -254,14 +251,14 @@ public:
 
 inline PK<Net>
 hton(PK<Host> v) noexcept {
-    pk_hton(reinterpret_cast<Package*>(v.raw()));
+    pk_hton((Package*)v.raw());
     return PK<Net>(v.raw());
 }
 
 
 inline PK<Host>
 ntoh(PK<Net> v) noexcept {
-    pk_ntoh(reinterpret_cast<Package*>(v.raw()));
+    pk_ntoh((Package*)v.raw());
     return PK<Host>(v.raw());
 }
 
