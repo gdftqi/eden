@@ -40,7 +40,7 @@ typhon::kcp::Session::Session(
 
 
 int
-typhon::kcp::Session::recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64_t now) noexcept {
+typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
     int res = recv(buf, len);
     if (res == 0 || res == -1) {
         // 没有数据
@@ -60,9 +60,7 @@ typhon::kcp::Session::recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64
 
     // 半加密: header 明文, 先 ntoh 读出来做合法性 / 重放校验,
     // 非法包 / 重放包直接丢, 不浪费 payload 解密.
-    core::ntoh(core::PK<core::Net>(buf));   // net → host (原地翻 header)
-    *pkg = (core::Package*)buf;
-    auto* p = *pkg;
+    auto p = core::ntoh(core::PK<core::Net>(buf));   // net → host, 返回 host 序视图
 
     if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
         return -5;
@@ -95,6 +93,7 @@ typhon::kcp::Session::recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64
 
     last_recv_ms_ = now;
     rcv_idem_ = p->pk_idem;
+    *pk = p;
     return res;
 }
 

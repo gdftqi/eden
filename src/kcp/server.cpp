@@ -239,9 +239,9 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                     continue;
                 }
 
-                core::Package* pkg;
+                core::PK<core::Host> pk;
                 while (true) {
-                    int rc = s->recv_pk(&pkg, rbuf, core::PKG_MAX_LEN, tnow_);
+                    int rc = s->recv_pk(&pk, rbuf, core::PKG_MAX_LEN, tnow_);
                     if (rc < -1) {
                         // 读取消息出错
                         remove_session(s->conv());
@@ -254,7 +254,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (event_->on_data(s, pkg, rc) != 0) {
+                    if (event_->on_data(s, pk, rc) != 0) {
                         remove_session(s->conv());
                         break;
                     }

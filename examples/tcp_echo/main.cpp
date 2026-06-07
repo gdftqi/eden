@@ -49,11 +49,11 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static void
-echo_handler(typhon::tcp::Session::Ptr sess, const typhon::core::PackageEx* pke) noexcept {
+echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::PKx<typhon::core::Host> pkx) noexcept {
     // Session::send 现在收 Pke<Host>(host 序视图, 内部 hton 后发出)。
     // pke 是 proc decode 出来的 host 序包, 这里包成 Pke<Host> 原样回 echo;
     // 直接复用入站 buffer, handler 返回后 worker 才推进游标, 期间不会被覆盖。
-    int rc = sess->send(typhon::core::PKx<typhon::core::Host>(const_cast<typhon::core::PackageEx*>(pke)));
+    int rc = sess->send(pkx);
     if (rc < 0) {
         xWARN("echo send failed: fd={}, rc={}", sess->sockfd(), rc);
     }

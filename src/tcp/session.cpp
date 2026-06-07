@@ -56,17 +56,17 @@ typhon::tcp::Session::send() noexcept {
 
 // 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
 ssize_t
-typhon::tcp::Session::send(core::PKx<core::Host> pke) noexcept {
+typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
     ssize_t n = send();
     if (n < 0) {
         return n;
     }
 
-    ssize_t  total = pke->pke_len;       // hton 前取 host 序总长
-    auto     net   = core::hton(pke);    // host → net (递归翻外 + 内)
+    ssize_t  total = pkx->pke_len;
+    auto     net   = core::hton(pkx);
     uint8_t* p     = (uint8_t*)net.raw();
 
-    if (sbuf_.size() > 0) {              // 残留没 flush 完 → 新包排队保序
+    if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);
         return 0;
     }

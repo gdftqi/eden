@@ -230,7 +230,7 @@ class PK {
 
 public:
     explicit
-    PK(void* buf) noexcept 
+    PK(void* buf = nullptr) noexcept
         : p_(reinterpret_cast<Package*>(buf))
     {}
 

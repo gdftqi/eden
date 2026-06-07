@@ -206,7 +206,7 @@ public:
      * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
      */
     int
-    recv_pk(core::Package** pkg, uint8_t* buf, int len, uint64_t now) noexcept;
+    recv_pk(core::PK<core::Host>* pkg, uint8_t* buf, int len, uint64_t now) noexcept;
 
 
     /**
