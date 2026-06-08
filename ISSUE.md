@@ -33,6 +33,45 @@
 
 ---
 
+## 安全（2026-06-09 安全评估）
+
+> 骨架(XDP envelope DoS 过滤 + 半加密 + 即将的鉴权)和选型(SipHash / AES-NI / Ed25519)都对，
+> 但下面几条是系统性缺口。S1 / S4 / S5 + ISSUE #1 多数能被**"客户端鉴权 + 每会话密钥协商
+> (X25519 ECDH + HKDF)"**一步统一解决——做鉴权握手时一并处理；S2 / S3 靠换 AEAD(GCM)解决。
+
+### S1. 静态全局硬编码 `shkey` —— 地基级弱点
+
+**位置**: [include/kcp/config.hpp:141](include/kcp/config.hpp#L141)（`shkey_` 源码硬编码 `0x0102...`）
+
+`envelope MAC` 和 `AES` 都用这**一个全局 key**，而**客户端二进制里就带着它**：
+- 逆向任一客户端 = 拿到 key → 能伪造 envelope MAC(绕过 XDP DoS 过滤) + 解密所有人流量 + 伪造任意流量；
+- 不能区分客户端(MAC 只证"持 key"，不证身份)；
+- 一处泄露 = 全网沦陷，且静态不可轮换。
+
+上层所有 MAC / 加密的安全性都建立在"这个 key 不泄露"上，而客户端持有它 = 迟早泄露。**正解**：鉴权后用 **X25519 ECDH 协商每会话临时 key** 替代全局 `shkey`(每 session 独立 + 前向保密)。
+
+### S2. payload 无完整性(AES-CTR 可被定向篡改)
+
+**位置**: [src/utils/cryptor.cpp](src/utils/cryptor.cpp)（半加密用 AES-128-CTR）
+
+CTR 只加密不认证：攻击者翻转密文位 = 翻转明文对应位(可塑性)，不需密钥即可**定向篡改 payload**；而 envelope MAC **只覆盖 KCP header 24B、不覆盖 payload**，KCP 本身也不校验 payload → 公网客户端段的 payload 可被改而不被发现。**正解**：换 **AES-128-GCM**(或 ChaCha20-Poly1305)，加密 + 认证一体；明文 header 塞 **AAD** 一并认证(解决 S3)。每包 +16B tag(可截断 8B)。
+
+### S3. Package header 无完整性
+
+**位置**: [include/core/package.hpp](include/core/package.hpp)（Package header 半加密下明文）
+
+envelope MAC 只覆盖 **KCP header**，**不覆盖内层 Package header**；半加密下 `pk_id`/`pk_idem`/`pk_dst_id` 是明文。所以**路由键 `pk_dst_id`、幂等 `pk_idem` 既不加密也不被任何 MAC 罩住** → 可被改路由 / 破坏幂等。**正解**：S2 换 GCM 后，把 Package header 作为 **AAD** 认证(明文但防改)。
+
+### S4. 客户端身份认证缺失
+
+当前无客户端鉴权，**任何持 `shkey` 者都能连任意 conv**。**正解**：Ed25519 签名 token 鉴权(开发中)——LOGIN 私钥签发、网关公钥离线验签。
+
+### S5. SipHash + AES 共用一个 `shkey`(key reuse)
+
+同一个 key 既做 SipHash MAC 又做 AES 加密 —— 同 key 多用途是密码学忌讳。**正解**：用 **HKDF** 从 master / session secret 派生出独立的 `mac_key` / `enc_key`(有了 S1 的会话密钥后天然顺带做)。
+
+---
+
 ## Bug / 容量（2026-06-08 全量审查）
 
 ### B1. `tcp::Server::sessions_[fd]` 用 fd 直接索引 → 实际容量远小于 `MAX_CONN`，超限直接 abort
