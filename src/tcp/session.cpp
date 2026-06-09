@@ -8,7 +8,7 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
     , addrlen_(sizeof(addr_))
     , last_recv_ms_(w->tnow())
     , proc_(w) {
-    static constexpr int on = 1;
+    constexpr int on = 1;
     const int sndbuf = Conf::instance()->sndbuf();
     const int rcvbuf = Conf::instance()->rcvbuf();
     ASSERT(::getpeername(fd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");

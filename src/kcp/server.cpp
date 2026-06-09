@@ -159,7 +159,7 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
 
     evflag_.store(false, std::memory_order_relaxed);
 
-    static constexpr int EVQUE_BATCH = 16;
+    constexpr int EVQUE_BATCH = 16;
     int i, n;
     core::QEvent* qes[EVQUE_BATCH];
     while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {

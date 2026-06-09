@@ -13,7 +13,7 @@ namespace typhon::core {
 // 1) tcp::Server 用作 handlers[] 数组大小, pk_id 必须 < MAX_HANDLERS。
 // 2) kcp::Session::recv 用作 pk_id 合法性校验上界。
 // 改动这个常量, 两边自动跟上, 不会漂移。
-static constexpr int MAX_HANDLERS = 1024;
+constexpr int MAX_HANDLERS = 1024;
 
 
 // =============================================================================

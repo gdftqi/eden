@@ -119,7 +119,7 @@ public:
         if (running()) {
             core::State expected = core::State::Running;
             if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-                static constexpr uint64_t event = 1;
+                constexpr uint64_t event = 1;
                 if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
                     xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }

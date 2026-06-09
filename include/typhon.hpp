@@ -79,7 +79,7 @@ public:
     stop() noexcept {
         auto running = core::State::Running;
         if (state_.compare_exchange_strong(running, core::State::Stopping)) {
-            static constexpr uint64_t event = 1;
+            constexpr uint64_t event = 1;
             if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write to stop_evfd_ failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }

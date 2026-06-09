@@ -113,7 +113,7 @@ public:
     template<typename Fn>
     void
     clear(Fn&& handle) noexcept {
-        static constexpr int BATCH = 16;
+        constexpr int BATCH = 16;
         T es[BATCH];
         size_t n;
         while ((n = try_dequeue_bulk(es, BATCH)) > 0) {

@@ -83,7 +83,7 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
 
         // 心跳: 仅注册确认(authed)后才发。
         if (authed_ && now - last_send_ms_ > timeout) {
-            static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
+            constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
             core::PKx<core::Host> pkx{ buf };
             pkx->pke_len        = BUF_SIZE;
@@ -102,7 +102,7 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
 int
 typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
     if (is_connected()) {
-        static constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
+        constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
         uint8_t buf[BUF_SIZE] = {0};
         core::PKx<core::Host> pkx{ buf };
         pkx->pke_len = BUF_SIZE;

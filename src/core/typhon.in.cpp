@@ -41,7 +41,7 @@ typhon::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept
             continue;
         }
 
-        static constexpr int reuseport = 1;
+        constexpr int reuseport = 1;
         if (set_nonblocking(fd) ||
             ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||

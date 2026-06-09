@@ -165,7 +165,7 @@ public:
         ASSERT(evque_.enqueue(std::move(ev)), "事件队列已满");
         bool expected = false;
         if (evflag_.compare_exchange_strong(expected, true)) {
-            static constexpr uint64_t event = 1;
+            constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
