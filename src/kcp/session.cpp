@@ -10,10 +10,9 @@ static constexpr uint8_t DIR_S2C = 1;   // server → client (下行, send 加�
 static inline void
 make_iv(uint8_t iv[typhon::utils::AES_BLOCK_LEN], uint32_t conv, uint32_t idem, uint8_t dir) noexcept {
     ::memset(iv, 0, typhon::utils::AES_BLOCK_LEN);
-    ::memcpy(iv + 0, &conv, sizeof(conv));   // iv[0..4)
-    ::memcpy(iv + 4, &idem, sizeof(idem));   // iv[4..8)
-    iv[8] = dir;                              // iv[8]
-    // iv[9..16) = 0, CTR block counter 区
+    ::memcpy(iv + 0, &conv, sizeof(conv));
+    ::memcpy(iv + 4, &idem, sizeof(idem));
+    iv[8] = dir;
 }
 
 
@@ -40,7 +39,7 @@ typhon::kcp::Session::Session(
 
 
 int
-typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
+typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
     int res = recv(buf, len);
     if (res == 0 || res == -1) {
         // 没有数据
@@ -58,9 +57,7 @@ typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, u
         return -4;
     }
 
-    // 半加密: header 明文, 先 ntoh 读出来做合法性 / 重放校验,
-    // 非法包 / 重放包直接丢, 不浪费 payload 解密.
-    auto p = core::ntoh(core::PK<core::Net>(buf));   // net → host, 返回 host 序视图
+    auto p = core::ntoh(core::PK<core::Net>(buf, res));
 
     if (p->pk_id == 0 || p->pk_id >= core::MAX_HANDLERS) {
         return -5;
@@ -79,8 +76,6 @@ typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, u
         return 0;
     }
 
-    // 解密 payload (header 不动). IV = (conv, pk_idem, 上行方向),
-    // 与客户端 send 端 make_iv 完全一致.
     size_t payload_len = (size_t)res - core::PKG_HDR_LEN;
     if (payload_len > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
@@ -98,27 +93,14 @@ typhon::kcp::Session::recv_pk(core::PK<core::Host>* pk, uint8_t* buf, int len, u
 
 
 int
-typhon::kcp::Session::send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept {
-    thread_local static uint8_t buf[core::PKG_MAX_LEN];
-
-    if (len > core::PKG_MAX_PAYLOAD) {
-        return -1;
-    }
-
-    const size_t total = core::PKG_HDR_LEN + len;
-
-    core::PK<core::Host> pkg{buf};
-    pkg->pk_id = pk_id;
-    pkg->pk_idem = pk_idemp;
-    pkg->pk_dst_id = pk_dst_id;
-    ::memcpy(pkg->pk_payload, data, len);
-
-    if (len > 0) {
+typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
+    auto plen = pk.len() - core::PKG_HDR_LEN;
+    if (plen > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
-        make_iv(iv, conv(), pk_idemp, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->shkey(), iv, pkg->pk_payload, pkg->pk_payload, len) == 0, "加密失败");
+        make_iv(iv, conv(), pk->pk_idem, DIR_S2C);
+        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->shkey(), iv, pk->pk_payload, pk->pk_payload, plen) == 0, "加密失败");
     }
 
-    core::hton(pkg);   // host → net (原地翻 header), 之后 buf 是 wire-ready
-    return send(buf, total);
+    core::hton(pk);
+    return send((uint8_t*)pk.raw(), pk.len());
 }

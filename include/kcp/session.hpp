@@ -206,27 +206,11 @@ public:
      * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
      */
     int
-    recv_pk(core::PK<core::Host>* pkg, uint8_t* buf, int len, uint64_t now) noexcept;
+    recv(core::PK<core::Host>* pkg, uint8_t* buf, int len, uint64_t now) noexcept;
 
 
-    /**
-     * @brief 组装一条 Package(头 + payload)并入队 KCP 发送队列。
-     *        内部用 thread_local 缓冲拼包再调 send(),不分配堆。
-     *        客户端 / 服务端 stamp idem 的策略不同,**调用方负责传对 idem 值**:
-     *          - 客户端: 自己维护 snd_idem_,单调递增
-     *          - 服务端: 用 next_snd_idem()(本地计数器)
-     * @param pk_id     业务消息号
-     * @param pk_idemp  幂等 ID,**必须 != 0**;0 会被对端 recv_pk 视为非法包丢弃
-     * @param pk_dst_id 目标服务类型(路由键);客户端发出时填,echo 时透传
-     * @param data      payload 起始
-     * @param len       payload 字节数;不可超过 PKG_MAX_PAYLOAD
-     *                  (上限按更严的 TCP 后端方向算,客户端发的包经网关 wrap PackageEx 后仍能装下)
-     * @return   0  入队成功(等 update() 触发出网卡)
-     * @return  -1  payload 太大(> PKG_MAX_PAYLOAD)
-     * @return  -2  KCP 拒绝入队(分片数 >= rcvwnd),见 send() 注释
-     */
     int
-    send_pk(uint16_t pk_id, uint32_t pk_idemp, uint32_t pk_dst_id, const uint8_t* data, uint16_t len) noexcept;
+    send(core::PK<core::Host> &pk) noexcept;
 
 
 private:

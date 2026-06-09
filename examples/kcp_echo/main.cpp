@@ -44,14 +44,9 @@ public:
 
 
     virtual int
-    on_data(typhon::kcp::Session::Ptr sess, const typhon::core::PK<typhon::core::Host> pk, int len) noexcept {
-        return sess->send_pk(
-            pk->pk_id, 
-            sess->next_snd_idem(),
-            pk->pk_dst_id, 
-            pk->pk_payload, 
-            len - sizeof(typhon::core::Package)
-        ) < 0 ? -1 : 0;
+    on_data(typhon::kcp::Session::Ptr sess, typhon::core::PK<typhon::core::Host> &pk) noexcept {
+        pk->pk_idem = sess->next_snd_idem();
+        return sess->send(pk) < 0 ? -1 : 0;
     }
 };
 

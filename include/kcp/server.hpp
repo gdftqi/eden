@@ -102,7 +102,7 @@ public:
          * @return 返回非 0 表示处理失败, Session 会立刻 remove_session()
          */
         virtual int 
-        on_data(Session::Ptr, const core::PK<core::Host>, int) noexcept {
+        on_data(Session::Ptr, core::PK<core::Host>&) noexcept {
             return 0;
         }
     }; // class IEvent;
@@ -261,7 +261,15 @@ private:
 
 
     void
-    on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+    on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+
+
+    int
+    on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+
+
+    int
+    on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
     core::SOCKET             ufd_               { core::INVALID_SOCKET };

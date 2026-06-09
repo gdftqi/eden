@@ -192,9 +192,10 @@ public:
         return (Package*)p_->pke_pk;
     }
 
+
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     int
-    payload_len() const noexcept {
+    plen() const noexcept {
         static constexpr int HDR_SIZE = (int)sizeof(PackageEx) + (int)sizeof(Package);
         return (int)p_->pke_len - HDR_SIZE;
     }
@@ -227,18 +228,26 @@ template<typename T>
 class PK {
     static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "Pk 的 Order 只能是 Host 或 Net");
     Package* p_;
+    int      len_;
 
 
 public:
     explicit
-    PK(void* buf = nullptr) noexcept
-        : p_(reinterpret_cast<Package*>(buf))
+    PK(void* buf = nullptr, int len = 0) noexcept
+        : p_((Package*)buf)
+        , len_(len)
     {}
 
 
     void*
     raw() const noexcept {
         return p_;
+    }
+
+
+    int
+    len() const noexcept {
+        return len_;
     }
 
 
@@ -253,14 +262,14 @@ public:
 inline PK<Net>
 hton(PK<Host> v) noexcept {
     pk_hton((Package*)v.raw());
-    return PK<Net>(v.raw());
+    return PK<Net>(v.raw(), v.len());
 }
 
 
 inline PK<Host>
 ntoh(PK<Net> v) noexcept {
     pk_ntoh((Package*)v.raw());
-    return PK<Host>(v.raw());
+    return PK<Host>(v.raw(), v.len());
 }
 
 

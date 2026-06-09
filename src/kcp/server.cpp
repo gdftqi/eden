@@ -238,7 +238,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 core::PK<core::Host> pk;
                 while (true) {
-                    int rc = s->recv_pk(&pk, rbuf, core::PKG_MAX_LEN, tnow_);
+                    int rc = s->recv(&pk, rbuf, core::PKG_MAX_LEN, tnow_);
                     if (rc < -1) {
                         // 读取消息出错
                         remove_session(s->conv());
@@ -251,7 +251,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (event_->on_data(s, pk, rc) != 0) {
+                    if (event_->on_data(s, pk) != 0) {
                         remove_session(s->conv());
                         break;
                     }
@@ -341,7 +341,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
                 break;
 
             case PKID_REGIST_RSP:
-                on_regist(conn, pke);
+                on_regist_rsp(conn, pke);
                 break;
             }
         } // while;
@@ -445,7 +445,7 @@ typhon::kcp::Server::update() noexcept {
 
 void
 typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.payload_len() != sizeof(uint64_t)) {
+    if (pkx.plen() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
         return;
     }
@@ -455,8 +455,8 @@ typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) n
 
 
 void
-typhon::kcp::Server::on_regist(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.payload_len() != sizeof(uint32_t)) {
+typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
+    if (pkx.plen() != sizeof(uint32_t)) {
         xERROR("错误的 REGIST_RSP 长度");
         return;
     }
