@@ -69,12 +69,16 @@
 - [x] TcpConnector fd 加入 KcpServer 主 epoll(`add_serv`/`servs_`)，主循环非 ufd/evfd 的 fd 分发到 `on_serv_handle`
 - [x] **gateway↔backend 控制面**(原 PLAN 未单列)：Connector `regist()` 发 REGIST_REQ + `update()` 发 PING 心跳;
       `on_serv_handle` EPOLLIN 收包后 dispatch `on_regist_rsp`(置 authed)/`on_pong`(打延迟)
-- [ ] `on_data`(KCP → backend)：按 `pk_dst_id` 选 TcpConnector → **prepend PackageEx 头**(`pke_len` / `pke_src_id` = FromPlayerID / `pke_src_addr`),内嵌原始 Package wire frame → write
-      —— **未实现**,当前 `on_data` 是 IEvent 虚函数,example 里只做网关本地 echo,没有按 `pk_dst_id` 选 Connector 转发的框架代码
-- [ ] `on_serv_handle` 业务回程(backend → KCP)：decode PackageEx → 剥头取内嵌 Package → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
-      —— **未实现**,当前 `on_serv_handle` 只 dispatch PONG / REGIST_RSP 两类控制包,业务包没有回程路由
-- [ ] 单 backend instance 端到端跑通 (KcpServer 上挂 1 个 TcpConnector,目标地址硬编码)
-      —— 连接 + 握手 + 心跳已跑通,**业务数据面端到端未通**(缺上面两条转发)
+- [x] `on_c2s`(KCP → backend,原 PLAN 叫 on_data)：按 `pk_dst_id` 选 Connector(`get_serv`) → **零拷贝 prepend PackageEx 头**转发
+      - 零拷贝手法:`on_udp_handle` 解码时 body 落在 `rbuf + PKX_HDR_LEN`(预留 10B 头部),转发时 `(uint8_t*)pk.raw() - PKX_HDR_LEN` 原地填 `pke_len` / `pke_src_id = conv` / `pke_src_addr`,连续内存一把 `hton` + 复用 `Connector::send`
+      - 就绪检查:`!is_connected() || !authed()` 时 drop(后端没握手完不发)
+      - 错误处理:**后端找不到 / 写失败不踢客户端 KCP session**(send 失败只 log;仅 `get_serv==nullptr` 当非法 dst_id 才 return -1)
+- [x] `on_s2c`(backend → KCP 回程,挂在 `on_serv_handle` 的 default 分支)：`get_session(pk_dst_id)` 查 conv → `PK<Host>(pkx.pk(), plen()+PKG_HDR_LEN)` 喂 `kcp Session::send`
+      - **路由键约定**:上行 `pk_dst_id`=service_type;后端回包**回填** `pk_dst_id = pke_src_id`(= 网关 stamp 的来源 conv);回程网关据此 `get_session(pk_dst_id)` 找客户端
+      - **下行 idem** 由 `kcp Session::send` 内部统一 `next_snd_idem()` stamp(private),转发层不碰 —— 下行加密 IV 唯一性由发送方保证
+      - 客户端没了(`s==nullptr`)drop,**不踢后端连接**(与正向对称)
+- [x] 单 backend instance 端到端跑通:client → `on_c2s` → 后端 echo_handler → `on_s2c` → client,**echo 已实测通过**(目标地址 + id 当前硬编码 10000)
+- [ ] 转发路径剩余硬化项:`get_serv` 路由键 service_type↔instance 语义(多实例,见 2f) / `get_serv==nullptr` 区分"非法 dst_id" vs "后端临时下线"(避免后端抖动批量踢客户端) / `Connector::sbuf_` 背压上限
 
 ### 2e. Echo + PING/PONG
 
@@ -82,9 +86,9 @@
       - 后端 `Proc::on_ping`(回 PONG) / `Proc::on_regist`(set_id + 回 REGIST_RSP)
       - 网关 `kcp::Server::on_pong`(打延迟) / `on_regist_rsp`(置 `Connector::authed`)
       - 心跳判定:Connector `update()` 两级超时(`last_send`/`last_recv`),Proc `check_timeout` 按 `last_recv_ms`
-- [ ] EchoBackend 进程（用 TcpServer + tcp::Proc + 一个 echo handler）—— 尚无独立后端 example
-- [ ] 跑通完整链路：client → KcpServer → TcpConnector → TcpServer → handler → 反向(依赖 2d 业务转发)
-- [ ] 验证 handlers[] 派发机制 + 心跳超时清理 session
+- [x] EchoBackend 进程：[examples/tcp_echo](examples/tcp_echo)(TcpServer + Proc + `regist_handler(1, echo_handler)`,echo_handler 回填 `pk_dst_id = pke_src_id` 后原样回)
+- [x] 跑通完整链路：client → KcpServer → `on_c2s` → TcpConnector → TcpServer → echo_handler → `on_s2c` → 反向,**已端到端验证**
+- [x] handlers[] 派发机制已验证(后端 `get_handler(1)` 命中 echo_handler);心跳超时清理见上条 `check_timeout`
 
 ### 2f. ETCD 服务注册与发现 + REGIST 握手
 
