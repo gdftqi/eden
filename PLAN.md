@@ -61,38 +61,48 @@
 
 ### 2d. TcpConnector + KcpServer ↔ TcpServer 集成
 
-- [ ] **TcpConnector**：网关侧 TCP 长连客户端
-      - 非阻塞 `connect()`，状态机:`Disconnected` / `Connecting` / `Connected`
-      - inbuf 复用 RcvBuf，按 PackageEx 方向(peek `pke_len` 2B 切包)切包
-      - outbuf + EPOLLOUT 处理 partial write
-      - 重连(指数退避)留接口,2d 阶段可先不实现完整重连
-- [ ] TcpConnector fd 加入 KcpServer 主 epoll，主循环按 fd 分发到 `on_backend_handle`
+- [x] **TcpConnector**：网关侧 TCP 长连客户端([tcp/connector.hpp](include/tcp/connector.hpp))
+      - 非阻塞 `connect()`，状态机:`Disconnected` / `Connecting` / `Connected`(EPOLLOUT 驱动 Connecting→Connected)
+      - inbuf 复用 RcvBuf(`recv` 内部 decode PackageEx + ntoh → host 序)
+      - outbuf(`sbuf_`) + EPOLLOUT 处理 partial write(`send(now)` 续 flush)
+      - [ ] 重连(指数退避)**仍未实现**,`on_serv_handle` 拿到 ERR/HUP 直接 `remove_serv`(注释里留了退避位)
+- [x] TcpConnector fd 加入 KcpServer 主 epoll(`add_serv`/`servs_`)，主循环非 ufd/evfd 的 fd 分发到 `on_serv_handle`
+- [x] **gateway↔backend 控制面**(原 PLAN 未单列)：Connector `regist()` 发 REGIST_REQ + `update()` 发 PING 心跳;
+      `on_serv_handle` EPOLLIN 收包后 dispatch `on_regist_rsp`(置 authed)/`on_pong`(打延迟)
 - [ ] `on_data`(KCP → backend)：按 `pk_dst_id` 选 TcpConnector → **prepend PackageEx 头**(`pke_len` / `pke_src_id` = FromPlayerID / `pke_src_addr`),内嵌原始 Package wire frame → write
-- [ ] `on_backend_handle`(backend → KCP)：TcpConnector inbuf decode PackageEx → 剥头取内嵌 Package → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
+      —— **未实现**,当前 `on_data` 是 IEvent 虚函数,example 里只做网关本地 echo,没有按 `pk_dst_id` 选 Connector 转发的框架代码
+- [ ] `on_serv_handle` 业务回程(backend → KCP)：decode PackageEx → 剥头取内嵌 Package → 查 KcpServer.sessions_(conv 表) → `kcp->send_pk` 回客户端
+      —— **未实现**,当前 `on_serv_handle` 只 dispatch PONG / REGIST_RSP 两类控制包,业务包没有回程路由
 - [ ] 单 backend instance 端到端跑通 (KcpServer 上挂 1 个 TcpConnector,目标地址硬编码)
+      —— 连接 + 握手 + 心跳已跑通,**业务数据面端到端未通**(缺上面两条转发)
 
 ### 2e. Echo + PING/PONG
 
-- [ ] EchoBackend 进程（用 TcpServer + tcp::Proc + 一个 echo handler）
-- [ ] 跑通完整链路：client → KcpServer → TcpConnector → TcpServer → handler → 反向
-- [ ] PING / PONG handler + Session.last_recv_ms 心跳判定
+- [x] PING / PONG handler + REGIST_REQ / REGIST_RSP 握手已实现
+      - 后端 `Proc::on_ping`(回 PONG) / `Proc::on_regist`(set_id + 回 REGIST_RSP)
+      - 网关 `kcp::Server::on_pong`(打延迟) / `on_regist_rsp`(置 `Connector::authed`)
+      - 心跳判定:Connector `update()` 两级超时(`last_send`/`last_recv`),Proc `check_timeout` 按 `last_recv_ms`
+- [ ] EchoBackend 进程（用 TcpServer + tcp::Proc + 一个 echo handler）—— 尚无独立后端 example
+- [ ] 跑通完整链路：client → KcpServer → TcpConnector → TcpServer → handler → 反向(依赖 2d 业务转发)
 - [ ] 验证 handlers[] 派发机制 + 心跳超时清理 session
 
 ### 2f. ETCD 服务注册与发现 + REGIST 握手
 
 - [x] **网关侧 control loop 骨架**：typhon::Server 主线程兼 control 线程
-      - epoll_wait timeout(1s) 当定时节拍 + stop_evfd 即时唤醒退出
+      - epoll_wait timeout(实测 `INTERVAL_MS = 10000`,10s) 当定时节拍 + stop_evfd 即时唤醒退出
       - kcp::Server 加 `evque_`(SPSC) + `notify()` —— typhon 主线程是唯一生产者,
-        单生产者约束成立;QEvent(Stop/NewBnd/...) 抽到 core/qevent.hpp
-      - `update()` 钩子已就位(每秒触发),etcd 拉取 + 分发逻辑待填
+        单生产者约束成立;QEvent(Stop/**NewServ**/Recv/Send/AddSess/RmvSess) 抽到 core/qevent.hpp
+      - 分发已落地:`update_serv()` 每个节拍 `notify(NewServ, NewServArg{id,host})`,
+        kcp::Server `on_new_serv` → `Connector::create` → `add_serv`(按 id 去重)
+      - ⚠️ 与原设计的偏差:**没有用 `shared_ptr<const BackendTable>` 快照**,改为
+        **逐 serv 的 `NewServArg{id, host[32]}` 事件 + `ServMap servs_`**(每个后端一个 Connector)
+- [x] REGIST_REQ / REGIST_RSP 握手协议（backend 上线后跟 gateway 握手）—— 见 2e,已实现
 - [ ] **etcd 客户端**：用 **HTTP/JSON gateway**(cpp-httplib + nlohmann/json,**不用 gRPC**)
       - 定时 `POST /v3/kv/range` 拉 service_type 前缀全量(key/value base64,调用设超时)
       - 不用 watch(定时 poll 足够,简单无重连/revision 复杂度)
-- [ ] `update()` 填充：拉到列表 → 构造 `shared_ptr<const BackendTable>` 快照
-      → 每个 kcp::Server `notify(new QEvent(NewBnd, 快照))` 分发(零 diff,换本地指针)
+      - **当前是 stub**：`update_serv()` 里 `// TODO: 改为ETCD 查询服务`,硬编码 id=10000 / host="127.0.0.1:6688"
 - [ ] 后端启动注册 service_type + addr + lease，定期续约
 - [ ] 多 instance + conv 一致性 hash（同 conv 始终落同 instance）
-- [ ] REGIST_REQ / REGIST_RSP 握手协议（backend 上线后跟 gateway 握手）
 - [ ] instance 加入 / 退出时的连接迁移（新 instance dial → 老 instance drain → close）
 
 ### 2g. 业务消息层（占位）

@@ -155,9 +155,10 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 - [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
 - [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
 - [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + AES-128-CTR payload 半加密(均已实现并跑通)
-- [ ] **Phase 2d** —— TcpConnector(网关 → 后端转发链路) ← **下一步**
-- [ ] **Phase 2e** —— 端到端 PING/PONG 闭环
-- [ ] **Phase 2f** —— etcd 服务注册发现 + REGIST 握手(网关侧 control loop 骨架已就位:typhon::Server 定时节拍 + notify 分发 + SPSC evque;etcd 拉取待填)
+- [x] **Phase 2d 链路骨架** —— TcpConnector(连接状态机 + 非阻塞 connect + EPOLLOUT 续发 + PING 心跳)已实现并挂进 KcpServer epoll(`servs_` / `on_serv_handle`);gateway↔backend 控制面(REGIST_REQ/RSP 握手 + PING/PONG)已跑通
+- [ ] **Phase 2d 业务转发** —— `on_data`(KCP→后端:按 `pk_dst_id` 选 Connector + prepend PackageEx) + `on_serv_handle` 业务回程(后端→KCP) ← **下一步**(当前 example 仍是网关本地 echo,`on_serv_handle` 只处理 PONG/REGIST_RSP 控制包)
+- [ ] **Phase 2e** —— EchoBackend 进程 + 完整链路端到端跑通(PING/PONG handler 本身已实现)
+- [ ] **Phase 2f** —— etcd 服务注册发现:网关 control loop + `NewServ` 事件分发已通(typhon::Server 定时节拍 → `notify` → kcp::Server 建 Connector),**etcd 客户端待填**(`update_serv` 当前硬编码后端地址)
 - [ ] **安全层加固** —— AES-128-GCM(payload 完整性) + HKDF 派生独立 key
 
 完整规划见 [PLAN.md](PLAN.md)。

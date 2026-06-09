@@ -1,9 +1,12 @@
 #include "tcp/connector.hpp"
 
 
-// 纯 flush: 把 sbuf_ 里积压的字节尽量写出去(EPOLLOUT 续发用)。
 ssize_t
 typhon::tcp::Connector::send(uint64_t now) noexcept {
+    if (!is_connected() || !authed()) {
+        return -1;
+    }
+
     if (sbuf_.empty()) {
         return 0;
     }
@@ -12,15 +15,16 @@ typhon::tcp::Connector::send(uint64_t now) noexcept {
     if (n < 0) {
         return n;
     }
+
     if (n > 0) {
         last_send_ms_ = now;
         sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
     }
+
     return 0;
 }
 
 
-// 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
 ssize_t
 typhon::tcp::Connector::send(core::PKx<core::Host> pke, uint64_t now) noexcept {
     ssize_t n = send(now);
@@ -28,12 +32,11 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pke, uint64_t now) noexcept {
         return n;
     }
 
-    // hton 前取 host 序的总长; hton 后 pke 变 Pke<Net>, 只能 raw()。
     ssize_t  total = pke->pke_len;
     auto     net   = core::hton(pke);
     uint8_t* p     = (uint8_t*)net.raw();
 
-    if (sbuf_.size() > 0) {              // 残留没 flush 完 → 新包排队保序
+    if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);
         return 0;
     }
@@ -59,7 +62,7 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept 
     }
 
     core::PackageEx* raw;
-    if (!rbuf_.decode(&raw)) {           // decode 内部已 ntoh → host 序
+    if (!rbuf_.decode(&raw)) {
         return -2;
     }
 

@@ -70,7 +70,7 @@ public:
     static constexpr int MAX_CONN = 1024 * 2; ///< 最大连接数
 
 
-    typedef void (*PackageHandler)(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+    typedef void (*PackageHandler)(Session::Ptr, core::PKx<core::Host>&) noexcept;
 
 
     explicit

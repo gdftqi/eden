@@ -95,6 +95,8 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     auto plen = pk.len() - core::PKG_HDR_LEN;
+    pk->pk_idem = next_snd_idem();
+
     if (plen > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), pk->pk_idem, DIR_S2C);

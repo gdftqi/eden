@@ -102,6 +102,10 @@ envelope MAC 只覆盖 **KCP header**，**不覆盖内层 Package header**；半
 
 [include/tcp/session.hpp](include/tcp/session.hpp) — 无调用者。后来加的 `id_`/`set_id()` 取代了它，现在是死成员 + 死方法。删。
 
+### R5. `kcp::Server::on_ping` / `on_regist_req` 声明但无定义
+
+[include/kcp/server.hpp:268](include/kcp/server.hpp#L268) / [:272](include/kcp/server.hpp#L272) — 这两个成员函数只在头里声明，[src/kcp/server.cpp](src/kcp/server.cpp) 里**没有定义**，也无任何调用者（没被 ODR-use 所以不报链接错）。客户端→网关方向的 PING / REGIST_REQ 处理实际走的是后端 `tcp::Proc::on_ping` / `on_regist`（另一个类）。网关侧这两个声明是规划残留，删。
+
 ---
 
 ## 可以做的优化（不是 bug）

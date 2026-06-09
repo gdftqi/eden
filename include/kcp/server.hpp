@@ -95,16 +95,6 @@ public:
         virtual void 
         on_disconnected(Session::Ptr) noexcept
         {}
-
-
-        /**
-         * @brief 收到数据回调, 在 Session::update() 里调用
-         * @return 返回非 0 表示处理失败, Session 会立刻 remove_session()
-         */
-        virtual int 
-        on_data(Session::Ptr, core::PK<core::Host>&) noexcept {
-            return 0;
-        }
     }; // class IEvent;
 
 
@@ -252,6 +242,13 @@ private:
     }
 
 
+    tcp::Connector::Ptr
+    get_serv(uint32_t id) const noexcept {
+        auto itr = servs_.find(id);
+        return itr == servs_.end() ? nullptr : itr->second;
+    }
+
+
     void
     update() noexcept;
 
@@ -264,12 +261,20 @@ private:
     on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
 
 
+    void
+    on_s2c(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+
+
     int
     on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
     int
     on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+
+
+    int
+    on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
     core::SOCKET             ufd_               { core::INVALID_SOCKET };

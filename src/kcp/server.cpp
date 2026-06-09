@@ -175,7 +175,7 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
-    thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
+    thread_local static uint8_t rbuf[core::PKG_MAX_LEN + core::PKX_HDR_LEN];
 
     int res = 0;
     if (ev.events & EPOLLERR) {
@@ -237,8 +237,9 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 core::PK<core::Host> pk;
+                uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    int rc = s->recv(&pk, rbuf, core::PKG_MAX_LEN, tnow_);
+                    int rc = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
                     if (rc < -1) {
                         // 读取消息出错
                         remove_session(s->conv());
@@ -251,7 +252,21 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     }
 
-                    if (event_->on_data(s, pk) != 0) {
+                    switch (pk->pk_id) {
+                    case PKID_PING:
+                        rc = on_ping(s, pk);
+                        break;
+
+                    case PKID_REGIST_REQ:
+                        rc = on_regist_req(s, pk);
+                        break;
+                    
+                    default:
+                        rc = on_c2s(s, pk);
+                        break;
+                    }
+
+                    if (rc < 0) {
                         remove_session(s->conv());
                         break;
                     }
@@ -266,7 +281,6 @@ void
 typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     auto* conn = (tcp::Connector*)ev.data.ptr;
 
-    // 连接错误 / 对端关闭 → 清理(后续可在这里做指数退避重连, 现留给上层)
     if (ev.events & (EPOLLERR | EPOLLHUP)) {
         xERROR("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
         remove_serv(conn);
@@ -333,15 +347,19 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::PKx<core::Host> pke;
-        while (conn->recv(&pke, tnow_) == 1) {
-            switch (pke.pk()->pk_id) {
+        core::PKx<core::Host> pkx;
+        while (conn->recv(&pkx, tnow_) == 1) {
+            switch (pkx.pk()->pk_id) {
             case PKID_PONG:
-                on_pong(conn, pke);
+                on_pong(conn, pkx);
                 break;
 
             case PKID_REGIST_RSP:
-                on_regist_rsp(conn, pke);
+                on_regist_rsp(conn, pkx);
+                break;
+
+            default:
+                on_s2c(conn, pkx);
                 break;
             }
         } // while;
@@ -383,8 +401,8 @@ typhon::kcp::Server::update() noexcept {
     }
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
-    // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次。
-    // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动。b
+    // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次.
+    // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动. b
     size_t exp = 0;
     auto timeout = (uint64_t)Conf::instance()->timeout() / 2;
     while (exp < sque_.size() && sque_[exp]->time + timeout < now) {
@@ -468,4 +486,68 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
     }
+}
+
+
+void
+typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
+    auto s = get_session(pkx.pk()->pk_dst_id);
+    if (s != nullptr) {
+        core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
+        if (s->send(pk) < 0) {
+            xERROR("{} 发送失败", s->to_string());
+        };
+    }
+}
+
+
+int
+typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+    if (pk->pk_dst_id != Conf::instance()->id()) {
+        xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->pk_dst_id);
+        return -1;
+    }
+
+    auto len = pk.len() - core::PKG_HDR_LEN;
+    if (len != sizeof(uint64_t)) {
+        xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), len);
+        return -2;
+    }
+
+    pk->pk_id = PKID_PONG;
+    pk->pk_dst_id = Conf::instance()->id();
+    return s->send(pk);
+}
+
+
+int
+typhon::kcp::Server::on_regist_req(Session::Ptr, core::PK<core::Host>&) noexcept {
+    // TODO:
+    return 0;
+}
+
+
+int
+typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+    auto sv = get_serv(pk->pk_dst_id);
+    if (sv == nullptr) {
+        xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->pk_dst_id);
+        return -1;
+    }
+
+    if (!sv->is_connected() || !sv->authed()) {
+        xWARN("后台服务 {} 还未鉴权完成", sv->id());
+        return 0;
+    }
+
+    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
+    pkx->pke_len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
+    pkx->pke_src_id = s->conv();
+    pkx->pke_src_addr = s->remote_addr_u32();
+
+    if (sv->send(pkx, tnow_) < 0) {
+        xERROR("{} 转发消息至 {} 失败: {}", s->to_string(), sv->id(), errno);
+    }
+
+    return 0;
 }

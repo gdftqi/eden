@@ -45,7 +45,6 @@ public:
 
     virtual int
     on_data(typhon::kcp::Session::Ptr sess, typhon::core::PK<typhon::core::Host> &pk) noexcept {
-        pk->pk_idem = sess->next_snd_idem();
         return sess->send(pk) < 0 ? -1 : 0;
     }
 };

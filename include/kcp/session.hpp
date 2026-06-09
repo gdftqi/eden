@@ -116,12 +116,9 @@ public:
     }
 
 
-    /**
-     * @brief 下一个发送幂等
-     */
     uint32_t
-    next_snd_idem() noexcept {
-        return ++snd_idem_;
+    remote_addr_u32() const noexcept {
+        return core::sockaddr_to_u32((sockaddr_in*)&addr_);
     }
 
 
@@ -214,6 +211,15 @@ public:
 
 
 private:
+    /**
+     * @brief 下一个发送幂等
+     */
+    uint32_t
+    next_snd_idem() noexcept {
+        return ++snd_idem_;
+    }
+
+
     /**
      * @brief 从 KCP 接收队列里取出一条完整的应用层消息(对应一次 ikcp_send)。
      *        KCP 是面向消息的:返回的就是对端一次 send 写入的整体,**不会半包也不会粘包**。
