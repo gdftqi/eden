@@ -58,7 +58,6 @@ typhon::Server::run() noexcept {
         ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
 
         if (!kcp_bpf_path_.empty()) {
-            // 注册 socket fd 到 BPF map, 让 BPF 程序能找到对应 worker 线程.
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 

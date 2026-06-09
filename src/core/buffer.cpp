@@ -24,7 +24,7 @@ typhon::core::RcvBuf::append(const uint8_t* data, uint32_t len) noexcept {
 
 
 bool
-typhon::core::RcvBuf::decode(core::PackageEx** pke) noexcept {
+typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
     if (rpos > core::PKG_MAX_LEN / 2) {
         compact();
     }
@@ -34,16 +34,16 @@ typhon::core::RcvBuf::decode(core::PackageEx** pke) noexcept {
     }
 
     auto* p = (core::PackageEx*)(buf + rpos);
-    uint16_t pklen = ::ntohs(p->pke_len);
+    uint16_t pkxlen = ::ntohs(p->pke_len);
 
-    ASSERT(pklen >= core::PKX_HDR_LEN, "invalid package ex length: {}", pklen);
+    ASSERT(pkxlen >= core::PKX_HDR_LEN + core::PKG_HDR_LEN, "invalid package ex length: {}", pkxlen);
 
-    if (readable() < pklen) {
+    if (readable() < pkxlen) {
         return false;
     }
 
-    ntoh(PKx<Net>(p));   // net → host: 外层 + 内嵌各翻一次(替代旧的三重翻转)
-    *pke = p;
-    rpos += pklen;
+    ntoh(PKx<Net>(p));
+    *pkx = p;
+    rpos += pkxlen;
     return true;
 }

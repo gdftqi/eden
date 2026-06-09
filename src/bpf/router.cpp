@@ -3,8 +3,7 @@
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
 #include <sys/socket.h>
-#include <cstring>
-#include <errno.h>
+#include "utils/log.hpp"
 
 
 typhon::bpf::Router::~Router() noexcept {
@@ -17,17 +16,15 @@ typhon::bpf::Router::~Router() noexcept {
 
 int
 typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
-    if (num_workers == 0) {
-        return -EINVAL;
-    }
+    ASSERT(obj_path && num_workers > 0, "无效的入参");
 
     obj_ = ::bpf_object__open_file(obj_path, nullptr);
     if (!obj_) {
         return -1;
     }
 
-    // 在 load 之前把 rodata 里的 num_workers 改写。BPF 里声明的
-    // `const volatile __u32 num_workers` 会被放进 .rodata map
+    // 在 load 之前把 rodata 里的 num_workers 改写.
+    // BPF 里声明的 `const volatile __u32 num_workers` 会被放进 .rodata map
     ::bpf_map* rodata = nullptr;
     ::bpf_map* m;
     bpf_object__for_each_map(m, obj_) {
@@ -66,28 +63,25 @@ typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
 
     map_fd_  = ::bpf_map__fd(sock_map);
     prog_fd_ = ::bpf_program__fd(prog);
+
     return 0;
 }
 
 
 int
-typhon::bpf::Router::register_socket(uint32_t idx, int sockfd) noexcept {
-    if (map_fd_ < 0) {
-        return -EINVAL;
-    }
+typhon::bpf::Router::register_socket(uint32_t idx, int ufd) noexcept {
+    ASSERT(map_fd_ >= 0, "Router 还未初始化");
 
-    uint64_t fd64 = (uint64_t)sockfd;
+    uint64_t fd64 = (uint64_t)ufd;
     return ::bpf_map_update_elem(map_fd_, &idx, &fd64, BPF_ANY);
 }
 
 
 int
-typhon::bpf::Router::attach(int sockfd) noexcept {
-    if (prog_fd_ < 0) {
-        return -EINVAL;
-    }
+typhon::bpf::Router::attach(int ufd) noexcept {
+    ASSERT(prog_fd_ >= 0 && ufd >= 0, "Router 参数无效");
 
-    if (::setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_REUSEPORT_EBPF, &prog_fd_, sizeof(prog_fd_)) < 0) {
+    if (::setsockopt(ufd, SOL_SOCKET, SO_ATTACH_REUSEPORT_EBPF, &prog_fd_, sizeof(prog_fd_)) < 0) {
         return -errno;
     }
 

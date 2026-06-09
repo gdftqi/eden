@@ -142,6 +142,7 @@ filter_envelope(struct xdp_md* ctx) {
     if ((void*)(eth + 1) > data_end) {
         return XDP_PASS;
     }
+
     if (eth->h_proto != bpf_htons(ETH_P_IP)) {
         return XDP_PASS;
     }
@@ -151,13 +152,16 @@ filter_envelope(struct xdp_md* ctx) {
     if ((void*)(ip + 1) > data_end) {
         return XDP_PASS;
     }
+
     if (ip->protocol != IPPROTO_UDP) {
         return XDP_PASS;
     }
+
     __u32 ip_hdr_len = ip->ihl * 4;
     if (ip_hdr_len < sizeof(*ip)) {
         return XDP_DROP;
     }
+
     if ((void*)ip + ip_hdr_len > data_end) {
         return XDP_DROP;
     }
@@ -181,6 +185,7 @@ filter_envelope(struct xdp_md* ctx) {
     if (payload + ENVELOPE_MAC_LEN + ENVELOPE_MAC_HASH_LEN > (__u8*)data_end) {
         return XDP_DROP;
     }
+    
     // 现在 payload[0..32) 全部 in-bounds, verifier 知道
     // - payload[0..8) = MAC
     // - payload[8..32) = KCP frame 前 24 字节 (= ENVELOPE_MAC_HASH_LEN)

@@ -11,18 +11,24 @@
 namespace typhon::core {
 
 
+/** 
+ * @brief 发送缓冲区
+ * 
+ * 用于 kcp 中 output 中发送消息
+ */
 struct SndBuf {
-    typedef std::deque<SndBuf*> Que;
+    typedef std::deque<SndBuf*> Que; ///< SndBuf 队列
 
 
-    ::sockaddr_storage addr;
-    ::socklen_t        addrlen;
-    uint32_t           len;
-    uint64_t           time;
-    uint64_t*          siphash;
-    uint8_t            buf[UDP_MTU];
+    ::sockaddr_storage addr;         ///< 对端地址
+    ::socklen_t        addrlen;      ///< 地址长度
+    uint32_t           len;          ///< 消息长度
+    uint64_t           time;         ///< 缓冲区创建的时间
+    uint64_t*          siphash;      ///< buf[0:8) 的数据, siphash 签名段
+    uint8_t            buf[UDP_MTU]; ///< 缓冲区大小
 
 
+    explicit
     SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
         , len(l + ENVELOPE_MAC_LEN)
@@ -42,24 +48,19 @@ struct SndBuf {
 
 
 /**
- * @brief Lazy-heap 接收缓冲。`buf` 初始为 nullptr,直到首次 `append()` 才
- *        `mi_malloc(PKG_MAX_LEN)` 一次性分配满。整个 session 生命周期内
- *        buf 要么是 nullptr(从未收到数据),要么是 PKG_MAX_LEN 大小的堆区。
- *
- * 设计取舍:
- *   - 冷连接 / idle session 完全不占堆,只是几个标量字段。
- *   - 一收到数据就一次性给到 PKG_MAX_LEN,后续不再 realloc,append/decode/compact
- *     的代码路径里没有任何分支判断容量。
- *   - mimalloc 对 64KB 这种粒度的 alloc/free 是 thread-local 快路径,
- *     session 析构时还回去开销可控。
+ * @brief 接收缓冲
+ * 
+ * buf 要么是 nullptr(从未收到数据), 要么是 PKG_MAX_LEN(65535) 大小的堆区
  */
 struct RcvBuf {
     uint32_t rpos { 0 };
     uint32_t wpos { 0 };
-    uint8_t* buf  { nullptr };       // 首次 append 才 mi_malloc(PKG_MAX_LEN),session 内不再变
+    uint8_t* buf  { nullptr };
 
 
-    RcvBuf() noexcept = default;
+    explicit
+    RcvBuf() noexcept
+    {}
 
 
     ~RcvBuf() noexcept {
@@ -75,25 +76,35 @@ struct RcvBuf {
     RcvBuf& operator=(RcvBuf&&) = delete;
 
 
+    /**
+     * @brief 返回缓冲区中可读的数据长度
+     */
     size_t
     readable() const noexcept {
         return wpos - rpos;
     }
 
 
+    /**
+     * @brief 返回缓冲区中可写的数据长度
+     */
     size_t
     writable() const noexcept {
-        // buf 未分配时视为 0(append 会按需 alloc 后再走 writable 检查)
         return buf ? (core::PKG_MAX_LEN - wpos) : 0;
     }
 
 
+    /**
+     * @brief 向缓冲区尾部追加数据
+     * 
+     * @return 成功返回 true, 否则返回 false
+     */
     bool
     append(const uint8_t* data, uint32_t len) noexcept;
 
 
     bool
-    decode(core::PackageEx** pke) noexcept;
+    decode(core::PackageEx** pkx) noexcept;
 
 
     void
