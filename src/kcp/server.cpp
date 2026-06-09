@@ -540,7 +540,7 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
         return 0;
     }
 
-    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
+    core::PKx<core::Host> pkx((uint8_t*)pk.raw() - core::PKX_HDR_LEN);
     pkx->pke_len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
     pkx->pke_src_id = s->conv();
     pkx->pke_src_addr = s->remote_addr_u32();

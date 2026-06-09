@@ -43,7 +43,7 @@ HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 10 字节
 assert HEADER_SIZE == 10
 
 PK_ID_PING  = 1     # 测试用消息号
-PK_DST_ID   = 1     # 测试用目标服务（占位）；必须 > 0，否则被 recv_pk 判定 -7 非法
+PK_DST_ID   = 10000 # 测试用目标服务（占位）；必须 > 0，否则被 recv_pk 判定 -7 非法
 
 
 # ===== AES-128-CTR payload 加密 (半加密: header 明文, 只加密 pk_payload) =====

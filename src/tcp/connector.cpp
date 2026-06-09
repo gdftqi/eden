@@ -3,10 +3,6 @@
 
 ssize_t
 typhon::tcp::Connector::send(uint64_t now) noexcept {
-    if (!is_connected() || !authed()) {
-        return -1;
-    }
-
     if (sbuf_.empty()) {
         return 0;
     }
