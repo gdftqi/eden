@@ -80,7 +80,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     if (payload_len > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), p->p_idem, DIR_C2S);
-        if (utils::aes128_ctr_decrypt(Conf::instance()->shkey(), iv, buf + core::PKG_HDR_LEN, buf + core::PKG_HDR_LEN, payload_len)) {
+        if (utils::aes128_ctr_decrypt(Conf::instance()->siphash(), iv, buf + core::PKG_HDR_LEN, buf + core::PKG_HDR_LEN, payload_len)) {
             return -8;
         }
     }
@@ -100,7 +100,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     if (plen > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), pk->p_idem, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->shkey(), iv, pk->p_payload, pk->p_payload, plen) == 0, "加密失败");
+        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->siphash(), iv, pk->p_payload, pk->p_payload, plen) == 0, "加密失败");
     }
 
     core::hton(pk);

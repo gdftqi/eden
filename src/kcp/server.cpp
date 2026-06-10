@@ -9,8 +9,10 @@ static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
-    , host_(host) {
-    ASSERT(host && ev, "invalid host or IEvent instance");
+    , host_(host)
+    , desc_(std::format("[{}:{}]", Conf::instance()->id(), host_)) {
+
+    ASSERT(host_.c_str() > 0 && ev, "invalid host or IEvent instance");
 
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
@@ -19,13 +21,21 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
         hdr->msg_name = &raddrs_[i];
         hdr->msg_namelen = sizeof(raddrs_[i]);
 
-        riovecs_[i].iov_base = ::mi_malloc(core::UDP_MTU);
-        ASSERT(riovecs_[i].iov_base != nullptr, "failed to allocate memory for riovec");
         riovecs_[i].iov_len = core::UDP_MTU;
+        riovecs_[i].iov_base = ::mi_malloc(core::UDP_MTU);
+        ASSERT(riovecs_[i].iov_base != nullptr, "failed to allocate memory for riovec"); 
     }
 
     ufd_ = core::udp_bind(host_, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
     ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+}
+
+
+typhon::kcp::Server::~Server() noexcept {
+    release();
+    for (int i = 0; i < MAX_RECV; ++i) {
+        ::mi_free(riovecs_[i].iov_base);
+    }
 }
 
 
@@ -37,7 +47,6 @@ typhon::kcp::Server::run() noexcept {
     }
 
     init();
-    event_->on_init(this);
 
     int i, n;
     ::epoll_event events[MAX_EVENTS];
@@ -67,11 +76,10 @@ typhon::kcp::Server::run() noexcept {
                 on_serv_handle(ev);
             }
         }
-
         update();
     }
 
-    sessions_.clear();
+    users_.clear();
     servs_.clear();
 
     for (auto* sb: sque_) {
@@ -80,22 +88,18 @@ typhon::kcp::Server::run() noexcept {
     sque_.clear();
     tnow_ = 0;
 
-    evque_.clear([](core::QEvent* qe) {
-        delete qe;
-    });
-
+    evque_.clear([](core::QEvent* qe) { delete qe; });
     release();
-    event_->on_stopped(this);
     state_.store(core::State::Stopped);
 }
 
 
 int
 typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
-    auto* s = (Session*)user;
+    auto* s  = (Session*)user;
     auto svr = s->server();
-    auto sb = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
-    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->shkey()));
+    auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->siphash()));
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -120,6 +124,8 @@ typhon::kcp::Server::init() noexcept {
     // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
     ev.events = EPOLLIN;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, ufd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    event_->on_init(this);
 }
 
 
@@ -139,6 +145,8 @@ typhon::kcp::Server::release() noexcept {
         ::close(ufd_);
         ufd_ = core::INVALID_SOCKET;
     }
+
+    event_->on_stopped(this);
 }
 
 
@@ -207,8 +215,8 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
             for (i = 0; i < n; ++i) {
                 if (rmsgs_[i].msg_hdr.msg_flags & MSG_TRUNC) {
                     // 判断 UDP 包被截断了.
-                    //  内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃.
-                    //  如果出现这种情况, 一定是攻击行为.
+                    // 内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃.
+                    // 如果出现这种情况, 一定是攻击行为.
                     xWARN("UDP truncated from {} dropped", core::sockaddr_to_string((sockaddr*)rmsgs_[i].msg_hdr.msg_name));
                     continue;
                 }
@@ -227,46 +235,46 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
-                    if (add_session(conv, s)) {
+                    if (add_session(conv, s) != 0) {
                         continue;
                     }
                 }
 
-                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen)) {
+                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
                     continue;
                 }
 
                 core::PK<core::Host> pk;
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    int rc = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
-                    if (rc < -1) {
+                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
+                    if (res < -1) {
                         // 读取消息出错
                         remove_session(s->conv());
                         break;
-                    } else if (rc == -1) {
+                    } else if (res == -1) {
                         // 没有消息了
                         break;
-                    } else if (rc == 0) {
+                    } else if (res == 0) {
                         // 幂等错误, 还有数据
                         continue;
                     }
 
                     switch (pk->p_id) {
                     case PKID_PING:
-                        rc = on_ping(s, pk);
+                        res = on_ping(s, pk);
                         break;
 
                     case PKID_REGIST_REQ:
-                        rc = on_regist_req(s, pk);
+                        res = on_regist_req(s, pk);
                         break;
                     
                     default:
-                        rc = on_c2s(s, pk);
+                        res = on_c2s(s, pk);
                         break;
                     }
 
-                    if (rc < 0) {
+                    if (res < 0) {
                         remove_session(s->conv());
                         break;
                     }
@@ -388,10 +396,10 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
 void
 typhon::kcp::Server::update() noexcept {
     auto now = tnow_;
-    for (auto itr = sessions_.begin(); itr != sessions_.end();) {
+    for (auto itr = users_.begin(); itr != users_.end();) {
         auto s = itr->second;
         if (s->check_timeout(now)) {
-            itr = sessions_.erase(itr);
+            itr = users_.erase(itr);
             event_->on_disconnected(s);
             continue;
         } else {

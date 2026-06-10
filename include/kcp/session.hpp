@@ -153,8 +153,7 @@ public:
      * @param len     payload 字节数
      * @param addr    对端 sockaddr(从 recvmmsg 拿到的 msg_hdr.msg_name)
      * @param addrlen addr 长度
-     * @return  0  成功
-     * @return <0  KCP 协议错(conv 不匹配 / segment 头损坏等);通常该包直接丢弃
+     * @return  成功返回 0, 否则返回 小于 0
      */
     int
     input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
@@ -190,20 +189,26 @@ public:
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      *
-     * @return  >0   成功:返回值为 wire frame 字节数(Package 头 + payload, >= PKG_HDR_LEN);
-     *               *pkg 可用,已 ntoh 到 host 序,rcv_idem_ / last_recv_ms_ 已更新.
-     *               payload 长度 = 返回值 - PKG_HDR_LEN.
-     * @return   0   幂等重复包,跳过(rcv_queue 可能还有,可继续 recv_pk)
-     * @return  -1   rcv_queue 空,当前没有完整消息
-     * @return  -2   KCP peek 失败(内部状态异常,正常路径不应出现)
-     * @return  -3   buf 太小,装不下下一条消息;调用方应放大 buf 后重试
-     * @return  -4   非法包:长度越界(< PKG_HDR_LEN 或 > PKG_MAX_LEN)
-     * @return  -5   非法 pk_id(== 0 或 >= 1024)
-     * @return  -6   非法 pk_idem(== 0,违反协议约定)
-     * @return  -7   非法 pk_dst_id(== 0,未指定目标服务)
+     * @return  成功返回 读到的包大小
+     * 
+     *           0   幂等重复包, 跳过(rcv_queue 可能还有,可继续 recv_pk)
+     * 
+     *           -1   rcv_queue 空, 当前没有完整消息
+     * 
+     *           -2   KCP peek 失败(内部状态异常,正常路径不应出现)
+     * 
+     *           -3   buf 太小, 装不下下一条消息;调用方应放大 buf 后重试
+     * 
+     *           -4   非法包:长度越界(< PKG_HDR_LEN 或 > PKG_MAX_LEN)
+     * 
+     *           -5   非法 pk_id(== 0 或 >= 1024)
+     * 
+     *           -6   非法 pk_idem(== 0, 违反协议约定)
+     * 
+     *           -7   非法 pk_dst_id(== 0, 未指定目标服务)
      */
     int
-    recv(core::PK<core::Host>* pkg, uint8_t* buf, int len, uint64_t now) noexcept;
+    recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept;
 
 
     int

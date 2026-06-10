@@ -3,6 +3,7 @@
 
 
 #include <inttypes.h>
+#include <yaml-cpp/yaml.h>
 #include "utils/cryptor.hpp"
 
 
@@ -38,6 +39,10 @@ public:
     id() const noexcept {
         return id_;
     }
+
+
+    int
+    load(const YAML::Node &node);
 
 
     /**
@@ -131,15 +136,15 @@ public:
      *        该密钥用于加密协议头, 防止被攻击者轻易伪造数据包
      */
     const SipKey&
-    shkey() const noexcept {
-        return shkey_;
+    siphash() const noexcept {
+        return siphash_;
     }
 
 
 private:
     Conf() noexcept {
         uint64_t a[2] = { 0x0102030405060708, 0x090A0B0C0D0E0FAA };
-        ::memcpy(shkey_, a, sizeof(a));
+        ::memcpy(siphash_, a, sizeof(a));
     }
 
 
@@ -153,7 +158,7 @@ private:
     int      resend_   { 3 };                 ///< 快速重传, 表示连接跳过3个包的时候就会重传
     int      nc_       { 1 };                 ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
     uint32_t timeout_  { 30000 };             ///< 超时(ms)
-    SipKey   shkey_    {};                    ///< 协议密钥
+    SipKey   siphash_  {};                    ///< 协议密钥
 };
 
     

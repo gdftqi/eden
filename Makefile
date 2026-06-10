@@ -9,10 +9,12 @@ LIB       := $(BUILD_DIR)/libtyphon.a
 # 静态库捆绑进 libtyphon.a。
 # mimalloc.o：全功能 override 对象（mi_* API + C malloc/free + C++ new/delete），不能再叠 libmimalloc.a。
 # libbpf.a：用户态 BPF 加载库，依赖 libelf + libz（动态，由 examples 链）。
+# libyaml-cpp.a：YAML 配置解析（纯静态，无额外动态依赖）；头在 /usr/local/include，已被 INCLUDES 覆盖。
 SPDLOG_LIB        := /usr/local/lib/libspdlog.a
 LIBBPF_LIB        := /usr/lib/x86_64-linux-gnu/libbpf.a
+YAMLCPP_LIB       := /usr/local/lib/libyaml-cpp.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
-BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB)
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 

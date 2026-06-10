@@ -18,7 +18,7 @@ namespace typhon::bpf {
  * 
  * 在 wire 入口校验 UDP envelope MAC (前 8 字节 SipHash tag).
  *
- * **kernel 要求**: Linux >= 5.17 (envelope.bpf.c 用了 bpf_loop helper).
+ * @note kernel 要求: Linux >= 5.17.
  *
  * @warning 线程不安全. attach / detach / rotate_key 不能并发调用; 通常在
  *          `typhon::Server::run()` 启动期完成 init + attach, key rotate 由独立

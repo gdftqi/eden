@@ -27,7 +27,7 @@ typhon::Server::run() noexcept {
         int port = ::atoi(host_.c_str() + colon + 1);
         ASSERT(port > 0 && port <= 65535, "invalid port in host {}", host_);
 
-        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, kcp::Conf::instance()->shkey());
+        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, kcp::Conf::instance()->siphash());
         if (rc != 0) {
             xERROR("envelope filter init failed: rc = {}", rc);
             state_.store(core::State::Stopped);

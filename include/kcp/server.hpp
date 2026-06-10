@@ -19,7 +19,7 @@ constexpr int MAX_SEND = MAX_RECV;
 
 
 /**
- * @brief KCP 协议服务器
+ * @brief KCP 服务器
  * @note 线程不安全, 必须在单线程中使用
  */
 class Server {
@@ -33,36 +33,15 @@ public:
     typedef utils::SPSC<core::QEvent*>                        EvQue;
     typedef std::unique_ptr<Server>                           Ptr;
     typedef utils::ObjPool<core::SndBuf>                      SndBufPool;
-    typedef std::unordered_map<uint32_t, Session::Ptr>        SessionMap;
+    typedef std::unordered_map<uint32_t, Session::Ptr>        UserMap;
     typedef std::unordered_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
     
     /**
-     * @brief KCP 服务事件回调接口。
-     *
-     * @warning **所有回调可能被多个线程并发触发** —— `typhon::Server` 会构造
-     *          N 个 `kcp::Server`(每个对应一个 worker 线程,SO_REUSEPORT 分流),
-     *          这 N 个 Server 实例**共享同一个 IEvent**。也就是说:
-     *            - on_init / on_stopped:每个 Server 启停一次 → N 次,跨 N 个线程
-     *            - on_connected / on_disconnected / on_data:在各自 Server 的
-     *              线程里触发,**同一时刻不同 conv 可能在不同线程同时调到**
-     *
-     *          实现方必须**自己保证线程安全**:
-     *            - 写共享容器要加锁 / 用并发数据结构 / shard by conv 等
-     *            - 读全局只读状态(配置 / 静态表)无需保护
-     *            - 调 spdlog 等 thread-safe 库直接用即可
-     *
-     *          单 `kcp::Server` 实例内部是单线程,因此**同一 session 上的回调
-     *          不会重入**(on_connected → on_data → on_disconnected 串行)。
-     *          跨 session / 跨 Server 实例的并发要业务自处理。
+     * @brief KCP 服务事件回调接口.
      */
     class IEvent {
     public:
-        virtual
-        ~IEvent() noexcept
-        {}
-
-
         /**
          * @brief 服务器初始化回调, 在 Server::run() 里 bind() 和 listen() 成功后调用
          */
@@ -80,7 +59,7 @@ public:
 
 
         /**
-         * @brief 会话连接回调,在 Server::add_session() 成功后调用
+         * @brief 会话连接回调, 在 Server::add_session() 成功后调用
          * @return 返回非 0 表示拒绝连接, Server 会立刻 remove_session()
          */
         virtual int 
@@ -90,7 +69,7 @@ public:
 
 
         /**
-         * @brief 会话断开回调,在 Server::remove_session() 里调用
+         * @brief 会话断开回调, 在 Server::remove_session() 里调用
          */
         virtual void 
         on_disconnected(Session::Ptr) noexcept
@@ -102,13 +81,7 @@ public:
     Server(const char* host, IEvent* ev) noexcept;
 
 
-    ~Server() noexcept {
-        release();
-
-        for (int i = 0; i < MAX_RECV; ++i) {
-            ::mi_free(riovecs_[i].iov_base);
-        }
-    }
+    ~Server() noexcept;
 
 
     int
@@ -126,6 +99,12 @@ public:
     std::string
     host() const noexcept {
         return host_;
+    }
+
+
+    std::string
+    to_string() const noexcept {
+        return desc_;
     }
 
 
@@ -178,20 +157,21 @@ private:
 
     Session::Ptr
     get_session(uint32_t conv) noexcept {
-        auto itr = sessions_.find(conv);
-        return itr == sessions_.end() ? nullptr : itr->second;
+        auto itr = users_.find(conv);
+        return itr == users_.end() ? nullptr : itr->second;
     }
 
 
     /**
-     * @brief 添加会话,成功后会调用 event_->on_connected() 回调,返回非 0 表示拒绝连接, Server 会立刻移除会话
+     * @brief 添加会话,成功后会调用 event_->on_connected() 回调.
+     * @return 成功返回 0, 否则返回 -1
      */
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
         s->set_output(output);
-        sessions_.emplace(conv, s);
+        users_.emplace(conv, s);
         if (event_->on_connected(s)) {
-            sessions_.erase(conv);
+            users_.erase(conv);
             return -1;
         }
         return 0;
@@ -200,12 +180,36 @@ private:
 
     void
     remove_session(uint32_t conv) noexcept {
-        auto itr = sessions_.find(conv);
-        if (itr != sessions_.end()) {
+        auto itr = users_.find(conv);
+        if (itr != users_.end()) {
             auto kcp = itr->second;
-            sessions_.erase(itr);
+            users_.erase(itr);
             event_->on_disconnected(kcp);
         }
+    }
+
+
+    tcp::Connector::Ptr
+    get_serv(uint32_t id) const noexcept {
+        auto itr = servs_.find(id);
+        return itr == servs_.end() ? nullptr : itr->second;
+    }
+
+
+    void
+    add_serv(tcp::Connector::Ptr conn) noexcept {
+        ::epoll_event ev;
+        ev.data.ptr = conn.get();
+        ev.events = EPOLLOUT | EPOLLET;
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
+        servs_.insert(std::make_pair(conn->id(), conn));
+    }
+
+
+    void
+    remove_serv(tcp::Connector* conn) noexcept {
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        servs_.erase(conn->id());
     }
 
 
@@ -226,32 +230,10 @@ private:
 
 
     void
-    add_serv(tcp::Connector::Ptr conn) noexcept {
-        ::epoll_event ev;
-        ev.data.ptr = conn.get();
-        ev.events = EPOLLOUT | EPOLLET;
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
-        servs_.insert(std::make_pair(conn->id(), conn));
-    }
-
-
-    void
-    remove_serv(tcp::Connector* conn) noexcept {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-        servs_.erase(conn->id());
-    }
-
-
-    tcp::Connector::Ptr
-    get_serv(uint32_t id) const noexcept {
-        auto itr = servs_.find(id);
-        return itr == servs_.end() ? nullptr : itr->second;
-    }
-
-
-    void
     update() noexcept;
 
+
+    // --------------------------------- 服务侧 ---------------------------------
 
     void
     on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
@@ -265,6 +247,8 @@ private:
     on_s2c(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
 
 
+    // --------------------------------- 用户侧 ---------------------------------
+
     int
     on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
@@ -277,23 +261,38 @@ private:
     on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
-    core::SOCKET             ufd_               { core::INVALID_SOCKET };
-    core::SOCKET             epfd_              { core::INVALID_SOCKET };
-    core::SOCKET             evfd_              { core::INVALID_SOCKET };
-    IEvent*                  event_             { nullptr };
-    uint64_t                 tnow_              { 0 };
-    std::atomic<core::State> state_             { core::State::Stopped };
-    std::atomic_bool         evflag_            { false };
+    // --------------------------------- 基础属性 ---------------------------------
+
+    core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
+    core::SOCKET             epfd_  { core::INVALID_SOCKET };  ///< epoll fd
+    core::SOCKET             evfd_  { core::INVALID_SOCKET };  ///< event fd
+    uint64_t                 tnow_  { 0 };                     ///< 当前时间(ms), 系统启动时间
+    IEvent*                  event_ { nullptr };               ///< 服务事件
+    std::atomic<core::State> state_ { core::State::Stopped };  ///< 状态
     std::string              host_;
-    SessionMap               sessions_;
-    ::mmsghdr                rmsgs_[MAX_RECV]   {};
-    ::iovec                  riovecs_[MAX_RECV] {};
-    ::sockaddr_storage       raddrs_[MAX_RECV]  {};
-    core::SndBuf::Que        sque_;
-    EvQue                    evque_;
-    SndBufPool               sb_pool_;
-    ServMap                  servs_;
-};
+    std::string              desc_;
+
+    // --------------------------------- recvmmsg 接收属性 ---------------------------------
+
+    ::mmsghdr          rmsgs_[MAX_RECV]   {};
+    ::iovec            riovecs_[MAX_RECV] {};
+    ::sockaddr_storage raddrs_[MAX_RECV]  {};
+
+    // --------------------------------- 发送属性 ---------------------------------
+
+    core::SndBuf::Que sque_;    ///< 发送队列
+    SndBufPool        sb_pool_; ///< 发送缓冲区对象池          
+
+    // --------------------------------- 工作事件属性 ---------------------------------
+
+    std::atomic_bool evflag_ { false };  ///< event queue 队列发送标识
+    EvQue            evque_;             ///< SPSC 事件队列 
+    
+    // --------------------------------- 会话属性 ---------------------------------
+
+    UserMap users_; // 用户侧集合
+    ServMap servs_;    // 服务侧集合
+}; // class Server;
 
 
 } // namespace typhon::kcp;
