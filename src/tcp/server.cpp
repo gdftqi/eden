@@ -109,7 +109,7 @@ typhon::tcp::Server::release() noexcept {
         lfd_ = core::INVALID_SOCKET;
     }
 
-    for (auto& s: sessions_) {
+    for (auto& s: gws_) {
         if (s) {
             event_->on_disconnected(s);
             s = nullptr;

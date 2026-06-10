@@ -94,7 +94,7 @@ public:
 
     const Session::Ptr*
     sessions() const noexcept {
-        return sessions_;
+        return gws_;
     }
 
 
@@ -131,17 +131,17 @@ public:
     Session::Ptr
     get_session(core::SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        return sessions_[fd];
+        return gws_[fd];
     }
 
 
     void
     add_session(core::SOCKET fd, Proc* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        sessions_[fd] = Session::create(fd, w);
-        if (event_->on_connected(sessions_[fd]) != 0) {
+        gws_[fd] = Session::create(fd, w);
+        if (event_->on_connected(gws_[fd]) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-            sessions_[fd] = nullptr;
+            gws_[fd] = nullptr;
         }
     }
 
@@ -149,12 +149,12 @@ public:
     void
     remove_session(core::SOCKET fd, bool del_from_epoll = true) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        if (sessions_[fd]) {
+        if (gws_[fd]) {
             if (del_from_epoll) {
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
-            event_->on_disconnected(sessions_[fd]);
-            sessions_[fd] = nullptr;
+            event_->on_disconnected(gws_[fd]);
+            gws_[fd] = nullptr;
         }
     }
 
@@ -215,7 +215,7 @@ private:
     std::string              host_;   
     std::vector<Proc::Ptr>   procs_;   
     std::vector<std::thread> threads_;
-    Session::Ptr             sessions_[MAX_CONN]          { nullptr };
+    Session::Ptr             gws_[MAX_CONN]               { nullptr };
     PackageHandler           handlers[core::MAX_HANDLERS] { nullptr };
 };
 

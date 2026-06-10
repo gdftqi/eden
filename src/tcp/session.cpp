@@ -63,13 +63,13 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
         return n;
     }
 
-    ssize_t  total = pkx->x_len;
+    ssize_t  total = pkx->len;
     auto     net   = core::hton(pkx);
     uint8_t* p     = net.raw();
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);
-        return xOK;                  // 排队保序, 等 flush
+        return xOK;
     }
 
     n = core::writen(fd_, p, total);
@@ -79,7 +79,8 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
 
     if (n < total) {
         sbuf_.insert(sbuf_.end(), p + n, p + total);
-        return xOK;                  // 部分写, 余下存 sbuf_
+        return xOK;
     }
+    
     return xOK;
 }

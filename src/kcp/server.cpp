@@ -95,7 +95,7 @@ typhon::kcp::Server::run() noexcept {
         }
         delete qe; 
     });
-    
+
     release();
     state_.store(core::State::Stopped);
 }
@@ -264,7 +264,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         break;
                     }
 
-                    switch (pk->p_id) {
+                    switch (pk->id) {
                     case PKID_PING:
                         res = on_ping(s, pk);
                         break;
@@ -361,7 +361,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
         core::PKx<core::Host> pkx;
         while (conn->recv(&pkx, tnow_) == xOK) {
-            switch (pkx.pk()->p_id) {
+            switch (pkx.pk()->id) {
             case PKID_PONG:
                 on_pong(conn, pkx);
                 break;
@@ -480,7 +480,7 @@ typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) n
         return;
     }
 
-    xINFO("与 {} 延迟 {} ms", conn->host(), tnow_ - *(uint64_t*)pkx.pk()->p_payload);
+    xINFO("与 {} 延迟 {} ms", conn->host(), tnow_ - *(uint64_t*)pkx.pk()->payload);
 }
 
 
@@ -491,7 +491,7 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
         return;
     }
     
-    uint32_t res = ntohl(*((uint32_t*)pkx.pk()->p_payload));
+    uint32_t res = ntohl(*((uint32_t*)pkx.pk()->payload));
     if (res == 0) {
         xINFO("注册服务 {} 成功", conn->id());
         conn->set_authed(true);
@@ -503,7 +503,7 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
 
 void
 typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
-    auto s = get_session(pkx.pk()->p_dst_id);
+    auto s = get_session(pkx.pk()->dst_id);
     if (s != nullptr) {
         core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
         if (s->send(pk) < 0) {
@@ -515,8 +515,8 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
 
 int
 typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
-    if (pk->p_dst_id != Conf::instance()->id()) {
-        xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->p_dst_id);
+    if (pk->dst_id != Conf::instance()->id()) {
+        xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->dst_id);
         return xERR_PKT_DST;
     }
 
@@ -526,8 +526,8 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
         return xERR_PKT_LEN;
     }
 
-    pk->p_id = PKID_PONG;
-    pk->p_dst_id = Conf::instance()->id();
+    pk->id = PKID_PONG;
+    pk->dst_id = Conf::instance()->id();
     return s->send(pk);
 }
 
@@ -541,9 +541,9 @@ typhon::kcp::Server::on_regist_req(Session::Ptr, core::PK<core::Host>&) noexcept
 
 int
 typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
-    auto sv = get_serv(pk->p_dst_id);
+    auto sv = get_serv(pk->dst_id);
     if (sv == nullptr) {
-        xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->p_dst_id);
+        xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->dst_id);
         return xERR_PKT_DST;
     }
 
@@ -553,9 +553,9 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
     }
 
     core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
-    pkx->x_len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
-    pkx->x_src_id = s->conv();
-    pkx->x_src_addr = s->remote_addr_u32();
+    pkx->len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
+    pkx->src_id = s->conv();
+    pkx->src_addr = s->remote_addr_u32();
 
     if (sv->send(pkx, tnow_) < 0) {
         xERROR("{} 转发消息至 {} 失败: {}", s->to_string(), sv->id(), errno);

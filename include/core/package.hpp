@@ -113,10 +113,10 @@ constexpr int MAX_HANDLERS = 1024;
  * @brief 客户端 / 网关 之间的应用层消息头
  */
 struct Package {
-    uint16_t p_id;        // 业务消息号, [1, 1024)
-    uint32_t p_idem;      // 幂等 ID, 必须 > 0
-    uint32_t p_dst_id;    // 目标服务id (路由键)
-    uint8_t  p_payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = pke_len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
+    uint16_t id;        // 业务消息号, [1, 1024)
+    uint32_t idem;      // 幂等 ID, 必须 > 0
+    uint32_t dst_id;    // 目标服务id (路由键)
+    uint8_t  payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
 
@@ -124,10 +124,10 @@ struct Package {
  * @brief 扩展包, 网关 / 后台 之间的应用层消息头
  */
 struct PackageEx {
-    uint16_t x_len;       // PackageEx wire frame 总长(含本头 + pke_pk)
-    uint32_t x_src_id;    // FromPlayerID, 网关查表填写, 客户端无法伪造
-    uint32_t x_src_addr;  // 客户端 IPv4 地址(IPv6 暂不支持)
-    uint8_t  x_pk[];      // 内嵌 Package
+    uint16_t len;       // PackageEx wire frame 总长(含本头 + pke_pk)
+    uint32_t src_id;    // FromPlayerID, 网关查表填写, 客户端无法伪造
+    uint32_t src_addr;  // 客户端 IPv4 地址(IPv6 暂不支持)
+    uint8_t  pk[];      // 内嵌 Package
 };
 
 
@@ -136,17 +136,17 @@ struct PackageEx {
 
 inline void
 pk_hton(Package* p) noexcept {
-    p->p_id     = htons(p->p_id);
-    p->p_idem   = htonl(p->p_idem);
-    p->p_dst_id = htonl(p->p_dst_id);
+    p->id     = htons(p->id);
+    p->idem   = htonl(p->idem);
+    p->dst_id = htonl(p->dst_id);
 }
 
 
 inline void
 pk_ntoh(Package* p) noexcept {
-    p->p_id     = ntohs(p->p_id);
-    p->p_idem   = ntohl(p->p_idem);
-    p->p_dst_id = ntohl(p->p_dst_id);
+    p->id     = ntohs(p->id);
+    p->idem   = ntohl(p->idem);
+    p->dst_id = ntohl(p->dst_id);
 }
 
 
@@ -186,7 +186,7 @@ public:
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     Package*
     pk() const noexcept {
-        return (Package*)p_->x_pk;
+        return (Package*)p_->pk;
     }
 
 
@@ -194,7 +194,7 @@ public:
     int
     plen() const noexcept {
         constexpr int HDR_SIZE = (int)sizeof(PackageEx) + (int)sizeof(Package);
-        return (int)p_->x_len - HDR_SIZE;
+        return (int)p_->len - HDR_SIZE;
     }
 };
 
@@ -202,10 +202,10 @@ public:
 inline PKx<Net>
 hton(PKx<Host> v) noexcept {
     auto* p       = (PackageEx*)v.raw();
-    p->x_len      = htons(p->x_len);
-    p->x_src_id   = htonl(p->x_src_id);
-    p->x_src_addr = htonl(p->x_src_addr);
-    pk_hton((Package*)p->x_pk);
+    p->len      = htons(p->len);
+    p->src_id   = htonl(p->src_id);
+    p->src_addr = htonl(p->src_addr);
+    pk_hton((Package*)p->pk);
     return PKx<Net>(p);
 }
 
@@ -213,10 +213,10 @@ hton(PKx<Host> v) noexcept {
 inline PKx<Host>
 ntoh(PKx<Net> v) noexcept {
     auto* p       = (PackageEx*)v.raw();
-    p->x_len      = ntohs(p->x_len);
-    p->x_src_id   = ntohl(p->x_src_id);
-    p->x_src_addr = ntohl(p->x_src_addr);
-    pk_ntoh((Package*)p->x_pk);
+    p->len      = ntohs(p->len);
+    p->src_id   = ntohl(p->src_id);
+    p->src_addr = ntohl(p->src_addr);
+    pk_ntoh((Package*)p->pk);
     return PKx<Host>(p);
 }
 
