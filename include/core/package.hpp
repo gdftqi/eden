@@ -9,76 +9,72 @@
 namespace typhon::core {
 
 
-// MAX_HANDLERS: pk_id 字段的合法上界 (排他)。
-// 1) tcp::Server 用作 handlers[] 数组大小, pk_id 必须 < MAX_HANDLERS。
-// 2) kcp::Session::recv 用作 pk_id 合法性校验上界。
-// 改动这个常量, 两边自动跟上, 不会漂移。
+// MAX_HANDLERS: pk_id 字段的合法上界
 constexpr int MAX_HANDLERS = 1024;
 
 
 // =============================================================================
-//                          typhon 消息协议（v1）
+//                          typhon 消息协议 (v1)
 // =============================================================================
 //
-// 字节序：所有多字节字段一律 big-endian（网络字节序）。本地处理用 host 序，
-//          收发的字节序转换统一走 PK<Host/Net> / PKx<Host/Net> 的 hton/ntoh（见下方）。
+// 字节序: 所有多字节字段一律 big-endian (网络字节序) 本地处理用 host 序.
 //
-// 单包上限：PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限。
+// 单包上限: PKG_MAX_LEN = 65535 是**任意方向 wire frame** 的总长上限.
 //
 // -----------------------------------------------------------------------------
 //  方向与封装格式
 // -----------------------------------------------------------------------------
 //
-//    - 客户端 → 网关 方向（KCP 上跑）：Package
+//    - 客户端 -> 网关 方向(KCP): Package
 //        wire frame = Package 头 (10B) + pk_payload
-//        长度由 KCP 消息边界给定，Package 自身**不带长度字段**。
+//        长度由 KCP 消息边界给定，Package 自身**不带长度字段**
 //
-//    - 网关 → 后端 方向（TCP 上跑）：PackageEx
+//    - 网关 -> 后端 方向(TCP): PackageEx
 //        wire frame = PackageEx 头 (10B) + 内嵌 Package wire frame
 //        网关从 KCP 收到 Package 后，原地 prepend 10B PackageEx 头并填写
 //        pke_len / pke_src_id / pke_src_addr，再交给 TCP 发送。
 //
-//        pke_len = **整个 PackageEx wire frame 总长**(含 PackageEx 头 + 内嵌 Package)。
-//        后端 TCP 切包流程: peek 2B 取 pke_len → 读 pke_len 字节 → 完整 PackageEx。
+//        pke_len = **整个 PackageEx wire frame 总长**(含 PackageEx 头 + 内嵌 Package)
+//        后端 TCP 切包流程: peek 2B 取 pke_len -> 读 pke_len 字节 -> 完整 PackageEx.
 //
 //    业务 payload 上限 = PKG_MAX_LEN - PKG_HDR_EX_LEN - PKG_HDR_LEN
 //                      = 65535 - 10 - 10 = 65515
-//    更大的载荷由业务层自行分片。
+//    更大的载荷由业务层自行分片.
 //
 // -----------------------------------------------------------------------------
-//  字段合法值约定（v1 协议层强校验，违反即 drop / 踢 session）
+//  字段合法值约定 (v1 协议层强校验, 违反即 drop / 踢 session)
 // -----------------------------------------------------------------------------
 //
-//   pk_id      ∈ [1, MAX_HANDLERS)，即 [1, 1024)。
-//              - 0 保留为无效值（"未设置消息号"）。
-//              - >= 1024 超出 tcp::Server handlers[] 索引范围。
+//   pk_id      ∈ [1, MAX_HANDLERS)，即 [1, 1024).
+//              - 0 保留为无效值 ("未设置消息号").
+//              - >= 1024 超出 tcp::Server handlers[] 索引范围.
 //              - kcp::Session::recv 返 -5；tcp::Worker::on_qe_recv_handle 找不到
-//                handler 时打 WARN 并跳过（worker 不会主动踢 session）。
+//                handler 时打 WARN 并跳过 (worker 不会主动踢 session).
 //
-//   pk_idem    > 0，单调递增。
-//              - 客户端在 session 内自维护单调递增计数器，每发一包 ++idem。
-//              - 0 视为无效包，服务端 recv 返 -6。
-//              - 网关侧校验 rcv_idem_ < pk_idem，违反视为「重复包」丢弃。
-//              - 鉴权成功后服务端重置 rcv_idem_=0，从新 session idem=1 开始计；
-//                故单次 session 寿命内 uint32 不会 wrap。
-//              - 服务端响应时原样回填客户端 idem 以做 RPC 配对。
-//              - 注：idem 校验只在 kcp::Session(客户端↔网关)做；TCP 后端不重复校验。
+//   pk_idem    > 0, 单调递增.
+//              - 客户端在 session 内自维护单调递增计数器, 每发一包 ++idem.
+//              - 0 视为无效包，服务端 recv 返 -6.
+//              - 网关侧校验 rcv_idem_ < pk_idem, 违反视为「重复包」丢弃.
+//              - 鉴权成功后服务端重置 rcv_idem_=0, 从新 session idem=1 开始计;
+//                故单次 session 寿命内 uint32 不会 wrap.
+//              - 服务端响应时原样回填客户端 idem 以做 RPC 配对.
+//              - 注: idem 校验只在 kcp::Session(客户端↔网关)做; TCP 后端不重复校验.
 //
-//   pk_dst_id  > 0，目标服务类型（路由键，scene / chat / guild / ...）。
-//              - 0 视为无效包，服务端 recv 返 -7。
-//              - 后端 dispatcher 按 pk_dst_id 选择目标 backend 实例。
-//              - 同 service_type 不同实例间，网关用「sticky by FromPlayerID」保证粘性。
+//   pk_dst_id  > 0, 目标服务类型 (路由键, scene / chat / guild / ...).
+//              - 0 视为无效包, 服务端 recv 返 -7.
+//              - 后端 dispatcher 按 pk_dst_id 选择目标 backend 实例.
+//              - 同 service_type 不同实例间，网关用 [sticky by FromPlayerID] 保证粘性.
 //
-//   pke_len    = PackageEx wire frame 总长(含 PackageEx 头 + 内嵌 Package)。
-//              - uint16_t，上限 = PKG_MAX_LEN = 65535。
-//              - 网关 stamp 时填写，后端按此字节数切包。
+//   pke_len    = PackageEx wire frame 总长(含 PackageEx 头 + 内嵌 Package).
+//              - uint16_t, 上限 = PKG_MAX_LEN = 65535.
+//              - 网关 stamp 时填写, 后端按此字节数切包.
 //
-//   pke_src_id = FromPlayerID（网关从 KCP conv → session 查到的，客户端无法伪造）。
+//   pke_src_id = FromPlayerID(网关从 KCP conv -> session 查到的, 客户端无法伪造).
 //
-//   pke_src_addr = 客户端 IPv4 地址（IPv6 暂不支持）。
+//   pke_src_addr = 客户端 IPv4 地址(IPv6 暂不支持).
 //
 // -----------------------------------------------------------------------------
-//  客户端 ↔ 网关（KCP 上跑 Package）
+//  客户端 <-> 网关 (KCP Package)
 // -----------------------------------------------------------------------------
 //   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -93,7 +89,7 @@ constexpr int MAX_HANDLERS = 1024;
 //  +---------------------------------------------------------------+
 //
 // -----------------------------------------------------------------------------
-//  网关 → 业务服（TCP 上跑 PackageEx，网关 prepend 10B 头）
+//  网关 <-> 业务服 (TCP PackageEx, 网关 prepend 10B 头)
 // -----------------------------------------------------------------------------
 //   0                   1                   2                   3
 //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
