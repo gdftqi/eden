@@ -369,7 +369,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
-    auto* arg = (core::NewServArg*)qe->qe_data;
+    auto* arg = (core::NewServArg*)qe->qe_data.ptr;
 
     if (servs_.find(arg->id) != servs_.end()) {
         // 如果存在, 直接返回
@@ -540,7 +540,7 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
         return 0;
     }
 
-    core::PKx<core::Host> pkx((uint8_t*)pk.raw() - core::PKX_HDR_LEN);
+    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
     pkx->x_len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
     pkx->x_src_id = s->conv();
     pkx->x_src_addr = s->remote_addr_u32();

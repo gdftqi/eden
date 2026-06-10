@@ -55,7 +55,7 @@ public:
     stop() noexcept {
         auto expected = core::State::Running;
         if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-            notify(new core::QEvent(core::QEvent::Type::Stop, nullptr));
+            notify(new core::QEvent(core::QEvent::Type::Stop));
         }
     }
 

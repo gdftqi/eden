@@ -22,15 +22,15 @@ typhon::tcp::Connector::send(uint64_t now) noexcept {
 
 
 ssize_t
-typhon::tcp::Connector::send(core::PKx<core::Host> pke, uint64_t now) noexcept {
+typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
     ssize_t n = send(now);
     if (n < 0) {
         return n;
     }
 
-    ssize_t  total = pke->x_len;
-    auto     net   = core::hton(pke);
-    uint8_t* p     = (uint8_t*)net.raw();
+    ssize_t  total = pkx->x_len;
+    auto     net   = core::hton(pkx);
+    uint8_t* p     = net.raw();
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);

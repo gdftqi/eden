@@ -162,29 +162,30 @@ class PKx {
     static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "PKx 的 Order 只能是 Host 或 Net");
     PackageEx* p_ { nullptr };
 
+
 public:
     explicit
-    PKx(void* buf = nullptr) noexcept 
-        : p_((PackageEx*)buf) 
+    PKx(void* buf = nullptr) noexcept
+        : p_((PackageEx*)buf)
     {}
 
 
-    void*
-    raw() const noexcept { 
-        return p_; 
+    uint8_t*
+    raw() const noexcept {
+        return (uint8_t*)p_; 
     }
 
 
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     PackageEx*
-    operator->() const noexcept { 
-        return p_; 
+    operator->() const noexcept {
+        return p_;
     }
 
 
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     Package*
-    pk() const noexcept { 
+    pk() const noexcept {
         return (Package*)p_->x_pk;
     }
 
@@ -222,22 +223,28 @@ ntoh(PKx<Net> v) noexcept {
 
 template<typename T>
 class PK {
-    static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "Pk 的 Order 只能是 Host 或 Net");
+    static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "PK 的 Order 只能是 Host 或 Net");
     Package* p_;
     int      len_;
 
 
 public:
     explicit
-    PK(void* buf = nullptr, int len = 0) noexcept
+    PK() noexcept
+        : PK(nullptr, 0)
+    {}
+
+
+    explicit
+    PK(void* buf, int len) noexcept
         : p_((Package*)buf)
         , len_(len)
     {}
 
 
-    void*
+    uint8_t*
     raw() const noexcept {
-        return p_;
+        return (uint8_t*)p_;
     }
 
 

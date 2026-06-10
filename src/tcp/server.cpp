@@ -177,7 +177,7 @@ typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events = EPOLLIN | EPOLLET | EPOLLOUT;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            procs_[cfd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::AddSess, (void*)(uintptr_t)cfd));
+            procs_[cfd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::AddSess, cfd));
         }
     }
 }
@@ -219,7 +219,7 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (ev.events & EPOLLOUT) {
-        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::Send, (void*)(uintptr_t)fd));
+        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::Send, fd));
     }
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
@@ -228,6 +228,6 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (del) {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::RmvSess, (void*)(uintptr_t)fd));
+        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::RmvSess, fd));
     }
 }

@@ -64,7 +64,7 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
 
     ssize_t  total = pkx->x_len;
     auto     net   = core::hton(pkx);
-    uint8_t* p     = (uint8_t*)net.raw();
+    uint8_t* p     = net.raw();
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);

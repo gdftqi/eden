@@ -104,5 +104,5 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     }
 
     core::hton(pk);
-    return send((uint8_t*)pk.raw(), pk.len());
+    return send(pk.raw(), pk.len());
 }

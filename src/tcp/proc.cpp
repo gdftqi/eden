@@ -76,7 +76,7 @@ typhon::tcp::Proc::release() noexcept {
 
     evque_.clear([](core::QEvent* qe) {
         if (qe->qe_type == core::QEvent::Type::Recv) {
-            auto* rbuf = (core::RecvArg*)qe->qe_data;
+            auto* rbuf = (core::RecvArg*)qe->qe_data.ptr;
             ::mi_free(rbuf);
         }
         delete qe;
@@ -146,7 +146,7 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
-    auto* rbuf = (core::RecvArg*)qe->qe_data;
+    auto* rbuf = (core::RecvArg*)qe->qe_data.ptr;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);
@@ -187,7 +187,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
 
 void
 typhon::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
         int n = sess->send();
@@ -200,14 +200,14 @@ typhon::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
 
 void
 typhon::tcp::Proc::on_add_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
     server_->add_session(fd, this);
 }
 
 
 void
 typhon::tcp::Proc::on_rmv_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data;
+    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
     server_->remove_session(fd, false);
 }
 
