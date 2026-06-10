@@ -1,6 +1,7 @@
 #include "tcp/config.hpp"
 #include "tcp/server.hpp"
 #include "tcp/proc.hpp"
+#include "core/error.hpp"
 
 
 void
@@ -162,7 +163,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
     core::PKx<core::Host> pkx;
     while (1) {
         res = sess->recv(&pkx);
-        if (res < 0) {
+        if (res != xOK) {            // xAGAIN(无完整包) 或错误 → 停止本轮
             break;
         }
 
@@ -240,7 +241,7 @@ typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
         xERROR("发送消息失败");
     }
 
-    return 0;
+    return xOK;
 }
 
 
@@ -258,8 +259,8 @@ typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
     } else {
         xINFO("网关 {} 注册成功", id);
     }
-    
-    return 0;
+
+    return xOK;
 }
 
 
@@ -267,15 +268,15 @@ int
 typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
-        return -1;
+        return xERR;
     }
 
     auto h = server_->get_handler(pkx.pk()->p_id);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pkx.pk()->p_id, s->remote_addr());
-        return -1;
+        return xERR;
     }
     h(s, pkx);
 
-    return 0;
+    return xOK;
 }

@@ -1,5 +1,6 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
+#include "core/error.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -12,7 +13,7 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     , host_(host)
     , desc_(std::format("[{}:{}]", Conf::instance()->id(), host_)) {
 
-    ASSERT(host_.c_str() > 0 && ev, "invalid host or IEvent instance");
+    ASSERT(host_.size() > 0 && ev != nullptr, "invalid host or IEvent instance");
 
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
@@ -248,16 +249,13 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
                     res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
-                    if (res < -1) {
-                        // 读取消息出错
-                        remove_session(s->conv());
+                    if (res == xAGAIN) {
+                        break;          // 没有更多消息了
+                    } else if (res == xDUP) {
+                        continue;       // 幂等重复, 跳过
+                    } else if (res < 0) {
+                        remove_session(s->conv());   // 协议错误
                         break;
-                    } else if (res == -1) {
-                        // 没有消息了
-                        break;
-                    } else if (res == 0) {
-                        // 幂等错误, 还有数据
-                        continue;
                     }
 
                     switch (pk->p_id) {
@@ -356,7 +354,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         }
 
         core::PKx<core::Host> pkx;
-        while (conn->recv(&pkx, tnow_) == 1) {
+        while (conn->recv(&pkx, tnow_) == xOK) {
             switch (pkx.pk()->p_id) {
             case PKID_PONG:
                 on_pong(conn, pkx);
@@ -513,13 +511,13 @@ int
 typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
     if (pk->p_dst_id != Conf::instance()->id()) {
         xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->p_dst_id);
-        return -1;
+        return xERR_PKT_DST;
     }
 
     auto len = pk.len() - core::PKG_HDR_LEN;
     if (len != sizeof(uint64_t)) {
         xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), len);
-        return -2;
+        return xERR_PKT_LEN;
     }
 
     pk->p_id = PKID_PONG;
@@ -531,7 +529,7 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr, core::PK<core::Host>&) noexcept {
     // TODO:
-    return 0;
+    return xOK;
 }
 
 
@@ -540,12 +538,12 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
     auto sv = get_serv(pk->p_dst_id);
     if (sv == nullptr) {
         xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->p_dst_id);
-        return -1;
+        return xERR_PKT_DST;
     }
 
     if (!sv->is_connected() || !sv->authed()) {
         xWARN("后台服务 {} 还未鉴权完成", sv->id());
-        return 0;
+        return xOK;
     }
 
     core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
@@ -557,5 +555,5 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
         xERROR("{} 转发消息至 {} 失败: {}", s->to_string(), sv->id(), errno);
     }
 
-    return 0;
+    return xOK;
 }

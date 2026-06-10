@@ -1,10 +1,11 @@
 #include "tcp/connector.hpp"
+#include "core/error.hpp"
 
 
 ssize_t
 typhon::tcp::Connector::send(uint64_t now) noexcept {
     if (sbuf_.empty()) {
-        return 0;
+        return xOK;
     }
 
     ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
@@ -17,7 +18,7 @@ typhon::tcp::Connector::send(uint64_t now) noexcept {
         sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
     }
 
-    return 0;
+    return xOK;
 }
 
 
@@ -34,7 +35,7 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);
-        return 0;
+        return xOK;                  // 排队保序, 等 EPOLLOUT 续发
     }
 
     n = core::writen(fd_, p, total);
@@ -45,26 +46,26 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
     last_send_ms_ = now;
     if (n < total) {
         sbuf_.insert(sbuf_.end(), p + n, p + total);
-        return 0;
+        return xOK;                  // 部分写, 余下存 sbuf_
     }
-    return 1;
+    return xOK;
 }
 
 
 int
 typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept {
     if (rbuf_.readable() == 0) {
-        return -1;
+        return xAGAIN;
     }
 
     core::PackageEx* raw;
     if (!rbuf_.decode(&raw)) {
-        return -2;
+        return xAGAIN;               // 半包, 等更多数据
     }
 
     *pke = core::PKx<core::Host>(raw);
     last_recv_ms_ = now;
-    return 1;
+    return xOK;
 }
 
 
@@ -77,7 +78,7 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
 
     if (is_connected()) {
         if (now - last_recv_ms_ > (uint64_t)Conf::instance()->timeout()) {
-            return -1;
+            return xERR;             // 接收超时, 判死
         }
 
         // 心跳: 仅注册确认(authed)后才发。
@@ -89,12 +90,12 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
             pkx.pk()->p_id     = PKID_PING;
             (*(uint64_t*)pkx.pk()->p_payload) = now;
             if (send(pkx, now) < 0) {
-                return -1;
+                return xERR;
             }
         }
     }
 
-    return 0;
+    return xOK;
 }
 
 
@@ -109,9 +110,9 @@ typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
 
         (*(uint32_t*)pkx.pk()->p_payload) = htonl(id);
         if (send(pkx, now) < 0) {
-            return -1;
+            return xERR;
         }
     }
 
-    return 0;
+    return xOK;
 }

@@ -1,6 +1,7 @@
 #include "tcp/config.hpp"
 #include "tcp/proc.hpp"
 #include "tcp/session.hpp"
+#include "core/error.hpp"
 
 
 typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
@@ -22,17 +23,17 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
 int
 typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
     if (rbuf_.readable() == 0) {
-        return -1;
+        return xAGAIN;
     }
 
     core::PackageEx* raw;
     if (!rbuf_.decode(&raw)) {           // decode 内部已 ntoh → host 序
-        return -2;
+        return xAGAIN;                   // 半包, 等更多数据
     }
 
     *pke = core::PKx<core::Host>(raw);
     last_recv_ms_ = proc_->tnow();
-    return 1;
+    return xOK;
 }
 
 
@@ -40,7 +41,7 @@ typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
 ssize_t
 typhon::tcp::Session::send() noexcept {
     if (sbuf_.empty()) {
-        return 0;
+        return xOK;
     }
 
     ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
@@ -50,7 +51,7 @@ typhon::tcp::Session::send() noexcept {
     if (n > 0) {
         sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
     }
-    return 0;
+    return xOK;
 }
 
 
@@ -68,7 +69,7 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
 
     if (sbuf_.size() > 0) {
         sbuf_.insert(sbuf_.end(), p, p + total);
-        return 0;
+        return xOK;                  // 排队保序, 等 flush
     }
 
     n = core::writen(fd_, p, total);
@@ -78,7 +79,7 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
 
     if (n < total) {
         sbuf_.insert(sbuf_.end(), p + n, p + total);
-        return 0;
+        return xOK;                  // 部分写, 余下存 sbuf_
     }
-    return 1;
+    return xOK;
 }

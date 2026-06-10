@@ -106,8 +106,8 @@ public:
 
     /**
      * @brief 从 rbuf_ decode 出一个完整 PackageEx(decode 内部已 ntoh → host 序视图)。
-     * @return  1 取到一个完整包, *pke 指向它(host 序)
-     * @return -1 无数据 / -2 半包, *pke 不变
+     * @return  xOK    取到一个完整包, *pke 指向它(host 序)
+     * @return  xAGAIN 无数据 / 半包, *pke 不变
      */
     int
     recv(core::PKx<core::Host>* pke) noexcept;
