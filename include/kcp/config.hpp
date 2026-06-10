@@ -24,7 +24,7 @@ public:
     typedef uint8_t SipKey[utils::SIPHASH_KEY_LEN];
 
 
-    static const Conf*
+    static Conf*
     instance() noexcept {
         static Conf m;
         return &m;

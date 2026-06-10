@@ -42,7 +42,12 @@
 
 // ---- TCP / 后端  (按需补 -10300…) ----
 // ---- Conf / 配置  (按需补 -10400…) ----
-// ---- BPF          (按需补 -10500…) ----
+
+// ---- BPF 加载器 ----
+#define xERR_BPF_OPEN    (-10500)   // bpf_object__open 失败
+#define xERR_BPF_RODATA  (-10501)   // .rodata map 找不到 / 超限 / 写入失败
+#define xERR_BPF_LOAD    (-10502)   // bpf_object__load 失败
+#define xERR_BPF_FIND    (-10503)   // 按名字找 program / map 失败
 
 
 namespace typhon::core {

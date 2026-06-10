@@ -1,4 +1,5 @@
 #include "bpf/router.hpp"
+#include "core/error.hpp"
 
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
@@ -20,7 +21,7 @@ typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
 
     obj_ = ::bpf_object__open_file(obj_path, nullptr);
     if (!obj_) {
-        return -1;
+        return xERR_BPF_OPEN;
     }
 
     // 在 load 之前把 rodata 里的 num_workers 改写.
@@ -38,19 +39,19 @@ typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
     if (!rodata) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        return -2;
+        return xERR_BPF_RODATA;
     }
     
     if (::bpf_map__set_initial_value(rodata, &num_workers, sizeof(num_workers))) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        return -3;
+        return xERR_BPF_RODATA;
     }
 
     if (::bpf_object__load(obj_)) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        return -4;
+        return xERR_BPF_LOAD;
     }
 
     auto* sock_map = ::bpf_object__find_map_by_name(obj_, "sock_map");
@@ -58,13 +59,13 @@ typhon::bpf::Router::init(const char* obj_path, uint32_t num_workers) noexcept {
     if (!sock_map || !prog) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        return -5;
+        return xERR_BPF_FIND;
     }
 
     map_fd_  = ::bpf_map__fd(sock_map);
     prog_fd_ = ::bpf_program__fd(prog);
 
-    return 0;
+    return xOK;
 }
 
 
@@ -85,5 +86,5 @@ typhon::bpf::Router::attach(int ufd) noexcept {
         return -errno;
     }
 
-    return 0;
+    return xOK;
 }

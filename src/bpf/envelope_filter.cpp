@@ -8,6 +8,7 @@
 #include <errno.h>
 #include "utils/log.hpp"
 #include "utils/string_ex.hpp"
+#include "core/error.hpp"
 
 
 // 在 BPF object 的所有 maps 里找名字包含 ".rodata" 的那个.
@@ -49,7 +50,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
     obj_ = ::bpf_object__open_file(obj_path, nullptr);
     if (!obj_) {
         xERROR("打开 {} 文件失败", std::string(obj_path));
-        return -1;
+        return xERR_BPF_OPEN;
     }
 
     ::bpf_map* rodata = find_rodata_map(obj_);
@@ -57,7 +58,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
         ::bpf_object__close(obj_);
         obj_ = nullptr;
         xERROR(".rodata 已存在");
-        return -2;
+        return xERR_BPF_RODATA;
     }
 
     {
@@ -66,7 +67,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
             ::bpf_object__close(obj_);
             obj_ = nullptr;
             xERROR(".rodata map 大小 256 字节");
-            return -3;
+            return xERR_BPF_RODATA;
         }
 
         uint8_t buf[256] = {};
@@ -76,7 +77,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
             ::bpf_object__close(obj_);
             obj_ = nullptr;
             xERROR("写入 {} 端口到 .rodata 段中失败", udp_port);
-            return -4;
+            return xERR_BPF_RODATA;
         }
     }
 
@@ -84,7 +85,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
         ::bpf_object__close(obj_);
         obj_ = nullptr;
         xERROR("{} 加载到内核失败", std::string(obj_path));
-        return -5;
+        return xERR_BPF_LOAD;
     }
 
     // filter_envelope: envelope.bpf.c:136 函数签名
@@ -96,7 +97,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
         ::bpf_object__close(obj_);
         obj_ = nullptr;
         xERROR("查询 filter_envelope 或 envelope_key 失败");
-        return -6;
+        return xERR_BPF_FIND;
     }
 
     prog_fd_    = ::bpf_program__fd(prog);
@@ -113,7 +114,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
         return err;
     }
 
-    return 0;
+    return xOK;
 }
 
 
@@ -150,14 +151,14 @@ typhon::bpf::EnvelopeFilter::attach(const char* ifname) noexcept {
     }
 
     if_index_ = idx;
-    return 0;
+    return xOK;
 }
 
 
 int
 typhon::bpf::EnvelopeFilter::detach() noexcept {
     if (if_index_ < 0) {
-        return 0;
+        return xOK;
     }
 
     int err = ::bpf_xdp_detach(if_index_, xdp_flags_, nullptr);
@@ -167,7 +168,7 @@ typhon::bpf::EnvelopeFilter::detach() noexcept {
 
     if_index_  = -1;
     xdp_flags_ = 0;
-    return 0;
+    return xOK;
 }
 
 
@@ -196,5 +197,5 @@ typhon::bpf::EnvelopeFilter::rotate_key(const uint8_t new_key[KEY_LEN]) noexcept
         return -errno;
     }
 
-    return 0;
+    return xOK;
 }

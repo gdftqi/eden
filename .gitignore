@@ -36,3 +36,6 @@ sysinfo.txt
 *.aab
 *.unitypackage
 *.app
+
+
+examples/cc/cc/bin/*

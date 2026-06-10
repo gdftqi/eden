@@ -89,7 +89,13 @@ typhon::kcp::Server::run() noexcept {
     sque_.clear();
     tnow_ = 0;
 
-    evque_.clear([](core::QEvent* qe) { delete qe; });
+    evque_.clear([](core::QEvent* qe) {
+        if (qe->qe_type == core::QEvent::Type::NewServ) {
+            ::mi_free(qe->qe_data.ptr);
+        }
+        delete qe; 
+    });
+    
     release();
     state_.store(core::State::Stopped);
 }

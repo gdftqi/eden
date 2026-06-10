@@ -169,8 +169,13 @@ typhon::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
                 if (err != EAGAIN && err != EWOULDBLOCK) {
                     xERROR("accept failed: errno = {}, errstr = {}", err, ::strerror(err));
                 }
-
                 break;
+            }
+
+            if (cfd >= MAX_CONN) {
+                xWARN("已到最大连接数 2048, 请重新设置 tcp::Server::MAX_CONN 大小");
+                ::close(cfd);
+                continue;
             }
 
             ::epoll_event event;

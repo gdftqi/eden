@@ -67,7 +67,7 @@ public:
     }; // class IEvent;
 
 
-    static constexpr int MAX_CONN = 1024 * 2; ///< 最大连接数
+    static constexpr int MAX_CONN = 2048; ///< 最大连接数
 
 
     typedef void (*PackageHandler)(Session::Ptr, core::PKx<core::Host>&) noexcept;

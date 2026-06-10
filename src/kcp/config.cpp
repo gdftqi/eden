@@ -1,12 +1,13 @@
 #include "kcp/config.hpp"
 #include "utils/log.hpp"
+#include "core/error.hpp"
 
 
 int
 typhon::kcp::Conf::load(const YAML::Node& node) {
     if (!node["id"]) {
         xERROR("id is invalid");
-        return -1;
+        return xERR_PARAM;
     }
     id_ = node["id"].as<uint32_t>();
 
@@ -48,8 +49,12 @@ typhon::kcp::Conf::load(const YAML::Node& node) {
 
     if (node["siphash"]) {
         auto tmp = node["siphash"].as<std::string>();
+        if (tmp.length() != sizeof(SipKey)) {
+            xERROR("无效的 siphash, 长度必需为 16 个字符");
+            return xERR_PARAM;
+        }
         ::memcpy(siphash_, (uint8_t*)tmp.data(), sizeof(SipKey));
     }
 
-    return 0;
+    return xOK;
 }
