@@ -166,7 +166,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
             break;
         }
 
-        switch (pkx.pk()->pk_id) {
+        switch (pkx.pk()->p_id) {
         case PKID_PING:
             on_ping(sess, pkx);
             break;
@@ -235,7 +235,7 @@ typhon::tcp::Proc::check_timeout() noexcept {
 
 int
 typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
-    pkx.pk()->pk_id = PKID_PONG;
+    pkx.pk()->p_id = PKID_PONG;
     if (s->send(pkx) < 0) {
         xERROR("发送消息失败");
     }
@@ -246,10 +246,10 @@ typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
 
 int
 typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
-    uint32_t id = ntohl(*(uint32_t*)pkx.pk()->pk_payload);
+    uint32_t id = ntohl(*(uint32_t*)pkx.pk()->p_payload);
 
-    pkx.pk()->pk_id = PKID_REGIST_RSP;
-    *(uint32_t*)pkx.pk()->pk_payload = htonl(0);
+    pkx.pk()->p_id = PKID_REGIST_RSP;
+    *(uint32_t*)pkx.pk()->p_payload = htonl(0);
 
     s->set_id(id);
 
@@ -270,9 +270,9 @@ typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
         return -1;
     }
 
-    auto h = server_->get_handler(pkx.pk()->pk_id);
+    auto h = server_->get_handler(pkx.pk()->p_id);
     if (!h) {
-        xWARN("no handler for pk_id {}, from {}", pkx.pk()->pk_id, s->remote_addr());
+        xWARN("no handler for pk_id {}, from {}", pkx.pk()->p_id, s->remote_addr());
         return -1;
     }
     h(s, pkx);

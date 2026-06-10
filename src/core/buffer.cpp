@@ -34,7 +34,7 @@ typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
     }
 
     auto* p = (core::PackageEx*)(buf + rpos);
-    uint16_t pkxlen = ::ntohs(p->pke_len);
+    uint16_t pkxlen = ::ntohs(p->x_len);
 
     ASSERT(pkxlen >= core::PKX_HDR_LEN + core::PKG_HDR_LEN, "invalid package ex length: {}", pkxlen);
 

@@ -28,7 +28,7 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pke, uint64_t now) noexcept {
         return n;
     }
 
-    ssize_t  total = pke->pke_len;
+    ssize_t  total = pke->x_len;
     auto     net   = core::hton(pke);
     uint8_t* p     = (uint8_t*)net.raw();
 
@@ -85,9 +85,9 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
             constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
             core::PKx<core::Host> pkx{ buf };
-            pkx->pke_len        = BUF_SIZE;
-            pkx.pk()->pk_id     = PKID_PING;
-            (*(uint64_t*)pkx.pk()->pk_payload) = now;
+            pkx->x_len        = BUF_SIZE;
+            pkx.pk()->p_id     = PKID_PING;
+            (*(uint64_t*)pkx.pk()->p_payload) = now;
             if (send(pkx, now) < 0) {
                 return -1;
             }
@@ -104,10 +104,10 @@ typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
         constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
         uint8_t buf[BUF_SIZE] = {0};
         core::PKx<core::Host> pkx{ buf };
-        pkx->pke_len = BUF_SIZE;
-        pkx.pk()->pk_id = PKID_REGIST_REQ;
+        pkx->x_len = BUF_SIZE;
+        pkx.pk()->p_id = PKID_REGIST_REQ;
 
-        (*(uint32_t*)pkx.pk()->pk_payload) = htonl(id);
+        (*(uint32_t*)pkx.pk()->p_payload) = htonl(id);
         if (send(pkx, now) < 0) {
             return -1;
         }

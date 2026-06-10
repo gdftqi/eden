@@ -62,7 +62,7 @@ typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
         return n;
     }
 
-    ssize_t  total = pkx->pke_len;
+    ssize_t  total = pkx->x_len;
     auto     net   = core::hton(pkx);
     uint8_t* p     = (uint8_t*)net.raw();
 
