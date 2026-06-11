@@ -116,7 +116,7 @@ public:
 
 
     // 喂 TCP 读到的原始字节进 rbuf_。
-    bool
+    int
     input(const uint8_t* data, size_t len) noexcept {
         return rbuf_.append(data, len);
     }

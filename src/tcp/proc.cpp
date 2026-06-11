@@ -154,7 +154,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
         return;
     }
 
-    if (!sess->input(rbuf->data, rbuf->len)) {
+    if (sess->input(rbuf->data, rbuf->len) != xOK) {
         ::mi_free(rbuf);
         return;
     }

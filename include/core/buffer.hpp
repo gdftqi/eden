@@ -12,7 +12,7 @@ namespace typhon::core {
 
 
 /** 
- * @brief 发送缓冲区
+ * @brief UDP 写缓冲区
  * 
  * 用于 kcp 中 output 中发送消息
  */
@@ -44,17 +44,21 @@ struct SndBuf {
     SndBuf& operator=(const SndBuf&) = delete;
     SndBuf(SndBuf&&) = delete;
     SndBuf& operator=(SndBuf&&) = delete;
-}; // class SndBuf;
+}; // struct SndBuf;
+
+
+// RcvBuf 动态扩容参数
+constexpr uint32_t RCVBUF_INIT = 4 * 1024;                ///< 初始容量(首次 append 时 lazy 分配)
+constexpr uint32_t RCVBUF_MAX  = PKG_MAX_LEN + 8 * 1024;  ///< 容量封顶 = 最大单包 + 一次 read 余量(防 OOM DoS)
 
 
 /**
- * @brief 接收缓冲
- * 
- * buf 要么是 nullptr(从未收到数据), 要么是 PKG_MAX_LEN(65535) 大小的堆区
+ * @brief 接收缓冲, 用于 TCP 读缓冲区(动态扩容 linear buffer)
  */
 struct RcvBuf {
-    uint32_t rpos { 0 };
-    uint32_t wpos { 0 };
+    uint32_t rpos { 0 };       ///< 读游标
+    uint32_t wpos { 0 };       ///< 写游标
+    uint32_t cap  { 0 };       ///< 当前已分配容量(0 = 未分配)
     uint8_t* buf  { nullptr };
 
 
@@ -68,12 +72,6 @@ struct RcvBuf {
             ::mi_free(buf);
         }
     }
-
-
-    RcvBuf(const RcvBuf&) = delete;
-    RcvBuf& operator=(const RcvBuf&) = delete;
-    RcvBuf(RcvBuf&&) = delete;
-    RcvBuf& operator=(RcvBuf&&) = delete;
 
 
     /**
@@ -90,20 +88,28 @@ struct RcvBuf {
      */
     size_t
     writable() const noexcept {
-        return buf ? (core::PKG_MAX_LEN - wpos) : 0;
+        return cap - wpos;
     }
 
 
     /**
-     * @brief 向缓冲区尾部追加数据
-     * 
-     * @return 成功返回 true, 否则返回 false
+     * @brief 向缓冲区尾部追加数据。动态扩容: lazy 首次分配 RCVBUF_INIT,
+     *        空间不够先 compact 回收, 仍不够则翻倍增长, 封顶 RCVBUF_MAX
+     *
+     * @return xOK 成功 / xERR 超过容量封顶(防 OOM DoS); 内存分配失败则 abort
      */
-    bool
+    int
     append(const uint8_t* data, uint32_t len) noexcept;
 
 
-    bool
+    /**
+     * @brief 解码出一个完整 PackageEx(zero-copy, 返回指向 buf 内部的连续指针)。
+     *
+     * @return xOK 取到一个完整包 / xAGAIN 半包(数据不够, 等更多)
+     * @warning 返回指针指向 buf 内部, 仅在**下次 append 之前**有效(append 可能
+     *          compact/realloc 移动 buf)。调用方须在再次 append 前用完它。
+     */
+    int
     decode(core::PackageEx** pkx) noexcept;
 
 
@@ -121,7 +127,13 @@ struct RcvBuf {
         rpos = 0;
         wpos = remaining;
     }
-}; // RcvBuf;
+
+
+    RcvBuf(const RcvBuf&) = delete;
+    RcvBuf& operator=(const RcvBuf&) = delete;
+    RcvBuf(RcvBuf&&) = delete;
+    RcvBuf& operator=(RcvBuf&&) = delete;
+}; // struct RcvBuf;
 
 
 } // namespace typhon::core;

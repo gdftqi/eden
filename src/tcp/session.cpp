@@ -27,7 +27,7 @@ typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
     }
 
     core::PackageEx* raw;
-    if (!rbuf_.decode(&raw)) {           // decode 内部已 ntoh → host 序
+    if (rbuf_.decode(&raw) != xOK) {           // decode 内部已 ntoh → host 序
         return xAGAIN;                   // 半包, 等更多数据
     }
 
@@ -37,7 +37,7 @@ typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
 }
 
 
-// 纯 flush: 把 sbuf_ 积压字节尽量写出(EPOLLOUT 续发用)。
+// 纯 flush: 把 sbuf_ 积压字节尽量写出(EPOLLOUT 续发用)
 ssize_t
 typhon::tcp::Session::send() noexcept {
     if (sbuf_.empty()) {
@@ -48,9 +48,11 @@ typhon::tcp::Session::send() noexcept {
     if (n < 0) {
         return n;
     }
+
     if (n > 0) {
         sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
     }
+    
     return xOK;
 }
 

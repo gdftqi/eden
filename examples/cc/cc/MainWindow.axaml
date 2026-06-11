@@ -5,5 +5,5 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="cc.MainWindow"
         Title="cc">
-    Hello world!!!
+    <Button Content="Button" />
 </Window>

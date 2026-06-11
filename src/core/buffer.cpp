@@ -1,36 +1,42 @@
 #include "core/buffer.hpp"
 
 
-bool
+int
 typhon::core::RcvBuf::append(const uint8_t* data, uint32_t len) noexcept {
-    if (!buf) {
-        buf = (uint8_t*)::mi_malloc(core::PKG_MAX_LEN);
-        if (!buf) {
-            return false;
-        }
-    }
-
     if (writable() < len) {
         compact();
+
         if (writable() < len) {
-            return false;
+            size_t need = (size_t)wpos + len;
+            if (need > core::RCVBUF_MAX) {
+                return xERR;
+            }
+
+            uint32_t ncap = cap ? cap : core::RCVBUF_INIT;
+            while (ncap < need) {
+                ncap <<= 1;
+            }
+            if (ncap > core::RCVBUF_MAX) {
+                ncap = core::RCVBUF_MAX;
+            }
+
+            auto* nbuf = (uint8_t*)::mi_realloc(buf, ncap);
+            ASSERT(nbuf != nullptr, "::mi_realloc 调用失败");
+            buf = nbuf;
+            cap = ncap;
         }
     }
 
     ::memcpy(buf + wpos, data, len);
     wpos += len;
-    return true;
+    return xOK;
 }
 
 
-bool
+int
 typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
-    if (rpos > core::PKG_MAX_LEN / 2) {
-        compact();
-    }
-
     if (readable() < core::PKX_HDR_LEN) {
-        return false;
+        return xAGAIN;
     }
 
     auto* p = (core::PackageEx*)(buf + rpos);
@@ -39,11 +45,11 @@ typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
     ASSERT(pkxlen >= core::PKX_HDR_LEN + core::PKG_HDR_LEN, "invalid package ex length: {}", pkxlen);
 
     if (readable() < pkxlen) {
-        return false;
+        return xAGAIN;
     }
 
     ntoh(PKx<Net>(p));
     *pkx = p;
     rpos += pkxlen;
-    return true;
+    return xOK;
 }

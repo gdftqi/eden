@@ -60,7 +60,7 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept 
     }
 
     core::PackageEx* raw;
-    if (!rbuf_.decode(&raw)) {
+    if (rbuf_.decode(&raw) != xOK) {
         return xAGAIN;               // 半包, 等更多数据
     }
 

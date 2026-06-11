@@ -98,7 +98,7 @@ public:
     }
 
 
-    bool
+    int
     input(const uint8_t* buf, size_t len) noexcept {
         return rbuf_.append(buf, len);
     }

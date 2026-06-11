@@ -348,7 +348,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
                 break;
             }
 
-            if (!conn->input(rbuf, n)) {
+            if (conn->input(rbuf, n) != xOK) {
                 err = EOF;
                 break;
             }

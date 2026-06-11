@@ -25,6 +25,8 @@
 
 #include "mimalloc-3.2/mimalloc.h"
 
+
+#include "core/error.hpp"
 #include "utils/log.hpp"
 
 
