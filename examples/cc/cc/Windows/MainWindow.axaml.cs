@@ -36,6 +36,7 @@ namespace cc
         private void SetNav(Avalonia.Controls.Shapes.Path active)
         {
             ChatIcon.Fill     = active == ChatIcon     ? ActiveIcon : InactiveIcon;
+            ContactsIcon.Fill = active == ContactsIcon ? ActiveIcon : InactiveIcon;
             OrgIcon.Fill      = active == OrgIcon      ? ActiveIcon : InactiveIcon;
             SettingsIcon.Fill = active == SettingsIcon ? ActiveIcon : InactiveIcon;
         }
@@ -44,6 +45,12 @@ namespace cc
         {
             SetNav(ChatIcon);
             // TODO: 切换到聊天
+        }
+
+        private void Contacts_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            SetNav(ContactsIcon);
+            // TODO: 切换到联系人列表
         }
 
         private void Org_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
