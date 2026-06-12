@@ -4,6 +4,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="cc.MainWindow"
-        Title="cc">
-    <Button Content="Button" />
+        Title="cc" 
+        WindowDecorations="None">
+    <Grid RowDefinitions="40,*" ColumnDefinitions="60,280,*">
+        <!-- TopBar -->
+        <Grid Grid.Row="0" Grid.ColumnSpan="3" PointerPressed="TopBar_PointerPressed">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                    <GradientStop Color="#1B5E20" Offset="0"/>
+                    <GradientStop Color="#66BB6A" Offset="1"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+            <TextBlock Text="CC" Foreground="White" Margin="15,0" VerticalAlignment="Center"/>
+            <Button Content="X" Click="Button_Click" Width="40" Height="40" HorizontalAlignment="Right"/>
+        </Grid>
+        <!-- 导航栏 -->
+        <Border Grid.Row="1" Grid.Column="0" Background="#202020"/>
+        <!-- 用户/会话列表 -->
+        <Border Grid.Row="1" Grid.Column="1" Background="#F5F5F5"/>
+        <!-- 聊天区 -->
+        <Border Grid.Row="1" Grid.Column="2" Background="White"/>
+    </Grid>
 </Window>
