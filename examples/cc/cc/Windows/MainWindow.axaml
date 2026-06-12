@@ -21,7 +21,19 @@
                         <GradientStop Color="#66BB6A" Offset="1"/>
                     </LinearGradientBrush>
                 </Grid.Background>
-                <TextBlock Text="CC" Foreground="White" Margin="15,0" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+                    <!-- LOGO: 白色气泡轮廓(空心) + 白色 x -->
+                    <Viewbox Width="34" Height="34">
+                        <Canvas Width="32" Height="32">
+                            <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
+                                <Canvas Width="24" Height="24">
+                                    <Path Stroke="White" StrokeThickness="2" StrokeJoin="Round" Data="M12,3 C7,3 3,6.5 3,11 C3,13 3.8,14.8 5.2,16.2 L3,21 L8.2,19.5 C9.3,19.8 10.6,20 12,20 C17,20 21,16.5 21,12 C21,7.5 17,3 12,3 Z"/>
+                                    <Path Stroke="White" StrokeThickness="2.2" StrokeLineCap="Round" Data="M9.5,9 L14.5,14 M14.5,9 L9.5,14"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Canvas>
+                    </Viewbox>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel.Styles>
                         <!-- 平时透明无背景, 只有 hover 才显灰 -->
@@ -42,7 +54,7 @@
                         <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M0,8 H16"/>
                     </Button>
                     <Button Click="Maximize_Click">
-                        <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Fill="Transparent" Data="M1,1 H15 V15 H1 Z"/>
+                        <Path x:Name="MaxIcon" Width="16" Height="16" Stroke="White" StrokeThickness="1" Fill="Transparent" Data="M1,1 H15 V15 H1 Z"/>
                     </Button>
                     <Button Click="Button_Click">
                         <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M1,1 L15,15 M15,1 L1,15"/>

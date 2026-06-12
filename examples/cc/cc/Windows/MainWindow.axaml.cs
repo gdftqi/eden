@@ -59,22 +59,30 @@ namespace cc
             // TODO: 切换到组织架构
         }
 
-        private void Maximize_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void ToggleMaximize()
         {
             bool toMax = WindowState != WindowState.Maximized;
             WindowState = toMax ? WindowState.Maximized : WindowState.Normal;
+            MaxIcon.Data = Avalonia.Media.Geometry.Parse(toMax ? "M3,7 H11 V14 H3 Z M6,7 V4 H14 V12 H11" : "M1,1 H15 V15 H1 Z");
+        }
 
-            if (sender is Button b && b.Content is Avalonia.Controls.Shapes.Path p)
-            {
-                p.Data = Avalonia.Media.Geometry.Parse(toMax ? "M3,7 H11 V14 H3 Z M6,7 V4 H14 V12 H11" : "M1,1 H15 V15 H1 Z");
-            }
+        private void Maximize_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            ToggleMaximize();
         }
 
         private void TopBar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
-                this.BeginMoveDrag(e);
+                if (e.ClickCount == 2)
+                {
+                    ToggleMaximize();
+                }
+                else
+                {
+                    this.BeginMoveDrag(e);
+                }
             }
         }
 
