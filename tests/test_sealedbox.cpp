@@ -45,10 +45,10 @@ main() {
     }
 
     // 1. 生成密钥对
-    uint8_t pk[KEY], sk[X25519_SK_LEN];
+    uint8_t pk[X25519_KEY_LEN], sk[X25519_KEY_LEN];
     CHECK(x25519_keygen(pk, sk) == 0, "x25519_keygen 成功");
 
-    uint8_t pk2[KEY], sk2[X25519_SK_LEN];
+    uint8_t pk2[X25519_KEY_LEN], sk2[X25519_KEY_LEN];
     x25519_keygen(pk2, sk2);
     CHECK(std::memcmp(pk, pk2, sizeof(pk)) != 0 &&
           std::memcmp(sk, sk2, sizeof(sk)) != 0, "两次 keygen 密钥不同 (CSPRNG)");

@@ -40,7 +40,7 @@ typhon::bpf::EnvelopeFilter::~EnvelopeFilter() noexcept {
 
 
 int
-typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const uint8_t key[KEY_LEN]) noexcept {
+typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const uint8_t key[utils::SIPHASH_KEY_LEN]) noexcept {
     if (!obj_path || !key) {
         return -EINVAL;
     }
@@ -110,7 +110,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
         obj_ = nullptr;
         prog_fd_ = -1;
         key_map_fd_ = -1;
-        xERROR("更新 Key {} 值失败", utils::bytes_to_hex(key, KEY_LEN));
+        xERROR("更新 Key {} 值失败", utils::bytes_to_hex(key, utils::SIPHASH_KEY_LEN));
         return err;
     }
 
@@ -173,13 +173,13 @@ typhon::bpf::EnvelopeFilter::detach() noexcept {
 
 
 int
-typhon::bpf::EnvelopeFilter::rotate_key(const uint8_t new_key[KEY_LEN]) noexcept {
+typhon::bpf::EnvelopeFilter::rotate_key(const uint8_t new_key[utils::SIPHASH_KEY_LEN]) noexcept {
     if (!new_key || key_map_fd_ < 0) {
         return -EINVAL;
     }
 
     // 1. 读 slot 0 (current)
-    uint8_t current_key[KEY_LEN];
+    uint8_t current_key[utils::SIPHASH_KEY_LEN];
     uint32_t idx = 0;
     if (::bpf_map_lookup_elem(key_map_fd_, &idx, current_key)) {
         return -errno;

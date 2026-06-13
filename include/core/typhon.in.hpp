@@ -43,12 +43,10 @@ namespace typhon::core {
  *   ─────────────────────────────
  *   UDP payload 安全上限    = 1232
  */
-constexpr int UDP_MTU = 1232;
+constexpr int UDP_MTU          = 1232;
 constexpr int ENVELOPE_MAC_LEN = 8; // Envelope MAC (SipHash-2-4 tag) 长度
-constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
-
-
-constexpr int KCP_HDR_LEN = 24;
+constexpr int KCP_MTU          = UDP_MTU - ENVELOPE_MAC_LEN;
+constexpr int KCP_HDR_LEN      = 24;
 
 
 typedef int SOCKET;

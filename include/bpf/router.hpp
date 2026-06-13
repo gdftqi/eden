@@ -74,7 +74,7 @@ private:
 };
 
 
-} // namespace typhon::bpf
+} // namespace typhon::bpf;
 
 
 #endif // __TYPHON_BPF_ROUTER_HPP__

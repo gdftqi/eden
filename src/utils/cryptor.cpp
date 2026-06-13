@@ -256,3 +256,29 @@ typhon::utils::sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t* out, 
     *outlen = inlen - crypto_box_SEALBYTES;
     return 0;
 }
+
+
+// =============================================================================
+//                          Ed25519 签名 (libsodium)
+// =============================================================================
+
+static_assert(typhon::utils::ED25519_PK_LEN   == crypto_sign_PUBLICKEYBYTES, "ED25519_PK_LEN 与 libsodium crypto_sign_PUBLICKEYBYTES 不一致");
+static_assert(typhon::utils::ED25519_SK_LEN   == crypto_sign_SECRETKEYBYTES, "ED25519_SK_LEN 与 libsodium crypto_sign_SECRETKEYBYTES 不一致");
+static_assert(typhon::utils::ED25519_SIGN_LEN == crypto_sign_BYTES,          "ED25519_SIGN_LEN 与 libsodium crypto_sign_BYTES 不一致");
+
+int
+typhon::utils::ed25519_keygen(uint8_t pk[ED25519_PK_LEN], uint8_t sk[ED25519_SK_LEN]) noexcept {
+    return ::crypto_sign_keypair(pk, sk);
+}
+
+
+int
+typhon::utils::ed25519_sign(uint8_t sig[ED25519_SIGN_LEN], const uint8_t* msg, size_t len, const uint8_t sk[ED25519_SK_LEN]) noexcept {
+    return ::crypto_sign_detached(sig, nullptr, msg, len, sk);
+}
+
+
+int
+typhon::utils::ed25519_verify(const uint8_t sig[ED25519_SIGN_LEN], const uint8_t* msg, size_t len, const uint8_t pk[ED25519_PK_LEN]) noexcept {
+    return ::crypto_sign_verify_detached(sig, msg, len, pk);
+}

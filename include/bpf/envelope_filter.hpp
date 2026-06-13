@@ -3,6 +3,7 @@
 
 
 #include <cstdint>
+#include "utils/cryptor.hpp"
 
 
 struct bpf_object;
@@ -32,10 +33,6 @@ class EnvelopeFilter {
 
 
 public:
-    /// SipHash key 长度. 与 utils::SIPHASH_KEY_LEN 同, 这里冗余声明避免 include 链.
-    static constexpr int KEY_LEN = 16;
-
-
     explicit
     EnvelopeFilter() noexcept
     {}
@@ -56,14 +53,14 @@ public:
      * @return 成功返回 0, 否则表示错误(-EINVAL / libbpf 错误码)
      */
     int
-    init(const char* obj_path, uint16_t udp_port, const uint8_t key[KEY_LEN]) noexcept;
+    init(const char* obj_path, uint16_t udp_port, const uint8_t key[utils::SIPHASH_KEY_LEN]) noexcept;
 
 
     /**
      * @brief 把 XDP 程序 attach 到指定网卡.
      *
-     * 先试 XDP_FLAGS_DRV_MODE (网卡驱动 native, 性能最好);
-     * 失败则 fallback XDP_FLAGS_SKB_MODE (generic, 内核协议栈处理后再丢, 较慢但兼容).
+     * 先试 XDP_FLAGS_DRV_MODE (网卡驱动 native);
+     * 失败则 fallback XDP_FLAGS_SKB_MODE (generic, 内核协议栈).
      *
      * @param ifname 网卡名 (例如 "eth0" / "ens3" / "lo")
      * @return 成功返回 0, 否则表示错误
@@ -82,19 +79,10 @@ public:
     /**
      * @brief 切换 SipHash key
      *
-     * 流程:
-     *   - 读 slot 0 (current) 当前 key
-     *   - 写到 slot 1 (previous)
-     *   - 把 new_key 写到 slot 0
-     *
-     * envelope.bpf.c 的校验逻辑会 current 不过自动尝试 previous, 所以
-     * **rotate 期间客户端用旧 key 发的包仍然通过**, 不需要停服
-     *
      * @param new_key 新的 16 字节 key
-     * @return 成功返回 0, 否则返回错误码
      */
     int
-    rotate_key(const uint8_t new_key[KEY_LEN]) noexcept;
+    rotate_key(const uint8_t new_key[utils::SIPHASH_KEY_LEN]) noexcept;
 
 
 private:
@@ -106,7 +94,7 @@ private:
 };
 
 
-} // namespace typhon::bpf
+} // namespace typhon::bpf;
 
 
 #endif // __TYPHON_BPF_ENVELOPE_FILTER_HPP__

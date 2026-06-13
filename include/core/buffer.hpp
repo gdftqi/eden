@@ -47,9 +47,8 @@ struct SndBuf {
 }; // struct SndBuf;
 
 
-// RcvBuf 动态扩容参数
-constexpr uint32_t RCVBUF_INIT = 4 * 1024;                ///< 初始容量(首次 append 时 lazy 分配)
-constexpr uint32_t RCVBUF_MAX  = PKG_MAX_LEN + 8 * 1024;  ///< 容量封顶 = 最大单包 + 一次 read 余量(防 OOM DoS)
+constexpr uint32_t RCVBUF_INIT = 4 * 1024;
+constexpr uint32_t RCVBUF_MAX  = PKG_MAX_LEN + 8 * 1024;
 
 
 /**
@@ -59,7 +58,7 @@ struct RcvBuf {
     uint32_t rpos { 0 };       ///< 读游标
     uint32_t wpos { 0 };       ///< 写游标
     uint32_t cap  { 0 };       ///< 当前已分配容量(0 = 未分配)
-    uint8_t* buf  { nullptr };
+    uint8_t* buf  { nullptr }; ///< 缓冲区
 
 
     explicit
