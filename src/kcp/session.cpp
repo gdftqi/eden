@@ -57,7 +57,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PKT_ID;
     }
 
-    if (p->idem == 0) {
+    if (p->seq == 0) {
         return xERR_PKT_IDEM;
     }
 
@@ -65,7 +65,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PKT_DST;
     }
 
-    if (rcv_idem_ >= p->idem) {
+    if (rcv_req_ >= p->seq) {
         // 幂等重复包, 跳过(不解密)
         return xDUP;
     }
@@ -73,14 +73,14 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     size_t payload_len = (size_t)res - core::PKG_HDR_LEN;
     if (payload_len > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
-        make_iv(iv, conv(), p->idem, DIR_C2S);
-        if (utils::aes128_ctr_decrypt(Conf::instance()->siphash(), iv, buf + core::PKG_HDR_LEN, buf + core::PKG_HDR_LEN, payload_len)) {
+        make_iv(iv, conv(), p->seq, DIR_C2S);
+        if (utils::aes128_ctr_decrypt(buf + core::PKG_HDR_LEN, payload_len, buf + core::PKG_HDR_LEN, Conf::instance()->siphash(), iv)) {
             return xERR_PKT_DEC;
         }
     }
 
     last_recv_ms_ = now;
-    rcv_idem_ = p->idem;
+    rcv_req_ = p->seq;
     *pk = p;
     return xOK;
 }
@@ -89,12 +89,12 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     auto plen = pk.len() - core::PKG_HDR_LEN;
-    pk->idem = next_snd_idem();
+    pk->seq = next_snd_seq();
 
     if (plen > 0) {
         uint8_t iv[utils::AES_BLOCK_LEN];
-        make_iv(iv, conv(), pk->idem, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(Conf::instance()->siphash(), iv, pk->payload, pk->payload, plen) == 0, "加密失败");
+        make_iv(iv, conv(), pk->seq, DIR_S2C);
+        ASSERT(utils::aes128_ctr_encrypt(pk->payload, plen, pk->payload, Conf::instance()->siphash(), iv) == 0, "加密失败");
     }
 
     core::hton(pk);

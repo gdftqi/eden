@@ -209,8 +209,8 @@ private:
      * @brief 下一个发送幂等
      */
     uint32_t
-    next_snd_idem() noexcept {
-        return ++snd_idem_;
+    next_snd_seq() noexcept {
+        return ++snd_seq_;
     }
 
 
@@ -252,8 +252,8 @@ private:
 
     Server*            server_         { nullptr };
     uint64_t           last_recv_ms_   { 0 };
-    uint32_t           snd_idem_       { 0 };
-    uint32_t           rcv_idem_       { 0 };
+    uint32_t           snd_seq_       { 0 };
+    uint32_t           rcv_req_       { 0 };
     ::ikcpcb*          kcp_            { nullptr };
     ::sockaddr_storage addr_           {};
     ::socklen_t        addrlen_        { sizeof(addr_) };

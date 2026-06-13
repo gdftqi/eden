@@ -114,7 +114,7 @@ constexpr int MAX_HANDLERS = 1024;
  */
 struct Package {
     uint16_t id;        // 业务消息号, [1, 1024)
-    uint32_t idem;      // 幂等 ID, 必须 > 0
+    uint32_t seq;       // 消息序号, 必须 > 0, 确保每条消息的唯一性
     uint32_t dst_id;    // 目标服务id (路由键)
     uint8_t  payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
@@ -137,7 +137,7 @@ struct PackageEx {
 inline void
 pk_hton(Package* p) noexcept {
     p->id     = htons(p->id);
-    p->idem   = htonl(p->idem);
+    p->seq   = htonl(p->seq);
     p->dst_id = htonl(p->dst_id);
 }
 
@@ -145,7 +145,7 @@ pk_hton(Package* p) noexcept {
 inline void
 pk_ntoh(Package* p) noexcept {
     p->id     = ntohs(p->id);
-    p->idem   = ntohl(p->idem);
+    p->seq   = ntohl(p->seq);
     p->dst_id = ntohl(p->dst_id);
 }
 

@@ -13,8 +13,9 @@ LIB       := $(BUILD_DIR)/libtyphon.a
 SPDLOG_LIB        := /usr/local/lib/libspdlog.a
 LIBBPF_LIB        := /usr/lib/x86_64-linux-gnu/libbpf.a
 YAMLCPP_LIB       := /usr/local/lib/libyaml-cpp.a
+LIBSODIUM_LIB     := /usr/local/lib/libsodium.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
-BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB)
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 

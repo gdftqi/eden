@@ -1,27 +1,26 @@
 #include "utils/cryptor.hpp"
 
 #include <cstring>
+#include <sodium.h>
 
 // AES 部分用 AES-NI 硬件指令实现 (无外部库依赖, 无 timing side-channel).
 // #pragma GCC target 让本 TU 允许生成 aes/sse2 指令, 无需全局 -maes flag;
 // 不影响 siphash24 (编译器不会无故生成 AES 指令).
 #pragma GCC target("aes,sse2")
-#include <wmmintrin.h>   // AES-NI: _mm_aesenc_si128 等
-#include <emmintrin.h>   // SSE2:   __m128i / load / store / xor
+#include <wmmintrin.h>
+#include <emmintrin.h>
 
-
-namespace {
 
 
 // 64-bit 循环左移
-inline uint64_t
+static inline uint64_t
 rotl64(uint64_t x, int b) noexcept {
     return (x << b) | (x >> (64 - b));
 }
 
 
 // little-endian 加载 64-bit (按字节读, 避开 unaligned access UB)
-inline uint64_t
+static inline uint64_t
 load_le64(const uint8_t* p) noexcept {
     uint64_t v;
     ::memcpy(&v, p, sizeof(v));
@@ -43,9 +42,6 @@ load_le64(const uint8_t* p) noexcept {
         v0 += v3;  v3 = rotl64(v3, 21);  v3 ^= v0; \
         v2 += v1;  v1 = rotl64(v1, 17);  v1 ^= v2;  v2 = rotl64(v2, 32); \
     } while (0)
-
-
-} // anonymous namespace
 
 
 /**
@@ -132,34 +128,34 @@ struct Aes128RoundKeys {
 static inline __m128i
 aes128_expand_step(__m128i key, __m128i keygen) noexcept {
     keygen = _mm_shuffle_epi32(keygen, _MM_SHUFFLE(3, 3, 3, 3));
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-    key = _mm_xor_si128(key, _mm_slli_si128(key, 4));
-    return _mm_xor_si128(key, keygen);
+    key    = ::_mm_xor_si128(key, _mm_slli_si128(key, 4));
+    key    = ::_mm_xor_si128(key, _mm_slli_si128(key, 4));
+    key    = ::_mm_xor_si128(key, _mm_slli_si128(key, 4));
+    return ::_mm_xor_si128(key, keygen);
 }
 
 
 // AES-128 完整 key schedule. rcon 必须是编译期常量, 故手动展开 10 步.
 static inline void
 aes128_key_schedule(const uint8_t key[16], Aes128RoundKeys* ks) noexcept {
-    ks->rk[0]  = _mm_loadu_si128((const __m128i*)key);
-    ks->rk[1]  = aes128_expand_step(ks->rk[0],  _mm_aeskeygenassist_si128(ks->rk[0],  0x01));
-    ks->rk[2]  = aes128_expand_step(ks->rk[1],  _mm_aeskeygenassist_si128(ks->rk[1],  0x02));
-    ks->rk[3]  = aes128_expand_step(ks->rk[2],  _mm_aeskeygenassist_si128(ks->rk[2],  0x04));
-    ks->rk[4]  = aes128_expand_step(ks->rk[3],  _mm_aeskeygenassist_si128(ks->rk[3],  0x08));
-    ks->rk[5]  = aes128_expand_step(ks->rk[4],  _mm_aeskeygenassist_si128(ks->rk[4],  0x10));
-    ks->rk[6]  = aes128_expand_step(ks->rk[5],  _mm_aeskeygenassist_si128(ks->rk[5],  0x20));
-    ks->rk[7]  = aes128_expand_step(ks->rk[6],  _mm_aeskeygenassist_si128(ks->rk[6],  0x40));
-    ks->rk[8]  = aes128_expand_step(ks->rk[7],  _mm_aeskeygenassist_si128(ks->rk[7],  0x80));
-    ks->rk[9]  = aes128_expand_step(ks->rk[8],  _mm_aeskeygenassist_si128(ks->rk[8],  0x1b));
-    ks->rk[10] = aes128_expand_step(ks->rk[9],  _mm_aeskeygenassist_si128(ks->rk[9],  0x36));
+    ks->rk[0]  = ::_mm_loadu_si128((const __m128i*)key);
+    ks->rk[1]  = ::aes128_expand_step(ks->rk[0], _mm_aeskeygenassist_si128(ks->rk[0], 0x01));
+    ks->rk[2]  = ::aes128_expand_step(ks->rk[1], _mm_aeskeygenassist_si128(ks->rk[1], 0x02));
+    ks->rk[3]  = ::aes128_expand_step(ks->rk[2], _mm_aeskeygenassist_si128(ks->rk[2], 0x04));
+    ks->rk[4]  = ::aes128_expand_step(ks->rk[3], _mm_aeskeygenassist_si128(ks->rk[3], 0x08));
+    ks->rk[5]  = ::aes128_expand_step(ks->rk[4], _mm_aeskeygenassist_si128(ks->rk[4], 0x10));
+    ks->rk[6]  = ::aes128_expand_step(ks->rk[5], _mm_aeskeygenassist_si128(ks->rk[5], 0x20));
+    ks->rk[7]  = ::aes128_expand_step(ks->rk[6], _mm_aeskeygenassist_si128(ks->rk[6], 0x40));
+    ks->rk[8]  = ::aes128_expand_step(ks->rk[7], _mm_aeskeygenassist_si128(ks->rk[7], 0x80));
+    ks->rk[9]  = ::aes128_expand_step(ks->rk[8], _mm_aeskeygenassist_si128(ks->rk[8], 0x1b));
+    ks->rk[10] = ::aes128_expand_step(ks->rk[9], _mm_aeskeygenassist_si128(ks->rk[9], 0x36));
 }
 
 
 // 加密单个 128-bit block: AddRoundKey + 9×Round + FinalRound.
 static inline __m128i
 aes128_encrypt_block(__m128i b, const Aes128RoundKeys* ks) noexcept {
-    b = _mm_xor_si128(b, ks->rk[0]);
+    b = ::_mm_xor_si128(b, ks->rk[0]);
     b = _mm_aesenc_si128(b, ks->rk[1]);
     b = _mm_aesenc_si128(b, ks->rk[2]);
     b = _mm_aesenc_si128(b, ks->rk[3]);
@@ -189,42 +185,39 @@ ctr_increment(uint8_t ctr[16]) noexcept {
 
 
 int
-typhon::utils::aes128_ctr_encrypt(const uint8_t key[AES128_KEY_LEN],
-                                  const uint8_t iv[AES_BLOCK_LEN],
-                                  const uint8_t* data,
-                                  uint8_t* out,
-                                  size_t len) noexcept {
-    if (!key || !iv || (len > 0 && (!data || !out))) {
+typhon::utils::aes128_ctr_encrypt(const uint8_t* in, size_t inlen, uint8_t* out,
+                                  const uint8_t key[AES128_KEY_LEN],
+                                  const uint8_t iv[AES_BLOCK_LEN]) noexcept {
+    if (!key || !iv || (inlen > 0 && (!in || !out))) {
         return -1;
     }
 
-    // 运行时确认 CPU 支持 AES-NI, 否则下面的指令会触发 SIGILL.
-    // __builtin_cpu_supports 读的是 startup 期缓存的 cpuid, 开销极小.
-    if (!__builtin_cpu_supports("aes")) {
+    if (!::__builtin_cpu_supports("aes")) {
         return -2;
     }
 
     Aes128RoundKeys ks;
-    aes128_key_schedule(key, &ks);
+    ::aes128_key_schedule(key, &ks);
 
     uint8_t ctr[AES_BLOCK_LEN];
     ::memcpy(ctr, iv, AES_BLOCK_LEN);
 
     size_t off = 0;
-    while (off < len) {
+    while (off < inlen) {
         // keystream block = AES_Encrypt(counter)
-        __m128i ctr_blk = _mm_loadu_si128((const __m128i*)ctr);
+        __m128i ctr_blk = ::_mm_loadu_si128((const __m128i*)ctr);
         __m128i ks_blk  = aes128_encrypt_block(ctr_blk, &ks);
 
         uint8_t keystream[AES_BLOCK_LEN];
-        _mm_storeu_si128((__m128i*)keystream, ks_blk);
+        ::_mm_storeu_si128((__m128i*)keystream, ks_blk);
 
-        size_t n = len - off;
+        size_t n = inlen - off;
         if (n > AES_BLOCK_LEN) {
             n = AES_BLOCK_LEN;
         }
+
         for (size_t i = 0; i < n; ++i) {
-            out[off + i] = data[off + i] ^ keystream[i];
+            out[off + i] = in[off + i] ^ keystream[i];
         }
 
         ctr_increment(ctr);
@@ -236,11 +229,59 @@ typhon::utils::aes128_ctr_encrypt(const uint8_t key[AES128_KEY_LEN],
 
 
 int
-typhon::utils::aes128_ctr_decrypt(const uint8_t key[AES128_KEY_LEN],
-                                  const uint8_t iv[AES_BLOCK_LEN],
-                                  const uint8_t* data,
-                                  uint8_t* out,
-                                  size_t len) noexcept {
+typhon::utils::aes128_ctr_decrypt(const uint8_t* in, size_t inlen, uint8_t* out,
+                                  const uint8_t key[AES128_KEY_LEN],
+                                  const uint8_t iv[AES_BLOCK_LEN]) noexcept {
     // CTR encrypt / decrypt 位等价.
-    return aes128_ctr_encrypt(key, iv, data, out, len);
+    return aes128_ctr_encrypt(in, inlen, out, key, iv);
+}
+
+
+// =============================================================================
+//                          X25519 (libsodium)
+// =============================================================================
+
+static_assert(typhon::utils::X25519_PK_LEN == crypto_kx_PUBLICKEYBYTES, "X25519_PK_LEN 与 libsodium crypto_kx_PUBLICKEYBYTES 不一致");
+static_assert(typhon::utils::X25519_SK_LEN == crypto_kx_SECRETKEYBYTES, "X25519_SK_LEN 与 libsodium crypto_kx_SECRETKEYBYTES 不一致");
+
+int
+typhon::utils::x25519_keygen(uint8_t pk[X25519_PK_LEN], uint8_t sk[X25519_SK_LEN]) noexcept {
+    return ::crypto_kx_keypair(pk, sk);   // 内部 randombytes + clamp; 返回 0
+}
+
+
+int
+typhon::utils::sealedbox_encrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
+                                const uint8_t pk[X25519_PK_LEN]) noexcept {
+    if (*outlen < inlen + crypto_box_SEALBYTES) {
+        return -1;                                  // out 容量不足
+    }
+    if (::crypto_box_seal(out, in, inlen, pk) != 0) {
+        return -1;
+    }
+    *outlen = inlen + crypto_box_SEALBYTES;         // 实际密文长度
+    return 0;
+}
+
+
+int
+typhon::utils::sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
+                                const uint8_t sk[X25519_SK_LEN], const uint8_t pk[X25519_PK_LEN]) noexcept {
+    if (inlen < crypto_box_SEALBYTES) {
+        return -1;                                  // 密文太短
+    }
+    if (*outlen < inlen - crypto_box_SEALBYTES) {
+        return -1;                                  // out 容量不足
+    }
+
+    uint8_t derived[X25519_PK_LEN];
+    if (pk == nullptr) {
+        ::crypto_scalarmult_base(derived, sk);      // 没传 pk → 从 sk 推导
+        pk = derived;
+    }
+    if (::crypto_box_seal_open(out, in, inlen, pk, sk) != 0) {
+        return -1;                                  // 密文被篡改 / 密钥不匹配
+    }
+    *outlen = inlen - crypto_box_SEALBYTES;         // 实际明文长度
+    return 0;
 }
