@@ -2,6 +2,8 @@
 #define __TYPHON_HPP__
 
 
+#include <yaml-cpp/yaml.h>
+
 #include "bpf/router.hpp"
 #include "bpf/envelope_filter.hpp"
 #include "kcp/server.hpp"
@@ -9,6 +11,90 @@
 
 
 namespace typhon {
+
+
+class Conf {
+    Conf(const Conf&) = delete;
+    Conf& operator=(const Conf&) = delete;
+    Conf(Conf&&) = delete;
+    Conf& operator=(Conf&&) = delete;
+
+
+public:
+    static Conf*
+    instance() noexcept {
+        static Conf m;
+        return &m;
+    }
+
+
+    YAML::Node&
+    root() noexcept {
+        return root_;
+    }
+
+
+    std::string
+    host() const noexcept {
+        return host_;
+    }
+
+
+    std::string
+    ifname() const noexcept {
+        return ifname_;
+    }
+
+
+    std::string
+    kcp_bpf_path() const noexcept {
+        return kcp_bpf_path_;
+    }
+
+
+    std::string
+    envelope_bpf_path() const noexcept {
+        return envelope_bpf_path_;
+    }
+
+
+    void
+    load(const char* cfname) {
+        root_ = YAML::LoadFile(cfname);
+        if (!root_["host"]) {
+            xFATAL("host is invalid");
+        }
+
+        host_ = root_["host"].as<std::string>();
+
+        if (root_["ifname"]) {
+            ifname_ = root_["ifname"].as<std::string>();
+        }
+
+        if (root_["kcp_bpf_path"]) {
+            kcp_bpf_path_ = root_["kcp_bpf_path"].as<std::string>();
+        }
+
+        if (root_["envelope_bpf_path"]) {
+            envelope_bpf_path_ = root_["envelope_bpf_path"].as<std::string>();
+        }
+    }
+
+
+private:
+    explicit
+    Conf() noexcept
+    {}
+
+
+    std::string host_;
+    std::string ifname_;
+    std::string kcp_bpf_path_;
+    std::string envelope_bpf_path_;
+
+
+    YAML::Node root_;
+}; // class Conf;
 
 
 /**
@@ -45,18 +131,8 @@ public:
      * @param envelope_bpf_path XDP envelope MAC 过滤 BPF 程序 ELF 路径 (envelope.bpf.o);
      *                          空串表示不启用 XDP 防御层 (开发 / 调试时可用)
      */
-    explicit Server(kcp::Server::IEvent* ev,
-                    const char* host,
-                    const char* ifname = "lo",
-                    const char* kcp_bpf_path = "",
-                    const char* envelope_bpf_path = "") noexcept
-        : serv_ev_(ev)
-        , host_(host)
-        , ifname_(ifname ? ifname : "lo")
-        , kcp_bpf_path_(kcp_bpf_path ? kcp_bpf_path : "")
-        , envelope_bpf_path_(envelope_bpf_path ? envelope_bpf_path : "") {
-        ASSERT(host_.find(':') != std::string::npos, "invalid host: {}", host_);
-    }
+    explicit
+    Server(kcp::Server::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
 
 
     bool

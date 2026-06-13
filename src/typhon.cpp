@@ -7,6 +7,35 @@ static constexpr int MAX_EVENTS  = 1;    // 只有一个 stop evfd
 static constexpr int INTERVAL_MS = 10000;
 
 
+typhon::Server::Server(kcp::Server::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
+    : serv_ev_(ev)
+    , host_(host)
+    , ifname_(ifname ? ifname : "lo")
+    , kcp_bpf_path_(kcp_bpf_path ? kcp_bpf_path : "")
+    , envelope_bpf_path_(envelope_bpf_path ? envelope_bpf_path : "") {
+
+    if (host_.empty()) {
+        host_ = Conf::instance()->host();
+    }
+
+    if (ifname_.empty()) {
+        ifname_ = Conf::instance()->ifname();
+    }
+
+    if (kcp_bpf_path_.empty()) {
+        kcp_bpf_path_ = Conf::instance()->kcp_bpf_path();
+    }
+
+    if (envelope_bpf_path_.empty()) {
+        envelope_bpf_path_ = Conf::instance()->envelope_bpf_path();
+    }
+
+    kcp::Conf::instance()->load(Conf::instance()->root()["kcp"]);
+
+    ASSERT(host_.find(':') != std::string::npos, "invalid host: {}", host_);
+}
+
+
 void
 typhon::Server::run() noexcept {
     auto stopped = core::State::Stopped;
@@ -21,8 +50,6 @@ typhon::Server::run() noexcept {
     //    顺序敏感: 必须在 socket bind 之前生效, 否则启动期间被攻击会让垃圾流量
     //    直接进 kernel UDP stack. XDP 提前挂载等于"开机即受保护".
     if (!envelope_bpf_path_.empty()) {
-        // 从 host_ ("0.0.0.0:5555") 解析端口给 XDP target_port 用.
-        // ctor 已经 ASSERT 过 host_ 含 ':', 这里安全.
         auto colon = host_.find_last_of(':');
         int port = ::atoi(host_.c_str() + colon + 1);
         ASSERT(port > 0 && port <= 65535, "invalid port in host {}", host_);

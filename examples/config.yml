@@ -1,0 +1,24 @@
+host: "0.0.0.0:5555"
+ifname: "lo"
+kcp_bpf_path: "kcp.bpf.o"
+envelope_bpf_path: "envelope.bpf.o"
+
+kcp:
+  id: 1000
+  sndbuf: 2097152
+  rcvbuf: 4194304
+
+  sndwnd: 128
+  rcvwnd: 128
+
+  nodelay: 1
+  interval: 10
+  resend: 3
+  nc: 1
+
+  timeout: 30000
+  siphash: "XA1,y9Mn]0+iu2Y9"
+  x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
+  x25519_sk: "MLCRzqZTtmEIerqQeJKiIMgNOpEZOKH3f/ehhle6bhA="
+  ed25519_pub: "OjvxWlrli0k+EDeNwWDMMTyXWpXtizQyifq8tn+bBck="
+  # ed25519_pri: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="

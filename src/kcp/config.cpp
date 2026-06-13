@@ -1,14 +1,13 @@
 #include "kcp/config.hpp"
 #include "utils/log.hpp"
 #include "core/error.hpp"
+#include "utils/string_ex.hpp"
 
 
-int
+void
 typhon::kcp::Conf::load(const YAML::Node& node) {
-    if (!node["id"]) {
-        xERROR("id is invalid");
-        return xERR_PARAM;
-    }
+    ASSERT(node["id"] && node["siphash"] && node["x25519_pk"] && node["x25519_sk"] && node["ed25519_pub"], "缺少必要参数");
+
     id_ = node["id"].as<uint32_t>();
 
     if (node["sndbuf"]) {
@@ -47,14 +46,19 @@ typhon::kcp::Conf::load(const YAML::Node& node) {
         timeout_ = node["timeout"].as<uint32_t>();
     }
 
-    if (node["siphash"]) {
-        auto tmp = node["siphash"].as<std::string>();
-        if (tmp.length() != sizeof(SipKey)) {
-            xERROR("无效的 siphash, 长度必需为 16 个字符");
-            return xERR_PARAM;
-        }
-        ::memcpy(siphash_, (uint8_t*)tmp.data(), sizeof(SipKey));
-    }
+    auto tmp = node["siphash"].as<std::string>();
+    ASSERT(tmp.length() == sizeof(SipKey), "无效的 siphash, 长度必需为 16 个字符");
+    ::memcpy(siphash_, (uint8_t*)tmp.data(), sizeof(SipKey));
 
-    return xOK;
+    tmp = node["x25519_pk"].as<std::string>();
+    size_t len = sizeof(x25519_pk_);
+    ASSERT(utils::base64_decode(tmp, x25519_pk_, &len) == xOK && len == sizeof(x25519_pk_), "无效的 x25519_pk");
+
+    tmp = node["x25519_sk"].as<std::string>();
+    len = sizeof(x25519_sk_);
+    ASSERT(utils::base64_decode(tmp, x25519_sk_, &len) == xOK && len == sizeof(x25519_sk_), "无效的 x25519_sk"); 
+
+    tmp = node["ed25519_pub"].as<std::string>();
+    len = sizeof(ed25519_pub_);
+    ASSERT(utils::base64_decode(tmp, ed25519_pub_, &len) == xOK && len == sizeof(ed25519_pub_), "无效的 ed25519_pub"); 
 }

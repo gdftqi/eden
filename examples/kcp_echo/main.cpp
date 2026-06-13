@@ -56,6 +56,7 @@ main(int argc, char** argv) {
     //   argv[1] : ifname              (默认 "lo", 开发用; 生产传真实网卡)
     //   argv[2] : kcp_bpf_path        (默认 "build/kcp.bpf.o")
     //   argv[3] : envelope_bpf_path   (默认 "build/envelope.bpf.o")
+    const char* config            = "../config.yml";
     const char* ifname            = (argc > 1) ? argv[1] : "lo";
     const char* kcp_bpf_path      = (argc > 2) ? argv[2] : "build/kcp.bpf.o";
     const char* envelope_bpf_path = (argc > 3) ? argv[3] : "build/envelope.bpf.o";
@@ -65,8 +66,10 @@ main(int argc, char** argv) {
         ::exit(EXIT_FAILURE);
     }
 
+    typhon::Conf::instance()->load(config);
+
     EchoService echo;
-    typhon::Server server(&echo, "0.0.0.0:5555", ifname, kcp_bpf_path, envelope_bpf_path);
+    typhon::Server server(&echo);
     g_server = &server;
 
     ::signal(SIGINT, on_signal);

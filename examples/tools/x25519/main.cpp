@@ -11,8 +11,8 @@ int
 main(int, char**) {
     ASSERT(::sodium_init() == xOK, "libsodium 初始化失败");
 
-    uint8_t pk[typhon::utils::KEY];
-    uint8_t sk[typhon::utils::X25519_SK_LEN];
+    uint8_t pk[typhon::utils::X25519_KEY_LEN];
+    uint8_t sk[typhon::utils::X25519_KEY_LEN];
 
     if (typhon::utils::x25519_keygen(pk, sk) != 0) {
         xERROR("生成密钥对失败");

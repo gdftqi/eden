@@ -127,3 +127,8 @@ PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
 ### O4. `on_udp_handle` / `on_serv_handle` 各持一块 thread_local 大 buf
 
 [src/kcp/server.cpp](src/kcp/server.cpp) — `rbuf[PKG_MAX_LEN]`(64KB) + `rbuf[TCP_RBUF_SIZE]`(8KB) 每 worker 线程各一份，worker 多时累加。都是一次性 thread_local，可接受；worker 数很大时可考虑共用一块。低优先级。
+
+内核态负载均衡（eBPF lb）
+NIC offload（SmartNIC）
+Kernel TLS + XDP 结合
+RDMA / GPUDirect（如果后端有高性能机器通信需求）

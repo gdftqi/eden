@@ -22,6 +22,8 @@ class Conf {
 
 public:
     typedef uint8_t SipKey[utils::SIPHASH_KEY_LEN];
+    typedef uint8_t X25519Key[utils::X25519_KEY_LEN];
+    typedef uint8_t ED25519Pub[utils::ED25519_PK_LEN];
 
 
     static Conf*
@@ -41,7 +43,7 @@ public:
     }
 
 
-    int
+    void
     load(const YAML::Node &node);
 
 
@@ -141,24 +143,44 @@ public:
     }
 
 
-private:
-    Conf() noexcept {
-        uint64_t a[2] = { 0x0102030405060708, 0x090A0B0C0D0E0FAA };
-        ::memcpy(siphash_, a, sizeof(a));
+    const X25519Key&
+    x25519_pk() const noexcept {
+        return x25519_pk_;
     }
 
 
-    uint32_t id_       { 1000 };
-    int      sndbuf_   { 1024 * 1024 * 2 };   ///< 发送缓冲区大小
-    int      rcvbuf_   { 1024 * 1024 * 4 };   ///< 接收缓冲区大小
-    int      sndwnd_   { 128 };               ///< 发送窗口
-    int      rcvwnd_   { 128 };               ///< 接收窗口
-    int      nodelay_  { 1 };                 ///< 是否开启低延迟模式
-    int      interval_ { 10 };                ///< update 间隔
-    int      resend_   { 3 };                 ///< 快速重传, 表示连接跳过3个包的时候就会重传
-    int      nc_       { 1 };                 ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
-    uint32_t timeout_  { 30000 };             ///< 超时(ms)
-    SipKey   siphash_  {};                    ///< 协议密钥
+    const X25519Key&
+    x25519_sk() const noexcept {
+        return x25519_sk_;
+    }
+
+
+    const ED25519Pub&
+    ed25519_pub() const noexcept {
+        return ed25519_pub_;
+    }
+
+
+private:
+    explicit
+    Conf() noexcept 
+    {}
+
+
+    uint32_t   id_          { 1000 };
+    int        sndbuf_      { 1024 * 1024 * 2 };   ///< 发送缓冲区大小
+    int        rcvbuf_      { 1024 * 1024 * 4 };   ///< 接收缓冲区大小
+    int        sndwnd_      { 128 };               ///< 发送窗口
+    int        rcvwnd_      { 128 };               ///< 接收窗口
+    int        nodelay_     { 1 };                 ///< 是否开启低延迟模式
+    int        interval_    { 10 };                ///< update 间隔
+    int        resend_      { 3 };                 ///< 快速重传, 表示连接跳过3个包的时候就会重传
+    int        nc_          { 1 };                 ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
+    uint32_t   timeout_     { 30000 };             ///< 超时(ms)
+    SipKey     siphash_     {};                    ///< 协议密钥
+    X25519Key  x25519_pk_   {}; 
+    X25519Key  x25519_sk_   {};
+    ED25519Pub ed25519_pub_ {};
 };
 
     
