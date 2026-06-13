@@ -75,33 +75,22 @@ aes128_ctr_decrypt(const uint8_t* in, size_t inlen, uint8_t* out,
                    const uint8_t iv[AES_BLOCK_LEN]) noexcept;
 
 
-/// X25519 (Curve25519) 公钥 / 私钥长度 (字节). libsodium crypto_kx_*KEYBYTES = 32.
-constexpr size_t X25519_PK_LEN = 32;
-constexpr size_t X25519_SK_LEN = 32;
-
-
-/**
- * @brief 生成 X25519 密钥对, 用于 ECDH 密钥协商 (每会话临时密钥)。
- *
- * 内部走 libsodium CSPRNG 取随机私钥并 clamp, 再算出对应公钥。
- *
- * @param[out] pk  32 字节公钥 (可公开传输)
- * @param[out] sk  32 字节私钥 (**必须保密**; 用完建议 sodium_memzero 擦除)
- * @return 0 成功
- *
- * @warning 调用前必须已执行过一次 ::sodium_init() —— 在启动期、
- *          **创建任何 worker 线程之前**完成 (sodium_init 非线程安全)。
- */
-int
-x25519_keygen(uint8_t pk[X25519_PK_LEN], uint8_t sk[X25519_SK_LEN]) noexcept;
+constexpr size_t X25519_KEY_LEN = 32;
 
 
 int
-sealedbox_encrypt(const uint8_t* in, size_t inlen, uint8_t *out, size_t* outlen, const uint8_t pk[X25519_PK_LEN]) noexcept;
+x25519_keygen(uint8_t pk[X25519_KEY_LEN], uint8_t sk[X25519_KEY_LEN]) noexcept;
 
 
 int
-sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t *out, size_t* outlen, const uint8_t sk[X25519_SK_LEN], const uint8_t pk[X25519_PK_LEN] = nullptr) noexcept;
+sealedbox_encrypt(const uint8_t* in, size_t inlen, uint8_t *out, size_t* outlen, const uint8_t pk[X25519_KEY_LEN]) noexcept;
+
+
+int
+sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t *out, size_t* outlen, const uint8_t sk[X25519_KEY_LEN], const uint8_t pk[X25519_KEY_LEN] = nullptr) noexcept;
+
+
+
 
 
 } // namespace typhon::utils;

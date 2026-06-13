@@ -3,13 +3,9 @@
 #include <cstring>
 #include <sodium.h>
 
-// AES 部分用 AES-NI 硬件指令实现 (无外部库依赖, 无 timing side-channel).
-// #pragma GCC target 让本 TU 允许生成 aes/sse2 指令, 无需全局 -maes flag;
-// 不影响 siphash24 (编译器不会无故生成 AES 指令).
 #pragma GCC target("aes,sse2")
 #include <wmmintrin.h>
 #include <emmintrin.h>
-
 
 
 // 64-bit 循环左移
@@ -19,22 +15,15 @@ rotl64(uint64_t x, int b) noexcept {
 }
 
 
-// little-endian 加载 64-bit (按字节读, 避开 unaligned access UB)
+// little-endian 加载 64-bit
 static inline uint64_t
 load_le64(const uint8_t* p) noexcept {
     uint64_t v;
     ::memcpy(&v, p, sizeof(v));
-    // x86 / ARM little-endian 上 memcpy 后直接就是 LE; 大端机会反过来,
-    // 这里依赖 host LE 即可 (Linux 主流目标都是 LE).
     return v;
 }
 
 
-// SipRound: 论文 Figure 2.1 的核心置换
-//   v0 += v1; v1 = rotl(v1,13); v1 ^= v0; v0 = rotl(v0,32);
-//   v2 += v3; v3 = rotl(v3,16); v3 ^= v2;
-//   v0 += v3; v3 = rotl(v3,21); v3 ^= v0;
-//   v2 += v1; v1 = rotl(v1,17); v1 ^= v2; v2 = rotl(v2,32);
 #define SIPROUND \
     do { \
         v0 += v1;  v1 = rotl64(v1, 13);  v1 ^= v0;  v0 = rotl64(v0, 32); \
@@ -44,18 +33,8 @@ load_le64(const uint8_t* p) noexcept {
     } while (0)
 
 
-/**
- * SipHash-2-4 参考实现 (Aumasson & Bernstein 2012, ePrint 2012/351)
- *
- *   c = 2  压缩轮数 (每 8 字节 block 之后)
- *   d = 4  终结轮数 (整个消息处理完后)
- *
- * 与 Linux kernel siphash.c / Aumasson reference C 实现 / Rust std hash
- * 输出位等价, 可与对端无差互操作。
- */
 uint64_t
 typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH_KEY_LEN]) noexcept {
-    // 1. 初始化状态: 用 key 与 4 个固定常量 ("somepseudorandomlygeneratedbytes")
     const uint64_t k0 = load_le64(key);
     const uint64_t k1 = load_le64(key + 8);
 
@@ -64,7 +43,6 @@ typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH
     uint64_t v2 = k0 ^ 0x6c7967656e657261ULL;   // "lygenera"
     uint64_t v3 = k1 ^ 0x7465646279746573ULL;   // "tedbytes"
 
-    // 2. 主循环: 每次吃 8 字节, c=2 轮压缩
     const auto* p   = static_cast<const uint8_t*>(data);
     const auto* end = p + (len - len % 8);
 
@@ -76,8 +54,6 @@ typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH
         v0 ^= m;
     }
 
-    // 3. 处理尾部 (< 8 字节): 高位塞 (len & 0xFF) 作为长度标记, 低位塞剩余字节
-    //    这一步既给消息加 "长度盐", 也对齐到 8 字节边界
     uint64_t b = static_cast<uint64_t>(len) << 56;
     const size_t tail = len & 7;
     switch (tail) {
@@ -96,7 +72,6 @@ typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH
     SIPROUND;
     v0 ^= b;
 
-    // 4. 终结: v2 ^= 0xFF, d=4 轮压缩, XOR 出 64-bit tag
     v2 ^= 0xFF;
     SIPROUND;
     SIPROUND;
@@ -114,17 +89,12 @@ typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH
 //                          AES-128-CTR (AES-NI)
 // =============================================================================
 
-namespace {
 
-
-// AES-128 展开后的 11 个 round key (rk[0] 是原始 key, rk[1..10] 是各轮).
 struct Aes128RoundKeys {
     __m128i rk[11];
 };
 
 
-// key schedule 单步: 用 _mm_aeskeygenassist 的输出推下一个 round key.
-// (标准 AES-NI key expansion 写法, Intel 白皮书 "AES Instruction Set" Fig.24)
 static inline __m128i
 aes128_expand_step(__m128i key, __m128i keygen) noexcept {
     keygen = _mm_shuffle_epi32(keygen, _MM_SHUFFLE(3, 3, 3, 3));
@@ -135,7 +105,7 @@ aes128_expand_step(__m128i key, __m128i keygen) noexcept {
 }
 
 
-// AES-128 完整 key schedule. rcon 必须是编译期常量, 故手动展开 10 步.
+// AES-128 完整 key schedule
 static inline void
 aes128_key_schedule(const uint8_t key[16], Aes128RoundKeys* ks) noexcept {
     ks->rk[0]  = ::_mm_loadu_si128((const __m128i*)key);
@@ -152,7 +122,7 @@ aes128_key_schedule(const uint8_t key[16], Aes128RoundKeys* ks) noexcept {
 }
 
 
-// 加密单个 128-bit block: AddRoundKey + 9×Round + FinalRound.
+// 加密单个 128-bit block
 static inline __m128i
 aes128_encrypt_block(__m128i b, const Aes128RoundKeys* ks) noexcept {
     b = ::_mm_xor_si128(b, ks->rk[0]);
@@ -170,18 +140,14 @@ aes128_encrypt_block(__m128i b, const Aes128RoundKeys* ks) noexcept {
 }
 
 
-// big-endian 128-bit counter +1 (NIST SP 800-38A CTR / OpenSSL EVP_aes_*_ctr 语义).
 static inline void
 ctr_increment(uint8_t ctr[16]) noexcept {
     for (int i = 15; i >= 0; --i) {
         if (++ctr[i] != 0) {
-            break;     // 没进位, 停
+            break;
         }
     }
 }
-
-
-} // anonymous namespace
 
 
 int
@@ -241,47 +207,52 @@ typhon::utils::aes128_ctr_decrypt(const uint8_t* in, size_t inlen, uint8_t* out,
 //                          X25519 (libsodium)
 // =============================================================================
 
-static_assert(typhon::utils::X25519_PK_LEN == crypto_kx_PUBLICKEYBYTES, "X25519_PK_LEN 与 libsodium crypto_kx_PUBLICKEYBYTES 不一致");
-static_assert(typhon::utils::X25519_SK_LEN == crypto_kx_SECRETKEYBYTES, "X25519_SK_LEN 与 libsodium crypto_kx_SECRETKEYBYTES 不一致");
+static_assert(typhon::utils::X25519_KEY_LEN == crypto_kx_PUBLICKEYBYTES, "X25519_PK_LEN 与 libsodium crypto_kx_PUBLICKEYBYTES 不一致");
+static_assert(typhon::utils::X25519_KEY_LEN == crypto_kx_SECRETKEYBYTES, "X25519_SK_LEN 与 libsodium crypto_kx_SECRETKEYBYTES 不一致");
 
 int
-typhon::utils::x25519_keygen(uint8_t pk[X25519_PK_LEN], uint8_t sk[X25519_SK_LEN]) noexcept {
-    return ::crypto_kx_keypair(pk, sk);   // 内部 randombytes + clamp; 返回 0
+typhon::utils::x25519_keygen(uint8_t pk[X25519_KEY_LEN], uint8_t sk[X25519_KEY_LEN]) noexcept {
+    return ::crypto_kx_keypair(pk, sk);
 }
 
 
 int
 typhon::utils::sealedbox_encrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
-                                const uint8_t pk[X25519_PK_LEN]) noexcept {
+                                const uint8_t pk[X25519_KEY_LEN]) noexcept {
     if (*outlen < inlen + crypto_box_SEALBYTES) {
-        return -1;                                  // out 容量不足
+        return -1;
     }
+
     if (::crypto_box_seal(out, in, inlen, pk) != 0) {
         return -1;
     }
-    *outlen = inlen + crypto_box_SEALBYTES;         // 实际密文长度
+
+    *outlen = inlen + crypto_box_SEALBYTES;
     return 0;
 }
 
 
 int
 typhon::utils::sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
-                                const uint8_t sk[X25519_SK_LEN], const uint8_t pk[X25519_PK_LEN]) noexcept {
+                                const uint8_t sk[X25519_KEY_LEN], const uint8_t pk[X25519_KEY_LEN]) noexcept {
     if (inlen < crypto_box_SEALBYTES) {
-        return -1;                                  // 密文太短
-    }
-    if (*outlen < inlen - crypto_box_SEALBYTES) {
-        return -1;                                  // out 容量不足
+        return -1;
     }
 
-    uint8_t derived[X25519_PK_LEN];
+    if (*outlen < inlen - crypto_box_SEALBYTES) {
+        return -1;
+    }
+
+    uint8_t derived[X25519_KEY_LEN];
     if (pk == nullptr) {
-        ::crypto_scalarmult_base(derived, sk);      // 没传 pk → 从 sk 推导
+        ::crypto_scalarmult_base(derived, sk);
         pk = derived;
     }
+
     if (::crypto_box_seal_open(out, in, inlen, pk, sk) != 0) {
-        return -1;                                  // 密文被篡改 / 密钥不匹配
+        return -1;
     }
-    *outlen = inlen - crypto_box_SEALBYTES;         // 实际明文长度
+
+    *outlen = inlen - crypto_box_SEALBYTES;
     return 0;
 }

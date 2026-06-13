@@ -8,7 +8,6 @@
 namespace typhon::utils {
 
 
-// 级别过滤 wrapper
 class LevelFilterSink : public spdlog::sinks::sink {
 private:
     std::shared_ptr<spdlog::sinks::sink> wrapped_sink_;
@@ -16,6 +15,7 @@ private:
 
 
 public:
+    explicit
     LevelFilterSink(std::shared_ptr<spdlog::sinks::sink> sink, spdlog::level::level_enum level)
         : wrapped_sink_(sink), target_level_(level) 
     {}
@@ -45,10 +45,10 @@ public:
     set_formatter(std::unique_ptr<spdlog::formatter> formatter) override {
         wrapped_sink_->set_formatter(std::move(formatter));
     }
-};
+}; // class LevelFilterSink;
 
 
-} // namespace xq::utils
+} // namespace xq::utils;
 
 
 void
@@ -58,7 +58,7 @@ typhon::utils::init_log(const std::string& log_dir) {
         dir += '/';
     }
     
-    // 控制台输出（所有级别）
+    // 控制台输出(所有级别)
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(spdlog::level::trace);
     

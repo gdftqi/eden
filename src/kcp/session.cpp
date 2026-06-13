@@ -58,7 +58,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     }
 
     if (p->seq == 0) {
-        return xERR_PKT_IDEM;
+        return xERR_PKT_SEQ;
     }
 
     if (p->dst_id == 0) {

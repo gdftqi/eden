@@ -75,7 +75,7 @@ struct RcvBuf {
 
 
     /**
-     * @brief 返回缓冲区中可读的数据长度
+     * @brief 可读的数据长度
      */
     size_t
     readable() const noexcept {
@@ -84,7 +84,7 @@ struct RcvBuf {
 
 
     /**
-     * @brief 返回缓冲区中可写的数据长度
+     * @brief 可写的数据长度
      */
     size_t
     writable() const noexcept {
@@ -93,21 +93,18 @@ struct RcvBuf {
 
 
     /**
-     * @brief 向缓冲区尾部追加数据。动态扩容: lazy 首次分配 RCVBUF_INIT,
-     *        空间不够先 compact 回收, 仍不够则翻倍增长, 封顶 RCVBUF_MAX
+     * @brief 追加数据
      *
-     * @return xOK 成功 / xERR 超过容量封顶(防 OOM DoS); 内存分配失败则 abort
+     * @return 成功返回 xOK. 内存分配失败则 abort
      */
     int
     append(const uint8_t* data, uint32_t len) noexcept;
 
 
     /**
-     * @brief 解码出一个完整 PackageEx(zero-copy, 返回指向 buf 内部的连续指针)。
+     * @brief 解码
      *
-     * @return xOK 取到一个完整包 / xAGAIN 半包(数据不够, 等更多)
-     * @warning 返回指针指向 buf 内部, 仅在**下次 append 之前**有效(append 可能
-     *          compact/realloc 移动 buf)。调用方须在再次 append 前用完它。
+     * @return xOK 取到一个完整包 / xAGAIN 半包
      */
     int
     decode(core::PackageEx** pkx) noexcept;
