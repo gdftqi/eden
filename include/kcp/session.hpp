@@ -157,14 +157,16 @@ public:
     /**
      * @brief 推动 KCP 内部状态机:超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
-     *        重传和 ACK 都会停。
-     * @param current 单调递增的毫秒时间戳(KCP 只用 delta,起点无所谓,但所有 KCP
-     *                调用必须用同一时间源)。典型用 CLOCK_MONOTONIC 转 ms。
      */
     void
     update(uint64_t current) noexcept {
-        // ikcp 协议层用 uint32 ms (内部 _itimediff 是 wrap-safe), cast 后正确.
         ::ikcp_update(kcp_, (uint32_t)current);
+    }
+
+
+    void
+    flush() noexcept {
+        ::ikcp_flush(kcp_);
     }
 
 

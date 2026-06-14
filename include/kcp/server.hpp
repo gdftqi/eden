@@ -291,7 +291,7 @@ private:
     // --------------------------------- 会话属性 ---------------------------------
 
     UserMap users_; // 用户侧集合
-    ServMap servs_;    // 服务侧集合
+    ServMap servs_; // 服务侧集合
 }; // class Server;
 
 

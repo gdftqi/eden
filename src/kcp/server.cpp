@@ -401,12 +401,13 @@ void
 typhon::kcp::Server::update() noexcept {
     auto now = tnow_;
 
+    // 全量遍历: 超时则摘除, 否则推动 KCP。有流量时主循环跑得很快,
+    // ts_flush 一到点就被某轮捕获 flush, 延迟接近即时
     for (auto itr = users_.begin(); itr != users_.end();) {
-        auto& s = itr->second;
+        auto s = itr->second;
         if (s->check_timeout(now)) {
             users_.erase(itr++);
             event_->on_disconnected(s);
-            continue;
         } else {
             s->update(now);
             ++itr;
@@ -506,7 +507,10 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
         core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
         if (s->send(pk) < 0) {
             xERROR("{} 发送失败", s->to_string());
-        };
+            return;
+        }
+
+        s->flush();
     }
 }
 
