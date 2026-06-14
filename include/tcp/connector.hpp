@@ -45,7 +45,8 @@ public:
     Connector(uint32_t id, core::SOCKET fd, const char* host) noexcept
         : id_(id)
         , fd_(fd)
-        , host_(host) {
+        , host_(host)
+        , desc_(std::format("[{}:{}]", id, host_)) {
         last_recv_ms_ = last_send_ms_ = utils::systime_ms();
         state_ = State::Connecting;
     }
@@ -61,6 +62,12 @@ public:
     core::SOCKET
     fd() const noexcept {
         return fd_;
+    }
+
+
+    std::string
+    to_string() const noexcept {
+        return desc_;
     }
 
 
@@ -142,6 +149,7 @@ private:
     uint64_t             last_recv_ms_ { 0 };
     uint64_t             last_send_ms_ { 0 };
     std::string          host_;
+    std::string          desc_;
     core::RcvBuf         rbuf_;
     std::vector<uint8_t> sbuf_;
 }; // class Connector;

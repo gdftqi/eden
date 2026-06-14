@@ -116,11 +116,14 @@ typhon::Server::run() noexcept {
             break;
         }
 
+        if (n == 0) {
+            update_serv();
+            continue;
+        }
+
         for (i = 0; i < n; ++i) {
             on_event_handle(evs[i]);
         }
-
-        update_serv();
     }
 
     for (auto& s : ks_pool_) {

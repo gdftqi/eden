@@ -315,7 +315,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         if (conn->state() == tcp::Connector::State::Connecting) {
             socklen_t len = sizeof(err);
             if (::getsockopt(conn->fd(), SOL_SOCKET, SO_ERROR, &err, &len) != 0 || err != 0) {
-                xERROR("后端连接失败: id = {}, host = {}, err = {}, errstr = {}", conn->id(), conn->host(), err, ::strerror(err));
+                xERROR("后端连接失败: {}, err = {}, errstr = {}", conn->to_string(), err, ::strerror(err));
                 remove_serv(conn);
                 return;
             }
