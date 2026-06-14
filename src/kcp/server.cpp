@@ -507,10 +507,7 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
         core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
         if (s->send(pk) < 0) {
             xERROR("{} 发送失败", s->to_string());
-            return;
         }
-
-        s->flush();
     }
 }
 

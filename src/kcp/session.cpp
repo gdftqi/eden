@@ -99,5 +99,10 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     }
 
     core::hton(pk);
-    return core::from_ikcp_send(send(pk.raw(), pk.len()));
+    int res = core::from_ikcp_send(send(pk.raw(), pk.len()));
+    if (res >= xOK) {
+        flush();
+    }
+
+    return res;
 }
