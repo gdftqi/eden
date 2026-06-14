@@ -23,6 +23,10 @@
 #define xERR_PK_DEC         (-10104)   // 解密失败
 #define xERR_TOKEN_EXP      (-10105)   // token 过期
 #define xERR_TOKEN_VER      (-10106)   // token 验签失败
+#define xERR_X25519_KX      (-10107)   // x25519 密钥协商失败
+#define xERR_NOT_AUTH       (-10108)   // 未认证
+#define xERR_TOKEN_CONV     (-10109)   // 不匹配的 conv
+
 
 // ---- KCP / ikcp 边界 ----
 #define xERR_KCP_CONV       (-10200)   // conv 不符 / 包太短   (ikcp_input -1)

@@ -136,6 +136,13 @@ public:
     }
 
 
+    void
+    set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
+        ::memcpy(tx_key_, tx, utils::AES128_KEY_LEN);
+        ::memcpy(rx_key_, rx, utils::AES128_KEY_LEN);
+    }
+
+
     /**
      * @brief 检测超时
      */
@@ -264,7 +271,8 @@ private:
     ::ikcpcb*          kcp_          { nullptr };
     ::sockaddr_storage addr_         {};
     ::socklen_t        addrlen_      { sizeof(addr_) };
-    AesKey             aes_key_      { 0 };
+    AesKey             tx_key_       { 0 };
+    AesKey             rx_key_       { 0 };
     std::string        desc_;
 }; // class Kcp;
 

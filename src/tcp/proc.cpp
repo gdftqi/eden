@@ -28,7 +28,7 @@ typhon::tcp::Proc::run() noexcept {
             break;
         }
 
-        tnow_ = core::systime_ms();
+        tnow_ = utils::systime_ms();
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];

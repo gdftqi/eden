@@ -67,15 +67,16 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     }
 
     if (rcv_req_ >= p->seq && p->id != PKID_REGIST_REQ) {
-        // 幂等重复包, 跳过(不解密)
+        // 幂等重复包, 跳过.
+        // 但是, 如果是 PDID_REGIST_REQ 可以通过, 因为有可能是断线重连的
         return xDUP;
     }
 
     size_t payload_len = (size_t)res - core::PKG_HDR_LEN;
-    if (payload_len > 0 && rcv_req_ > 1) {
+    if (payload_len > 0 && authed_) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), p->seq, DIR_C2S);
-        if (utils::aes128_ctr_decrypt(buf + core::PKG_HDR_LEN, payload_len, buf + core::PKG_HDR_LEN, aes_key_, iv)) {
+        if (utils::aes128_ctr_decrypt(buf + core::PKG_HDR_LEN, payload_len, buf + core::PKG_HDR_LEN, rx_key_, iv)) {
             return xERR_PK_DEC;
         }
     }
@@ -94,7 +95,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     if (plen > 0 && authed_) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), pk->seq, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(pk->payload, plen, pk->payload, aes_key_, iv) == 0, "加密失败");
+        ASSERT(utils::aes128_ctr_encrypt(pk->payload, plen, pk->payload, tx_key_, iv) == 0, "加密失败");
     }
 
     core::hton(pk);

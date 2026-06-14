@@ -1,7 +1,6 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
-#include "utils/sys.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -516,6 +515,10 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
 
 int
 typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+    if (!s->authed()) {
+        return xERR_NOT_AUTH;
+    }
+
     if (pk->dst_id != Conf::instance()->id()) {
         xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->dst_id);
         return xERR_PKT_DST;
@@ -534,58 +537,74 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 
 
 int
-typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& pk) noexcept {
+typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
     constexpr int REGIST_REQ_LEN = 162;
 
-    if (pk->dst_id != Conf::instance()->id()) {
+    if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
     }
 
-    if (pk.len() != REGIST_REQ_LEN) {
+    if (in.len() != REGIST_REQ_LEN) {
         return xERR_PK_LEN;
     }
 
-    size_t plen = pk.len() - core::PKG_HDR_LEN;
+    size_t plen = in.len() - core::PKG_HDR_LEN;
     core::AuthToken token;
     size_t atlen = sizeof(token);
     
     // 1. 使用服务端私钥解密 Token
-    if (utils::sealedbox_decrypt(pk->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+    if (utils::sealedbox_decrypt(in->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
 
-    // 2. 检查有效期 (修正逻辑: 当前时间 > 过期时间则失败)
+    if (atlen != sizeof(token)) {
+        return xERR_PK_DEC;
+    }
+
+    // 2. 检查有效期
     if ((uint64_t)::time(nullptr) > token.expire) {
         return xERR_TOKEN_EXP;
     }
 
-    // 3. 校验登录服签名 (修正逻辑: 校验 sign 之前的所有字段)
+    if (token.conv != s->conv()) {
+        return xERR_TOKEN_CONV;
+    }
+
+    // 3. 校验登录服签名
     if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AuthToken, sign), Conf::instance()->ed25519_pub()) != 0) {
         return xERR_TOKEN_VER;
     }
 
-    // 4. 计算 ECDH 共享密钥并派生 AES Key (此处假设 utils 提供了 derive 方法)
-    // uint8_t aes_key[16];
-    // if (utils::x25519_derive_seed(aes_key, token.cli_pk, Conf::instance()->x25519_sk()) != 0) {
-    //     return xERR_PK_DEC;
-    // }
+    // 4. 计算 ECDH 共享密钥并派生 AES Key
+    uint8_t tmppk[utils::X25519_KEY_LEN];
+    uint8_t tmpsk[utils::X25519_KEY_LEN];
+    ASSERT(utils::x25519_keygen(tmppk, tmpsk) == xOK, "生成临时 x25519 密钥对失败");
+
+    uint8_t rxkey[utils::SESSION_KEY_LEN];
+    uint8_t txkey[utils::SESSION_KEY_LEN];
+
+    if (utils::x25519_kx_server(rxkey, txkey, tmppk, tmpsk, token.cli_pk) != xOK) {
+        return xERR_X25519_KX;
+    }
 
     // 5. 激活 Session 加密
-    // s->setup_cipher(aes_key);
-    // s->set_authed(true);
+    s->set_key(txkey, rxkey);
 
     // 6. 构造回包
-    pk->id = PKID_REGIST_RSP;
-    uint32_t res = htonl(xOK);
-    ::memcpy(pk->payload, &res, sizeof(res));
-    // 如果使用的是临时密钥对，还需要在此处把 server_tmp_pk 传给客户端
-
-    return s->send(pk);
+    auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, s->conv(), tmppk, utils::X25519_KEY_LEN);
+    int res = s->send(out);
+    s->set_authed(true);
+    core::PK<core::Host>::release(out);
+    return res;
 }
 
 
 int
 typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+    if (!s->authed()) {
+        return xERR_NOT_AUTH;
+    }
+
     auto sv = get_serv(pk->dst_id);
     if (sv == nullptr) {
         xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->dst_id);

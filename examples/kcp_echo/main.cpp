@@ -2,7 +2,6 @@
 #include <iostream>
 
 #include "typhon.hpp"
-#include "utils/sys.hpp"
 
 
 static typhon::Server* g_server = nullptr;

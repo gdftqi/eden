@@ -39,6 +39,7 @@ struct PackageEx {
  */
 struct AuthToken {
     uint64_t expire;     // 过期时间戳
+    uint32_t conv;       // 会话 ID
     uint32_t ip;         // 登录IP
     uint8_t  cli_pk[32]; // 客户端 X25519 公钥
     uint8_t  sign[64];   // 登录服 Ed25519 签名
@@ -143,6 +144,25 @@ class PK {
 
 
 public:
+    static PK
+    create(uint16_t id, uint32_t dst_id, const void* payload, int len) noexcept {
+        auto size = sizeof(Package) + len;
+        auto buf = ::mi_malloc(size);
+        ASSERT(buf != nullptr, "分配内存失败");
+        auto* p = (Package*)buf;
+        p->id = id;
+        p->dst_id = dst_id;
+        ::memcpy(p->payload, payload, len);
+        return PK(buf, size);
+    }
+
+
+    static void
+    release(PK& pk) noexcept {
+        ::mi_free(pk.raw());
+    }
+
+
     explicit
     PK() noexcept
         : PK(nullptr, 0)

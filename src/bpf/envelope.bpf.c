@@ -32,9 +32,9 @@
 // =============================================================================
 
 #define ENVELOPE_MAC_LEN       8
-#define ENVELOPE_MAC_HASH_LEN  24       // 与 core::ENVELOPE_MAC_HASH_LEN 同
+#define ENVELOPE_MAC_HASH_LEN  24
 #define KCP_HDR_LEN            24
-#define KCP_MTU                1224
+#define KCP_MTU                1392
 
 
 // =============================================================================

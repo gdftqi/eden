@@ -209,10 +209,30 @@ typhon::utils::aes128_ctr_decrypt(const uint8_t* in, size_t inlen, uint8_t* out,
 
 static_assert(typhon::utils::X25519_KEY_LEN == crypto_kx_PUBLICKEYBYTES, "X25519_PK_LEN 与 libsodium crypto_kx_PUBLICKEYBYTES 不一致");
 static_assert(typhon::utils::X25519_KEY_LEN == crypto_kx_SECRETKEYBYTES, "X25519_SK_LEN 与 libsodium crypto_kx_SECRETKEYBYTES 不一致");
+static_assert(typhon::utils::SESSION_KEY_LEN == crypto_kx_SESSIONKEYBYTES, "SESSION_KEY_LEN 与 libsodium crypto_kx_SESSIONKEYBYTES 不一致");
 
 int
 typhon::utils::x25519_keygen(uint8_t pk[X25519_KEY_LEN], uint8_t sk[X25519_KEY_LEN]) noexcept {
     return ::crypto_kx_keypair(pk, sk);
+}
+
+
+int
+typhon::utils::x25519_kx_client(uint8_t rx[SESSION_KEY_LEN], uint8_t tx[SESSION_KEY_LEN],
+                                const uint8_t self_pk[X25519_KEY_LEN],
+                                const uint8_t self_sk[X25519_KEY_LEN],
+                                const uint8_t peer_pk[X25519_KEY_LEN]) noexcept {
+    // 返回 -1 表示 peer_pk 不可接受 (低阶点等), 此时不可使用派生出的密钥.
+    return ::crypto_kx_client_session_keys(rx, tx, self_pk, self_sk, peer_pk);
+}
+
+
+int
+typhon::utils::x25519_kx_server(uint8_t rx[SESSION_KEY_LEN], uint8_t tx[SESSION_KEY_LEN],
+                                const uint8_t self_pk[X25519_KEY_LEN],
+                                const uint8_t self_sk[X25519_KEY_LEN],
+                                const uint8_t peer_pk[X25519_KEY_LEN]) noexcept {
+    return ::crypto_kx_server_session_keys(rx, tx, self_pk, self_sk, peer_pk);
 }
 
 

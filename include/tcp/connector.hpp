@@ -46,7 +46,7 @@ public:
         : id_(id)
         , fd_(fd)
         , host_(host) {
-        last_recv_ms_ = last_send_ms_ = core::systime_ms();
+        last_recv_ms_ = last_send_ms_ = utils::systime_ms();
         state_ = State::Connecting;
     }
 

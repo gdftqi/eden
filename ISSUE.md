@@ -128,6 +128,18 @@ PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
 
 [src/kcp/server.cpp](src/kcp/server.cpp) — `rbuf[PKG_MAX_LEN]`(64KB) + `rbuf[TCP_RBUF_SIZE]`(8KB) 每 worker 线程各一份，worker 多时累加。都是一次性 thread_local，可接受；worker 数很大时可考虑共用一块。低优先级。
 
+目前 update() 中直接遍历 users_（std::unordered_map）：
+
+cpp
+for (auto itr = users_.begin(); itr != users_.end();) {
+    // s->check_timeout(now)
+    // s->update(now)
+}
+当连接数达到数万时，每 5ms 遍历一次全量 Map 会导致极高的 CPU Cache Miss。
+
+建议：引入 时间轮 (Timing Wheel) 算法。只处理那些真正需要 update 的 Session，而不是盲目遍历。
+
+absl::flat_hash_map
 内核态负载均衡（eBPF lb）
 NIC offload（SmartNIC）
 Kernel TLS + XDP 结合
