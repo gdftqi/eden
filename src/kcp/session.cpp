@@ -72,7 +72,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     }
 
     size_t payload_len = (size_t)res - core::PKG_HDR_LEN;
-    if (payload_len > 0 && authed_) {
+    if (payload_len > 0 && rcv_req_ > 1) {
         uint8_t iv[utils::AES_BLOCK_LEN];
         make_iv(iv, conv(), p->seq, DIR_C2S);
         if (utils::aes128_ctr_decrypt(buf + core::PKG_HDR_LEN, payload_len, buf + core::PKG_HDR_LEN, aes_key_, iv)) {
