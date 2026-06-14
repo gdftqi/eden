@@ -15,7 +15,13 @@ LIBBPF_LIB        := /usr/lib/x86_64-linux-gnu/libbpf.a
 YAMLCPP_LIB       := /usr/local/lib/libyaml-cpp.a
 LIBSODIUM_LIB     := /usr/local/lib/libsodium.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
-BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB)
+
+# absl（flat_hash_map 用）：flat_hash_map 非纯 header-only，raw_hash_set / hash /
+# hashtablez_sampler 等有运行时符号必须链。用 pkg-config 取 flat_hash_map 的完整静态依赖链
+# (~39 个 .a) 转成路径全 addlib 进 libtyphon.a，避免手写漏库 / absl 升级后依赖变化漏跟。
+# pkg-config 还会带一个 -lrt（系统动态库，现代 glibc 已并入 libc，无符号可省），filter 掉只留 absl。
+ABSL_LIBS         := $(patsubst -l%,/usr/local/lib/lib%.a,$(filter -labsl_%,$(shell pkg-config --libs --static absl_flat_hash_map)))
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 

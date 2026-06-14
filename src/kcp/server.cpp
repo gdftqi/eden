@@ -4,7 +4,7 @@
 
 
 static constexpr int MAX_EVENTS    = 64;
-static constexpr int INTERVAL_MS   = 5;
+static constexpr int INTERVAL_MS   = 10;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
@@ -400,10 +400,11 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
 void
 typhon::kcp::Server::update() noexcept {
     auto now = tnow_;
+
     for (auto itr = users_.begin(); itr != users_.end();) {
-        auto s = itr->second;
+        auto& s = itr->second;
         if (s->check_timeout(now)) {
-            itr = users_.erase(itr);
+            users_.erase(itr++);
             event_->on_disconnected(s);
             continue;
         } else {
@@ -465,7 +466,7 @@ typhon::kcp::Server::update() noexcept {
         auto& conn = itr->second;
         if (conn->update(now) < 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            itr = servs_.erase(itr);
+            servs_.erase(itr++);
         } else {
             ++itr;
         }

@@ -30,11 +30,11 @@ class Server {
 
 
 public:
-    typedef utils::SPSC<core::QEvent*>                        EvQue;
-    typedef std::unique_ptr<Server>                           Ptr;
-    typedef utils::ObjPool<core::SndBuf>                      SndBufPool;
-    typedef std::unordered_map<uint32_t, Session::Ptr>        UserMap;
-    typedef std::unordered_map<uint32_t, tcp::Connector::Ptr> ServMap;
+    typedef utils::SPSC<core::QEvent*>                         EvQue;
+    typedef std::unique_ptr<Server>                            Ptr;
+    typedef utils::ObjPool<core::SndBuf>                       SndBufPool;
+    typedef absl::flat_hash_map<uint32_t, Session::Ptr>        UserMap;
+    typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
     
     /**

@@ -148,7 +148,9 @@ public:
      */
     bool
     check_timeout(uint64_t tnow) const noexcept {
-        return tnow - last_recv_ms_ > (uint64_t)Conf::instance()->timeout();
+        // 未鉴权时, 超时值为 5s
+        auto timeout = authed_ ? (uint64_t)Conf::instance()->timeout() : 5000;
+        return tnow - last_recv_ms_ > timeout;
     }
 
 
