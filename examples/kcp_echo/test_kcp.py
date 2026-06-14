@@ -49,7 +49,10 @@ PK_DST_ID   = 10000 # 测试用目标服务（占位）；必须 > 0，否则被
 # ===== AES-128-CTR payload 加密 (半加密: header 明文, 只加密 pk_payload) =====
 # 用 ctypes 调系统 libcrypto 的 EVP_aes_128_ctr, 与 C++ 端 AES-NI 实现位等价.
 # AES key 与 SipHash envelope key 是同一个 (服务端 kcp::Conf::shkey_ 同时用于两者).
-_AES_KEY = struct.pack('<QQ', 0x0102030405060708, 0x090A0B0C0D0E0FAA)   # == SH_KEY
+# 必须与 config.yml 的 kcp.siphash 一字不差: 明文 16 字符直存
+# (C++ 端 config.cpp 是 memcpy 这 16 个字符的字节, 不做 base64 解码).
+# 改 key 时只改这一处, SH_KEY 会复用它.
+_AES_KEY = b"XA1,y9Mn]0+iu2Y9"   # == SH_KEY == config.yml kcp.siphash
 assert len(_AES_KEY) == 16
 
 # IV 方向标记, 与 C++ 端 (src/kcp/session.cpp) 完全一致.
@@ -120,10 +123,8 @@ def unpack_pk(conv, data):
 # 客户端发包时必须按同样的 key 算 SipHash 并 prepend,否则被 server 端 XDP DROP.
 # key 必须与 server 端 kcp::Conf::shkey_ 完全一致。
 #
-# C++ 端 (kcp/config.hpp): uint64_t a[2] = { 0x0102030405060708, 0x090A0B0C0D0E0FAA };
-#                          memcpy(shkey_, a, 16)
-# LE 平台上等价于 16 字节: 08 07 06 05 04 03 02 01 AA 0F 0E 0D 0C 0B 0A 09
-SH_KEY = struct.pack('<QQ', 0x0102030405060708, 0x090A0B0C0D0E0FAA)
+# key 来自 config.yml 的 kcp.siphash (明文 16 字符), 与 AES key 是同一个, 直接复用 _AES_KEY.
+SH_KEY = _AES_KEY
 assert len(SH_KEY) == 16
 
 ENVELOPE_MAC_LEN = 8
