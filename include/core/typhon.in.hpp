@@ -76,17 +76,6 @@ set_nonblocking(int fd) noexcept {
 }
 
 
-inline uint64_t
-systime_ms() noexcept{
-    struct timespec ts{};
-    if (::clock_gettime(CLOCK_MONOTONIC, &ts)) {
-        return 0;
-    }
-
-    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-}
-
-
 SOCKET
 udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept;
 

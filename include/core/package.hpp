@@ -38,10 +38,10 @@ struct PackageEx {
  * @brief 网关鉴权
  */
 struct AuthToken {
-    uint64_t expire_ms;    // 过期时间戳
-    uint32_t ip;           // 登录IP
-    uint8_t  cli_pk[32];   // 客户端 X25519 公钥
-    uint8_t  sign[64];     // 登录服 Ed25519 签名
+    uint64_t expire;     // 过期时间戳
+    uint32_t ip;         // 登录IP
+    uint8_t  cli_pk[32]; // 客户端 X25519 公钥
+    uint8_t  sign[64];   // 登录服 Ed25519 签名
 };
 
 

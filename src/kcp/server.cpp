@@ -1,6 +1,7 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
+#include "utils/sys.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -66,7 +67,7 @@ typhon::kcp::Server::run() noexcept {
             break;
         }
 
-        tnow_ = core::systime_ms();
+        tnow_ = utils::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.ptr == evptr) {
@@ -523,7 +524,7 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
     auto len = pk.len() - core::PKG_HDR_LEN;
     if (len != sizeof(uint64_t)) {
         xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), len);
-        return xERR_PKT_LEN;
+        return xERR_PK_LEN;
     }
 
     pk->id = PKID_PONG;
@@ -533,8 +534,33 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 
 
 int
-typhon::kcp::Server::on_regist_req(Session::Ptr, core::PK<core::Host>&) noexcept {
-    // TODO:
+typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& pk) noexcept {
+    constexpr int REGIST_REQ_LEN = 162;
+
+    if (pk->dst_id != Conf::instance()->id()) {
+        return xERR_PKT_DST;
+    }
+
+    if (pk.len() != REGIST_REQ_LEN) {
+        return xERR_PK_LEN;
+    }
+
+    const size_t plen = pk.len() - core::PKG_HDR_LEN;
+
+    core::AuthToken token;
+    size_t atlen = sizeof(token);
+    if (utils::sealedbox_decrypt(pk->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+        return xERR_PK_DEC;
+    }
+
+    if (token.expire > ::time(nullptr)) {
+        return xERR_TOKEN_EXP;
+    }
+
+    if (utils::ed25519_verify(token.sign, (uint8_t*)offsetof(core::AuthToken, sign), sizeof(token) - sizeof(token.sign), Conf::instance()->ed25519_pub())) {
+        return xERR_TOKEN_VER;
+    }
+
     return xOK;
 }
 

@@ -16,11 +16,13 @@
 #define xERR_PARAM          (-10001)   // 参数非法
 
 // ---- 协议 / 包 (core::Package) ----
-#define xERR_PKT_LEN        (-10100)   // 包长度非法
+#define xERR_PK_LEN         (-10100)   // 包长度非法
 #define xERR_PKT_ID         (-10101)   // pk_id 非法 (0 或越界)
 #define xERR_PKT_SEQ        (-10102)   // pk_idem == 0
 #define xERR_PKT_DST        (-10103)   // pk_dst_id == 0
-#define xERR_PKT_DEC        (-10104)   // 解密失败
+#define xERR_PK_DEC         (-10104)   // 解密失败
+#define xERR_TOKEN_EXP      (-10105)   // token 过期
+#define xERR_TOKEN_VER      (-10106)   // token 验签失败
 
 // ---- KCP / ikcp 边界 ----
 #define xERR_KCP_CONV       (-10200)   // conv 不符 / 包太短   (ikcp_input -1)

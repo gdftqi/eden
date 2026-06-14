@@ -27,6 +27,7 @@ class Session {
 
 public:
     typedef std::shared_ptr<Session> Ptr;
+    typedef uint8_t AesKey[utils::AES128_KEY_LEN];
 
 
     /**
@@ -78,6 +79,18 @@ public:
     std::string
     to_string() const noexcept {
         return desc_;
+    }
+
+
+    bool
+    authed() const noexcept {
+        return authed_;
+    }
+
+
+    void
+    set_authed(bool authed) noexcept {
+        authed_ = authed;
     }
     
 
@@ -167,13 +180,6 @@ public:
     }
 
 
-    /**
-     * @brief 设置 KCP 出网卡回调。KCP 内部 flush 时(ACK / 重传 / 新 segment)
-     *        通过这个回调把字节交给上层,上层负责真正 sendto。
-     *        typhon 里 output 由 KcpServer 统一实现,把字节排进 sque_,
-     *        update() 用 sendmmsg 批量发出。
-     * @param output 回调函数指针。user 参数是 ctor 里传入的 this(Kcp 实例)
-     */
     void
     set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
         ::ikcp_setoutput(kcp_, output);
@@ -185,7 +191,7 @@ public:
      *        并刷新 last_recv_ms_(用于 session 超时判定)。
      *        相当于 recv() 之上加一层应用协议层处理。
      *
-     * @param[out] pkg 解析成功时指向 buf 起始(host 字节序,可直接访问字段)
+     * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
      * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
      * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
@@ -250,13 +256,15 @@ private:
     }
 
 
-    Server*            server_         { nullptr };
-    uint64_t           last_recv_ms_   { 0 };
-    uint32_t           snd_seq_       { 0 };
-    uint32_t           rcv_req_       { 0 };
-    ::ikcpcb*          kcp_            { nullptr };
-    ::sockaddr_storage addr_           {};
-    ::socklen_t        addrlen_        { sizeof(addr_) };
+    bool               authed_       { false };
+    Server*            server_       { nullptr };
+    uint64_t           last_recv_ms_ { 0 };
+    uint32_t           snd_seq_      { 0 };
+    uint32_t           rcv_req_      { 0 };
+    ::ikcpcb*          kcp_          { nullptr };
+    ::sockaddr_storage addr_         {};
+    ::socklen_t        addrlen_      { sizeof(addr_) };
+    AesKey             aes_key_      { 0 };
     std::string        desc_;
 }; // class Kcp;
 

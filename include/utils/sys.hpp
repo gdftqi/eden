@@ -46,6 +46,17 @@ lock_pid(const char* fname) noexcept {
 }
 
 
+inline uint64_t
+systime_ms() noexcept{
+    struct timespec ts{};
+    if (::clock_gettime(CLOCK_MONOTONIC, &ts)) {
+        return 0;
+    }
+
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+
 } // namespace typhon::utils
 
 
