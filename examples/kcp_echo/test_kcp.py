@@ -53,75 +53,142 @@ PKID_REGIST_REQ = 102
 PKID_REGIST_RSP = 103
 
 
-# ===== AES-128-CTR payload 加密 (半加密: header 明文, 只加密 payload) =====
-# 用 ctypes 调系统 libcrypto 的 EVP_aes_128_ctr, 与 C++ 端 AES-NI 实现位等价.
-# 关键: payload 的 AES key 不再是固定值, 而是握手后由 X25519 ECDH 派生的
-#       会话密钥 (上行用 tx, 下行用 rx, 各取前 16B), 每个 client 不同, 见 kx_client。
-#       握手完成 (authed) 之前的包 (REGIST_REQ / RSP) 走明文, 与 C++ session 的
-#       'authed_ 才加密' 严格一致。envelope MAC 的 SipHash key 仍是固定的 SH_KEY。
+# ===== ChaCha20-Poly1305 AEAD payload 加密 (与 C++ 端 utils::xx20_* 位等价) =====
+# 用 ctypes 调系统 libcrypto 的 EVP_chacha20_poly1305 (RFC 8439); 与服务端 libsodium
+# crypto_aead_chacha20poly1305_ietf_* 完全兼容 (12B nonce, 16B Poly1305 tag)。
+#   - header 明文, 只加密 payload; authed 之前的 REGIST_REQ/RSP 走明文。
+#   - 会话密钥 32B, 握手后由 X25519 ECDH 派生 (上行 tx, 下行 rx), 见 kx_client。
+#   - wire body = 密文 + 16B tag (tag 附密文尾部, 与服务端 detached 约定一致)。
+#   - 无 AAD (与服务端 xx20_* 调用一致)。envelope MAC 的 SipHash key 仍是固定的 SH_KEY。
 
-# IV 方向标记, 与 C++ 端 (src/kcp/session.cpp) 完全一致.
-DIR_C2S = 0     # client → server (上行): 客户端 send 加密用
-DIR_S2C = 1     # server → client (下行): 客户端 recv 解密用
+# 方向标记, 与 C++ 端 (src/kcp/session.cpp) 完全一致.
+DIR_C2S = 0     # client → server (上行): 客户端 send 加密用 tx_key
+DIR_S2C = 1     # server → client (下行): 客户端 recv 解密用 rx_key
+
+XX20_NONCE_LEN = 12
+XX20_TAG_LEN   = 16
+
+# EVP AEAD ctrl 命令字 (openssl/evp.h)
+_EVP_CTRL_AEAD_SET_IVLEN = 0x9
+_EVP_CTRL_AEAD_GET_TAG   = 0x10
+_EVP_CTRL_AEAD_SET_TAG   = 0x11
 
 _libcrypto = ctypes.CDLL("libcrypto.so.3")
-_libcrypto.EVP_CIPHER_CTX_new.restype   = ctypes.c_void_p
-_libcrypto.EVP_CIPHER_CTX_new.argtypes  = []
-_libcrypto.EVP_CIPHER_CTX_free.argtypes = [ctypes.c_void_p]
-_libcrypto.EVP_aes_128_ctr.restype      = ctypes.c_void_p
-_libcrypto.EVP_aes_128_ctr.argtypes     = []
-_libcrypto.EVP_EncryptInit_ex.restype   = ctypes.c_int
-_libcrypto.EVP_EncryptInit_ex.argtypes  = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
-                                           ctypes.c_char_p, ctypes.c_char_p]
-_libcrypto.EVP_EncryptUpdate.restype    = ctypes.c_int
-_libcrypto.EVP_EncryptUpdate.argtypes   = [ctypes.c_void_p, ctypes.c_char_p,
-                                           ctypes.POINTER(ctypes.c_int), ctypes.c_char_p, ctypes.c_int]
+_libcrypto.EVP_CIPHER_CTX_new.restype     = ctypes.c_void_p
+_libcrypto.EVP_CIPHER_CTX_new.argtypes    = []
+_libcrypto.EVP_CIPHER_CTX_free.argtypes   = [ctypes.c_void_p]
+_libcrypto.EVP_chacha20_poly1305.restype  = ctypes.c_void_p
+_libcrypto.EVP_chacha20_poly1305.argtypes = []
+_libcrypto.EVP_CIPHER_CTX_ctrl.restype    = ctypes.c_int
+_libcrypto.EVP_CIPHER_CTX_ctrl.argtypes   = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+_libcrypto.EVP_EncryptInit_ex.restype     = ctypes.c_int
+_libcrypto.EVP_EncryptInit_ex.argtypes    = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                             ctypes.c_char_p, ctypes.c_char_p]
+_libcrypto.EVP_EncryptUpdate.restype      = ctypes.c_int
+_libcrypto.EVP_EncryptUpdate.argtypes     = [ctypes.c_void_p, ctypes.c_char_p,
+                                             ctypes.POINTER(ctypes.c_int), ctypes.c_char_p, ctypes.c_int]
+_libcrypto.EVP_EncryptFinal_ex.restype    = ctypes.c_int
+_libcrypto.EVP_EncryptFinal_ex.argtypes   = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+_libcrypto.EVP_DecryptInit_ex.restype     = ctypes.c_int
+_libcrypto.EVP_DecryptInit_ex.argtypes    = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                             ctypes.c_char_p, ctypes.c_char_p]
+_libcrypto.EVP_DecryptUpdate.restype      = ctypes.c_int
+_libcrypto.EVP_DecryptUpdate.argtypes     = [ctypes.c_void_p, ctypes.c_char_p,
+                                             ctypes.POINTER(ctypes.c_int), ctypes.c_char_p, ctypes.c_int]
+_libcrypto.EVP_DecryptFinal_ex.restype    = ctypes.c_int
+_libcrypto.EVP_DecryptFinal_ex.argtypes   = [ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
 
 
-def make_iv(conv, idem, direction):
-    """构造 16B AES-CTR IV, 与 C++ 端 make_iv 完全一致:
-       [conv 4B LE][idem 4B LE][dir 1B][7B 0]
-       conv/idem 用 little-endian (x86 host 序, 与 C++ memcpy 一致)。"""
-    iv = bytearray(16)
-    iv[0:4] = struct.pack('<I', conv & 0xFFFFFFFF)
-    iv[4:8] = struct.pack('<I', idem & 0xFFFFFFFF)
-    iv[8]   = direction
-    return bytes(iv)
+def make_nonce(conv, seq, direction):
+    """构造 12B ChaCha20-Poly1305 nonce, 与 C++ 端 make_nonce 完全一致:
+       [conv 4B LE][seq 4B LE][dir 1B][3B 0]"""
+    nonce = bytearray(XX20_NONCE_LEN)
+    nonce[0:4] = struct.pack('<I', conv & 0xFFFFFFFF)
+    nonce[4:8] = struct.pack('<I', seq & 0xFFFFFFFF)
+    nonce[8]   = direction
+    return bytes(nonce)
 
 
-def aes128_ctr(key, iv, data):
-    """AES-128-CTR. CTR 模式 encrypt == decrypt, 一个函数双用; data 任意长度, 输出等长。"""
-    if not data:
-        return b''
+def xx20_encrypt(key, nonce, plaintext):
+    """ChaCha20-Poly1305 IETF 加密。返回 密文 + 16B tag (tag 附尾, 与服务端 wire 一致)。
+       key 32B, nonce 12B; 无 AAD。"""
     ctx = _libcrypto.EVP_CIPHER_CTX_new()
     try:
-        if _libcrypto.EVP_EncryptInit_ex(ctx, _libcrypto.EVP_aes_128_ctr(), None, key, iv) != 1:
-            raise RuntimeError("EVP_EncryptInit_ex failed")
-        out = ctypes.create_string_buffer(len(data) + 16)
+        if _libcrypto.EVP_EncryptInit_ex(ctx, _libcrypto.EVP_chacha20_poly1305(), None, None, None) != 1:
+            raise RuntimeError("EncryptInit(cipher) failed")
+        if _libcrypto.EVP_CIPHER_CTX_ctrl(ctx, _EVP_CTRL_AEAD_SET_IVLEN, XX20_NONCE_LEN, None) != 1:
+            raise RuntimeError("set ivlen failed")
+        if _libcrypto.EVP_EncryptInit_ex(ctx, None, None, key, nonce) != 1:
+            raise RuntimeError("EncryptInit(key/iv) failed")
+        out = ctypes.create_string_buffer(len(plaintext) + 16)
         outlen = ctypes.c_int(0)
-        if _libcrypto.EVP_EncryptUpdate(ctx, out, ctypes.byref(outlen), data, len(data)) != 1:
-            raise RuntimeError("EVP_EncryptUpdate failed")
-        return out.raw[:outlen.value]   # CTR 流模式, Final 无额外输出, 省略
+        if _libcrypto.EVP_EncryptUpdate(ctx, out, ctypes.byref(outlen), plaintext, len(plaintext)) != 1:
+            raise RuntimeError("EncryptUpdate failed")
+        cipher = out.raw[:outlen.value]
+        fin = ctypes.create_string_buffer(16)
+        finlen = ctypes.c_int(0)
+        if _libcrypto.EVP_EncryptFinal_ex(ctx, fin, ctypes.byref(finlen)) != 1:
+            raise RuntimeError("EncryptFinal failed")
+        cipher += fin.raw[:finlen.value]
+        tag = ctypes.create_string_buffer(16)
+        if _libcrypto.EVP_CIPHER_CTX_ctrl(ctx, _EVP_CTRL_AEAD_GET_TAG, XX20_TAG_LEN, tag) != 1:
+            raise RuntimeError("get tag failed")
+        return cipher + tag.raw[:XX20_TAG_LEN]
+    finally:
+        _libcrypto.EVP_CIPHER_CTX_free(ctx)
+
+
+def xx20_decrypt(key, nonce, body):
+    """ChaCha20-Poly1305 IETF 解密。body = 密文 + 16B tag。验签失败返回 None。"""
+    if len(body) < XX20_TAG_LEN:
+        return None
+    cipher, tag = body[:-XX20_TAG_LEN], body[-XX20_TAG_LEN:]
+    ctx = _libcrypto.EVP_CIPHER_CTX_new()
+    try:
+        if _libcrypto.EVP_DecryptInit_ex(ctx, _libcrypto.EVP_chacha20_poly1305(), None, None, None) != 1:
+            raise RuntimeError("DecryptInit(cipher) failed")
+        if _libcrypto.EVP_CIPHER_CTX_ctrl(ctx, _EVP_CTRL_AEAD_SET_IVLEN, XX20_NONCE_LEN, None) != 1:
+            raise RuntimeError("set ivlen failed")
+        if _libcrypto.EVP_DecryptInit_ex(ctx, None, None, key, nonce) != 1:
+            raise RuntimeError("DecryptInit(key/iv) failed")
+        out = ctypes.create_string_buffer(len(cipher) + 16)
+        outlen = ctypes.c_int(0)
+        if _libcrypto.EVP_DecryptUpdate(ctx, out, ctypes.byref(outlen), cipher, len(cipher)) != 1:
+            raise RuntimeError("DecryptUpdate failed")
+        plain = out.raw[:outlen.value]
+        tagbuf = ctypes.create_string_buffer(tag, XX20_TAG_LEN)
+        if _libcrypto.EVP_CIPHER_CTX_ctrl(ctx, _EVP_CTRL_AEAD_SET_TAG, XX20_TAG_LEN, tagbuf) != 1:
+            raise RuntimeError("set tag failed")
+        fin = ctypes.create_string_buffer(16)
+        finlen = ctypes.c_int(0)
+        if _libcrypto.EVP_DecryptFinal_ex(ctx, fin, ctypes.byref(finlen)) <= 0:
+            return None   # tag 验证失败 (被篡改 / 密钥错)
+        return plain + fin.raw[:finlen.value]
     finally:
         _libcrypto.EVP_CIPHER_CTX_free(ctx)
 
 
 def pack_pk(conv, pk_id, pk_seq, pk_dst_id, payload, tx_key=None):
     """组包。header 始终明文; tx_key 为 None (握手前) 时 payload 也明文,
-       否则用会话 tx_key 加密 payload (上行 DIR_C2S)。"""
-    body = aes128_ctr(tx_key, make_iv(conv, pk_seq, DIR_C2S), payload) if tx_key else payload
+       否则用会话 tx_key 加密 payload (上行 DIR_C2S), 密文后附 16B tag。"""
+    body = xx20_encrypt(tx_key, make_nonce(conv, pk_seq, DIR_C2S), payload) if tx_key else payload
     return struct.pack(HEADER_FMT, pk_id, pk_seq, pk_dst_id) + body
 
 
 def unpack_pk(conv, data, rx_key=None):
-    """返回 (pk_id, pk_seq, pk_dst_id, payload) 或 None。
+    """返回 (pk_id, pk_seq, pk_dst_id, payload) 或 None (半包 / 验签失败)。
        rx_key 为 None (握手前, 如 REGIST_RSP) 时 payload 明文,
-       否则用会话 rx_key 解密 (下行 DIR_S2C)。"""
+       否则用会话 rx_key 解密 (下行 DIR_S2C); body = 密文 + 16B tag。"""
     if len(data) < HEADER_SIZE:
         return None
     pk_id, pk_seq, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
     body = data[HEADER_SIZE:]
-    payload = aes128_ctr(rx_key, make_iv(conv, pk_seq, DIR_S2C), body) if rx_key else body
+    if rx_key and body:
+        payload = xx20_decrypt(rx_key, make_nonce(conv, pk_seq, DIR_S2C), body)
+        if payload is None:
+            return None   # 验签失败, 丢弃
+    else:
+        payload = body
     return (pk_id, pk_seq, pk_dst_id, payload)
 
 
@@ -244,7 +311,7 @@ def x25519(scalar, point):
 
 def kx_client(srv_pk):
     """等价 libsodium crypto_kx_client_session_keys(CLI_PK, CLI_SK, srv_pk)。
-       返回 (rx_key, tx_key), 各 32B (AES-128 只取前 16B)。
+       返回 (rx_key, tx_key), 各 32B (ChaCha20-Poly1305 用满 32B)。
        rx = 收 (== server 的 tx), tx = 发 (== server 的 rx)。"""
     q = x25519(CLI_SK, srv_pk)
     h = hashlib.blake2b(q + CLI_PK + srv_pk, digest_size=64).digest()
@@ -395,10 +462,10 @@ def run_client(client_id, stats, stop_event):
     def on_handshake(parsed):
         nonlocal rx_key, tx_key, authed
         pk_id, _, _, payload = parsed
-        if pk_id == PKID_REGIST_RSP and len(payload) >= 32:
+        if pk_id == PKID_REGIST_RSP and payload and len(payload) >= 32:
             # RSP payload = server 临时 X25519 公钥 (明文)
             rx, tx = kx_client(payload[:32])
-            rx_key, tx_key = rx[:16], tx[:16]    # AES-128 取前 16B
+            rx_key, tx_key = rx, tx              # ChaCha20-Poly1305 用满 32B
             authed = True
 
     req = pack_pk(conv, PKID_REGIST_REQ, next_seq(), GATEWAY_ID, token)   # 明文, tx_key=None

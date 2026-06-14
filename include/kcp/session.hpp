@@ -27,7 +27,7 @@ class Session {
 
 public:
     typedef std::shared_ptr<Session> Ptr;
-    typedef uint8_t AesKey[utils::AES128_KEY_LEN];
+    typedef uint8_t Xx20Key[utils::XX20_KEY_LEN];
 
 
     /**
@@ -138,8 +138,8 @@ public:
 
     void
     set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
-        ::memcpy(tx_key_, tx, utils::AES128_KEY_LEN);
-        ::memcpy(rx_key_, rx, utils::AES128_KEY_LEN);
+        ::memcpy(tx_key_, tx, utils::XX20_KEY_LEN);
+        ::memcpy(rx_key_, rx, utils::XX20_KEY_LEN);
     }
 
 
@@ -233,8 +233,8 @@ private:
     ::ikcpcb*          kcp_          { nullptr };
     ::sockaddr_storage addr_         {};
     ::socklen_t        addrlen_      { sizeof(addr_) };
-    AesKey             tx_key_       { 0 };
-    AesKey             rx_key_       { 0 };
+    Xx20Key             tx_key_       { 0 };
+    Xx20Key             rx_key_       { 0 };
     std::string        desc_;
 }; // class Kcp;
 

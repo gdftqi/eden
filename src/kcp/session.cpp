@@ -8,11 +8,13 @@ static constexpr uint8_t DIR_S2C = 1;   // server → client (下行, send 加�
 
 
 static inline void
-make_iv(uint8_t iv[typhon::utils::AES_BLOCK_LEN], uint32_t conv, uint32_t idem, uint8_t dir) noexcept {
-    ::memset(iv, 0, typhon::utils::AES_BLOCK_LEN);
-    ::memcpy(iv + 0, &conv, sizeof(conv));
-    ::memcpy(iv + 4, &idem, sizeof(idem));
-    iv[8] = dir;
+make_nonce(uint8_t nonce[typhon::utils::XX20_NONCE_LEN], uint32_t conv, uint32_t seq, uint8_t dir) noexcept {
+    // 12B nonce = conv(4) | seq(4) | dir(1) | 0(3)
+    // 同一会话密钥下 (conv, seq, dir) 唯一 → nonce 绝不复用 (seq 单调递增)
+    ::memset(nonce, 0, typhon::utils::XX20_NONCE_LEN);
+    ::memcpy(nonce + 0, &conv, sizeof(conv));
+    ::memcpy(nonce + 4, &seq, sizeof(seq));
+    nonce[8] = dir;
 }
 
 
@@ -72,13 +74,23 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xDUP;
     }
 
-    size_t payload_len = (size_t)res - core::PKG_HDR_LEN;
-    if (payload_len > 0 && authed_) {
-        uint8_t iv[utils::AES_BLOCK_LEN];
-        make_iv(iv, conv(), p->seq, DIR_C2S);
-        if (utils::aes128_ctr_decrypt(buf + core::PKG_HDR_LEN, payload_len, buf + core::PKG_HDR_LEN, rx_key_, iv)) {
+    if (authed_ && res > core::PKG_HDR_LEN) {
+        if (res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
+            return xERR_PK_LEN;
+        }
+
+        size_t   cipher_len = (size_t)res - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
+        uint8_t* cipher     = buf + core::PKG_HDR_LEN;
+        uint8_t* tag        = cipher + cipher_len;
+
+        uint8_t nonce[utils::XX20_NONCE_LEN];
+        make_nonce(nonce, conv(), p->seq, DIR_C2S);
+        if (utils::xx20_decrypt(cipher, cipher_len, cipher, tag, rx_key_, nonce)) {
             return xERR_PK_DEC;
         }
+
+        // 剥掉 tag: 上层 *pk 只到明文 payload 末尾, len_ 不含 16B tag
+        *pk = core::PK<core::Host>((void*)buf, core::PKG_HDR_LEN + (int)cipher_len);
     }
 
     last_recv_ms_ = now;
@@ -90,16 +102,19 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     int plen = pk.len() - core::PKG_HDR_LEN;
-    pk->seq = next_snd_seq();
+    int len  = pk.len();
+    pk->seq  = next_snd_seq();
 
     if (plen > 0 && authed_) {
-        uint8_t iv[utils::AES_BLOCK_LEN];
-        make_iv(iv, conv(), pk->seq, DIR_S2C);
-        ASSERT(utils::aes128_ctr_encrypt(pk->payload, plen, pk->payload, tx_key_, iv) == 0, "加密失败");
+        uint8_t nonce[utils::XX20_NONCE_LEN];
+        make_nonce(nonce, conv(), pk->seq, DIR_S2C);
+        uint8_t* tag = pk->payload + plen;
+        ASSERT(utils::xx20_encrypt(pk->payload, plen, pk->payload, tag, tx_key_, nonce) == 0, "加密失败");
+        len += (int)utils::XX20_TAG_LEN;
     }
 
     core::hton(pk);
-    int res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
+    int res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), len));
     if (res >= xOK) {
         ::ikcp_flush(kcp_);
     }

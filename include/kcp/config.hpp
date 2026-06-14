@@ -178,9 +178,9 @@ private:
     int        nc_          { 1 };                 ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
     uint32_t   timeout_     { 30000 };             ///< 超时(ms)
     SipKey     siphash_     {};                    ///< 协议密钥
-    X25519Key  x25519_pk_   {}; 
-    X25519Key  x25519_sk_   {};
-    ED25519Pub ed25519_pub_ {};
+    X25519Key  x25519_pk_   {};                    ///< LOGIN 服务用来作 sealedbox 加密
+    X25519Key  x25519_sk_   {};                    ///< 用于 鉴权时的 sealedbox 解密
+    ED25519Pub ed25519_pub_ {};                    ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
 };
 
     

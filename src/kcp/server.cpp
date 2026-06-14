@@ -534,9 +534,9 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
         return xERR_PKT_DST;
     }
 
-    auto len = pk.len() - core::PKG_HDR_LEN;
-    if (len != sizeof(uint64_t)) {
-        xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), len);
+    auto plen = pk.plen();
+    if (plen != sizeof(uint64_t)) {
+        xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), plen);
         return xERR_PK_LEN;
     }
 
@@ -549,17 +549,17 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
     // PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48) = 170
-    constexpr int REGIST_REQ_LEN = core::PKG_HDR_LEN + (int)sizeof(core::AuthToken) + 48;
+    constexpr int REGIST_REQ_LEN = (int)sizeof(core::AuthToken) + 48;
 
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
     }
 
-    if (in.len() != REGIST_REQ_LEN) {
+    if (in.plen() != REGIST_REQ_LEN) {
         return xERR_PK_LEN;
     }
 
-    size_t plen = in.len() - core::PKG_HDR_LEN;
+    size_t plen = in.plen();
     core::AuthToken token;
     size_t atlen = sizeof(token);
     

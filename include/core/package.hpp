@@ -9,6 +9,12 @@
 namespace typhon::core {
 
 
+#define PKID_PING       (100) ///< 心跳 PING
+#define PKID_PONG       (101) ///< 心跳 PONG
+#define PKID_REGIST_REQ (102) ///< 注册请求
+#define PKID_REGIST_RSP (103) ///< 注册应答
+
+
 #pragma pack(push, 1)
 
 
@@ -145,15 +151,16 @@ class PK {
 
 public:
     static PK
-    create(uint16_t id, uint32_t dst_id, const void* payload, int len) noexcept {
-        auto size = sizeof(Package) + len;
+    create(uint16_t id, uint32_t dst_id, const void* payload, int plen) noexcept {
+        // 缓冲多留 XX20_TAG_LEN 给加密时附 tag; 但 len_ 只记逻辑长度(HDR + payload, 不含 tag)
+        auto size = sizeof(Package) + plen + utils::XX20_TAG_LEN;
         auto buf = ::mi_malloc(size);
         ASSERT(buf != nullptr, "分配内存失败");
         auto* p = (Package*)buf;
         p->id = id;
         p->dst_id = dst_id;
-        ::memcpy(p->payload, payload, len);
-        return PK(buf, size);
+        ::memcpy(p->payload, payload, plen);
+        return PK(buf, (int)sizeof(Package) + plen);
     }
 
 
@@ -179,6 +186,13 @@ public:
     uint8_t*
     raw() const noexcept {
         return (uint8_t*)p_;
+    }
+
+
+    int
+    plen() const noexcept {
+        // len_ 永不含 tag (tag 只在 wire 传输瞬间存在), 故 payload 长度 = len_ - 头
+        return p_ ? len_ - (int)sizeof(Package) : 0;
     }
 
 
@@ -210,21 +224,15 @@ ntoh(PK<Net> v) noexcept {
 }
 
 
-
 constexpr int MAX_HANDLERS    = 1024;                                     // MAX_HANDLERS: pk_id 字段的合法上界
 constexpr int PKG_MAX_LEN     = 65535;                                    // wire frame 总长上限 (任意方向)
 constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 10, Package 头长度
 constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10, PackageEx 头长度 (FAM 不计)
 constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKX_HDR_LEN - PKG_HDR_LEN;  // 65515, pk_payload 上限 (取约束更严的 TCP 方向)
 
+
 static_assert(PKG_HDR_LEN == 10, "Package header size changed");
 static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
-
-
-#define PKID_PING       (100) ///< 心跳 PING
-#define PKID_PONG       (101) ///< 心跳 PONG
-#define PKID_REGIST_REQ (102) ///< 注册请求
-#define PKID_REGIST_RSP (103) ///< 注册应答
 
 
 } // namespace typhon::core
