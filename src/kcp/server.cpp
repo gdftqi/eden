@@ -35,7 +35,6 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
 
 
 typhon::kcp::Server::~Server() noexcept {
-    release();
     for (int i = 0; i < MAX_RECV; ++i) {
         ::mi_free(riovecs_[i].iov_base);
     }
