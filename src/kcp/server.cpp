@@ -474,13 +474,10 @@ typhon::kcp::Server::update() noexcept {
 
 
 void
-typhon::kcp::Server::on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
+typhon::kcp::Server::on_pong(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
     if (pkx.plen() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
-        return;
     }
-
-    xINFO("与 {} 延迟 {} ms", conn->host(), tnow_ - *(uint64_t*)pkx.pk()->payload);
 }
 
 
@@ -538,7 +535,8 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
-    constexpr int REGIST_REQ_LEN = 162;
+    // PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48) = 170
+    constexpr int REGIST_REQ_LEN = core::PKG_HDR_LEN + (int)sizeof(core::AuthToken) + 48;
 
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;

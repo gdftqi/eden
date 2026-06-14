@@ -94,9 +94,9 @@ x25519_kx_server(uint8_t rx[SESSION_KEY_LEN], uint8_t tx[SESSION_KEY_LEN],
                  const uint8_t peer_pk[X25519_KEY_LEN]) noexcept;
 
 
-constexpr size_t ED25519_PK_LEN   = 32;   // 公钥
-constexpr size_t ED25519_SK_LEN   = 64;   // 私钥 (seed 32 + pk 32)
-constexpr size_t ED25519_SIGN_LEN = 64;   // 签名
+constexpr size_t ED25519_PK_LEN   = 32;   // 公钥长度
+constexpr size_t ED25519_SK_LEN   = 64;   // 私钥长度 (seed 32 + pk 32)
+constexpr size_t ED25519_SIGN_LEN = 64;   // 签名长度
 
 
 int
