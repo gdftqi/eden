@@ -14,6 +14,8 @@ typhon::Server::Server(kcp::Server::IEvent* ev, const char* host, const char* if
     , kcp_bpf_path_(kcp_bpf_path ? kcp_bpf_path : "")
     , envelope_bpf_path_(envelope_bpf_path ? envelope_bpf_path : "") {
 
+    ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
+
     if (host_.empty()) {
         host_ = Conf::instance()->host();
     }

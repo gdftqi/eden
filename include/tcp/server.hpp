@@ -78,6 +78,7 @@ public:
         : event_(event)
         , host_(host) {
         ASSERT(event_ != nullptr, "event handler cannot be null");
+        ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
     }
 
 
