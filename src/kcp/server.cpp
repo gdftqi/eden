@@ -545,23 +545,42 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& pk) noe
         return xERR_PK_LEN;
     }
 
-    const size_t plen = pk.len() - core::PKG_HDR_LEN;
-
+    size_t plen = pk.len() - core::PKG_HDR_LEN;
     core::AuthToken token;
     size_t atlen = sizeof(token);
+    
+    // 1. 使用服务端私钥解密 Token
     if (utils::sealedbox_decrypt(pk->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
 
-    if (token.expire > ::time(nullptr)) {
+    // 2. 检查有效期 (修正逻辑: 当前时间 > 过期时间则失败)
+    if ((uint64_t)::time(nullptr) > token.expire) {
         return xERR_TOKEN_EXP;
     }
 
-    if (utils::ed25519_verify(token.sign, (uint8_t*)offsetof(core::AuthToken, sign), sizeof(token) - sizeof(token.sign), Conf::instance()->ed25519_pub())) {
+    // 3. 校验登录服签名 (修正逻辑: 校验 sign 之前的所有字段)
+    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AuthToken, sign), Conf::instance()->ed25519_pub()) != 0) {
         return xERR_TOKEN_VER;
     }
 
-    return xOK;
+    // 4. 计算 ECDH 共享密钥并派生 AES Key (此处假设 utils 提供了 derive 方法)
+    // uint8_t aes_key[16];
+    // if (utils::x25519_derive_seed(aes_key, token.cli_pk, Conf::instance()->x25519_sk()) != 0) {
+    //     return xERR_PK_DEC;
+    // }
+
+    // 5. 激活 Session 加密
+    // s->setup_cipher(aes_key);
+    // s->set_authed(true);
+
+    // 6. 构造回包
+    pk->id = PKID_REGIST_RSP;
+    uint32_t res = htonl(xOK);
+    ::memcpy(pk->payload, &res, sizeof(res));
+    // 如果使用的是临时密钥对，还需要在此处把 server_tmp_pk 传给客户端
+
+    return s->send(pk);
 }
 
 

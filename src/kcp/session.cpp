@@ -51,7 +51,8 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PK_LEN;
     }
 
-    auto p = core::ntoh(core::PK<core::Net>(buf, res));
+    *pk = core::ntoh(core::PK<core::Net>(buf, res));
+    auto& p = *pk;
 
     if (p->id == 0 || p->id >= core::MAX_HANDLERS) {
         return xERR_PKT_ID;
@@ -65,7 +66,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PKT_DST;
     }
 
-    if (rcv_req_ >= p->seq) {
+    if (rcv_req_ >= p->seq && p->id != PKID_REGIST_REQ) {
         // 幂等重复包, 跳过(不解密)
         return xDUP;
     }
@@ -81,7 +82,6 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 
     last_recv_ms_ = now;
     rcv_req_ = p->seq;
-    *pk = p;
     return xOK;
 }
 
