@@ -40,7 +40,7 @@ typhon::kcp::Session::Session(
 
 int
 typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
-    int res = recv(buf, len);
+    int res = ::ikcp_recv(kcp_, (char*)buf, len);
     if (res < 0) {
         // ikcp_recv: -1/-2 无完整包 → xAGAIN, -3 buf 太小 → xERR_KCP_BUFSMALL
         return core::from_ikcp_recv(res);
@@ -89,7 +89,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
-    auto plen = pk.len() - core::PKG_HDR_LEN;
+    int plen = pk.len() - core::PKG_HDR_LEN;
     pk->seq = next_snd_seq();
 
     if (plen > 0 && authed_) {
@@ -99,9 +99,9 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     }
 
     core::hton(pk);
-    int res = core::from_ikcp_send(send(pk.raw(), pk.len()));
+    int res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
     if (res >= xOK) {
-        flush();
+        ::ikcp_flush(kcp_);
     }
 
     return res;

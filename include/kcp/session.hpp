@@ -164,12 +164,6 @@ public:
     }
 
 
-    void
-    flush() noexcept {
-        ::ikcp_flush(kcp_);
-    }
-
-
     /**
      * @brief 把对端发来的一段 UDP payload 喂给 KCP 状态机:解 KCP 头、放进 rcv_queue、
      *        触发 ACK / 重传。喂完之后才能用 recv_pk() 取出完整应用层消息。
@@ -228,42 +222,6 @@ private:
     uint32_t
     next_snd_seq() noexcept {
         return ++snd_seq_;
-    }
-
-
-    /**
-     * @brief 从 KCP 接收队列里取出一条完整的应用层消息(对应一次 ikcp_send)。
-     *        KCP 是面向消息的:返回的就是对端一次 send 写入的整体,**不会半包也不会粘包**。
-     * @param buf 输出缓冲(必须能装下下一条消息,否则返回 -3)
-     * @param len buf 的可写长度(字节数)
-     * @return > 0  实际拷出的字节数(即整条消息的长度)
-     * @return  -1  rcv_queue 为空,当前没有完整消息(典型情况,继续等下一次 input)
-     * @return  -2  peek 失败,KCP 内部状态异常(正常路径不应出现)
-     * @return  -3  buf 太小,装不下下一条消息;调用方应放大 buf 后重试,
-     *              否则该消息会一直卡在 rcv_queue
-     */
-    int
-    recv(uint8_t* buf, int len) noexcept {
-        return ::ikcp_recv(kcp_, (char*)buf, len);
-    }
-
-
-    /**
-     * @brief 把一条完整的应用层消息追加到 KCP 的发送队列。**不会立即出网卡** ——
-     *        真正出网卡由 update() 的周期 flush(或手动 flush())触发,内部会按
-     *        MTU 自动分片、ACK、超时重传。
-     *        KCP 是面向消息的:这一次 send 进去的整段 buf,对端 recv 会作为**一条
-     *        完整消息**收到,不会被切碎也不会跟下一条粘在一起。
-     * @param buf 待发送的字节流
-     * @param len buf 的字节数,必须 >= 0;不可超过 (rcvwnd × MSS)(分片数受接收窗约束)
-     * @return   0  成功入队,等待 flush 出网卡
-     * @return  -1  len < 0
-     * @return  -2  消息过大,分片数 >= 接收窗口,无法入队;
-     *              调用方需要缩短单条消息长度,或扩大 rcvwnd
-     */
-    int
-    send(const uint8_t* buf, int len) noexcept {
-        return ::ikcp_send(kcp_, (const char*)buf, len);
     }
 
 
