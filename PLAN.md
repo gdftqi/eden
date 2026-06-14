@@ -127,7 +127,7 @@
 
 ## 传输安全层（已实现）
 
-两层独立、可分别开关:**XDP envelope MAC**(内核态 DoS 过滤) + **AES-128-CTR**(payload 加密)。
+三层独立、可分别开关:**XDP envelope MAC**(内核态 DoS 过滤) + **X25519 鉴权握手**(每会话密钥协商) + **AES-128-CTR**(payload 加密)。
 
 ### envelope MAC（XDP DoS 过滤）
 
@@ -150,14 +150,39 @@
 - [x] 启动顺序:EnvelopeFilter attach → KcpServer socket bind → Router attach
       （XDP 先于 socket 生效,启动期被攻击也挡得住）
 
+### 用户侧 ↔ 网关鉴权握手 + 会话密钥协商（已实现）
+
+- [x] **AuthToken（LOGIN 服签发,客户端只搬运不解密）**
+      - 字段:`expire(8) / conv(4) / ip(4) / cli_pk[32] / sign[64]`(host 序,无字节序转换)
+      - LOGIN 服用**网关 X25519 公钥 sealedbox 加密** + **ed25519 私钥签名**(覆盖 sign 前 48B)
+      - 绑 `conv`:token 钉死一个 KCP conv,截获后无法异 conv 重放;`expire` 限时
+- [x] **REGIST_REQ / REGIST_RSP 握手**（[on_regist_req](src/kcp/server.cpp)）
+      - 网关:sealedbox 解密 → 验 `expire` → 验 `conv == s->conv()` → ed25519 验签 → 派生密钥 → 回 RSP
+      - REGIST_REQ_LEN = `PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48)` = 170(由 sizeof 推,不写死)
+- [x] **会话密钥协商(X25519 ECDH + crypto_kx KDF)**
+      - 网关每会话生成**临时 X25519 密钥对**,`x25519_kx_server(tmpsk, token.cli_pk)` 派生双向密钥 `rx/tx`
+      - RSP 回包带**网关临时公钥**(明文);客户端 `x25519_kx_client(cli_sk, srv_tmppk)` 派生出对称的 `rx/tx`
+      - 底层 libsodium `crypto_kx`:BLAKE2b KDF + 把双方公钥混入,client.tx == server.rx 镜像对齐
+- [x] **前向保密(双边)**:网关临时密钥握手后即弃,客户端 X25519 也每次登录新生成
+      → 长期密钥(网关静态 sk / LOGIN ed25519 sk / cli_sk)任一泄露都无法回算历史会话密钥
+- [x] **加密激活时机 = `Session::authed_`**:握手包(REGIST_REQ/RSP)走明文,authed 翻转后才加解密
+      → 网关先 send RSP(明文)再 `set_authed(true)`;客户端收明文 RSP 派生密钥后再置 authed,两端对称
+- [x] **cryptor 原语**（[utils/cryptor](include/utils/cryptor.hpp)）:x25519_kx_client / x25519_kx_server
+      (crypto_kx 包装) / sealedbox_encrypt/decrypt / ed25519_sign/verify / x25519_keygen / siphash24 / aes128_ctr
+- [x] test_kcp.py 客户端对齐:纯 Python X25519(RFC 7748) + BLAKE2b KDF,与 libsodium crypto_kx **位等价**;
+      12 个预生成写死 token(conv 2000-2011,有效期 10 年)
+
 ### payload 加密（AES-128-CTR 半加密）
 
 - [x] **半加密**:Package header（10B）明文,只加密 pk_payload
-      - header 明文让网关读 pk_dst_id 路由 / pk_idem 做 IV;header 完整性已由 envelope MAC 覆盖
-- [x] **per-packet IV**:`[conv 4B][idem 4B][dir 1B][block counter 7B=0]`
-      - conv+idem 保证 (key,IV) 唯一;dir(0 上行/1 下行)防同 conv+idem 跨方向 keystream 复用;
+      - header 明文让网关读 pk_dst_id 路由 / pk_seq 做 IV;header 完整性已由 envelope MAC 覆盖
+- [x] **per-session 双向密钥**:AES key 由握手 ECDH 派生(见上),**不再是固定共享 key**
+      - 上行用 `tx` / 下行用 `rx`(AES-128 取会话密钥前 16B);每 session key 独立
+- [x] **per-packet IV**:`[conv 4B][seq 4B][dir 1B][block counter 7B=0]`
+      - 同 session 内 seq 单调递增保证 (key,IV) 唯一;dir(0 上行/1 下行)防跨方向复用;
         低 7B 留给 CTR 内部 block counter 递增,与高位不重叠
-- [x] send_pk 加密(DIR_S2C)/ recv_pk 解密(DIR_C2S);非法 / 重放包先 drop 不浪费解密
+      - **conv 撞不再致命**:每 session key 独立,keystream 空间天然隔离
+- [x] send 加密(DIR_S2C,tx_key)/ recv 解密(DIR_C2S,rx_key),`authed_` 翻转后才生效;非法 / 重放包先 drop
 - [x] AES-NI 实现(utils/cryptor) + test_kcp.py 客户端对齐
       (ctypes 调 libcrypto `EVP_aes_128_ctr`,IV 布局 / 方向 / key 与服务端一致)
 
@@ -165,10 +190,11 @@
 
 - [ ] **payload 完整性**:AES-CTR 不带认证,bit-flip 可定向改游戏数据且不可检测
       → 换 **AES-128-GCM**(一步拿机密性+完整性)或 encrypt-then-MAC ★最高优先
-- [ ] **key 复用**:SipHash envelope key 与 AES key 当前共享 `shkey()`
-      → HKDF 从 master key 派生独立 mac_key / enc_key
-- [ ] **conv 服务端分配**:conv 现由客户端选,两客户端 conv 撞 + idem 撞 → IV 复用
-      → 服务端分配唯一 conv,或 per-session 派生 key
+- [x] ~~**key 复用**(SipHash envelope key 与 AES key 共享 `shkey()`)~~ —— AES payload key 已改为
+      **每会话 X25519 ECDH 派生**(见上「鉴权握手」),与 envelope SipHash key(config 固定)分离
+      → 剩:envelope MAC key 仍全局静态,可选再上 HKDF + 定时 rotate
+- [~] **conv 服务端分配**:per-session ECDH 密钥已消除"conv 撞 → IV 复用"(每 session key 独立);
+      但 conv 仍由客户端选 → 仍是 DDoS / conv 抢占面(token 绑 conv 已挡掉**跨 conv 重放**)
 - [ ] **envelope 5-tuple binding**:MAC 当前不含 src_ip/port,可被异源重放(idem 去重兜底)
 - [ ] **per-src-IP rate-limit**:XDP LRU map 对 MAC 校验失败源做指数惩罚 / blacklist
 - [ ] **secret 自动 rotate**:`rotate_key()` 接口已就绪,缺定时触发 + 客户端 key 协商

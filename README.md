@@ -26,7 +26,7 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
                        └─── etcd (服务发现)
 ```
 
-- **客户端 ↔ 网关**:KCP over UDP,带 AES-128-CTR payload 加密 + XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
+- **客户端 ↔ 网关**:KCP over UDP,带 X25519 鉴权握手(每会话密钥协商)+ AES-128-CTR payload 加密 + XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
 - **网关 ↔ 后端**:TCP 长连,wire frame 走 length-prefix `PackageEx`,网关 stamp `pke_src_id` (FromPlayerID) 让后端拿到来源信息
 - **后端 ↔ 后端**:暂未规划(后期通过 etcd 服务发现 + sticky routing 接入)
 
@@ -86,16 +86,24 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 - **ikcp.c/.h 一字不改**,envelope 套在 KCP frame 外;sk_reuseport 路由的 conv 读取偏移 +8
 - 选 fixed-24B 而非全 frame:避开 eBPF verifier 对 bpf_loop / 大循环展开的限制
 
-**2. AES-128-CTR payload 加密 —— 半加密**
+**2. X25519 鉴权握手 —— 每会话密钥协商**
 
-- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_idem` 做 IV),只加密 `pk_payload`
-- per-packet IV = `[conv 4B][idem 4B][dir 1B][block counter 7B]`,保证 (key, IV) 全局唯一:
-  - `conv + idem` 每包唯一;`dir` 区分上 / 下行防跨方向复用;低 7B 留 CTR 递增
+- LOGIN 服登录成功后,用**网关公钥 sealedbox 加密** + **ed25519 签名**签发 `AuthToken`(绑 `conv` + 限时),客户端只搬运不解密
+- 网关 `REGIST_REQ` 校验链:sealedbox 解密 → 验期 → 验 `conv` → 验签,再用**临时 X25519 密钥对**与 token 内 `cli_pk` 做 ECDH(libsodium `crypto_kx`,BLAKE2b KDF)派生**双向会话密钥** `rx/tx`
+- `REGIST_RSP` 回带网关临时公钥,客户端同样派生出镜像的 `rx/tx`(client.tx == server.rx)
+- **双边前向保密**:两端 X25519 都是临时的(网关每会话 / 客户端每登录),长期密钥泄露也回算不出历史会话密钥
+- 握手包走明文,`Session::authed_` 翻转后才加解密,两端对称
+
+**3. AES-128-CTR payload 加密 —— 半加密**
+
+- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_seq` 做 IV),只加密 `pk_payload`
+- **key 来自上面握手的 ECDH 会话密钥**(上行 `tx` / 下行 `rx`,每 session 独立),不再是固定共享 key
+- per-packet IV = `[conv 4B][seq 4B][dir 1B][block counter 7B]`:同 session 内 `seq` 单调递增保证 (key, IV) 唯一;`dir` 区分上 / 下行防跨方向复用;低 7B 留 CTR 递增
 - AES-NI 硬件指令实现(无外部库依赖,无 timing side-channel)
 
-两套算法(SipHash / AES-128)都有官方 test vector 验证位等价,客户端([test_kcp.py](examples/kcp_echo/test_kcp.py) 用同 spec 实现)可互操作。
+三套算法(SipHash / X25519+crypto_kx / AES-128)客户端([test_kcp.py](examples/kcp_echo/test_kcp.py) 用同 spec / 纯 Python 实现)均与服务端位等价、可互操作。
 
-> ⚠️ **已知短板**:CTR 不带认证(payload 可被 bit-flip 定向篡改且不可检测);SipHash 与 AES 当前共享同一 key。生产前需换 **AES-128-GCM**(一步拿完整性)+ **HKDF 派生独立 key**。详见 [PLAN.md](PLAN.md)「传输安全层 → 待办」。
+> ⚠️ **已知短板**:CTR 不带认证(payload 可被 bit-flip 定向篡改且不可检测),生产前需换 **AES-128-GCM**(一步拿完整性)。注:per-session ECDH 密钥已消解早期"AES/SipHash key 复用、conv 撞 → IV 复用"问题;envelope SipHash key 仍全局静态(可选 HKDF + rotate)。详见 [PLAN.md](PLAN.md)「传输安全层 → 待办」。
 
 详见 [src/bpf/envelope.bpf.c](src/bpf/envelope.bpf.c)、[src/utils/cryptor.cpp](src/utils/cryptor.cpp)、[src/kcp/session.cpp](src/kcp/session.cpp)。
 
@@ -155,6 +163,7 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 - [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
 - [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
 - [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + AES-128-CTR payload 半加密(均已实现并跑通)
+- [x] **用户侧 ↔ 网关鉴权** —— X25519 ECDH 握手(LOGIN 签发 sealedbox + ed25519 token,绑 conv)+ 每会话双向密钥派生 + 双边前向保密;payload AES key 升级为会话密钥([test_kcp.py](examples/kcp_echo/test_kcp.py) 已端到端跑通)
 - [x] **Phase 2d 链路骨架** —— TcpConnector(连接状态机 + 非阻塞 connect + EPOLLOUT 续发 + PING 心跳)已实现并挂进 KcpServer epoll(`servs_` / `on_serv_handle`);gateway↔backend 控制面(REGIST_REQ/RSP 握手 + PING/PONG)已跑通
 - [ ] **Phase 2d 业务转发** —— `on_data`(KCP→后端:按 `pk_dst_id` 选 Connector + prepend PackageEx) + `on_serv_handle` 业务回程(后端→KCP) ← **下一步**(当前 example 仍是网关本地 echo,`on_serv_handle` 只处理 PONG/REGIST_RSP 控制包)
 - [ ] **Phase 2e** —— EchoBackend 进程 + 完整链路端到端跑通(PING/PONG handler 本身已实现)
