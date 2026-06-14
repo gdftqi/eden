@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 #include <mimalloc-3.2/mimalloc.h>
 
 #include "core/error.hpp"

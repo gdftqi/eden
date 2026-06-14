@@ -4,10 +4,12 @@ CXXFLAGS := -O2 -g -Wall -Wextra -std=c++20 -I../../../include -I/usr/local/incl
 BUILD_DIR := build
 TARGET    := $(BUILD_DIR)/ed25519
 LIB       := ../../../build/libtyphon.a
+BUILD_START := $(shell date +%s)
 
 .PHONY: all clean
 
 all: $(TARGET)
+	@echo "==> [ed25519] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
 # libtyphon.a 过期/缺失就回顶层重建 (libsodium 已打包在里面)
 $(LIB):

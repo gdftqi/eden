@@ -1,6 +1,7 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
+#include "typhon.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -8,8 +9,9 @@ static constexpr int INTERVAL_MS   = 10;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
-typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
-    : event_(ev)
+typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
+    : onwer_(onwer)
+    , event_(ev)
     , host_(host)
     , desc_(std::format("[{}:{}]", Conf::instance()->id(), host_)) {
 
@@ -90,7 +92,7 @@ typhon::kcp::Server::run() noexcept {
     tnow_ = 0;
 
     evque_.clear([](core::QEvent* qe) {
-        if (qe->qe_type == core::QEvent::Type::NewServ) {
+        if (qe->qe_type == core::QEvent::Type::AddServ) {
             ::mi_free(qe->qe_data.ptr);
         }
         delete qe; 
@@ -158,6 +160,15 @@ typhon::kcp::Server::release() noexcept {
 
 
 void
+typhon::kcp::Server::remove_serv(tcp::Connector* c) noexcept {
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    typhon::Server* s = (typhon::Server*)onwer_;
+    s->notify_serv_disconnected(c->id());
+    servs_.erase(c->id());
+}
+
+
+void
 typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         uint64_t event;
@@ -179,7 +190,7 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
     core::QEvent* qes[EVQUE_BATCH];
     while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
         for (i = 0; i < n; ++i) {
-            if (qes[i]->qe_type == core::QEvent::Type::NewServ) {
+            if (qes[i]->qe_type == core::QEvent::Type::AddServ) {
                 on_new_serv(qes[i]);
             }
             delete qes[i];
@@ -381,7 +392,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
-    auto* arg = (core::NewServArg*)qe->qe_data.ptr;
+    auto* arg = (core::AddServArg*)qe->qe_data.ptr;
 
     if (servs_.find(arg->id) != servs_.end()) {
         // 如果存在, 直接返回
@@ -467,6 +478,7 @@ typhon::kcp::Server::update() noexcept {
         auto& conn = itr->second;
         if (conn->update(now) < 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            ((typhon::Server*)onwer_)->notify_serv_disconnected(conn->id());
             servs_.erase(itr++);
         } else {
             ++itr;

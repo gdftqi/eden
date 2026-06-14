@@ -118,6 +118,9 @@ class Server {
 
 
 public:
+    typedef absl::flat_hash_set<uint32_t> ServSet;
+
+
     /**
      * @brief 构造函数
      *
@@ -155,10 +158,15 @@ public:
     stop() noexcept {
         auto running = core::State::Running;
         if (state_.compare_exchange_strong(running, core::State::Stopping)) {
-            constexpr uint64_t event = 1;
-            if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
-                xERROR("write to stop_evfd_ failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            }
+            notify_serv_disconnected(0);
+        }
+    }
+
+
+    void
+    notify_serv_disconnected(uint32_t serv_id) noexcept {
+        if (::write(evwfd_, &serv_id, sizeof(serv_id)) != sizeof(serv_id)) {
+            xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
         }
     }
 
@@ -179,8 +187,13 @@ private:
     update_serv() noexcept;
 
 
+    void
+    on_event_handle(const ::epoll_event& ev) noexcept;
+
+
     core::SOCKET                  epfd_              { core::INVALID_SOCKET }; // epoll fd
-    core::SOCKET                  stop_evfd_         { core::INVALID_SOCKET }; // stop event fd
+    core::SOCKET                  evrfd_             { core::INVALID_SOCKET }; // event read fd
+    core::SOCKET                  evwfd_             { core::INVALID_SOCKET }; // event read fd
     kcp::Server::IEvent*          serv_ev_           { nullptr };              // 服务事件
     std::atomic<core::State>      state_             { core::State::Stopped }; // 状态
     std::string                   host_;                                       // 监听 host:port
@@ -191,6 +204,7 @@ private:
     bpf::Router                   router_;                                     // SO_REUSEPORT 路由
     std::vector<kcp::Server::Ptr> ks_pool_;                                    // kcp server pool
     std::vector<std::thread>      threads_;                                    // 线程池
+    ServSet                       servs_;                                      // 服务集合
 }; // class Server;
 
 

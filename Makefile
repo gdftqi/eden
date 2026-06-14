@@ -3,6 +3,9 @@ CXX   := g++
 AR    := ar
 CLANG := clang
 
+# 构建开始时刻 (解析时立即求值), 供 all 完成时算总耗时
+BUILD_START := $(shell date +%s)
+
 BUILD_DIR := build
 LIB       := $(BUILD_DIR)/libtyphon.a
 
@@ -44,6 +47,7 @@ BPF_OBJECTS := $(BPF_SOURCES:src/%.bpf.c=$(BUILD_DIR)/%.bpf.o)
 .PHONY: all lib bpf
 
 all: lib bpf
+	@echo "==> [typhon] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 lib: $(LIB)
 bpf: $(BPF_OBJECTS)
 

@@ -16,7 +16,8 @@ namespace typhon::core {
 struct QEvent {
     enum Type: uint8_t {
         Stop,       ///< 停止      data => nullptr
-        NewServ,    ///< 后端服务  data => NewServArg
+        AddServ,    ///< 后端服务  data => AddServArg
+        RmvServ,    ///< 移除后端  data => serv_id
         Recv,       ///< 收到数据  data => RecvArg
         Send,       ///< 发送数据  data => sock fd
         AddSess,    ///< 添加会话  data => sock fd
@@ -67,7 +68,7 @@ struct RecvArg {
 /**
  * @brief QEvent::Type::NewServArg 协带参数
  */
-struct NewServArg {
+struct AddServArg {
     uint32_t id;
     char     host[32];
 };

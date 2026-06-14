@@ -78,7 +78,7 @@ public:
 
 
     explicit
-    Server(const char* host, IEvent* ev) noexcept;
+    Server(const char* host, IEvent* ev, void* onwer ) noexcept;
 
 
     ~Server() noexcept;
@@ -197,20 +197,17 @@ private:
 
 
     void
-    add_serv(tcp::Connector::Ptr conn) noexcept {
+    add_serv(tcp::Connector::Ptr c) noexcept {
         ::epoll_event ev;
-        ev.data.ptr = conn.get();
+        ev.data.ptr = c.get();
         ev.events = EPOLLOUT | EPOLLET;
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, conn->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
-        servs_.insert(std::make_pair(conn->id(), conn));
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, c->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", c->id(), c->host(), errno, ::strerror(errno));
+        servs_.insert(std::make_pair(c->id(), c));
     }
 
 
     void
-    remove_serv(tcp::Connector* conn) noexcept {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-        servs_.erase(conn->id());
-    }
+    remove_serv(tcp::Connector* c) noexcept;
 
 
     void
@@ -263,6 +260,7 @@ private:
 
     // --------------------------------- 基础属性 ---------------------------------
 
+    void*                    onwer_ { nullptr };
     core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
     core::SOCKET             epfd_  { core::INVALID_SOCKET };  ///< epoll fd
     core::SOCKET             evfd_  { core::INVALID_SOCKET };  ///< event fd

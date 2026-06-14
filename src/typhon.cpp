@@ -81,7 +81,7 @@ typhon::Server::run() noexcept {
 
     // 3. 创建 KcpServer
     for (int i = 0; i < n; ++i) {
-        auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_);
+        auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_, this);
         ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
 
         if (!kcp_bpf_path_.empty()) {
@@ -102,6 +102,7 @@ typhon::Server::run() noexcept {
     }
 
     init();
+    int i;
     ::epoll_event evs[MAX_EVENTS];
     state_.store(core::State::Running);
     
@@ -115,8 +116,8 @@ typhon::Server::run() noexcept {
             break;
         }
 
-        if (n > 0 && evs[0].data.fd == stop_evfd_) {
-            break;
+        for (i = 0; i < n; ++i) {
+            on_event_handle(evs[i]);
         }
 
         update_serv();
@@ -143,13 +144,16 @@ typhon::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    core::SOCKET fds[2];
+    ASSERT(::pipe2(fds, O_NONBLOCK | O_CLOEXEC) == xOK, "pipe2 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+
+    evrfd_ = fds[0];
+    evwfd_ = fds[1];
 
     ::epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = stop_evfd_;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ev.data.fd = evrfd_;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evrfd_, &ev) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -160,9 +164,14 @@ typhon::Server::release() noexcept {
         epfd_ = core::INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != core::INVALID_SOCKET) {
-        ::close(stop_evfd_);
-        stop_evfd_ = core::INVALID_SOCKET;
+    if (evrfd_ != core::INVALID_SOCKET) {
+        ::close(evrfd_);
+        evrfd_ = core::INVALID_SOCKET;
+    }
+
+    if (evwfd_ != core::INVALID_SOCKET) {
+        ::close(evwfd_);
+        evwfd_ = core::INVALID_SOCKET;
     }
 }
 
@@ -170,11 +179,53 @@ typhon::Server::release() noexcept {
 void
 typhon::Server::update_serv() noexcept {
     // TODO: 改为ETCD 查询服务
-    for (auto& s : ks_pool_) {
-        auto* arg = (core::NewServArg*)::mi_malloc(sizeof(core::NewServArg));
-        ::memset(arg, 0, sizeof(core::NewServArg));
-        arg->id = 10000;
-        ::strcpy(arg->host, "127.0.0.1:6688");
-        s->notify(new core::QEvent(core::QEvent::Type::NewServ, arg));
+    const uint32_t serv_id     = 10000;
+    const char     serv_host[] = "127.0.0.1:6688";
+
+    if (servs_.count(serv_id)) {
+        return;    
     }
+
+    for (auto& s : ks_pool_) {
+        auto* arg = (core::AddServArg*)::mi_malloc(sizeof(core::AddServArg));
+        ::memset(arg, 0, sizeof(core::AddServArg));
+        arg->id = serv_id;
+        ::strcpy(arg->host, serv_host);
+        s->notify(new core::QEvent(core::QEvent::Type::AddServ, arg));
+    }
+
+    servs_.insert(serv_id);
+}
+
+
+void
+typhon::Server::on_event_handle(const ::epoll_event& ev) noexcept {
+    if (ev.events & EPOLLIN) {
+        uint8_t data[1400];
+        static_assert(sizeof(data) % sizeof(uint32_t) == 0);
+
+        while (1) {
+            auto n = ::read(evrfd_, &data, sizeof(data));
+            if (n <= 0) {
+                if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                    xERROR("read eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+                }
+                break;
+            }
+
+            for (uint8_t* p = data, *end = p + n; p < end; p += sizeof(uint32_t)) {
+                uint32_t serv_id = *(uint32_t*)p;
+                if (serv_id == 0) {
+                    // 服务停止
+                    continue;
+                }
+
+                auto itr = servs_.find(serv_id);
+                if (itr != servs_.end()) {
+                    servs_.erase(itr);
+                    xWARN("服务 {} 掉线", serv_id);
+                }
+            }
+        }
+    } // if (ev.events & EPOLLIN);
 }

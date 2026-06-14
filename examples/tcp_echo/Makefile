@@ -4,6 +4,7 @@ CXXFLAGS   := -O2 -g -Wall -Wextra -I../../include -MMD -MP -std=c++20
 BUILD_DIR  := build
 LIB        := ../../build/libtyphon.a
 SERVER     := $(BUILD_DIR)/server
+BUILD_START := $(shell date +%s)
 
 SOURCES := $(wildcard *.cpp)
 OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
@@ -11,6 +12,7 @@ OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 .PHONY: all clean
 
 all: $(SERVER)
+	@echo "==> [tcp_echo] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
 # typhon 主库:不存在 / 过期就回顶层 make 重新构建
 $(LIB):

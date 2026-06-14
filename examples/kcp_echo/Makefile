@@ -7,6 +7,7 @@ WIN_CFLAGS  := -O2 -Wall -Wextra -I../../include
 
 BUILD_DIR   := build
 LIB         := ../../build/libtyphon.a
+BUILD_START := $(shell date +%s)
 
 # 两个 BPF 对象都从顶层 build/bpf 拷过来:
 #   kcp.bpf.o      — sk_reuseport 路由 (按 conv 分流到 worker)
@@ -26,6 +27,7 @@ OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 .PHONY: all clean
 
 all: $(SERVER) $(LIBKCP_SO) $(LIBKCP_DLL) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST)
+	@echo "==> [kcp_echo] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
 # typhon 主库 / BPF 对象:任一过期就回顶层 make 重新构建
 $(LIB):
