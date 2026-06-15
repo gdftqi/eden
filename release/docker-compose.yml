@@ -1,0 +1,86 @@
+services:
+  # ------------------------
+  # ElasticSearch
+  #   用于存放日志
+  # ------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    network_mode: host
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    stdin_open: true
+    environment:
+      - node.name=es-node-1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro # 本地时间
+      - ./es/data:/usr/share/elasticsearch/data # data用于存放数据, host模式下 data必需要是777模式
+
+  # ------------------------
+  # etcd 
+  #   服务注册与发现
+  # ------------------------
+  etcd:
+    image: tigen-etcd
+    container_name: etcd
+    network_mode: host
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    stdin_open: true
+    environment:
+      - ETCD_NAME=etcd
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_AUTHENTICATION_MODE="simple"
+      - ETCD_USERNAME=root
+      - ETCD_PASSWORD=123456
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./etcd/data:/etcd-data
+  # etcdctl user add root
+  # etcdctl auth enable
+
+  # ------------------------
+  # redis 
+  #   缓存
+  # ------------------------
+  redis:
+    image: redis:latest
+    container_name: redis
+    network_mode: host
+    privileged: true
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    command: redis-server /etc/redis.conf
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./redis/data:/data
+      - ./redis/redis.conf:/etc/redis.conf
+
+  # ------------------------
+  # rabbitmq 
+  #   消息队列
+  # ------------------------
+  rabbitmq:
+    image: rabbitmq:latest
+    container_name: rabbitmq
+    restart: always
+    network_mode: host
+    privileged: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./rabbitmq/data:/var/lib/rabbitmq
+
+# rabbitmq-plugins enable rabbitmq_management

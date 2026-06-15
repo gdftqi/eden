@@ -1,0 +1,20 @@
+services:
+  mysql-master:
+    image: mysql:lts
+    container_name: mysql-master
+    network_mode: host
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./db:/var/lib/mysql
+      - ./my.cnf:/etc/my.cnf
+      - ./logs:/var/log/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      MYSQL_ROOT_PASSWORD: "aa113311.."
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
