@@ -39,65 +39,7 @@ TCP 方向 (PackageEx 内嵌 Package, 网关 ↔ 后端)
 
 `Package` / `PackageEx` / `AuthToken` 是 **packed POD**(贴 wire);`PK<T>` / `PKx<T>` 是**零开销的非-owning 视图** —— 只裹一个指针,带字节序 phantom-type。
 
-```plantuml
-@startuml
-hide empty members
-
-package "wire 结构 (packed POD)" {
-  class Package <<struct>> {
-    uint16 id      ' 业务消息号
-    uint32 seq     ' 序号, >0, 兼作 nonce
-    uint32 dst_id  ' 路由键
-    uint8  payload[]
-  }
-  class PackageEx <<struct>> {
-    uint16 len     ' wire 总长(length-prefix)
-    uint32 src_id  ' FromPlayerID
-    uint32 src_addr
-    uint8  pk[]    ' 内嵌 Package
-  }
-  class AuthToken <<struct>> {
-    uint64 expire
-    uint32 conv
-    uint32 ip
-    uint8  cli_pk[32]  ' 客户端 X25519 公钥
-    uint8  sign[64]    ' 登录服 Ed25519 签名
-  }
-  PackageEx *-- Package : 内嵌 pk[] (TCP 方向)
-}
-
-package "字节序 tag" {
-  class Host <<empty tag>>
-  class Net  <<empty tag>>
-}
-
-package "视图 (非 owning, 只裹指针)" {
-  class "PK<T>" as PK {
-    - Package* p_
-    - int      len_   ' = 头 + 明文 payload, **不含 tag**
-    + plen() : int    ' len_ - 头
-    + len()  : int
-    + operator->()    ' 仅 T=Host 可读字段
-    --
-    {static} create() : 自有缓冲(多留 tag 余量)
-    {static} release()
-  }
-  class "PKx<T>" as PKx {
-    - PackageEx* p_
-    + pk()   : Package*
-    + plen() : int
-    + operator->()    ' 仅 T=Host
-  }
-}
-
-PK  ..> Package   : 指向
-PKx ..> PackageEx : 指向
-PK  ..> Host
-PK  ..> Net
-PKx ..> Host
-PKx ..> Net
-@enduml
-```
+![package_1](images/package_1.png)
 
 **为什么要 `PK<T>` / `PKx<T>` 而不是直接用结构体指针:**
 - **零拷贝**:视图只裹一个指针,指向 KCP/TCP 收缓冲里的原始字节,不复制。
@@ -109,17 +51,7 @@ PKx ..> Net
 
 wire 上是网络序,内存里要读字段得主机序。typhon 用 `Host`/`Net` 两个 **空 tag 类型**当模板参数,把"当前处于哪种字节序"编进类型:
 
-```plantuml
-@startuml
-state "PK<Host> / PKx<Host>" as Host : operator-> 可读字段\n(主机序, 业务直接用)
-state "PK<Net> / PKx<Net>"  as Net  : 只能 raw() 拿裸指针\n(网络序, 字段读了是错的)
-
-[*] --> Net : 从 wire 收到\n(裸缓冲)
-Net  --> Host : ntoh()
-Host --> Net  : hton()
-Host --> [*] : 写回 wire 前\nhton()
-@enduml
-```
+![package_2](images/package_2.png)
 
 - **只有 `T = Host` 时 `operator->()` / `pk()` / `plen()` 才编译得过**(SFINAE `enable_if`)。拿着 `PK<Net>` 想读 `->seq`?**编译报错**,而不是运行期读到大端乱值。
 - `hton` / `ntoh` 是 `Host`↔`Net` 的**唯一转换入口**,内部调 `pk_hton`/`pk_ntoh` 翻头字段。全栈不再出现裸 `pk_hton` 散落各处。
