@@ -48,8 +48,12 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return core::from_ikcp_recv(res);
     }
 
-    if (res < core::PKG_HDR_LEN || res > core::PKG_MAX_LEN) {
+    if (res > core::PKG_MAX_LEN) {
         // 非法包:长度越界(含 res==0 的空包)
+        return xERR_PK_LEN;
+    }
+
+    if (res < core::PKG_HDR_LEN + (authed_ ? (int)utils::XX20_TAG_LEN : 0)) {
         return xERR_PK_LEN;
     }
 

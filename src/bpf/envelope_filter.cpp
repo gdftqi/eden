@@ -57,7 +57,7 @@ typhon::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const
     if (!rodata) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        xERROR(".rodata 已存在");
+        xERROR("找不到 .rodata map");
         return xERR_BPF_RODATA;
     }
 

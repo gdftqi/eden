@@ -131,6 +131,8 @@ PLAN 已挂着。网关 worker 绑核能稳定 tail latency，应当尽早做。
 
 
 内核态负载均衡（eBPF lb）
-NIC offload（SmartNIC）
-Kernel TLS + XDP 结合
-RDMA / GPUDirect（如果后端有高性能机器通信需求）
+
+[中] tcp/server.cpp:235 双重 epoll DEL → ASSERT abort:主线程 EOF DEL 与 worker check_timeout DEL 撞同 fd。建议 DEL 容忍 ENOENT。
+
+[2026-06-15 07:45:37.135] [critical] [buffer.cpp:45] Assertion failed: pkxlen >= core::PKX_HDR_LEN + core::PKG_HDR_LEN | invalid package ex length: 0
+Aborted                    ./server

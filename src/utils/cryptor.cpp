@@ -3,10 +3,6 @@
 #include <cstring>
 #include <sodium.h>
 
-#pragma GCC target("aes,sse2")
-#include <wmmintrin.h>
-#include <emmintrin.h>
-
 
 // 64-bit 循环左移
 static inline uint64_t

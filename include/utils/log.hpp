@@ -31,7 +31,7 @@ set_log_level(spdlog::level::level_enum level) noexcept {
 }
 
 
-} // namespace xq::utils
+} // namespace typhon::utils
 
 
 // 日志宏定义
