@@ -7,7 +7,7 @@ using Debug = UnityEngine.Debug;
 public class Game : MonoBehaviour, ISessionEvent
 {
     [SerializeField] private string host = "127.0.0.1:5555";
-    [SerializeField] private uint conv = 1;
+    [SerializeField] private int clientId = 0;   // token/conv 索引: conv = 2000 + clientId (范围 0..11)
     [SerializeField] private float sendIntervalSec = 0.1f; // 发送间隔
 
     private const int DataSize = 4096;
@@ -22,7 +22,7 @@ public class Game : MonoBehaviour, ISessionEvent
     {
         sw = Stopwatch.StartNew();
         KcpSession.Instance.SetEvent(this);
-        KcpSession.Instance.Connect(conv, host);
+        KcpSession.Instance.Connect(clientId, host);
     }
 
     void Update()
@@ -54,7 +54,7 @@ public class Game : MonoBehaviour, ISessionEvent
         // 2. 从池取一个 Package,填字段 + 拷 payload
         var pkg = Package.Pool.Take();
         pkg.PkId          = Package.PK_ID_PING;
-        pkg.PkDstId       = 0;
+        pkg.PkDstId       = Package.PK_DST_ID;   // 业务包路由到后端 service (dst_id 必须 > 0)
         pkg.PayloadLength = DataSize;
         System.Buffer.BlockCopy(lastSent, 0, pkg.Payload, 0, DataSize);
 
@@ -91,7 +91,7 @@ public class Game : MonoBehaviour, ISessionEvent
 
         if (match)
         {
-            Debug.Log($"echo recv {pkg.PayloadLength} bytes  ✓ match  (pk_idem={pkg.PkIdem})");
+            Debug.Log($"echo recv {pkg.PayloadLength} bytes  ✓ match  (pk_seq={pkg.PkSeq})");
         }
         else
         {

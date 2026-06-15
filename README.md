@@ -26,7 +26,7 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
                        └─── etcd (服务发现)
 ```
 
-- **客户端 ↔ 网关**:KCP over UDP,带 X25519 鉴权握手(每会话密钥协商)+ AES-128-CTR payload 加密 + XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
+- **客户端 ↔ 网关**:KCP over UDP,带 X25519 鉴权握手(每会话密钥协商)+ ChaCha20-Poly1305 AEAD payload 加密(机密性+完整性一体)+ XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
 - **网关 ↔ 后端**:TCP 长连,wire frame 走 length-prefix `PackageEx`,网关 stamp `pke_src_id` (FromPlayerID) 让后端拿到来源信息
 - **后端 ↔ 后端**:暂未规划(后期通过 etcd 服务发现 + sticky routing 接入)
 
@@ -48,8 +48,8 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
 ┌─────────────────────────────────────────────────────┐
 │ 客户端 → 网关 (KCP):  Package                       │
 ├─────────────────────────────────────────────────────┤
-│   pk_id (2B) │ pk_idem (4B) │ pk_dst_id (4B)        │
-│   pk_payload[...]                                   │
+│   pk_id (2B) │ pk_seq (4B) │ pk_dst_id (4B)         │
+│   pk_payload[...]   ← authed 后加密, 尾部附 16B tag  │
 │                                                     │
 │   长度由 KCP 消息边界给定 (KCP 自带帧边界,无需长度字段)│
 └─────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@ typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户�
 └─────────────────────────────────────────────────────────┘
 ```
 
-- `pk_idem`:客户端在 session 内单调递增的幂等 ID,网关侧做 dedup
+- `pk_seq`:客户端在 session 内单调递增的序号(必须 != 0),网关侧做幂等 dedup;兼作 ChaCha20-Poly1305 nonce 输入
 - `pk_dst_id`:目标服务类型(路由键,scene/chat/guild/...)
 - `pke_src_id`:网关从 conv 查到的 FromPlayerID,**后端无需信任客户端身份信息**
 
@@ -94,16 +94,17 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 - **双边前向保密**:两端 X25519 都是临时的(网关每会话 / 客户端每登录),长期密钥泄露也回算不出历史会话密钥
 - 握手包走明文,`Session::authed_` 翻转后才加解密,两端对称
 
-**3. AES-128-CTR payload 加密 —— 半加密**
+**3. ChaCha20-Poly1305 payload 加密 —— AEAD(机密性 + 完整性一体)**
 
-- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_seq` 做 IV),只加密 `pk_payload`
-- **key 来自上面握手的 ECDH 会话密钥**(上行 `tx` / 下行 `rx`,每 session 独立),不再是固定共享 key
-- per-packet IV = `[conv 4B][seq 4B][dir 1B][block counter 7B]`:同 session 内 `seq` 单调递增保证 (key, IV) 唯一;`dir` 区分上 / 下行防跨方向复用;低 7B 留 CTR 递增
-- AES-NI 硬件指令实现(无外部库依赖,无 timing side-channel)
+- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_seq` 做 nonce),只加密 `pk_payload`,密文尾部附 **16B Poly1305 tag**(`Session::recv` 验签失败直接 drop)
+- **key 来自上面握手的 ECDH 会话密钥**(上行 `tx` / 下行 `rx`,各 **32B 用满**,每 session 独立),不再是固定共享 key
+- per-packet nonce(12B) = `[conv 4B][seq 4B][dir 1B][0 3B]`:同 session 内 `seq` 单调递增保证 (key, nonce) 唯一;`dir` 区分上 / 下行防跨方向复用
+- libsodium `crypto_aead_chacha20poly1305_ietf`(AVX2 SIMD,constant-time;**不依赖 AES-NI**,且无 AES 旁路 / 降频风险)
+- **tag 把篡改挡死**:bit-flip / 重放被 Poly1305 验签拒绝 —— 不像 CTR 那样可定向改数据且不可检测
 
-三套算法(SipHash / X25519+crypto_kx / AES-128)客户端([test_kcp.py](examples/kcp_echo/test_kcp.py) 用同 spec / 纯 Python 实现)均与服务端位等价、可互操作。
+三套算法(SipHash / X25519+crypto_kx / ChaCha20-Poly1305)客户端均与服务端位等价、可互操作:[test_kcp.py](examples/kcp_echo/test_kcp.py) 走 OpenSSL `EVP_chacha20_poly1305`;Unity 端走 BouncyCastle。
 
-> ⚠️ **已知短板**:CTR 不带认证(payload 可被 bit-flip 定向篡改且不可检测),生产前需换 **AES-128-GCM**(一步拿完整性)。注:per-session ECDH 密钥已消解早期"AES/SipHash key 复用、conv 撞 → IV 复用"问题;envelope SipHash key 仍全局静态(可选 HKDF + rotate)。详见 [PLAN.md](PLAN.md)「传输安全层 → 待办」。
+> ✅ **完整性已落地**:换 CTR → **ChaCha20-Poly1305 AEAD** 后,payload 篡改被 Poly1305 tag 挡死(早期 CTR "可 bit-flip 定向篡改不可检测"的短板已消除);per-session ECDH 密钥也已消解"key 复用、conv 撞 → nonce 复用"问题。剩:envelope SipHash key 仍全局静态(可选 HKDF + 定时 rotate)。详见 [PLAN.md](PLAN.md)「传输安全层」。
 
 详见 [src/bpf/envelope.bpf.c](src/bpf/envelope.bpf.c)、[src/utils/cryptor.cpp](src/utils/cryptor.cpp)、[src/kcp/session.cpp](src/kcp/session.cpp)。
 
@@ -162,13 +163,13 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 
 - [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
 - [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
-- [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + AES-128-CTR payload 半加密(均已实现并跑通)
+- [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + ChaCha20-Poly1305 AEAD payload 加密(机密性+完整性一体,均已实现并跑通)
 - [x] **用户侧 ↔ 网关鉴权** —— X25519 ECDH 握手(LOGIN 签发 sealedbox + ed25519 token,绑 conv)+ 每会话双向密钥派生 + 双边前向保密;payload AES key 升级为会话密钥([test_kcp.py](examples/kcp_echo/test_kcp.py) 已端到端跑通)
 - [x] **Phase 2d 链路骨架** —— TcpConnector(连接状态机 + 非阻塞 connect + EPOLLOUT 续发 + PING 心跳)已实现并挂进 KcpServer epoll(`servs_` / `on_serv_handle`);gateway↔backend 控制面(REGIST_REQ/RSP 握手 + PING/PONG)已跑通
-- [ ] **Phase 2d 业务转发** —— `on_data`(KCP→后端:按 `pk_dst_id` 选 Connector + prepend PackageEx) + `on_serv_handle` 业务回程(后端→KCP) ← **下一步**(当前 example 仍是网关本地 echo,`on_serv_handle` 只处理 PONG/REGIST_RSP 控制包)
-- [ ] **Phase 2e** —— EchoBackend 进程 + 完整链路端到端跑通(PING/PONG handler 本身已实现)
-- [ ] **Phase 2f** —— etcd 服务注册发现:网关 control loop + `NewServ` 事件分发已通(typhon::Server 定时节拍 → `notify` → kcp::Server 建 Connector),**etcd 客户端待填**(`update_serv` 当前硬编码后端地址)
-- [ ] **安全层加固** —— AES-128-GCM(payload 完整性) + HKDF 派生独立 key
+- [x] **Phase 2d 业务转发** —— `on_c2s`(KCP→后端:按 `pk_dst_id` 选 Connector + 零拷贝 prepend PackageEx) + `on_s2c`(后端→KCP 回程:`pk_dst_id`=conv 查 session 回发,已修共享缓冲越界)已端到端跑通(client → 后端 echo → client)
+- [x] **Phase 2e** —— EchoBackend 进程([examples/tcp_echo](examples/tcp_echo))+ 完整链路跑通(PING/PONG + REGIST 握手)
+- [ ] **Phase 2f** —— etcd 服务注册发现:网关 control loop 已通(typhon::Server 周期 `update_serv` → `AddServ` 广播 → kcp::Server 建 Connector;worker 掉线经 **pipe 回流** `RmvServ` → 周期重连),**etcd 客户端待填**(`update_serv` 当前硬编码后端地址)
+- [ ] **安全层加固** —— ~~payload 完整性~~(已由 ChaCha20-Poly1305 AEAD 解决)+ envelope SipHash key 的 HKDF 派生 + 定时 rotate
 
 完整规划见 [PLAN.md](PLAN.md)。
 
@@ -178,12 +179,12 @@ UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
 
 依赖:
 - Linux,kernel ≥ 5.x(XDP envelope 过滤;io_uring 可选需 ≥ 5.10)
-- **x86-64 CPU 带 AES-NI**(payload AES-128-CTR 硬件加速,2010 年后的 x86 都有)
 - C++20 编译器(g++ ≥ 11 / clang ≥ 13)
+- [libsodium](https://github.com/jedisct1/libsodium)(X25519 / Ed25519 / sealedbox / crypto_kx / ChaCha20-Poly1305 密码学原语;不再需要 AES-NI)
 - [mimalloc](https://github.com/microsoft/mimalloc) (高性能内存分配器)
 - [spdlog](https://github.com/gabime/spdlog) (日志)
 - libbpf(eBPF SO_REUSEPORT 路由 + XDP envelope MAC 过滤;clang 编译 BPF 对象)
-- (仅压测客户端)OpenSSL `libcrypto`,[test_kcp.py](examples/kcp_echo/test_kcp.py) 用它做 AES-128-CTR
+- (仅压测客户端)OpenSSL `libcrypto`,[test_kcp.py](examples/kcp_echo/test_kcp.py) 用它做 ChaCha20-Poly1305 / SipHash
 
 ```bash
 make                            # 编译 lib + bpf 对象

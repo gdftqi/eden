@@ -130,7 +130,7 @@ public:
 
     // 从 rbuf_ 取一个完整包(decode 内部已 ntoh → host 序): xOK 取到 / xAGAIN 无数据或半包。
     int
-    recv(core::PKx<core::Host>* pke, uint64_t now) noexcept;
+    recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept;
 
 
     int

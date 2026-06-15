@@ -36,7 +36,7 @@
 - [x] Kcp::ctor 初始化 last_recv_ms_，避免新 session 立即超时被踢
 - [x] C# Unity 客户端消息格式与服务端对齐（Package 编解码 + idem 单调递增）
 - [x] SipHash-2-4 实现（utils/cryptor，64 个官方 vector 验证位等价）
-- [x] AES-128-CTR 实现（utils/cryptor，AES-NI intrinsics，NIST SP800-38A vector 验证）
+- [x] ChaCha20-Poly1305 AEAD 实现（utils/cryptor，libsodium `crypto_aead_chacha20poly1305_ietf`;client OpenSSL `EVP_chacha20_poly1305` 位等价验证）
 
 ### 2b. 后端服务框架（基础骨架）
 
@@ -65,7 +65,7 @@
       - 非阻塞 `connect()`，状态机:`Disconnected` / `Connecting` / `Connected`(EPOLLOUT 驱动 Connecting→Connected)
       - inbuf 复用 RcvBuf(`recv` 内部 decode PackageEx + ntoh → host 序)
       - outbuf(`sbuf_`) + EPOLLOUT 处理 partial write(`send(now)` 续 flush)
-      - [ ] 重连(指数退避)**仍未实现**,`on_serv_handle` 拿到 ERR/HUP 直接 `remove_serv`(注释里留了退避位)
+      - [x] Connector **刻意不做 TCP 层自重连**(避免每连接一套重试状态机);掉线 `remove_serv` 经 pipe 回流通知主线程,重连由服务发现层(`update_serv` 周期重广播)驱动(见 2f)
 - [x] TcpConnector fd 加入 KcpServer 主 epoll(`add_serv`/`servs_`)，主循环非 ufd/evfd 的 fd 分发到 `on_serv_handle`
 - [x] **gateway↔backend 控制面**(原 PLAN 未单列)：Connector `regist()` 发 REGIST_REQ + `update()` 发 PING 心跳;
       `on_serv_handle` EPOLLIN 收包后 dispatch `on_regist_rsp`(置 authed)/`on_pong`(打延迟)
@@ -93,13 +93,17 @@
 ### 2f. ETCD 服务注册与发现 + REGIST 握手
 
 - [x] **网关侧 control loop 骨架**：typhon::Server 主线程兼 control 线程
-      - epoll_wait timeout(实测 `INTERVAL_MS = 10000`,10s) 当定时节拍 + stop_evfd 即时唤醒退出
-      - kcp::Server 加 `evque_`(SPSC) + `notify()` —— typhon 主线程是唯一生产者,
-        单生产者约束成立;QEvent(Stop/**NewServ**/Recv/Send/AddSess/RmvSess) 抽到 core/qevent.hpp
-      - 分发已落地:`update_serv()` 每个节拍 `notify(NewServ, NewServArg{id,host})`,
-        kcp::Server `on_new_serv` → `Connector::create` → `add_serv`(按 id 去重)
-      - ⚠️ 与原设计的偏差:**没有用 `shared_ptr<const BackendTable>` 快照**,改为
-        **逐 serv 的 `NewServArg{id, host[32]}` 事件 + `ServMap servs_`**(每个后端一个 Connector)
+      - epoll_wait timeout(`INTERVAL_MS = 10000`,10s) 当定时节拍;stop / 掉线事件即时唤醒
+      - **双向事件通道**:主线程→worker 用 `kcp::Server::notify`(SPSC,主线程单生产者);
+        worker→主线程用 **pipe**(`notify_serv_disconnected`,低频控制平面,`write ≤ PIPE_BUF` 多生产者天然原子;
+        替掉了早期 SPSC —— N 个 worker 并发写会违反单生产者约束)
+      - QEvent(Stop/**AddServ**/**RmvServ**/Recv/Send/AddSess/RmvSess),`AddServArg{id, host[32]}`
+      - 分发已落地:`update_serv()` 周期 `notify(AddServ)` → kcp::Server `on_new_serv` →
+        `Connector::create` → `add_serv`(按 id 去重 `ServMap servs_`,每后端一个 Connector);
+        worker 掉线(EPOLLHUP 或心跳判死)经 pipe 回流 `RmvServ` → 主线程从去重集 `servs_` 摘除 →
+        下个周期 `update_serv` 重新广播重连
+      - **重连风暴防护**:`update_serv` 只在 epoll **超时(n==0)** 跑,不被掉线事件即时驱动 ——
+        给重连一个 `INTERVAL_MS` 固定退避(否则 断开→notify→立即重连→又断 会 busy-loop)
 - [x] REGIST_REQ / REGIST_RSP 握手协议（backend 上线后跟 gateway 握手）—— 见 2e,已实现
 - [ ] **etcd 客户端**：用 **HTTP/JSON gateway**(cpp-httplib + nlohmann/json,**不用 gRPC**)
       - 定时 `POST /v3/kv/range` 拉 service_type 前缀全量(key/value base64,调用设超时)
@@ -127,7 +131,7 @@
 
 ## 传输安全层（已实现）
 
-三层独立、可分别开关:**XDP envelope MAC**(内核态 DoS 过滤) + **X25519 鉴权握手**(每会话密钥协商) + **AES-128-CTR**(payload 加密)。
+三层独立、可分别开关:**XDP envelope MAC**(内核态 DoS 过滤) + **X25519 鉴权握手**(每会话密钥协商) + **ChaCha20-Poly1305 AEAD**(payload 加密,机密性+完整性一体)。
 
 ### envelope MAC（XDP DoS 过滤）
 
@@ -168,28 +172,29 @@
 - [x] **加密激活时机 = `Session::authed_`**:握手包(REGIST_REQ/RSP)走明文,authed 翻转后才加解密
       → 网关先 send RSP(明文)再 `set_authed(true)`;客户端收明文 RSP 派生密钥后再置 authed,两端对称
 - [x] **cryptor 原语**（[utils/cryptor](include/utils/cryptor.hpp)）:x25519_kx_client / x25519_kx_server
-      (crypto_kx 包装) / sealedbox_encrypt/decrypt / ed25519_sign/verify / x25519_keygen / siphash24 / aes128_ctr
+      (crypto_kx 包装) / sealedbox_encrypt/decrypt / ed25519_sign/verify / x25519_keygen / siphash24 / xx20_encrypt / xx20_decrypt(ChaCha20-Poly1305 AEAD)
 - [x] test_kcp.py 客户端对齐:纯 Python X25519(RFC 7748) + BLAKE2b KDF,与 libsodium crypto_kx **位等价**;
       12 个预生成写死 token(conv 2000-2011,有效期 10 年)
 
-### payload 加密（AES-128-CTR 半加密）
+### payload 加密（ChaCha20-Poly1305 AEAD）
 
-- [x] **半加密**:Package header（10B）明文,只加密 pk_payload
-      - header 明文让网关读 pk_dst_id 路由 / pk_seq 做 IV;header 完整性已由 envelope MAC 覆盖
-- [x] **per-session 双向密钥**:AES key 由握手 ECDH 派生(见上),**不再是固定共享 key**
-      - 上行用 `tx` / 下行用 `rx`(AES-128 取会话密钥前 16B);每 session key 独立
-- [x] **per-packet IV**:`[conv 4B][seq 4B][dir 1B][block counter 7B=0]`
-      - 同 session 内 seq 单调递增保证 (key,IV) 唯一;dir(0 上行/1 下行)防跨方向复用;
-        低 7B 留给 CTR 内部 block counter 递增,与高位不重叠
+- [x] **只加密 payload**:Package header（10B）明文,只加密 pk_payload,密文尾部附 **16B Poly1305 tag**
+      - header 明文让网关读 pk_dst_id 路由 / pk_seq 做 nonce;header 完整性已由 envelope MAC 覆盖
+- [x] **per-session 双向密钥**:key 由握手 ECDH 派生(见上),**不再是固定共享 key**
+      - 上行用 `tx` / 下行用 `rx`(**各 32B 用满**,不再像 AES-128 截前 16B);每 session key 独立
+- [x] **per-packet nonce(12B)**:`[conv 4B][seq 4B][dir 1B][0 3B]`
+      - 同 session 内 seq 单调递增保证 (key,nonce) 唯一;dir(0 上行/1 下行)防跨方向复用
       - **conv 撞不再致命**:每 session key 独立,keystream 空间天然隔离
-- [x] send 加密(DIR_S2C,tx_key)/ recv 解密(DIR_C2S,rx_key),`authed_` 翻转后才生效;非法 / 重放包先 drop
-- [x] AES-NI 实现(utils/cryptor) + test_kcp.py 客户端对齐
-      (ctypes 调 libcrypto `EVP_aes_128_ctr`,IV 布局 / 方向 / key 与服务端一致)
+- [x] send 加密(DIR_S2C,tx_key)/ recv 解密(DIR_C2S,rx_key),`authed_` 翻转后才生效;验签失败 / 重放先 drop
+- [x] **len_ 不含 tag**:`PK::plen()` 永远是明文 payload 长;tag 只在 wire 瞬间存在(send 末尾附 / recv 开头剥),不进 len_
+      - on_s2c 转发回程要先把包拷到独立缓冲再 send(否则加密写 tag 会越界踩 Connector rbuf_ 共享缓冲,已修)
+- [x] libsodium 实现(utils/cryptor `xx20_encrypt`/`xx20_decrypt`) + test_kcp.py 客户端对齐
+      (ctypes 调 libcrypto `EVP_chacha20_poly1305`,nonce 布局 / 方向 / key 与服务端**位等价**);Unity 端走 BouncyCastle
 
 ### 待办 / 已知短板
 
-- [ ] **payload 完整性**:AES-CTR 不带认证,bit-flip 可定向改游戏数据且不可检测
-      → 换 **AES-128-GCM**(一步拿机密性+完整性)或 encrypt-then-MAC ★最高优先
+- [x] ~~**payload 完整性**~~:已换 **ChaCha20-Poly1305 AEAD**(机密性+完整性一体),
+      payload bit-flip / 重放被 Poly1305 tag 挡死(原"CTR 可定向篡改不可检测"短板消除)
 - [x] ~~**key 复用**(SipHash envelope key 与 AES key 共享 `shkey()`)~~ —— AES payload key 已改为
       **每会话 X25519 ECDH 派生**(见上「鉴权握手」),与 envelope SipHash key(config 固定)分离
       → 剩:envelope MAC key 仍全局静态,可选再上 HKDF + 定时 rotate

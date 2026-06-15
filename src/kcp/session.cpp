@@ -49,7 +49,6 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     }
 
     if (res > core::PKG_MAX_LEN) {
-        // 非法包:长度越界(含 res==0 的空包)
         return xERR_PK_LEN;
     }
 

@@ -54,7 +54,7 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
 
 
 int
-typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept {
+typhon::tcp::Connector::recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept {
     if (rbuf_.readable() == 0) {
         return xAGAIN;
     }
@@ -64,7 +64,7 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pke, uint64_t now) noexcept 
         return xAGAIN;               // 半包, 等更多数据
     }
 
-    *pke = core::PKx<core::Host>(raw);
+    *pkx = core::PKx<core::Host>(raw);
     last_recv_ms_ = now;
     return xOK;
 }

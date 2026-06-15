@@ -1,5 +1,8 @@
 // Kcp based on https://github.com/skywind3000/kcp
 // Kept as close to original as possible.
+// 对齐 C 版 ikcp.c: 它 #define IKCP_FASTACK_CONSERVE 打开(input 的 maxack 走保守分支)。
+// 定义此符号让下面 #if !FASTACK_CONSERVE 走 #else 保守分支, 与 C 版一致。
+#define FASTACK_CONSERVE
 using System;
 using System.Collections.Generic;
 
@@ -30,7 +33,7 @@ namespace kcp2k
         public const int DEADLINK = 20;            // default maximum amount of 'xmit' retransmissions until a segment is considered lost
         public const int THRESH_INIT = 2;
         public const int THRESH_MIN = 2;
-        public const int PROBE_INIT = 7000;        // 7 secs to probe window size
+        public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
 
@@ -740,6 +743,10 @@ namespace kcp2k
             seg.wnd = WndUnused();
             seg.una = rcv_nxt;
 
+            // 对齐 C 版 ikcp.c: 进入 flush 时先存住拥塞窗口原值,
+            // lost 分支按它(而非局部发送窗口)算 ssthresh
+            uint prior_cwnd = cwnd;
+
             // flush acknowledges
             foreach (AckItem ack in acklist)
             {
@@ -932,8 +939,9 @@ namespace kcp2k
             // congestion control, https://tools.ietf.org/html/rfc5681
             if (lost)
             {
-                // original C uses 'cwnd', not kcp->cwnd!
-                ssthresh = cwnd_ / 2;
+                // 对齐 C 版 ikcp.c: ssthresh 用进入 flush 时的拥塞窗口 prior_cwnd (= kcp->cwnd),
+                // 而非局部发送窗口 cwnd_。新版 C 改用 prior_cwnd, kcp2k 旧版用 cwnd_。
+                ssthresh = prior_cwnd / 2;
                 if (ssthresh < THRESH_MIN)
                     ssthresh = THRESH_MIN;
                 cwnd = 1;
@@ -985,8 +993,9 @@ namespace kcp2k
                 ts_flush += interval;
 
                 // if last flush is still behind, increase it to current + interval
-                // if (Utils.TimeDiff(current, ts_flush) >= 0) // original kcp.c
-                if (current >= ts_flush)                       // less confusing
+                // 对齐 C 版 ikcp.c: 用 TimeDiff(有符号差)而非无符号 >=,
+                // 时间戳回绕(uint, ~49天)时只有有符号差才正确
+                if (Utils.TimeDiff(current, ts_flush) >= 0)
                 {
                     ts_flush = current + interval;
                 }
