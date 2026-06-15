@@ -227,14 +227,16 @@ ntoh(PK<Net> v) noexcept {
 constexpr int PKG_MAX_LEN     = 65535;                                    // wire frame 总长上限 (任意方向)
 constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 10, Package 头长度
 constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10, PackageEx 头长度 (FAM 不计)
-constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKX_HDR_LEN - PKG_HDR_LEN;  // 65515, pk_payload 上限 (取约束更严的 TCP 方向)
+// pk_payload 上限, 取**最严**约束: KCP 加密方向 wire = PKG_HDR(10) + payload + tag(16) ≤ PKG_MAX_LEN。
+// (TCP 方向 PKX+PKG=20 < 26, 没这严; 此值同时满足两方向。)
+constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;  // 65509
 
 
 static_assert(PKG_HDR_LEN == 10, "Package header size changed");
 static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
 
 
-} // namespace typhon::core
+} // namespace typhon::core;
 
 
 #endif // __TYPHON_PACKAGE_HPP__

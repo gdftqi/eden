@@ -107,19 +107,36 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     int plen = pk.len() - core::PKG_HDR_LEN;
-    int len  = pk.len();
+    if (plen > core::PKG_MAX_PAYLOAD) {
+        // payload 超限: 加密后 wire(HDR + payload + tag) 会超 PKG_MAX_LEN, 对端收不下
+        return xERR_PK_LEN;
+    }
     pk->seq  = next_snd_seq();
 
+    int res;
     if (plen > 0 && authed_) {
+        // 加密输出到 worker 级发送暂存 buf, 不原地改 pk —— 避免踩 pk 所在的共享缓冲
+        // (如 on_s2c 的 Connector rbuf_)。xx20_encrypt 支持 in≠out, 加密这步顺便把
+        // payload 从 pk 搬到 sndbuf, 不额外整包 memcpy。
+        thread_local static uint8_t sndbuf[core::PKG_MAX_LEN + core::PKX_HDR_LEN];
         uint8_t nonce[utils::XX20_NONCE_LEN];
         make_nonce(nonce, conv(), pk->seq, DIR_S2C);
-        uint8_t* tag = pk->payload + plen;
-        ASSERT(utils::xx20_encrypt(pk->payload, plen, pk->payload, tag, tx_key_, nonce) == 0, "加密失败");
-        len += (int)utils::XX20_TAG_LEN;
+
+        ::memcpy(sndbuf, pk.raw(), core::PKG_HDR_LEN);                 // 头 10B (host 序)
+        ASSERT(utils::xx20_encrypt(pk->payload, plen,
+                                   sndbuf + core::PKG_HDR_LEN,         // 密文 out
+                                   sndbuf + core::PKG_HDR_LEN + plen,  // tag out
+                                   tx_key_, nonce) == 0, "加密失败");
+        core::pk_hton((core::Package*)sndbuf);                         // 翻头字节序 (payload/tag 不动)
+
+        int wire = core::PKG_HDR_LEN + plen + (int)utils::XX20_TAG_LEN;
+        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)sndbuf, wire));
+    } else {
+        // 未加密(空 payload 或未 authed)
+        core::hton(pk);
+        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
     }
 
-    core::hton(pk);
-    int res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), len));
     if (res >= xOK) {
         ::ikcp_flush(kcp_);
     }

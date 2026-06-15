@@ -351,7 +351,6 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
                 } else {
                     xERROR("{} read failed: errno = {}, errstr = {}", conn->host(), err, ::strerror(err));
                 }
-                
                 break;
             } else if (n == 0) {
                 err = EOF;
@@ -515,13 +514,9 @@ void
 typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
     auto s = get_session(pkx.pk()->dst_id);
     if (s != nullptr) {
-        // 拷到独立缓冲再发: s->send 会原地加密 payload 并在尾部追加 16B tag。
-        // 若直接用 pkx.pk()(指向 Connector rbuf_ 共享缓冲), tag 会越过本包边界、
-        // 覆盖 rbuf_ 里粘在后面、还没被 decode 处理的下一个包 → buffer.cpp ASSERT abort。
-        thread_local static uint8_t buf[core::PKG_MAX_LEN];
-        int pklen = pkx.plen() + core::PKG_HDR_LEN;
-        ::memcpy(buf, pkx.pk(), pklen);
-        core::PK<core::Host> pk((void*)buf, pklen);
+        // 直接用 pkx.pk()(指向 Connector rbuf_): Session::send 把密文+tag 加密输出到它
+        // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包。
+        core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
         if (s->send(pk) < 0) {
             xERROR("{} 发送失败", s->to_string());
         }
