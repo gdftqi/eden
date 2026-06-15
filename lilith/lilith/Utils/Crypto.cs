@@ -62,8 +62,7 @@ namespace Echidna
             "jwNmS7Gd1IaSCJn1/CW5OWoMf0G4V2St1SLz+LrqtWyAAy2GqId9Nvi2Fmqr+n1lRSiyx77poVnHEhklEKIalOTYRa2DhytvwZn8ZZXh9u0JZMvWWSxe2VVowq+iJIs/tjU6AqhcibUZkMsZldHODImnQcqF+PfdXfBXFb85SGCOR8+N/dwUppvBxTi6G4ccKn14SFqCw8JvPhx2dGYjwQ==",
         };
 
-        public static byte[] Token(int clientId) => Convert.FromBase64String(TOKENS_B64[clientId]);
-        public static uint   Conv(int clientId)  => CONV_BASE + (uint)clientId;
+        public static byte[] Token(uint conv) => Convert.FromBase64String(TOKENS_B64[conv]);
 
 
         // ---------------------------------------------------------------------
@@ -114,9 +113,13 @@ namespace Echidna
         // ---------------------------------------------------------------------
         // ChaCha20-Poly1305 IETF 解密: body = 密文 + 16B tag; 验签失败返回 null。
         // ---------------------------------------------------------------------
-        public static byte[] Decrypt(byte[] key, byte[] nonce, byte[] body, int bodyLen)
+        public static byte[]? Decrypt(byte[] key, byte[] nonce, byte[] body, int bodyLen)
         {
-            if (bodyLen < AEAD_TAG_LEN) return null;
+            if (bodyLen < AEAD_TAG_LEN)
+            {
+                return null;
+            }
+
             var aead = new ChaCha20Poly1305();
             aead.Init(false, new AeadParameters(new KeyParameter(key), AEAD_TAG_LEN * 8, nonce, null));
             var outBuf = new byte[aead.GetOutputSize(bodyLen)];    // = bodyLen - 16

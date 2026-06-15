@@ -2,7 +2,7 @@ using kcp2k;
 using System;
 
 
-namespace Echidna
+namespace lilith.Core
 {
     // =========================================================================
     //              typhon 消息协议 (v2, 10B 头) —— C# 客户端镜像
@@ -157,13 +157,11 @@ namespace Echidna
 
 
         // 进程级单例池, 主线程使用(kcp2k.Pool 内部用 Stack, 非 thread-safe)。
-        private static Pool<Package> pool;
+        private static Pool<Package> pool = new Pool<Package>(() => new Package(), pkg => pkg.Reset(), 16);
         public static Pool<Package> Pool
         {
             get
             {
-                if (pool == null)
-                    pool = new Pool<Package>(() => new Package(), pkg => pkg.Reset(), 16);
                 return pool;
             }
         }

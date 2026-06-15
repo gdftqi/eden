@@ -1,3 +1,4 @@
+using Echidna;
 using kcp2k;
 using System;
 using System.Collections.Concurrent;
@@ -6,7 +7,7 @@ using System.Net.Sockets;
 using System.Threading;
 
 
-namespace Echidna
+namespace lilith.Core
 {
     /// <summary>会话事件</summary>
     public interface ISessionEvent
@@ -24,7 +25,7 @@ namespace Echidna
     /// </summary>
     public class KcpSession
     {
-        static KcpSession instance;
+        static KcpSession? instance = null;
         public static KcpSession Instance => instance ??= new KcpSession();
         private KcpSession() { }
 
@@ -39,12 +40,12 @@ namespace Echidna
         /// <summary>
         /// 连接网关。clientId ∈ [0, TOKENS 数量) —— 决定 conv(=2000+id) 与写死的 token。
         /// </summary>
-        public void Connect(int clientId, string host)
+        public void Connect(uint conv, string host)
         {
             if (ev == null) throw new Exception("SessionEvent is invalid");
             if (string.IsNullOrEmpty(host)) throw new Exception("host is null or empty");
 
-            var ipStr   = host.Substring(0, host.IndexOf(':'));
+            var ipStr = host.Substring(0, host.IndexOf(':'));
             var portStr = host.Substring(host.LastIndexOf(":") + 1);
             if (!int.TryParse(portStr, out int port)) throw new Exception("host is invalid");
 
@@ -52,12 +53,10 @@ namespace Echidna
 
             try
             {
-                this.clientId = clientId;
-                this.conv     = Crypto.Conv(clientId);
-                this.token    = Crypto.Token(clientId);
-                authed   = false;
-                rxKey    = txKey = null;
-                sndSeq   = rcvSeq = 0;
+                this.conv = conv;
+                this.token = Crypto.Token(conv);
+                authed = false;
+                sndSeq = rcvSeq = 0;
 
                 remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                 udp = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
@@ -65,7 +64,7 @@ namespace Echidna
 
                 kcp = new Kcp(conv, output);
                 kcp.SetNoDelay(1, 10, 3, true);
-                kcp.SetMtu(1392);   // = UDP_MTU(1400) - envelope MAC(8), 对齐服务端 KCP_MTU / test_kcp.py
+                kcp.SetMtu(1392);   // = UDP_MTU(1400) - envelope MAC(8), 对齐服务端 KCP_MTU
 
                 udpRecvThread = new Thread(udpRecvLoop) { IsBackground = true };
                 udpRecvThread.Start();
@@ -84,18 +83,18 @@ namespace Echidna
         public void Stop()
         {
             if (Interlocked.CompareExchange(ref running, 0, 1) == 1)
-                udp.Close();
+                udp!.Close();
         }
 
 
         private void udpRecvLoop()
         {
-            IPEndPoint remote = null;
+            IPEndPoint? remote = null;
             while (Running)
             {
                 try
                 {
-                    var data = udp.Receive(ref remote);
+                    var data = udp!.Receive(ref remote);
                     rbufQueue.Enqueue(data);
                 }
                 catch (ObjectDisposedException) { break; }   // 正常退出
@@ -112,7 +111,7 @@ namespace Echidna
                 {
                     udpRecvThread.Join();
                     udpRecvThread = null;
-                    ev?.OnDisconnected(remotePoint);
+                    ev?.OnDisconnected(remotePoint!);
                     remotePoint = null;
                     rbufQueue.Clear();
                     kcp = null;
@@ -126,13 +125,13 @@ namespace Echidna
             while (rbufQueue.TryDequeue(out byte[] data))
             {
                 if (data.Length >= Crypto.ENVELOPE_MAC_LEN)
-                    kcp.Input(data, Crypto.ENVELOPE_MAC_LEN, data.Length - Crypto.ENVELOPE_MAC_LEN);
+                    kcp!.Input(data, Crypto.ENVELOPE_MAC_LEN, data.Length - Crypto.ENVELOPE_MAC_LEN);
             }
 
             // 2. 取出完整 KCP 消息 → 握手 / 业务分流
             while (true)
             {
-                int n = kcp.Receive(rbuf, rbuf.Length);
+                int n = kcp!.Receive(rbuf, rbuf.Length);
                 if (n <= 0) break;
                 OnKcpMessage(n);
             }
@@ -159,7 +158,7 @@ namespace Echidna
                     Buffer.BlockCopy(recvPkg.Payload, 0, srvPk, 0, 32);
                     Crypto.KxClient(srvPk, out rxKey, out txKey);   // 派生会话密钥
                     authed = true;
-                    ev?.OnConnected(remotePoint);
+                    ev?.OnConnected(remotePoint!);
                 }
                 return;
             }
@@ -172,7 +171,7 @@ namespace Echidna
                 var body = new byte[plen];
                 Buffer.BlockCopy(rbuf, Package.HEADER_SIZE, body, 0, plen);
                 var nonce = Crypto.MakeNonce(conv, seq, Crypto.DIR_S2C);
-                var plain = Crypto.Decrypt(rxKey, nonce, body, plen);
+                var plain = Crypto.Decrypt(rxKey!, nonce, body, plen);
                 if (plain == null) return;                          // 验签失败, 丢弃
                 Buffer.BlockCopy(plain, 0, rbuf, Package.HEADER_SIZE, plain.Length);
                 n = Package.HEADER_SIZE + plain.Length;             // 剥掉 tag 后的明文长度
@@ -200,7 +199,7 @@ namespace Echidna
             if (authed && pkg.PayloadLength > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_C2S);
-                var enc = Crypto.Encrypt(txKey, nonce, pkg.Payload, pkg.PayloadLength); // = plen + 16
+                var enc = Crypto.Encrypt(txKey!, nonce, pkg.Payload, pkg.PayloadLength);
                 Buffer.BlockCopy(enc, 0, pkSendBuf, Package.HEADER_SIZE, enc.Length);
                 total = Package.HEADER_SIZE + enc.Length;
             }
@@ -215,9 +214,9 @@ namespace Echidna
         {
             var pkg = Package.Pool.Take();
             pkg.Reset();
-            pkg.PkId    = Package.PKID_REGIST_REQ;
+            pkg.PkId = Package.PKID_REGIST_REQ;
             pkg.PkDstId = Package.GATEWAY_ID;
-            Buffer.BlockCopy(token, 0, pkg.Payload, 0, token.Length);
+            Buffer.BlockCopy(token, 0, pkg.Payload, 0, token!.Length);
             pkg.PayloadLength = token.Length;
             SendPk(pkg);                 // authed=false → 不加密
             Package.Pool.Return(pkg);
@@ -230,31 +229,32 @@ namespace Echidna
             var mac = Crypto.SipHashTag(segment, Math.Min(size, Crypto.ENVELOPE_MAC_HASH_LEN));
             Buffer.BlockCopy(mac, 0, udpSendBuf, 0, Crypto.ENVELOPE_MAC_LEN);
             Buffer.BlockCopy(segment, 0, udpSendBuf, Crypto.ENVELOPE_MAC_LEN, size);
-            udp.Send(udpSendBuf, Crypto.ENVELOPE_MAC_LEN + size);
+            udp!.Send(udpSendBuf, Crypto.ENVELOPE_MAC_LEN + size);
         }
 
 
         // ---- 状态 ----
-        private IPEndPoint remotePoint;
-        private UdpClient  udp;
-        private Kcp        kcp;
-        private int        running = 0;
+        private IPEndPoint? remotePoint = null;
+        private UdpClient? udp = null;
+        private Kcp? kcp = null;
+        private int running = 0;
+        private bool authed = false;
+        private uint conv = 0;
+        private byte[] token = new byte[170];
 
-        private int    clientId;
-        private uint   conv;
-        private byte[] token;
-        private bool   authed;
-        private byte[] rxKey, txKey;   // 会话密钥(32B), 握手后派生
-        private uint   sndSeq, rcvSeq; // 上行单调递增 / 下行幂等去重
+        private byte[] rxKey = new byte[32];
+        private byte[] txKey = new byte[32];
+        private uint sndSeq = 0;
+        private uint rcvSeq = 0;
 
         private ConcurrentQueue<byte[]> rbufQueue = new ConcurrentQueue<byte[]>();
-        private Thread        udpRecvThread;
-        private ISessionEvent ev;
+        private Thread? udpRecvThread = null;
+        private ISessionEvent? ev = null;
 
         // 接收 / 发送缓冲(单线程, 复用)
-        private byte[]  rbuf        = new byte[Package.PACK_MAX_LEN + 1];
-        private byte[]  pkSendBuf   = new byte[Package.PACK_MAX_LEN];
-        private byte[]  udpSendBuf  = new byte[Package.PACK_MAX_LEN + Crypto.ENVELOPE_MAC_LEN];
-        private Package recvPkg     = new Package();
+        private byte[] rbuf = new byte[Package.PACK_MAX_LEN + 1];
+        private byte[] pkSendBuf = new byte[Package.PACK_MAX_LEN];
+        private byte[] udpSendBuf = new byte[Package.PACK_MAX_LEN + Crypto.ENVELOPE_MAC_LEN];
+        private Package recvPkg = new Package();
     }
 }
