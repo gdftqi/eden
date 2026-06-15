@@ -48,11 +48,13 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return core::from_ikcp_recv(res);
     }
 
-    if (res > core::PKG_MAX_LEN) {
+    if (res < core::PKG_HDR_LEN || res > core::PKG_MAX_LEN) {
         return xERR_PK_LEN;
     }
 
-    if (res < core::PKG_HDR_LEN + (authed_ ? (int)utils::XX20_TAG_LEN : 0)) {
+    // payload 可为 0: 空包(res == PKG_HDR_LEN)放行, 不解密;
+    // 仅"authed 且有 payload"的包必须带 16B tag, 否则连 tag 都放不下 = 畸形。
+    if (authed_ && res > core::PKG_HDR_LEN && res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
         return xERR_PK_LEN;
     }
 
