@@ -81,7 +81,6 @@ struct Net  {};
 template<typename T>
 class PKx {
     static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "PKx 的 Order 只能是 Host 或 Net");
-    PackageEx* p_ { nullptr };
 
 
 public:
@@ -117,12 +116,16 @@ public:
         constexpr int HDR_SIZE = (int)sizeof(PackageEx) + (int)sizeof(Package);
         return (int)p_->len - HDR_SIZE;
     }
-};
+
+
+private:
+    PackageEx* p_ { nullptr };
+}; // class PKx<T>;
 
 
 inline PKx<Net>
 hton(PKx<Host> v) noexcept {
-    auto* p       = (PackageEx*)v.raw();
+    auto* p     = (PackageEx*)v.raw();
     p->len      = htons(p->len);
     p->src_id   = htonl(p->src_id);
     p->src_addr = htonl(p->src_addr);
@@ -133,7 +136,7 @@ hton(PKx<Host> v) noexcept {
 
 inline PKx<Host>
 ntoh(PKx<Net> v) noexcept {
-    auto* p       = (PackageEx*)v.raw();
+    auto* p     = (PackageEx*)v.raw();
     p->len      = ntohs(p->len);
     p->src_id   = ntohl(p->src_id);
     p->src_addr = ntohl(p->src_addr);
@@ -145,8 +148,6 @@ ntoh(PKx<Net> v) noexcept {
 template<typename T>
 class PK {
     static_assert(std::is_same_v<T, Host> || std::is_same_v<T, Net>, "PK 的 Order 只能是 Host 或 Net");
-    Package* p_;
-    int      len_;
 
 
 public:
@@ -207,7 +208,12 @@ public:
     operator->() const noexcept {
         return p_;
     }
-};
+
+
+private:
+    Package* p_;
+    int      len_;
+}; // class PK<T>;
 
 
 inline PK<Net>
