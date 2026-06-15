@@ -232,7 +232,7 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (del) {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
         procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::RmvSess, fd));
     }
 }

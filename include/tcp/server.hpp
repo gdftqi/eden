@@ -141,7 +141,7 @@ public:
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         gws_[fd] = Session::create(fd, w);
         if (event_->on_connected(gws_[fd]) != 0) {
-            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             gws_[fd] = nullptr;
         }
     }
@@ -152,7 +152,7 @@ public:
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (gws_[fd]) {
             if (del_from_epoll) {
-                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
+                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
             event_->on_disconnected(gws_[fd]);
             gws_[fd] = nullptr;

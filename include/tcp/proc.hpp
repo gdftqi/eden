@@ -113,15 +113,15 @@ private:
     check_timeout() noexcept;
 
 
-    int
+    void
     on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
 
 
-    int
+    void
     on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
 
 
-    int
+    void
     on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
 
 

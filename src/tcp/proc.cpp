@@ -163,7 +163,7 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
     core::PKx<core::Host> pkx;
     while (1) {
         res = sess->recv(&pkx);
-        if (res != xOK) {            // xAGAIN(无完整包) 或错误 → 停止本轮
+        if (res != xOK) {
             break;
         }
 
@@ -234,18 +234,16 @@ typhon::tcp::Proc::check_timeout() noexcept {
 }
 
 
-int
+void
 typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
     pkx.pk()->id = PKID_PONG;
     if (s->send(pkx) < 0) {
         xERROR("发送消息失败");
     }
-
-    return xOK;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
     uint32_t id = ntohl(*(uint32_t*)pkx.pk()->payload);
 
@@ -259,24 +257,20 @@ typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
     } else {
         xINFO("网关 {} 注册成功", id);
     }
-
-    return xOK;
 }
 
 
-int
+void
 typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
-        return xERR;
+        return;
     }
 
     auto h = server_->get_handler(pkx.pk()->id);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pkx.pk()->id, s->remote_addr());
-        return xERR;
+        // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
     }
     h(s, pkx);
-
-    return xOK;
 }
