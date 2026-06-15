@@ -224,7 +224,6 @@ ntoh(PK<Net> v) noexcept {
 }
 
 
-constexpr int MAX_HANDLERS    = 1024;                                     // MAX_HANDLERS: pk_id 字段的合法上界
 constexpr int PKG_MAX_LEN     = 65535;                                    // wire frame 总长上限 (任意方向)
 constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 10, Package 头长度
 constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10, PackageEx 头长度 (FAM 不计)

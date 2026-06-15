@@ -61,8 +61,8 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
     *pk = core::ntoh(core::PK<core::Net>(buf, res));
     auto& p = *pk;
 
-    if (p->id == 0 || p->id >= core::MAX_HANDLERS) {
-        return xERR_PKT_ID;
+    if (p->id == 0) {
+        return xERR_PK_ID;
     }
 
     if (p->seq == 0) {

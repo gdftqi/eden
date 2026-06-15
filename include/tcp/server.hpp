@@ -71,6 +71,7 @@ public:
 
 
     typedef void (*PackageHandler)(Session::Ptr, core::PKx<core::Host>&) noexcept;
+    typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
 
 
     explicit
@@ -162,7 +163,8 @@ public:
 
     PackageHandler
     get_handler(uint16_t pkid) const noexcept {
-        return pkid >= core::MAX_HANDLERS ? nullptr : handlers[pkid];
+        auto itr = handlers.find(pkid);
+        return itr != handlers.end() ? itr->second : nullptr;
     }
 
 
@@ -178,7 +180,6 @@ public:
      */
     void
     regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
-        ASSERT(pkid < core::MAX_HANDLERS, "pkid {} out of range, max = {}", pkid, core::MAX_HANDLERS);
         if (handlers[pkid] != nullptr) {
             xWARN("handler for pk_id {} already exists, will be overwritten", pkid);
         }
@@ -217,7 +218,7 @@ private:
     std::vector<Proc::Ptr>   procs_;   
     std::vector<std::thread> threads_;
     Session::Ptr             gws_[MAX_CONN]               { nullptr };
-    PackageHandler           handlers[core::MAX_HANDLERS] { nullptr };
+    PackageHandlers          handlers                     {};
 };
 
     
