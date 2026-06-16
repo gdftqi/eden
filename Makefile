@@ -9,29 +9,21 @@ BUILD_START := $(shell date +%s)
 BUILD_DIR := build
 LIB       := $(BUILD_DIR)/libtyphon.a
 
-# 静态库捆绑进 libtyphon.a。
-# mimalloc.o：全功能 override 对象（mi_* API + C malloc/free + C++ new/delete），不能再叠 libmimalloc.a。
-# libbpf.a：用户态 BPF 加载库，依赖 libelf + libz（动态，由 examples 链）。
-# libyaml-cpp.a：YAML 配置解析（纯静态，无额外动态依赖）；头在 /usr/local/include，已被 INCLUDES 覆盖。
+# 静态库捆绑进 libtyphon.a
 SPDLOG_LIB        := /usr/local/lib/libspdlog.a
 LIBBPF_LIB        := /usr/lib/x86_64-linux-gnu/libbpf.a
+ELF_LIB           := /usr/lib/x86_64-linux-gnu/libelf.a
+Z_LIB             := /usr/lib/x86_64-linux-gnu/libz.a
+ZSTD_LIB          := /usr/lib/x86_64-linux-gnu/libzstd.a
 YAMLCPP_LIB       := /usr/local/lib/libyaml-cpp.a
 LIBSODIUM_LIB     := /usr/local/lib/libsodium.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
-
-# absl（flat_hash_map 用）：flat_hash_map 非纯 header-only，raw_hash_set / hash /
-# hashtablez_sampler 等有运行时符号必须链。用 pkg-config 取 flat_hash_map 的完整静态依赖链
-# (~39 个 .a) 转成路径全 addlib 进 libtyphon.a，避免手写漏库 / absl 升级后依赖变化漏跟。
-# pkg-config 还会带一个 -lrt（系统动态库，现代 glibc 已并入 libc，无符号可省），filter 掉只留 absl。
 ABSL_LIBS         := $(patsubst -l%,/usr/local/lib/lib%.a,$(filter -labsl_%,$(shell pkg-config --libs --static absl_flat_hash_map)))
-BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS)
+
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(ELF_LIB) $(Z_LIB) $(ZSTD_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 
-# SPDLOG_COMPILED_LIB: 切到 spdlog 的 compiled 模式
-#   - typhon 自身 .o 不再 inline spdlog,改为 extern 调用
-#   - libspdlog.a 被 addlib 进 libtyphon.a,extern 符号在 libtyphon.a 内自满足
-#   - 下游链 libtyphon.a 时,不需要再额外 -lspdlog
 CFLAGS   := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP
 CXXFLAGS := -O2 -g -Wall -Wextra $(INCLUDES) -MMD -MP -std=c++20 -DSPDLOG_COMPILED_LIB
 

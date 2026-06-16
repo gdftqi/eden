@@ -347,6 +347,7 @@ class Stats:
         self.total_sent    = 0
         self.total_success = 0
         self.total_fail    = 0
+        self.inflight      = 0      # 已发出但还没回 echo / 还没超时 (未响应), gauge 非累计
         self.all_latencies = []
         self.total_bytes_out = 0    # 上行：UDP 实际发出去的字节数（含 KCP 头/重传）
         self.total_bytes_in  = 0    # 下行：UDP 实际收到的字节数
@@ -363,11 +364,13 @@ class Stats:
         with self.lock:
             self.total_sent += 1
             self.iv_sent    += 1
+            self.inflight   += 1
 
     def record_success(self, latency_ms):
         with self.lock:
             self.total_success += 1
             self.iv_succ       += 1
+            self.inflight      -= 1
             self.all_latencies.append(latency_ms)
             self.iv_lat_sum    += latency_ms
             self.iv_lat_count  += 1
@@ -376,6 +379,7 @@ class Stats:
         with self.lock:
             self.total_fail += 1
             self.iv_fail    += 1
+            self.inflight   -= 1
 
     def record_bytes_out(self, n):
         with self.lock:
@@ -389,7 +393,7 @@ class Stats:
 
     def snapshot_interval(self):
         with self.lock:
-            s = (self.iv_sent, self.iv_succ, self.iv_fail,
+            s = (self.iv_sent, self.iv_succ, self.iv_fail, self.inflight,
                  self.iv_lat_sum, self.iv_lat_count,
                  self.iv_bytes_out, self.iv_bytes_in)
             self.iv_sent = self.iv_succ = self.iv_fail = 0
@@ -398,6 +402,18 @@ class Stats:
             self.iv_bytes_out = 0
             self.iv_bytes_in  = 0
             return s
+
+
+def fmt_elapsed(sec):
+    """运行时长自适应单位: s → m → h → d, 保留两级精度便于阅读。"""
+    sec = int(sec)
+    if sec < 60:
+        return f'{sec}s'
+    if sec < 3600:
+        return f'{sec // 60}m{sec % 60:02d}s'
+    if sec < 86400:
+        return f'{sec // 3600}h{(sec % 3600) // 60:02d}m'
+    return f'{sec // 86400}d{(sec % 86400) // 3600:02d}h'
 
 
 def run_client(client_id, stats, stop_event):
@@ -584,9 +600,9 @@ def main():
         time.sleep(0.05)
         now = time.monotonic()
         if now >= next_tick:
-            sent, succ, fail, lat_sum, lat_count, b_out, b_in = stats.snapshot_interval()
+            sent, succ, fail, inflight, lat_sum, lat_count, b_out, b_in = stats.snapshot_interval()
             avg     = (lat_sum / lat_count) if lat_count else 0.0
-            print(f'[+{int(now - t0):4d}s]  发送 {sent:5d}  成功 {succ:5d}  失败 {fail:4d}  '
+            print(f'[+{fmt_elapsed(now - t0):>6}]  发送 {sent:5d}  成功 {succ:5d}  未响应 {inflight:5d}  失败 {fail:4d}  '
                   f'平均延迟 {avg:6.2f} ms   ↑{fmt_bytes(b_out)}/s  ↓{fmt_bytes(b_in)}/s')
             next_tick += 1.0
 
@@ -605,8 +621,9 @@ def main():
     all_lat.sort()
 
     print('=' * 64)
-    print(f'运行时间     {elapsed:.2f} 秒')
-    print(f'请求统计     发送 {total_sent}   成功 {total_succ}   失败 {total_fail}')
+    print(f'运行时间     {fmt_elapsed(elapsed)}')
+    pending = total_sent - total_succ - total_fail
+    print(f'请求统计     发送 {total_sent}   成功 {total_succ}   未响应 {pending}   失败 {total_fail}')
     if total_succ:
         app_bps = total_succ * DATA_SIZE / elapsed
         print(f'吞吐量       {total_succ / elapsed:.0f} 次/s   ({fmt_bytes(app_bps)}/s 应用层)')

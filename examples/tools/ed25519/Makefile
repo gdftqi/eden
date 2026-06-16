@@ -11,13 +11,11 @@ BUILD_START := $(shell date +%s)
 all: $(TARGET)
 	@echo "==> [ed25519] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
-# libtyphon.a 过期/缺失就回顶层重建 (libsodium 已打包在里面)
 $(LIB):
 	@$(MAKE) -C ../../..
 
-# libelf + libz 是 libtyphon.a 里 libbpf 的动态依赖; libsodium 已在 .a 内, 无需 -lsodium
 $(TARGET): main.cpp $(LIB) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) main.cpp $(LIB) -lpthread -lelf -lz -o $@
+	$(CXX) $(CXXFLAGS) main.cpp $(LIB) -lpthread -o $@
 
 $(BUILD_DIR):
 	@mkdir -p $@

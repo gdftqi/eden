@@ -18,9 +18,8 @@ all: $(SERVER)
 $(LIB):
 	@$(MAKE) -C ../..
 
-# spdlog / mimalloc / libbpf 已被打进 libtyphon.a;libelf + libz 是 libbpf 的动态依赖
 $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -lelf -lz -o $@
+	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -o $@
 
 $(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@

@@ -1,0 +1,14 @@
+services:
+  gw:
+    image: ubuntu:26.04
+    container_name: gw
+    network_mode: host
+    privileged: true
+    tty: true
+    stdin_open: true
+    working_dir: /home/gw
+    command: ./server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+      - ./:/home/gw
