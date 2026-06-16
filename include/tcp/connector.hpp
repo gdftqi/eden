@@ -30,7 +30,7 @@ public:
 
     static Ptr
     create(uint32_t id, const char* host) noexcept {
-        auto cfd = core::tcp_connect(host, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
+        auto cfd = core::tcp_connect(host);
         if (cfd < 0) {
             int err = errno;
             cfd = core::INVALID_SOCKET;

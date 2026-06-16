@@ -10,13 +10,9 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
     , last_recv_ms_(w->tnow())
     , proc_(w) {
     constexpr int on = 1;
-    const int sndbuf = Conf::instance()->sndbuf();
-    const int rcvbuf = Conf::instance()->rcvbuf();
     ASSERT(::getpeername(fd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
     ASSERT(core::set_nonblocking(fd_) == 0, "failed to set non-blocking");
     ASSERT(::setsockopt(fd_, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) == 0, "failed to set TCP_NODELAY");
-    ASSERT(::setsockopt(fd_, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) == 0, "failed to set send buffer");
-    ASSERT(::setsockopt(fd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)) == 0, "failed to set receive buffer");
 }
 
 

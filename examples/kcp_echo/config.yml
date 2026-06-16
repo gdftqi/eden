@@ -6,8 +6,8 @@ envelope_bpf_path: "envelope.bpf.o"
 
 kcp:
   id: 1000
-  sndbuf: 2097152
-  rcvbuf: 4194304
+  rcvbuf: 33554432
+  sndbuf: 16777216
 
   sndwnd: 128
   rcvwnd: 128

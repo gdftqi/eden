@@ -33,6 +33,12 @@
 #include "utils/sys.hpp"
 
 
+#ifdef SOMAXCONN
+#undef SOMAXCONN
+#define SOMAXCONN 65535
+#endif
+
+
 namespace typhon::core {
 
 
@@ -86,11 +92,11 @@ udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept;
 
 
 SOCKET
-tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept;
+tcp_listen(const std::string& host, int sndbuf = 0, int rcvbuf = 0) noexcept;
 
 
 SOCKET
-tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexcept;
+tcp_connect(const std::string& host, int sndbuf = 0, int rcvbuf = 0) noexcept;
 
 
 ssize_t

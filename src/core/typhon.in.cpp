@@ -110,13 +110,18 @@ typhon::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexce
         }
 
         constexpr int optval = 1;
-        if (set_nonblocking(lfd) ||
-            ::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) ||
-            ::setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
-            ::setsockopt(lfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+        if (set_nonblocking(lfd) || ::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
             ::close(lfd);
             lfd = INVALID_SOCKET;
             continue;
+        }
+
+        if (sndbuf > 0 && rcvbuf > 0) {
+            if (::setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) || ::setsockopt(lfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+                ::close(lfd);
+                lfd = INVALID_SOCKET;
+                continue;
+            }
         }
 
         if (!::bind(lfd, rp->ai_addr, rp->ai_addrlen)) {
@@ -173,13 +178,18 @@ typhon::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexc
         }
 
         constexpr int on = 1;
-        if (set_nonblocking(cfd) < 0 ||
-            ::setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) ||
-            ::setsockopt(cfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
-            ::setsockopt(cfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+        if (set_nonblocking(cfd) < 0 || ::setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on))) {
             ::close(cfd);
             cfd = INVALID_SOCKET;
             continue;
+        }
+
+        if (sndbuf > 0 && rcvbuf > 0) {
+            if (::setsockopt(cfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) || ::setsockopt(cfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+                ::close(cfd);
+                cfd = INVALID_SOCKET;
+                continue;
+            }
         }
 
         // 非阻塞 socket 上 connect:

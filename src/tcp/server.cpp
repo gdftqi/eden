@@ -60,7 +60,7 @@ typhon::tcp::Server::init() noexcept {
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
     ASSERT(stop_evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    lfd_ = core::tcp_listen(host_, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
+    lfd_ = core::tcp_listen(host_);
     ASSERT(lfd_ != core::INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;

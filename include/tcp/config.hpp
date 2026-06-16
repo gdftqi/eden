@@ -21,18 +21,6 @@ public:
 
 
     int
-    sndbuf() const noexcept {
-        return sndbuf_;
-    }
-
-
-    int
-    rcvbuf() const noexcept {
-        return rcvbuf_;
-    }
-
-
-    int
     timeout() const noexcept {
         return timeout_;
     }
@@ -43,8 +31,6 @@ private:
     {}
 
 
-    int sndbuf_  { 1024 * 512 };
-    int rcvbuf_  { 1024 * 512 };
     int timeout_ { 30000 };
 }; // class Conf;
 

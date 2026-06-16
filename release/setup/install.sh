@@ -11,6 +11,15 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+# 部署角色: gateway(网关机, UDP/KCP 海量连接) 或 backend(后端机, TCP 少连接高吞吐)
+ROLE="${1:-}"
+if [[ "$ROLE" != "gateway" && "$ROLE" != "backend" ]]; then
+    echo -e "${RED}用法: $0 <gateway|backend>${RESET}"
+    echo -e "${RED}  gateway = 网关机(UDP/KCP 调优)   backend = 后端机(TCP 调优)${RESET}"
+    exit 1
+fi
+echo -e "${GREEN}部署角色: ${ROLE}${RESET}"
+
 # 设置时区
 echo -e "${GREEN}设置系统时区为 Asia/Shanghai...${RESET}"
 timedatectl set-timezone Asia/Shanghai
@@ -79,27 +88,58 @@ echo "DefaultLimitNOFILE=2097152" >> $SYSTEM_CONF
 sed -i '/^DefaultLimitNOFILE/d' $USER_CONF
 echo "DefaultLimitNOFILE=2097152" >> $USER_CONF
 
+# 加载 BBR 模块(否则 sysctl 设 tcp_congestion_control=bbr 会失败/回退 cubic) + 开机自动加载
+echo -e "${GREEN}加载 BBR 拥塞控制模块...${RESET}"
+modprobe tcp_bbr
+echo "tcp_bbr" > /etc/modules-load.d/bbr.conf
+sysctl net.ipv4.tcp_available_congestion_control   # 验证: 输出里应含 bbr
+
+# ===== 通用 sysctl(两角色共用) =====
 cat <<EOF >> $SYSCTL_CONF
+
+# ---- 通用 ----
 fs.file-max = 2097152
 fs.nr_open = 2097152
-
 net.core.somaxconn = 65535
-net.core.netdev_max_backlog = 250000
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-
-net.ipv4.tcp_max_syn_backlog = 65536
-net.ipv4.ip_local_port_range = 1024 65535
-# net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_fin_timeout = 30
-net.ipv4.tcp_rmem = 4096 131072 16777216
-net.ipv4.tcp_wmem = 4096  65536 16777216
-net.ipv4.tcp_max_tw_buckets = 500000
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_slow_start_after_idle = 0
 net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_slow_start_after_idle = 0
 EOF
+
+if [[ "$ROLE" == "gateway" ]]; then
+    # 网关机: UDP/KCP 为主, 海量连接, 重点防 UDP 收包丢弃
+    cat <<EOF >> $SYSCTL_CONF
+
+# ---- 网关(UDP/KCP) ----
+net.core.rmem_max = 33554432           # 32MB: UDP SO_RCVBUF 天花板(setsockopt 受它限, 否则被静默截断)
+net.core.wmem_max = 16777216           # 16MB
+net.core.netdev_max_backlog = 250000   # 网卡→协议栈队列, UDP 高包率防丢
+net.core.netdev_budget = 600           # 单次软中断处理包数
+net.ipv4.udp_mem = 8388608 12582912 16777216   # UDP 全局内存(页), 海量连接放宽
+net.ipv4.udp_rmem_min = 16384
+net.ipv4.udp_wmem_min = 16384
+# 网关→后端的少量 TCP 长连
+net.ipv4.tcp_rmem = 4096 131072 16777216
+net.ipv4.tcp_wmem = 4096  65536 16777216
+EOF
+else
+    # 后端机: TCP 为主, 少连接(= 网关数)高吞吐, 靠 autotuning
+    cat <<EOF >> $SYSCTL_CONF
+
+# ---- 后端(TCP) ----
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.netdev_max_backlog = 65536
+net.ipv4.tcp_rmem = 4096 262144 33554432    # max 32MB: 汇聚流量高吞吐, 给 autotuning 留空间
+net.ipv4.tcp_wmem = 4096 262144 33554432
+net.ipv4.tcp_mem = 786432 1048576 1572864   # TCP 全局内存(页)
+net.ipv4.tcp_max_syn_backlog = 65536
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_fin_timeout = 30
+net.ipv4.tcp_max_tw_buckets = 500000
+net.ipv4.ip_local_port_range = 1024 65535
+EOF
+fi
 
 sysctl -p
 
