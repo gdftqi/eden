@@ -28,34 +28,41 @@ timedatectl set-timezone Asia/Shanghai
 echo -e "${GREEN}正在更新系统...${RESET}"
 apt update && apt upgrade -y && apt install -y net-tools
 
-# 安装 Docker 依赖
-echo -e "${GREEN}安装 Docker 依赖...${RESET}"
-apt install -y ca-certificates curl
+# 询问是否安装 Docker
+echo -en "${GREEN}是否安装 Docker？(Y/n): ${RESET}"
+read install_docker
+if [[ ! $install_docker =~ ^[Nn]$ ]]; then
+    # 安装 Docker 依赖
+    echo -e "${GREEN}安装 Docker 依赖...${RESET}"
+    apt install -y ca-certificates curl
 
-# 添加 Docker GPG 密钥
-echo -e "${GREEN}添加 Docker GPG 密钥...${RESET}"
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
+    # 添加 Docker GPG 密钥
+    echo -e "${GREEN}添加 Docker GPG 密钥...${RESET}"
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
 
-# 添加 Docker 源
-echo -e "${GREEN}添加 Docker APT 源...${RESET}"
-echo \
+    # 添加 Docker 源
+    echo -e "${GREEN}添加 Docker APT 源...${RESET}"
+    echo \
 "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
 $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
 tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# 更新源并安装 Docker
-echo -e "${GREEN}安装 Docker...${RESET}"
-apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    # 更新源并安装 Docker
+    echo -e "${GREEN}安装 Docker...${RESET}"
+    apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# 配置 Docker 支持远程访问
-echo -e "${GREEN}配置 Docker 支持远程访问...${RESET}"
-DOCKER_SERVICE_FILE="/usr/lib/systemd/system/docker.service"
-if grep -q "tcp://0.0.0.0:2375" "$DOCKER_SERVICE_FILE"; then
-    echo -e "${GREEN}已存在 Docker 远程访问配置。${RESET}"
+    # 配置 Docker 支持远程访问
+    echo -e "${GREEN}配置 Docker 支持远程访问...${RESET}"
+    DOCKER_SERVICE_FILE="/usr/lib/systemd/system/docker.service"
+    if grep -q "tcp://0.0.0.0:2375" "$DOCKER_SERVICE_FILE"; then
+        echo -e "${GREEN}已存在 Docker 远程访问配置。${RESET}"
+    else
+        sed -i 's|ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock|ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock -H tcp://0.0.0.0:2375|' "$DOCKER_SERVICE_FILE"
+    fi
 else
-    sed -i 's|ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock|ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock -H tcp://0.0.0.0:2375|' "$DOCKER_SERVICE_FILE"
+    echo -e "${GREEN}跳过 Docker 安装。${RESET}"
 fi
 
 # 设置系统最大连接数和相关限制

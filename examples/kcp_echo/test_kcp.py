@@ -24,7 +24,7 @@ from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
 # SERVER_HOST   = '13.250.22.130'
-SERVER_HOST = '127.0.0.1'
+SERVER_HOST = '13.214.204.197'
 SERVER_PORT   = 5555
 NUM_CLIENTS   = 12        # localhost 没带宽限制，1k 起步；想测上限可继续加
 DATA_SIZE     = 800      # 典型 MMO 移动/事件包 100-300B，取 200B

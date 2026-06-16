@@ -137,9 +137,9 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
         res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
     }
 
-    if (res >= xOK) {
-        ::ikcp_flush(kcp_);
-    }
+    // if (res >= xOK) {
+    //     ::ikcp_flush(kcp_);
+    // }
 
     return res;
 }

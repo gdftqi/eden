@@ -1,4 +1,4 @@
-using kcp2k;
+using lilith.Utils;
 using System;
 
 
@@ -70,6 +70,21 @@ namespace lilith.Core
             PkSeq         = 0;
             PkDstId       = 0;
             PayloadLength = 0;
+        }
+
+
+        /// <summary>
+        /// 深拷贝 src 的字段 + payload 到本对象。用于把调用方的 Package 拷成一份
+        /// 独占副本跨线程投递, 拷完调用方即可复用/归还原对象。
+        /// </summary>
+        public void CopyFrom(Package src)
+        {
+            PkId          = src.PkId;
+            PkSeq         = src.PkSeq;
+            PkDstId       = src.PkDstId;
+            PayloadLength = src.PayloadLength;
+            if (src.PayloadLength > 0)
+                Buffer.BlockCopy(src.Payload, 0, Payload, 0, src.PayloadLength);
         }
 
 
@@ -157,8 +172,8 @@ namespace lilith.Core
 
 
         // 进程级单例池, 主线程使用(kcp2k.Pool 内部用 Stack, 非 thread-safe)。
-        private static Pool<Package> pool = new Pool<Package>(() => new Package(), pkg => pkg.Reset(), 16);
-        public static Pool<Package> Pool
+        private static SafePool<Package> pool = new SafePool<Package>(() => new Package(), pkg => pkg.Reset());
+        public static SafePool<Package> Pool
         {
             get
             {

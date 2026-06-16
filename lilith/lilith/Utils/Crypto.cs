@@ -31,7 +31,7 @@ namespace Echidna
         // ---- ChaCha20-Poly1305 AEAD (IETF) ----
         public const int AEAD_KEY_LEN   = 32;
         public const int AEAD_NONCE_LEN = 12;
-        public const int AEAD_TAG_LEN   = 16;
+        public const int XX20_TAG_LEN   = 16;
 
         // ---- 方向标记 (与 C++ session.cpp / test_kcp.py 一致) ----
         public const byte DIR_C2S = 0;  // client→server 上行: 客户端 send 加密用 tx_key
@@ -68,11 +68,15 @@ namespace Echidna
         // ---------------------------------------------------------------------
         // SipHash-2-4 envelope tag —— 输出 8B little-endian (与 C++ htole64(siphash24) 一致)
         // ---------------------------------------------------------------------
-        public static byte[] SipHashTag(byte[] data, int len)
+        public static byte[] SipHashTag(byte[] data, int len) => SipHashTag(data, 0, len);
+
+        // offset 重载: 对 data[offset .. offset+len) 算 tag。
+        // 出站从 0 起(KCP frame 在 buf 开头); 入站从 8 起(跳过收到的 MAC, 只覆盖 KCP frame)。
+        public static byte[] SipHashTag(byte[] data, int offset, int len)
         {
             var mac = new SipHash();                 // 默认 c=2 d=4
             mac.Init(new KeyParameter(SH_KEY));
-            mac.BlockUpdate(data, 0, len);
+            mac.BlockUpdate(data, offset, len);
             long h = mac.DoFinal();                  // host-order 64-bit
             var tag = new byte[ENVELOPE_MAC_LEN];
             for (int i = 0; i < 8; i++)
@@ -102,7 +106,7 @@ namespace Echidna
         public static byte[] Encrypt(byte[] key, byte[] nonce, byte[] plain, int plainLen)
         {
             var aead = new ChaCha20Poly1305();
-            aead.Init(true, new AeadParameters(new KeyParameter(key), AEAD_TAG_LEN * 8, nonce, null));
+            aead.Init(true, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
             var outBuf = new byte[aead.GetOutputSize(plainLen)];   // = plainLen + 16
             int n = aead.ProcessBytes(plain, 0, plainLen, outBuf, 0);
             aead.DoFinal(outBuf, n);                               // 附加 16B tag
@@ -115,13 +119,13 @@ namespace Echidna
         // ---------------------------------------------------------------------
         public static byte[]? Decrypt(byte[] key, byte[] nonce, byte[] body, int bodyLen)
         {
-            if (bodyLen < AEAD_TAG_LEN)
+            if (bodyLen < XX20_TAG_LEN)
             {
                 return null;
             }
 
             var aead = new ChaCha20Poly1305();
-            aead.Init(false, new AeadParameters(new KeyParameter(key), AEAD_TAG_LEN * 8, nonce, null));
+            aead.Init(false, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
             var outBuf = new byte[aead.GetOutputSize(bodyLen)];    // = bodyLen - 16
             try
             {

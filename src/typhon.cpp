@@ -185,7 +185,7 @@ void
 typhon::Server::update_serv() noexcept {
     // TODO: 改为ETCD 查询服务
     const uint32_t serv_id     = 10000;
-    const char     serv_host[] = "127.0.0.1:6688";
+    const char     serv_host[] = "172.31.6.248:6688";
 
     if (servs_.count(serv_id)) {
         return;    
