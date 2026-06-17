@@ -59,7 +59,7 @@ namespace lilith.Core
         {// 设置事件
             if (ev == null)
             {
-                throw new Exception("ev is invalid");
+                throw new Exception("ISessionEvent is invalid");
             }
             this.ev = ev;
         }
