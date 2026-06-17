@@ -12,18 +12,17 @@
         Background="Transparent"
         TransparencyLevelHint="Transparent">
     <Border CornerRadius="8" ClipToBounds="True">
-        <!-- 整窗深灰渐变 (与主界面左侧菜单栏同款), TOP 栏融进背景, 不再是独立绿条 -->
+        <!-- 深蓝灰渐变: 上深下浅 -->
         <Grid RowDefinitions="38,*">
             <Grid.Background>
                 <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
-                    <GradientStop Color="#1E1E1E" Offset="0"/>
-                    <GradientStop Color="#3E3E3E" Offset="1"/>
+                    <GradientStop Color="#1C3A2C" Offset="0"/>
+                    <GradientStop Color="#2E6347" Offset="1"/>
                 </LinearGradientBrush>
             </Grid.Background>
 
             <!-- TOP 栏: 透明露出渐变, 可拖; 左 LOGO, 右 关闭 -->
             <Grid Grid.Row="0" Background="Transparent" PointerPressed="TopBar_PointerPressed">
-                <!-- LOGO (与主界面同款: 白色气泡轮廓 + 白 x) -->
                 <Viewbox Width="30" Height="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0">
                     <Canvas Width="32" Height="32">
                         <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
@@ -34,7 +33,6 @@
                         </Viewbox>
                     </Canvas>
                 </Viewbox>
-                <!-- 关闭按钮 (hover 红底) -->
                 <Button Click="Close_Click" HorizontalAlignment="Right"
                         Width="40" Height="38" Padding="0" CornerRadius="0" Background="Transparent">
                     <Button.Styles>
@@ -46,52 +44,61 @@
                 </Button>
             </Grid>
 
-            <!-- 表单: 收窄居中, 贴在下半部分 -->
-            <StackPanel Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                        Width="230" Margin="0,0,0,26">
+            <!-- 表单: 头像在上, 居中竖排 -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260"
+                        Margin="0,0,0,8">
                 <StackPanel.Styles>
                     <Style Selector="TextBox">
-                        <Setter Property="Height" Value="30"/>
-                        <Setter Property="CornerRadius" Value="5"/>
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="CornerRadius" Value="6"/>
                         <Setter Property="Background" Value="White"/>
                         <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="Padding" Value="9,0"/>
+                        <Setter Property="Padding" Value="10,0"/>
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
                         <Setter Property="FontSize" Value="12"/>
                     </Style>
                     <Style Selector="Button.login">
-                        <Setter Property="Height" Value="30"/>
-                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                        <Setter Property="Height" Value="32"/>
                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Padding" Value="0"/>
                         <Setter Property="Foreground" Value="White"/>
                         <Setter Property="FontSize" Value="13"/>
                         <Setter Property="FontWeight" Value="SemiBold"/>
-                        <Setter Property="CornerRadius" Value="5"/>
-                        <Setter Property="Background" Value="#2E7D32"/>
+                        <Setter Property="CornerRadius" Value="6"/>
+                        <Setter Property="Background" Value="#43A047"/>
                     </Style>
                     <Style Selector="Button.login:pointerover /template/ ContentPresenter">
-                        <Setter Property="Background" Value="#388E3C"/>
+                        <Setter Property="Background" Value="#4CAF50"/>
                     </Style>
                     <Style Selector="Button.login:pressed /template/ ContentPresenter">
-                        <Setter Property="Background" Value="#1B5E20"/>
+                        <Setter Property="Background" Value="#2E7D32"/>
                     </Style>
                 </StackPanel.Styles>
 
+                <!-- 头像: 图片填满整个圆(无内缩); 浅色环用 Ellipse 叠在上层, 不挤压图片 -->
+                <Panel Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <Border CornerRadius="36" ClipToBounds="True">
+                        <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
+                    </Border>
+                    <Ellipse Width="72" Height="72" Stroke="#66FFFFFF" StrokeThickness="2"/>
+                </Panel>
+
                 <!-- 用户名 / 密码 -->
                 <StackPanel Spacing="10">
-                    <TextBox x:Name="UserBox" Watermark="用户名"/>
-                    <TextBox x:Name="PassBox" Watermark="密码" PasswordChar="●"/>
+                    <TextBox x:Name="UserBox" PlaceholderText="用户名"/>
+                    <TextBox x:Name="PassBox" PlaceholderText="密码" PasswordChar="●"/>
                 </StackPanel>
 
-                <!-- 错误提示 (默认隐藏) -->
-                <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12"
-                           Margin="2,8,0,0" IsVisible="False"/>
-
                 <!-- 记住密码 -->
-                <CheckBox Content="记住密码" FontSize="12" Foreground="#BDBDBD" Margin="0,10,0,0"/>
+                <CheckBox Content="记住密码" FontSize="12" Foreground="#C8D0DA" Margin="0,10,0,0"/>
 
-                <!-- 登录 (Enter 键也触发) -->
-                <Button Classes="login" Content="登 录" Click="Login_Click" IsDefault="True" Margin="0,12,0,0"/>
+                <!-- 错误提示 (默认隐藏) -->
+                <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12" Margin="2,2,0,0" IsVisible="False"/>
+
+                <!-- 登录 (居中, 不太宽) -->
+                <Button Classes="login" Content="登 录" Click="Login_Click" IsDefault="True"
+                        HorizontalAlignment="Center" Width="200" Margin="0,12,0,0"/>
             </StackPanel>
         </Grid>
     </Border>

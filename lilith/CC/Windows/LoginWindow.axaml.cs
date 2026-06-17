@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using lilith.Core;
 
 namespace CC
 {
@@ -41,6 +42,8 @@ namespace CC
                 ShowError("请输入用户名和密码");
                 return;
             }
+
+            KcpSession.Instance.Connect(1, "13.214.204.197:5555");
 
             var main = new MainWindow();
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

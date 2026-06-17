@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +23,9 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Resources/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\lilith\lilith.csproj" />
   </ItemGroup>
 </Project>
