@@ -6,7 +6,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math.EC.Rfc7748;
 
 
-namespace Echidna
+namespace lilith.Utils
 {
     // =========================================================================
     //        typhon 客户端密码学栈 (BouncyCastle) —— 对齐 C++ utils/cryptor
@@ -114,6 +114,18 @@ namespace Echidna
         }
 
 
+        // 加密进调用方缓冲(无中间分配): inBuf[inOff .. inOff+inLen) → outBuf[outOff ..]。
+        // 返回 密文+16B tag 总长 (= inLen + 16)。
+        public static int Encrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff)
+        {
+            var aead = new ChaCha20Poly1305();
+            aead.Init(true, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
+            int len = aead.ProcessBytes(inBuf, inOff, inLen, outBuf, outOff);
+            len += aead.DoFinal(outBuf, outOff + len);             // 附 16B tag
+            return len;
+        }
+
+
         // ---------------------------------------------------------------------
         // ChaCha20-Poly1305 IETF 解密: body = 密文 + 16B tag; 验签失败返回 null。
         // ---------------------------------------------------------------------
@@ -126,16 +138,37 @@ namespace Echidna
 
             var aead = new ChaCha20Poly1305();
             aead.Init(false, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
-            var outBuf = new byte[aead.GetOutputSize(bodyLen)];    // = bodyLen - 16
+            var outBuf = new byte[aead.GetOutputSize(bodyLen)];
             try
             {
                 int n = aead.ProcessBytes(body, 0, bodyLen, outBuf, 0);
-                aead.DoFinal(outBuf, n);                           // 验证 tag, 失败抛异常
+                aead.DoFinal(outBuf, n);
                 return outBuf;
             }
             catch
             {
-                return null;                                       // tag 验证失败(被篡改/密钥错)
+                return null;
+            }
+        }
+
+        public static int Decrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff)
+        {
+            if (inLen < XX20_TAG_LEN)
+            {
+                return -1;
+            }
+
+            var aead = new ChaCha20Poly1305();
+            aead.Init(false, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
+            try
+            {
+                int len = aead.ProcessBytes(inBuf, inOff, inLen, outBuf, outOff);
+                len += aead.DoFinal(outBuf, outOff + len);         // 验证 tag, 失败抛异常
+                return len;
+            }
+            catch
+            {
+                return -1;                                         // tag 验证失败(被篡改/密钥错)
             }
         }
 

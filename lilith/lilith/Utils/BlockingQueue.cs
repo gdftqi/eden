@@ -5,22 +5,6 @@ using System.Threading;
 
 namespace lilith.Utils
 {
-    /// <summary>
-    /// 为「省电」而生的阻塞队列。消费者没活时 Wait() 睡死, 生产者 Enqueue 时 Pulse
-    /// 唤醒, 空闲期 CPU 接近 0 —— 这才是和"自旋轮询"的本质区别(跟用不用
-    /// ConcurrentQueue 无关, ConcurrentQueue 也能很省, 关键是别空转)。
-    ///
-    /// C# 没有独立的 ConditionVariable 类型, Monitor 本身就是「mutex + 条件变量」二合一。
-    ///
-    /// 典型用法(ioSend 消费者):
-    ///   while (running) {
-    ///       while (q.TryDequeue(out var x)) Process(x);    // 先把现有的全 drain 掉
-    ///       safeKcp.Update(now);
-    ///       int wait = (int)(safeKcp.Check(now) - now);    // 下次该醒的时刻
-    ///       q.Wait(wait);                                  // 睡到: 有人投递 / Signal / 超时
-    ///   }
-    /// 生产者(主线程): q.Enqueue(x);
-    /// </summary>
     public class BlockingQueue<T>
     {
         readonly Queue<T> queue = new Queue<T>();

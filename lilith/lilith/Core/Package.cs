@@ -41,8 +41,8 @@ namespace lilith.Core
         public const int PACK_MAX_LEN  = 65535;  // wire frame 上限 (任意方向)
         public const int PAYLOAD_MAX   = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
 
-        // ---- 协议消息号 (必须与 C++ package.hpp / test_kcp.py 一致) ----
-        public const ushort PK_ID_PING      = 1;    // 业务 echo (走网关 on_c2s 转发后端)
+        public const ushort PKID_PING       = 100;  // PING
+        public const ushort PKID_PONG       = 101;  // PONG
         public const ushort PKID_REGIST_REQ = 102;  // 鉴权注册请求
         public const ushort PKID_REGIST_RSP = 103;  // 鉴权注册应答
 
@@ -149,24 +149,27 @@ namespace lilith.Core
             return total;
         }
 
-
-        /// <summary>
-        /// 从 wireBuf[0..len) 解析一条**明文**包(10B 头 + payload), 写入 pkg。
-        /// len 是 KCP 消息边界给定的明文长度(KcpSession 已剥掉 16B tag)。
-        /// </summary>
-        /// <returns>true = 成功; false = 长度不足 / seq == 0 等非法包</returns>
         public static bool Unpack(byte[] wireBuf, int len, Package pkg)
-        {
-            if (len < HEADER_SIZE) return false;
+        {// 解包
+            if (len < HEADER_SIZE)
+            {
+                return false;
+            }
 
             Decode16BE(wireBuf, OFFSET_ID,     out pkg.PkId);
             Decode32BE(wireBuf, OFFSET_SEQ,    out pkg.PkSeq);
             Decode32BE(wireBuf, OFFSET_DST_ID, out pkg.PkDstId);
-            if (pkg.PkSeq == 0) return false;
+            if (pkg.PkSeq == 0)
+            {
+                return false;
+            }
 
             pkg.PayloadLength = len - HEADER_SIZE;
             if (pkg.PayloadLength > 0)
+            {
                 Buffer.BlockCopy(wireBuf, HEADER_SIZE, pkg.Payload, 0, pkg.PayloadLength);
+            }
+
             return true;
         }
 

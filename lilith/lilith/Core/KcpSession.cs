@@ -1,4 +1,3 @@
-using Echidna;
 using kcp2k;
 using lilith.Utils;
 using System;
@@ -16,22 +15,28 @@ namespace lilith.Core
         void OnPackage(Package pkg);
     }
 
+    enum IOEventType : byte
+    {// IO 事件 类型
+        Connected, 
+        Data
+    }
 
-    /// <summary>
-    /// KCP 客户端会话 —— 三线程模型:
-    ///   主线程 : Connect/Close/Poll/Send。Poll 派发事件(回调在此触发), Send 投递(拷贝)发送包。
-    ///   ioRecv : 阻塞收 UDP → 校验 MAC → safeKcp.Input → 取完整消息 → 解密/解包 →
-    ///            PONG/REGIST_RSP 自己消化, 其余投 recvQue 给主线程。
-    ///   ioSend : 从 sendQue 取包 → 加密 → safeKcp.SendFlush; 再 safeKcp.Update;
-    ///            用 safeKcp.Check 算出下次该醒的时刻, sendQue.Wait 睡过去(空闲省电)。
-    ///
-    /// kcp 被 recv/send 两线程共用, 全部经 SafeKcp 串行(收 ACK 会改发送缓冲, 必须串)。
-    /// 跨线程协议状态: authed 用 volatile 发布(先写 key 再置 authed, send 读到 true 即可见 key)。
-    /// </summary>
+    struct IOEvent
+    {// IO 事件
+        public readonly IOEventType Type;
+        public readonly Package? Pkg;
+
+        public IOEvent(IOEventType type, Package? pkg)
+        {
+            Type = type;
+            Pkg = pkg;
+        }
+    }
+
     public class KcpSession
     {
         const int UDP_MTU = 1400;
-        const int TICK_INTERVAL_MS = 20;   // kcp interval; 也是 send 线程空闲时最长睡多久
+        const int TICK_INTERVAL_MS = 10;
 
         static KcpSession instance = new KcpSession();
 
@@ -43,12 +48,12 @@ namespace lilith.Core
         private KcpSession() { }
 
         public bool Running
-        {
+        {// 是否运行中
             get { return Interlocked.CompareExchange(ref running, 0, 0) == 1; }
         }
 
         public void SetEvent(ISessionEvent ev)
-        {
+        {// 设置事件
             if (ev == null)
             {
                 throw new Exception("ev is invalid");
@@ -57,7 +62,7 @@ namespace lilith.Core
         }
 
         public void Connect(uint conv, string host)
-        {
+        {// 连接服务
             if (ev == null)
             {
                 throw new Exception("SessionEvent is invalid");
@@ -95,7 +100,6 @@ namespace lilith.Core
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
                 safeKcp = new SafeKcp(kcp);
 
-                // 状态都在 Start 前写好, Thread.Start 自带屏障 → 两个 io 线程可见
                 recvThread = new Thread(recvLoop) { IsBackground = true };
                 sendThread = new Thread(sendLoop) { IsBackground = true };
                 recvThread.Start();
@@ -110,7 +114,7 @@ namespace lilith.Core
         }
 
         public void Close()
-        {
+        {// 关闭连接
             if (Interlocked.CompareExchange(ref running, 0, 1) == 1)
             {
                 sock?.Close();
@@ -118,8 +122,8 @@ namespace lilith.Core
             }
         }
 
-        public void Poll()
-        {
+        public void Update()
+        {// 主线程调用
             if (!Running)
             {
                 if (recvThread != null || sendThread != null)
@@ -140,26 +144,24 @@ namespace lilith.Core
                 return;
             }
 
-            while (recvQue.TryDequeue(out IoEvent e))
+            while (recvQue.TryDequeue(out IOEvent e))
             {
-                switch (e.Kind)
+                switch (e.Type)
                 {
-                    case IoEventKind.Connected:
+                    case IOEventType.Connected:
                         ev?.OnConnected(remotePoint!);
                         break;
 
-                    case IoEventKind.Data:
+                    case IOEventType.Data:
                         ev?.OnPackage(e.Pkg!);
-                        Package.Pool.Return(e.Pkg!);   // 回调用完即回收
+                        Package.Pool.Return(e.Pkg!);
                         break;
                 }
             }
         }
 
-        // 发送: 深拷贝成 IO 独占副本投入 sendQue; seq/加密/kcp.Send 全在 send 线程做。
-        // 调用方的 pkg 返回后即可自由复用/归还。
         public void Send(Package pkg)
-        {
+        {// 发送 Package
             if (!Running)
             {
                 throw new Exception("Kcp session is not running");
@@ -170,23 +172,24 @@ namespace lilith.Core
             sendQue.Enqueue(copy);
         }
 
-
-        // =====================================================================
-        //                            ioRecv 线程
-        // =====================================================================
-
         private void recvLoop()
-        {
-            EndPoint remote = new IPEndPoint(IPAddress.Any, 0);   // ReceiveFrom 的 sender 模板, 必须非 null
+        {// 接收线程
+            EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
             var recvBuf = new byte[UDP_MTU];
+            const int MIN_SIZE = Crypto.ENVELOPE_MAC_LEN + Crypto.ENVELOPE_MAC_HASH_LEN;
+            int n = 0;
 
             try
             {
                 while (Running)
                 {
-                    // 阻塞收一个 UDP 包(Close 关 socket 时这里抛 ObjectDisposed → 退出)
-                    int n = sock!.ReceiveFrom(recvBuf, UDP_MTU, SocketFlags.None, ref remote);
-                    if (n < Crypto.ENVELOPE_MAC_LEN + Crypto.ENVELOPE_MAC_HASH_LEN)
+                    n = sock!.ReceiveFrom(recvBuf, UDP_MTU, SocketFlags.None, ref remote);
+                    if (n < MIN_SIZE)
+                    {
+                        continue;
+                    }
+
+                    if (remote.Equals(remotePoint))
                     {
                         continue;
                     }
@@ -201,104 +204,143 @@ namespace lilith.Core
 
                     while (true)
                     {
-                        int m = safeKcp!.Receive(rbuf);
-                        if (m <= 0)
+                        n = safeKcp!.Receive(rbuf);
+                        if (n <= 0)
                         {
                             break;
                         }
-                        onMessage(m);
+
+                        var pkg = Package.Pool.Take();
+                        if (!decode(rbuf, n, pkg))
+                        {
+                            Package.Pool.Return(pkg);
+                            continue;
+                        }
+
+                        switch (pkg.PkId)
+                        {
+                            case Package.PKID_REGIST_RSP:
+                                onRegistRsp(pkg);
+                                break;
+
+                            case Package.PKID_PONG:
+                                onPong(pkg);
+                                break;
+
+                            default:
+                                onDefault(pkg);
+                                break;
+                        }
                     }
                 }
             }
-            catch (ObjectDisposedException) { }     // Close 关了 socket
-            catch (SocketException) { }             // 网络错误
-            catch { /* TODO: log; 单包错误也走到这, 直接收尾 */ }
-            finally { markDead(); }
+            catch (ObjectDisposedException)
+            {
+                // Close 关了 socket
+            }
+            catch (SocketException)
+            {
+                // 网络错误
+            }
+            catch
+            {
+                // log; 单包错误也走到这, 直接收尾
+            }
+            finally
+            {
+                Close();
+            }
         }
 
-        // 一条完整 KCP 消息: rbuf[0..n) = 明文 10B 头 + (密文 payload + 16B tag) 或明文 payload。
-        // 仅 ioRecv 线程调用。PONG/REGIST_RSP 就地消化, 其余投 recvQue 给主线程。
-        private void onMessage(int n)
-        {
+        private bool decode(byte[] data, int n, Package pkg)
+        {// 解包
             if (n < Package.HEADER_SIZE)
             {
-                return;
+                return false;
             }
 
-            Package.Decode32BE(rbuf, Package.OFFSET_SEQ, out uint seq);   // 头永远明文, 解出 seq 当 nonce
-
-            if (!authed)
+            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.PkId);
+            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
+            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.PkDstId);
+            if (pkg.PkSeq == 0)
             {
-                // 期望 REGIST_RSP(明文): payload = 服务端临时 X25519 公钥(32B)
-                if (!Package.Unpack(rbuf, n, rcvPkg))
-                {
-                    return;
-                }
-
-                if (rcvPkg.PkId == Package.PKID_REGIST_RSP && rcvPkg.PayloadLength >= 32)
-                {
-                    var srvPk = new byte[32];
-                    Buffer.BlockCopy(rcvPkg.Payload, 0, srvPk, 0, 32);
-                    Crypto.KxClient(srvPk, out rxKey, out txKey);   // 先派生 key...
-                    authed = true;                                  // ...再 volatile 置位: 把 key 发布给 send 线程
-                    recvQue.Enqueue(new IoEvent(IoEventKind.Connected, null));
-                }
-                return;
+                return false;
             }
 
-            // authed 业务包: 有 payload = 头 + 密文 + tag, 需解密
             int plen = n - Package.HEADER_SIZE;
-            if (plen > 0)
+            if (authed && plen > 0)
             {
-                if (plen < Crypto.XX20_TAG_LEN)
+                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_S2C);
+                int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
+                if (m < 0)
                 {
-                    return;     // 连 tag 都放不下
+                    return false;
                 }
-
-                var body = new byte[plen];
-                Buffer.BlockCopy(rbuf, Package.HEADER_SIZE, body, 0, plen);
-                var nonce = Crypto.MakeNonce(conv, seq, Crypto.DIR_S2C);
-                var plain = Crypto.Decrypt(rxKey!, nonce, body, plen);
-                if (plain == null)
+                pkg.PayloadLength = m;
+            }
+            else
+            {
+                pkg.PayloadLength = plen;
+                if (plen > 0)
                 {
-                    return;     // 验签失败, 丢弃
+                    Buffer.BlockCopy(data, Package.HEADER_SIZE, pkg.Payload, 0, plen);
                 }
-
-                Buffer.BlockCopy(plain, 0, rbuf, Package.HEADER_SIZE, plain.Length);
-                n = Package.HEADER_SIZE + plain.Length;
             }
 
-            var pkg = Package.Pool.Take();
-            if (!Package.Unpack(rbuf, n, pkg))
-            {
-                Package.Pool.Return(pkg);
-                return;
-            }
-
-            if (pkg.PkSeq <= rcvSeq)        // 幂等去重
-            {
-                Package.Pool.Return(pkg);
-                return;
-            }
-            rcvSeq = pkg.PkSeq;
-
-            // TODO: PONG 等传输层保活消息在此就地消费(协议号未定义; 定义后:
-            //       if (pkg.PkId == Package.PKID_PONG) { /* 更新存活时间 */ Package.Pool.Return(pkg); return; })
-
-            recvQue.Enqueue(new IoEvent(IoEventKind.Data, pkg));
+            return true;
         }
 
+        private void onRegistRsp(Package pkg)
+        {// PKID_REGIST_RSP 句柄
+            if (authed)
+            {// 已鉴权
+                return;
+            }
 
-        // =====================================================================
-        //                            ioSend 线程
-        // =====================================================================
+            if (pkg.PayloadLength < 32)
+            {
+                return;
+            }
+
+            Crypto.KxClient(pkg.Payload, out rxKey, out txKey);
+            authed = true;
+            recvQue.Enqueue(new IOEvent(IOEventType.Connected, null));
+            Package.Pool.Return(pkg);
+        }
+
+        private void onPong(Package pkg)
+        {// PKID_PONG 句柄
+            if (!authed)
+            {
+                return;
+            }
+
+            if (pkg.PayloadLength != 8)
+            {
+                return;
+            }
+
+            // TODO: 打印RTT
+            Package.Pool.Return(pkg);
+        }
+
+        private void onDefault(Package pkg)
+        {// 默认句柄
+            if (!authed || pkg.PkSeq <= rcvSeq)
+            {
+                Package.Pool.Return(pkg);
+                return;
+            }
+
+            rcvSeq = pkg.PkSeq;
+            recvQue.Enqueue(new IOEvent(IOEventType.Data, pkg));
+        }
 
         private void sendLoop()
-        {
+        {// 发送线程
             try
             {
-                registReq();   // 握手第一包由持有 kcp 的 send 线程发(authed=false → 不加密)
-
+                registReq();
                 while (Running)
                 {
                     while (sendQue.TryDequeue(out Package pkg))
@@ -310,32 +352,39 @@ namespace lilith.Core
                     uint now = (uint)Environment.TickCount;
                     safeKcp!.Update(now);
 
-                    int wait = (int)(safeKcp!.Check(now) - now);   // 下次该 flush 的时刻
-                    if (wait < 0) wait = 0;
-                    if (wait > TICK_INTERVAL_MS) wait = TICK_INTERVAL_MS;
-                    sendQue.Wait(wait);   // 睡到: 有人 Enqueue / Close Signal / 超时
+                    int wait = (int)(safeKcp!.Check(now) - now);
+                    if (wait < 0)
+                    {
+                        wait = 0;
+                    }
+
+                    if (wait > TICK_INTERVAL_MS)
+                    {
+                        wait = TICK_INTERVAL_MS;
+                    }
+                    sendQue.Wait(wait);
                 }
             }
-            catch (ObjectDisposedException) { }
-            catch (SocketException) { }
-            catch { /* TODO: log */ }
-            finally { markDead(); }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch
+            {
+                /* TODO: log */
+            }
+            finally
+            {
+                Close();
+            }
         }
 
-        // stamp seq + (authed 时)加密 payload + SendFlush。仅 ioSend 线程。
         private void doSend(Package pkg)
         {
             pkg.PkSeq = ++sndSeq;
-            int total = Package.Pack(pkg, pkSendBuf);
-
-            // authed 且有 payload → 原地把 payload 换成 密文 + 16B tag
-            if (authed && pkg.PayloadLength > 0)
-            {
-                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_C2S);
-                var enc = Crypto.Encrypt(txKey!, nonce, pkg.Payload, pkg.PayloadLength);
-                Buffer.BlockCopy(enc, 0, pkSendBuf, Package.HEADER_SIZE, enc.Length);
-                total = Package.HEADER_SIZE + enc.Length;
-            }
+            int total = encode(pkg, pkSendBuf);
 
             if (safeKcp!.SendFlush(pkSendBuf, 0, total) != 0)
             {
@@ -343,9 +392,29 @@ namespace lilith.Core
             }
         }
 
-        // 握手第一包: REGIST_REQ, dst_id = GATEWAY_ID, payload = 明文 token。仅 ioSend 线程。
+        private int encode(Package pkg, byte[] outBuf)
+        {// 装包
+            Package.Encode16BE(outBuf, Package.OFFSET_ID,     pkg.PkId);
+            Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.PkSeq);
+            Package.Encode32BE(outBuf, Package.OFFSET_DST_ID, pkg.PkDstId);
+
+            int plen = pkg.PayloadLength;
+            if (authed && plen > 0)
+            {
+                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_C2S);
+                int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
+                return Package.HEADER_SIZE + clen;
+            }
+
+            if (plen > 0)
+            {
+                Buffer.BlockCopy(pkg.Payload, 0, outBuf, Package.HEADER_SIZE, plen);
+            }
+            return Package.HEADER_SIZE + plen;
+        }
+
         private void registReq()
-        {
+        {// 鉴权请求
             var pkg = Package.Pool.Take();
             pkg.PkId = Package.PKID_REGIST_REQ;
             pkg.PkDstId = Package.GATEWAY_ID;
@@ -355,13 +424,8 @@ namespace lilith.Core
             Package.Pool.Return(pkg);
         }
 
-
-        // =====================================================================
-
-        // KCP output 回调: prepend 8B envelope MAC(SipHash 覆盖 frame 前 24B), 再 UDP 发出。
-        // 由 send 线程在 SafeKcp 锁内触发(SendFlush/Update), 故 udpSendBuf 单线程独占。
         private void output(byte[] segment, int size)
-        {
+        {// kcp set output
             var mac = Crypto.SipHashTag(segment, Math.Min(size, Crypto.ENVELOPE_MAC_HASH_LEN));
             Buffer.BlockCopy(mac, 0, udpSendBuf, 0, Crypto.ENVELOPE_MAC_LEN);
             Buffer.BlockCopy(segment, 0, udpSendBuf, Crypto.ENVELOPE_MAC_LEN, size);
@@ -369,33 +433,15 @@ namespace lilith.Core
             sock!.SendTo(udpSendBuf, size, SocketFlags.None, remotePoint!);
         }
 
-        // tag(8B) 是否等于 data 开头的 8B envelope MAC
         private static bool MacMatch(byte[] tag, byte[] data)
-        {
+        {// 匹配 SIP HASH
             for (int i = 0; i < Crypto.ENVELOPE_MAC_LEN; i++)
                 if (tag[i] != data[i]) return false;
             return true;
         }
 
-
-        // ---- IO → 主线程 的事件 ----
-        private enum IoEventKind : byte { Connected, Data }
-
-        private readonly struct IoEvent
-        {
-            public readonly IoEventKind Kind;
-            public readonly Package? Pkg;     // 仅 Data 有效
-            public IoEvent(IoEventKind kind, Package? pkg)
-            {
-                Kind = kind;
-                Pkg = pkg;
-            }
-        }
-
-
-        // ---- 跨线程队列(自带锁 + 条件变量, 非 ConcurrentQueue) ----
-        private readonly BlockingQueue<Package> sendQue = new BlockingQueue<Package>();   // 主 → send
-        private readonly BlockingQueue<IoEvent> recvQue = new BlockingQueue<IoEvent>();   // recv → 主
+        private readonly BlockingQueue<Package> sendQue = new BlockingQueue<Package>();
+        private readonly BlockingQueue<IOEvent> recvQue = new BlockingQueue<IOEvent>();
 
         // ---- 控制 / 共享 ----
         private int running = 0;
@@ -415,7 +461,6 @@ namespace lilith.Core
         private byte[] rxKey = new byte[32];
         private uint rcvSeq = 0;
         private byte[] rbuf = new byte[Package.PACK_MAX_LEN + 1];   // kcp.Receive 暂存
-        private Package rcvPkg = new Package();                     // 握手包解析暂存(不入队)
 
         // ---- 仅 ioSend 线程(txKey 例外: recv 握手时写入, 经 authed 发布后 send 读) ----
         private byte[] txKey = new byte[32];

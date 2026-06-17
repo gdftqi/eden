@@ -23,13 +23,12 @@ import hashlib
 from ctypes import c_int, c_uint, c_long, c_void_p, CFUNCTYPE
 
 
-# SERVER_HOST   = '13.250.22.130'
 SERVER_HOST = '13.214.204.197'
 SERVER_PORT   = 5555
-NUM_CLIENTS   = 12        # localhost 没带宽限制，1k 起步；想测上限可继续加
+NUM_CLIENTS   = 2        # localhost 没带宽限制，1k 起步；想测上限可继续加
 DATA_SIZE     = 800      # 典型 MMO 移动/事件包 100-300B，取 200B
 SEND_RATE_HZ  = 20       # 典型 MMO 同步 10-20 Hz，取 15 Hz
-TIMEOUT_SEC   = 15.0     # 单条请求超时阈值（超过算 fail）
+TIMEOUT_SEC   = 5.0      # 单条请求超时阈值（超过算 fail）
 
 # ----- Package 协议格式（必须和 typhon C++ 端 package.hpp 保持一致）-----
 # struct Package {
