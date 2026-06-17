@@ -34,7 +34,7 @@ namespace lilith.Core
     }
 
     public class KcpSession
-    {
+    {// Kcp 会话
         const int UDP_MTU = 1400;
         const int TICK_INTERVAL_MS = 10;
 
@@ -49,7 +49,10 @@ namespace lilith.Core
 
         public bool Running
         {// 是否运行中
-            get { return Interlocked.CompareExchange(ref running, 0, 0) == 1; }
+            get
+            {
+                return Interlocked.CompareExchange(ref running, 0, 0) == 1;
+            }
         }
 
         public void SetEvent(ISessionEvent ev)
@@ -88,7 +91,7 @@ namespace lilith.Core
             try
             {
                 this.conv = conv;
-                this.token = Crypto.Token(conv);
+                token = Crypto.Token(conv);
                 authed = false;
                 sndSeq = rcvSeq = 0;
 
@@ -367,13 +370,15 @@ namespace lilith.Core
             }
             catch (ObjectDisposedException)
             {
+                // TODO
             }
             catch (SocketException)
             {
+                // TODO
             }
             catch
             {
-                /* TODO: log */
+                // TODO
             }
             finally
             {
@@ -410,6 +415,7 @@ namespace lilith.Core
             {
                 Buffer.BlockCopy(pkg.Payload, 0, outBuf, Package.HEADER_SIZE, plen);
             }
+
             return Package.HEADER_SIZE + plen;
         }
 
@@ -447,25 +453,25 @@ namespace lilith.Core
         private int running = 0;
         private Thread? recvThread = null;
         private Thread? sendThread = null;
-        private ISessionEvent? ev = null;          // 回调仅主线程触发
-        private EndPoint? remotePoint = null;       // Connect 设(Start 前) / cleanup 清(Join 后)
-        private Socket? sock = null;                 // Connect 建; recv 收 / send 发(同一 UDP socket 全双工安全); Close 关
-        private SafeKcp? safeKcp = null;             // recv/send 共用, 内部一把锁串行
-        private volatile bool authed = false;        // 跨线程: recv 握手时写, send 加密时读 → volatile 发布 key
+        private ISessionEvent? ev = null;
+        private EndPoint? remotePoint = null;
+        private Socket? sock = null;
+        private SafeKcp? safeKcp = null;
+        private volatile bool authed = false;
 
-        // ---- Connect 前发布, 之后只读 ----
+        // ---- 身份属性 ----
         private uint conv = 0;
         private byte[] token = new byte[170];
 
         // ---- 仅 ioRecv 线程 ----
         private byte[] rxKey = new byte[32];
         private uint rcvSeq = 0;
-        private byte[] rbuf = new byte[Package.PACK_MAX_LEN + 1];   // kcp.Receive 暂存
+        private byte[] rbuf = new byte[Package.PACK_MAX_LEN + 1];
 
-        // ---- 仅 ioSend 线程(txKey 例外: recv 握手时写入, 经 authed 发布后 send 读) ----
+        // ---- 仅 ioSend 线程 ----
         private byte[] txKey = new byte[32];
         private uint sndSeq = 0;
-        private byte[] pkSendBuf = new byte[Package.PACK_MAX_LEN];  // pack/加密暂存
-        private byte[] udpSendBuf = new byte[Package.PACK_MAX_LEN + Crypto.ENVELOPE_MAC_LEN]; // output 暂存
+        private byte[] pkSendBuf = new byte[Package.PACK_MAX_LEN];
+        private byte[] udpSendBuf = new byte[Package.PACK_MAX_LEN + Crypto.ENVELOPE_MAC_LEN];
     }
 }

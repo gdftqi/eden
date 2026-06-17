@@ -17,7 +17,6 @@ build
 [Mm]emoryCaptures/
 
 # Unity 自动生成的 IDE / 解决方案文件（每次打开工程都会刷新）
-*.csproj
 *.sln
 *.slnx
 *.unityproj
@@ -38,5 +37,5 @@ sysinfo.txt
 *.app
 
 
-examples/cc/cc/bin/*
 lilith/lilith/bin
+lilith/CC/bin

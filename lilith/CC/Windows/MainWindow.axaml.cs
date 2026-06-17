@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
-namespace cc
+namespace CC
 {
     public partial class MainWindow : Window
     {
@@ -35,9 +35,9 @@ namespace cc
 
         private void SetNav(Avalonia.Controls.Shapes.Path active)
         {
-            ChatIcon.Fill     = active == ChatIcon     ? ActiveIcon : InactiveIcon;
+            ChatIcon.Fill = active == ChatIcon ? ActiveIcon : InactiveIcon;
             ContactsIcon.Fill = active == ContactsIcon ? ActiveIcon : InactiveIcon;
-            OrgIcon.Fill      = active == OrgIcon      ? ActiveIcon : InactiveIcon;
+            OrgIcon.Fill = active == OrgIcon ? ActiveIcon : InactiveIcon;
             SettingsIcon.Fill = active == SettingsIcon ? ActiveIcon : InactiveIcon;
         }
 
