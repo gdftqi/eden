@@ -10,6 +10,7 @@ namespace CC
         {
             InitializeComponent();
             LoadSampleChats();
+            LoadSampleMessages();
         }
 
         // 临时: 往会话列表塞几条示例数据, 验证 ChatItem 组件效果(以后换成真实数据)
@@ -20,13 +21,13 @@ namespace CC
 
             (string nick, string msg, string time)[] data =
             {
-                ("利群",         "还没进，下一趟就进",            "星期一"),
-                ("德美便利超市", "满满今天应该没空",              "星期日"),
-                ("楚风",         "好的",                          "星期六"),
-                ("和和",         "你已开启限时消息功能。此聊天中的新消息将在阅读后消失", "星期六"),
-                ("xinfeng",      "[语音] 0:02",                   "星期六"),
-                ("叛逆小猫",     "好",                            "星期六"),
-                ("皮",           "咋了",                          "2026年6月11日"),
+                ("美女1", "111111", "星期一"),
+                ("美女2", "222222", "星期二"),
+                ("美女3", "333333", "星期三"),
+                ("美女4", "444444", "星期四"),
+                ("美女5", "555555", "星期五"),
+                ("美女6", "666666", "星期六"),
+                ("美女7", "777777", "2026年6月11日"),
             };
 
             foreach (var (nick, msg, time) in data)
@@ -41,16 +42,41 @@ namespace CC
             }
 
             // 多补几条, 让列表溢出, 看垂直滚动条效果
-            //for (int i = 1; i <= 15; i++)
-            //{
-            //    ChatList.Children.Add(new ChatItem
-            //    {
-            //        Avatar = avatar,
-            //        Nickname = $"联系人 {i}",
-            //        LastMessage = "这是一条示例消息，用来撑高列表",
-            //        Time = "昨天"
-            //    });
-            //}
+            for (int i = 1; i <= 15; i++)
+            {
+                ChatList.Children.Add(new ChatItem
+                {
+                    Avatar = avatar,
+                    Nickname = $"联系人 {i}",
+                    LastMessage = "这是一条示例消息，用来撑高列表",
+                    Time = "昨天"
+                });
+            }
+        }
+
+        // 临时: 示例会话, 验证 ChatWindow + MessageBubble(以后换真实数据)
+        private void LoadSampleMessages()
+        {
+            ChatView.PeerName = "利群";
+            ChatView.PeerAvatar = new Avalonia.Media.Imaging.Bitmap(
+                Avalonia.Platform.AssetLoader.Open(new System.Uri("avares://CC/Resources/unnamed.jpg")));
+
+            (bool mine, string text, string time, int status)[] msgs =
+            {
+                (false, "滴滴滴",               "17:15", 0),
+                (true,  "在",                   "17:15", 3),
+                (false, "11楼",                 "17:16", 0),
+                (true,  "1",                    "17:16", 3),
+                (true,  "我等电梯",             "17:18", 3),
+                (true,  "你找个人帮我按一下",   "17:18", 3),
+                (true,  "你说可以进我就进电梯", "17:18", 3),
+                (false, "1",                    "17:18", 0),
+                (false, "来",                   "17:20", 0),
+                (true,  "还没进，下一趟就进",   "17:20", 3),
+            };
+
+            foreach (var (mine, text, time, status) in msgs)
+                ChatView.AddText(mine, text, time, status);
         }
 
         // 搜索框 × : 清空并重新聚焦(× 由绑定在有文字时显示)
