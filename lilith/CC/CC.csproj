@@ -20,6 +20,7 @@
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.9" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,5 +29,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\lilith\lilith.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Utils\" />
   </ItemGroup>
 </Project>
