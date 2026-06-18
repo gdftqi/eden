@@ -19,19 +19,19 @@ namespace CC
             var avatar = new Avalonia.Media.Imaging.Bitmap(
                 Avalonia.Platform.AssetLoader.Open(new System.Uri("avares://CC/Resources/unnamed.jpg")));
 
-            (string nick, string msg, string time)[] data =
+            (string nick, string msg, string time, int unread)[] data =
             {
-                ("美女1", "111111", "星期一"),
-                ("美女2", "222222", "星期二"),
-                ("美女3", "333333", "星期三"),
-                ("美女4", "444444", "星期四"),
-                ("美女5", "555555", "星期五"),
-                ("美女6", "666666", "星期六"),
-                ("美女7", "777777", "2026年6月11日"),
+                ("美女1", "111111", "星期一", 1),
+                ("美女2", "222222", "星期二", 0),
+                ("美女3", "333333", "星期三", 8),
+                ("美女4", "444444", "星期四", 0),
+                ("美女5", "555555", "星期五", 36),
+                ("美女6", "666666", "星期六", 0),
+                ("美女7", "777777", "2026年6月11日", 128),
             };
 
-            foreach (var (nick, msg, time) in data)
-                AddChat(avatar, nick, msg, time);
+            foreach (var (nick, msg, time, unread) in data)
+                AddChat(avatar, nick, msg, time, unread);
 
             // 多补几条, 让列表溢出, 看垂直滚动条效果
             for (int i = 1; i <= 15; i++)
@@ -39,9 +39,9 @@ namespace CC
         }
 
         // 建一个会话项, 接上"点击 = 选中并打开聊天"
-        private void AddChat(Avalonia.Media.IImage avatar, string nick, string msg, string time)
+        private void AddChat(Avalonia.Media.IImage avatar, string nick, string msg, string time, int unread = 0)
         {
-            var item = new ChatItem { Avatar = avatar, Nickname = nick, LastMessage = msg, Time = time };
+            var item = new ChatItem { Avatar = avatar, Nickname = nick, LastMessage = msg, Time = time, Unread = unread };
             item.PointerPressed += (_, _) => OpenChat(item);
             ChatList.Children.Add(item);
         }

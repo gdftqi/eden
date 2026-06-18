@@ -19,6 +19,10 @@ namespace CC
         public static readonly StyledProperty<IImage?> AvatarProperty =
             AvaloniaProperty.Register<ChatItem, IImage?>(nameof(Avatar));
 
+        // 未读数: 0 不显示角标; >99 显示 "99+"
+        public static readonly StyledProperty<int> UnreadProperty =
+            AvaloniaProperty.Register<ChatItem, int>(nameof(Unread));
+
         public string? Nickname
         {
             get => GetValue(NicknameProperty);
@@ -43,9 +47,31 @@ namespace CC
             set => SetValue(AvatarProperty, value);
         }
 
+        public int Unread
+        {
+            get => GetValue(UnreadProperty);
+            set => SetValue(UnreadProperty, value);
+        }
+
         public ChatItem()
         {
             InitializeComponent();
+            ApplyUnread();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == UnreadProperty)
+                ApplyUnread();
+        }
+
+        // 未读角标: 0 隐藏; 1..99 显示数字; >99 显示 "99+"
+        private void ApplyUnread()
+        {
+            if (Badge == null) return;
+            Badge.IsVisible = Unread > 0;
+            BadgeText.Text = Unread > 99 ? "99+" : Unread.ToString();
         }
     }
 }

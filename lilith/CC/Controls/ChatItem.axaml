@@ -34,7 +34,17 @@
                     <TextBlock Grid.Column="0" Text="{Binding #Root.Nickname}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </Grid>
-                <TextBlock Grid.Row="1" Text="{Binding #Root.LastMessage}" FontSize="12.5" Foreground="#8A9099" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <!-- 下行: 最后一条消息(左) + 未读角标(右) -->
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.LastMessage}" FontSize="12.5" Foreground="#8A9099" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <!-- 未读红点角标: 0 隐藏, >99 显示 99+ (由后端控制) -->
+                    <Border Grid.Column="1" x:Name="Badge" Background="#F5333F" CornerRadius="9"
+                            MinWidth="18" Height="18" Padding="5,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" IsVisible="False">
+                        <TextBlock x:Name="BadgeText" FontSize="11" FontWeight="SemiBold" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
     </Border>
