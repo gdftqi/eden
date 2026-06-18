@@ -9,6 +9,55 @@ namespace CC
         public MainWindow()
         {
             InitializeComponent();
+            LoadSampleChats();
+        }
+
+        // 临时: 往会话列表塞几条示例数据, 验证 ChatItem 组件效果(以后换成真实数据)
+        private void LoadSampleChats()
+        {
+            var avatar = new Avalonia.Media.Imaging.Bitmap(
+                Avalonia.Platform.AssetLoader.Open(new System.Uri("avares://CC/Resources/unnamed.jpg")));
+
+            (string nick, string msg, string time)[] data =
+            {
+                ("利群",         "还没进，下一趟就进",            "星期一"),
+                ("德美便利超市", "满满今天应该没空",              "星期日"),
+                ("楚风",         "好的",                          "星期六"),
+                ("和和",         "你已开启限时消息功能。此聊天中的新消息将在阅读后消失", "星期六"),
+                ("xinfeng",      "[语音] 0:02",                   "星期六"),
+                ("叛逆小猫",     "好",                            "星期六"),
+                ("皮",           "咋了",                          "2026年6月11日"),
+            };
+
+            foreach (var (nick, msg, time) in data)
+            {
+                ChatList.Children.Add(new ChatItem
+                {
+                    Avatar = avatar,
+                    Nickname = nick,
+                    LastMessage = msg,
+                    Time = time
+                });
+            }
+
+            // 多补几条, 让列表溢出, 看垂直滚动条效果
+            for (int i = 1; i <= 15; i++)
+            {
+                ChatList.Children.Add(new ChatItem
+                {
+                    Avatar = avatar,
+                    Nickname = $"联系人 {i}",
+                    LastMessage = "这是一条示例消息，用来撑高列表",
+                    Time = "昨天"
+                });
+            }
+        }
+
+        // 搜索框 × : 清空并重新聚焦(× 由绑定在有文字时显示)
+        private void ClearSearch_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            SearchBox.Text = string.Empty;
+            SearchBox.Focus();
         }
 
         private void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
