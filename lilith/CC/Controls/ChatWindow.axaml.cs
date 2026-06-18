@@ -15,8 +15,13 @@ namespace CC
         public static readonly StyledProperty<IImage?> PeerAvatarProperty =
             AvaloniaProperty.Register<ChatWindow, IImage?>(nameof(PeerAvatar));
 
+        // 对方最后在线状态(顶栏昵称下方小灰字)
+        public static readonly StyledProperty<string?> PeerStatusProperty =
+            AvaloniaProperty.Register<ChatWindow, string?>(nameof(PeerStatus));
+
         public string? PeerName { get => GetValue(PeerNameProperty); set => SetValue(PeerNameProperty, value); }
         public IImage? PeerAvatar { get => GetValue(PeerAvatarProperty); set => SetValue(PeerAvatarProperty, value); }
+        public string? PeerStatus { get => GetValue(PeerStatusProperty); set => SetValue(PeerStatusProperty, value); }
 
         public ChatWindow()
         {

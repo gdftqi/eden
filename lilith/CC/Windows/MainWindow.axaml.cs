@@ -58,6 +58,7 @@ namespace CC
         private void LoadSampleMessages()
         {
             ChatView.PeerName = "利群";
+            ChatView.PeerStatus = "最后在线 今天 17:20";
             ChatView.PeerAvatar = new Avalonia.Media.Imaging.Bitmap(
                 Avalonia.Platform.AssetLoader.Open(new System.Uri("avares://CC/Resources/unnamed.jpg")));
 
