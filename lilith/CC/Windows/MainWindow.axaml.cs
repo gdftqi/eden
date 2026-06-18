@@ -10,7 +10,7 @@ namespace CC
         {
             InitializeComponent();
             LoadSampleChats();
-            LoadSampleMessages();
+            // 刚登录未选会话: 显示空态(Ozymandias), 不显示 ChatWindow
         }
 
         // 临时: 往会话列表塞几条示例数据, 验证 ChatItem 组件效果(以后换成真实数据)
@@ -31,37 +31,30 @@ namespace CC
             };
 
             foreach (var (nick, msg, time) in data)
-            {
-                ChatList.Children.Add(new ChatItem
-                {
-                    Avatar = avatar,
-                    Nickname = nick,
-                    LastMessage = msg,
-                    Time = time
-                });
-            }
+                AddChat(avatar, nick, msg, time);
 
             // 多补几条, 让列表溢出, 看垂直滚动条效果
             for (int i = 1; i <= 15; i++)
-            {
-                ChatList.Children.Add(new ChatItem
-                {
-                    Avatar = avatar,
-                    Nickname = $"联系人 {i}",
-                    LastMessage = "这是一条示例消息，用来撑高列表",
-                    Time = "昨天"
-                });
-            }
+                AddChat(avatar, $"联系人 {i}", "这是一条示例消息，用来撑高列表", "昨天");
         }
 
-        // 临时: 示例会话, 验证 ChatWindow + MessageBubble(以后换真实数据)
-        private void LoadSampleMessages()
+        // 建一个会话项, 接上"点击 = 选中并打开聊天"
+        private void AddChat(Avalonia.Media.IImage avatar, string nick, string msg, string time)
         {
-            ChatView.PeerName = "利群";
-            ChatView.PeerStatus = "最后在线 今天 17:20";
-            ChatView.PeerAvatar = new Avalonia.Media.Imaging.Bitmap(
-                Avalonia.Platform.AssetLoader.Open(new System.Uri("avares://CC/Resources/unnamed.jpg")));
+            var item = new ChatItem { Avatar = avatar, Nickname = nick, LastMessage = msg, Time = time };
+            item.PointerPressed += (_, _) => OpenChat(item);
+            ChatList.Children.Add(item);
+        }
 
+        // 选中某个会话: 顶栏换成该用户 + 载入消息, 显示 ChatWindow(隐藏空态)
+        private void OpenChat(ChatItem item)
+        {
+            ChatView.PeerName = item.Nickname;
+            ChatView.PeerAvatar = item.Avatar;
+            ChatView.PeerStatus = "最后在线 今天 17:20";
+
+            // 临时: 每个会话都用同一组示例消息(以后换成各自的真实消息)
+            ChatView.ClearMessages();
             (bool mine, string text, string time, int status)[] msgs =
             {
                 (false, "滴滴滴",               "17:15", 0),
@@ -75,9 +68,11 @@ namespace CC
                 (false, "来",                   "17:20", 0),
                 (true,  "还没进，下一趟就进",   "17:20", 3),
             };
-
             foreach (var (mine, text, time, status) in msgs)
                 ChatView.AddText(mine, text, time, status);
+
+            EmptyState.IsVisible = false;
+            ChatView.IsVisible = true;
         }
 
         // 搜索框 × : 清空并重新聚焦(× 由绑定在有文字时显示)

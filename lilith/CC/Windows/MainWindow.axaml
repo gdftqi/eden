@@ -292,9 +292,9 @@
             <!-- 聊天区: ChatWindow 自定义组件(顶栏+消息区+输入栏, 气泡挂它内部); Ozymandias 为未选会话空态 -->
             <Border Grid.Row="1" Grid.Column="2">
                 <Grid>
-                    <cc:ChatWindow x:Name="ChatView"/>
-                    <!-- 空会话留白(未选中时显示) — 以后接选中逻辑 -->
-                    <Border x:Name="EmptyState" IsVisible="False" Background="#ECE5DD">
+                    <cc:ChatWindow x:Name="ChatView" IsVisible="False"/>
+                    <!-- 空会话留白: 默认显示, 选中某会话后隐藏 -->
+                    <Border x:Name="EmptyState" IsVisible="True" Background="#ECE5DD">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640" Margin="40">
                             <TextBlock Text="&#x201C;Look on my Works, ye Mighty, and despair!&#x201D;"
                                        FontFamily="Georgia" FontSize="30" FontStyle="Italic" FontWeight="SemiBold"

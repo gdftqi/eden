@@ -1,25 +1,35 @@
 ﻿using Avalonia;
 using System;
+using System.Threading;
 
 namespace CC
 {
     internal class Program
     {
-        // Initialization code. Don't use any Avalonia, third-party APIs or any
-        // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-        // yet and stuff might break.
-        [STAThread]
-        public static void Main(string[] args) => BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        private static Mutex? mutex;
 
-        // Avalonia configuration, don't remove; also used by visual designer.
+        [STAThread]
+        public static void Main(string[] args)
+        {
+            bool createdNew;
+            mutex = new Mutex(true, "CChatUniqueApplication", out createdNew);
+
+            if (!createdNew)
+            {
+                return;
+            }
+
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            mutex.ReleaseMutex();
+        }
+
         public static AppBuilder BuildAvaloniaApp()
-            => AppBuilder.Configure<App>()
-                .UsePlatformDetect()
+        {
+            return AppBuilder.Configure<App>().UsePlatformDetect()
 #if DEBUG
-                .WithDeveloperTools()
+               .WithDeveloperTools()
 #endif
-                .WithInterFont()
-                .LogToTrace();
+               .WithInterFont().LogToTrace();
+        }
     }
 }
