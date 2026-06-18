@@ -239,7 +239,7 @@
                                 <Setter Property="Background" Value="#C2C5CB"/>
                                 <Setter Property="Template">
                                     <ControlTemplate>
-                                        <Border Background="{TemplateBinding Background}" CornerRadius="3" Margin="3,0"/>
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
                                     </ControlTemplate>
                                 </Setter>
                             </Style>
@@ -261,52 +261,25 @@
                                 </Setter>
                             </Style>
 
-                            <!-- 箭头按钮 -->
-                            <Style Selector="^ /template/ RepeatButton.arrow">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MinHeight" Value="0"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            <!-- 垂直滚动条: 只有细圆角滑块, 无箭头(去掉箭头, 对齐问题消失) -->
+                            <Style Selector="^:vertical">
+                                <Setter Property="Width" Value="10"/>
                                 <Setter Property="Template">
                                     <ControlTemplate>
                                         <Border Background="{TemplateBinding Background}">
-                                            <ContentPresenter Content="{TemplateBinding Content}"
-                                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter>
-                            </Style>
-                            <Style Selector="^ /template/ RepeatButton.arrow:pointerover">
-                                <Setter Property="Background" Value="#14000000"/>
-                            </Style>
-
-                            <!-- 垂直滚动条 -->
-                            <Style Selector="^:vertical">
-                                <Setter Property="Width" Value="12"/>
-                                <Setter Property="Template">
-                                    <ControlTemplate>
-                                        <Grid RowDefinitions="13,*,13" Background="{TemplateBinding Background}">
-                                            <RepeatButton Name="PART_LineUpButton" Classes="arrow" Grid.Row="0" Focusable="False">
-                                                <Path Width="7" Height="4" Stretch="Uniform" Fill="#9AA0A6" Data="M0,4 L3.5,0 L7,4 Z"/>
-                                            </RepeatButton>
-                                            <Track Name="PART_Track" Grid.Row="1" Orientation="Vertical" IsDirectionReversed="True"
+                                            <Track Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
                                                    Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
                                                    ViewportSize="{TemplateBinding ViewportSize}"
-                                                   Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                   Value="{TemplateBinding Value, Mode=TwoWay}">
                                                 <Track.DecreaseButton>
                                                     <RepeatButton Name="PART_PageUpButton" Classes="page" Focusable="False"/>
                                                 </Track.DecreaseButton>
                                                 <Track.IncreaseButton>
                                                     <RepeatButton Name="PART_PageDownButton" Classes="page" Focusable="False"/>
                                                 </Track.IncreaseButton>
-                                                <Thumb MinHeight="28"/>
+                                                <Thumb Width="6" HorizontalAlignment="Center" MinHeight="28"/>
                                             </Track>
-                                            <RepeatButton Name="PART_LineDownButton" Classes="arrow" Grid.Row="2" Focusable="False">
-                                                <Path Width="7" Height="4" Stretch="Uniform" Fill="#9AA0A6" Data="M0,0 L3.5,4 L7,0 Z"/>
-                                            </RepeatButton>
-                                        </Grid>
+                                        </Border>
                                     </ControlTemplate>
                                 </Setter>
                             </Style>
@@ -315,8 +288,18 @@
                     <StackPanel x:Name="ChatList"/>
                 </ScrollViewer>
             </Grid>
-            <!-- 聊天区 -->
-            <Border Grid.Row="1" Grid.Column="2" Background="#FEFEFE"/>
+            <!-- 聊天区: 未选会话时的留白 — Ozymandias -->
+            <Border Grid.Row="1" Grid.Column="2" Background="#EDEDED">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640" Margin="40">
+                    <TextBlock Text="&#x201C;Look on my Works, ye Mighty, and despair!&#x201D;"
+                               FontFamily="Georgia" FontSize="30" FontStyle="Italic" FontWeight="SemiBold"
+                               Foreground="#4B4B4B" TextAlignment="Center" TextWrapping="Wrap" LineHeight="44"/>
+                    <Border Height="1" Width="120" Background="#C9C9C9" Margin="0,22,0,14"/>
+                    <TextBlock Text="— Ozymandias · Percy Bysshe Shelley, 1818"
+                               FontFamily="Georgia" FontSize="14" FontStyle="Italic"
+                               Foreground="#8A8A8A" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
         </Grid>
 
         <!-- 鼠标缩放窗体: 边缘/四角透明拖拽区 (无边框窗口需手动 BeginResizeDrag); 角在边之后, 上层优先 -->

@@ -41,16 +41,16 @@ namespace CC
             }
 
             // 多补几条, 让列表溢出, 看垂直滚动条效果
-            for (int i = 1; i <= 15; i++)
-            {
-                ChatList.Children.Add(new ChatItem
-                {
-                    Avatar = avatar,
-                    Nickname = $"联系人 {i}",
-                    LastMessage = "这是一条示例消息，用来撑高列表",
-                    Time = "昨天"
-                });
-            }
+            //for (int i = 1; i <= 15; i++)
+            //{
+            //    ChatList.Children.Add(new ChatItem
+            //    {
+            //        Avatar = avatar,
+            //        Nickname = $"联系人 {i}",
+            //        LastMessage = "这是一条示例消息，用来撑高列表",
+            //        Time = "昨天"
+            //    });
+            //}
         }
 
         // 搜索框 × : 清空并重新聚焦(× 由绑定在有文字时显示)

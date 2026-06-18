@@ -34,8 +34,7 @@
                         </Viewbox>
                     </Canvas>
                 </Viewbox>
-                <Button Click="Close_Click" HorizontalAlignment="Right"
-                        Width="40" Height="38" Padding="0" CornerRadius="0" Background="Transparent">
+                <Button Click="Close_Click" HorizontalAlignment="Right" Width="40" Height="38" Padding="0" CornerRadius="0" Background="Transparent">
                     <Button.Styles>
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                             <Setter Property="Background" Value="#E81123"/>
@@ -46,8 +45,7 @@
             </Grid>
 
             <!-- 表单: 头像在上, 居中竖排 -->
-            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260"
-                        Margin="0,0,0,8">
+            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260" Margin="0,0,0,8">
                 <StackPanel.Styles>
                     <Style Selector="TextBox">
                         <Setter Property="Height" Value="32"/>
@@ -106,8 +104,7 @@
                         <CheckBox VerticalAlignment="Center" Padding="0"/>
                         <TextBlock Text="记住密码" FontSize="12" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12"
-                               HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="False"/>
+                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="False"/>
                 </Grid>
 
                 <!-- 登录 (居中, 不太宽) -->
