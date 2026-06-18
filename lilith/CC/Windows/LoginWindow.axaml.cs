@@ -43,7 +43,7 @@ namespace CC
                 return;
             }
 
-            KcpSession.Instance.Connect(1, "13.214.204.197:5555");
+            //KcpSession.Instance.Connect(1, "13.214.204.197:5555");
 
             var main = new MainWindow();
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
