@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -23,6 +24,8 @@ namespace CC
         public ChatWindow()
         {
             InitializeComponent();
+            // 回车=发送, Alt+回车=换行: 用 Tunnel 抢在 TextBox 默认换行处理之前拦截
+            InputBox.AddHandler(InputElement.KeyDownEvent, InputBox_KeyDown, RoutingStrategies.Tunnel);
         }
 
         // 往消息区挂一个气泡(气泡都挂在聊天窗口里), 挂完滚到底
@@ -54,8 +57,30 @@ namespace CC
         // 发送时触发; 宿主(MainWindow)订阅后做真正的网络发送
         public event Action<string>? SendRequested;
 
+        private void Send_Click(object? sender, RoutedEventArgs e) => Send();
+
+        // 回车=发送 / Alt+回车=换行
+        private void InputBox_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+            {
+                // Alt+回车: 在光标处插入换行
+                int caret = InputBox.CaretIndex;
+                var text = InputBox.Text ?? string.Empty;
+                InputBox.Text = text.Substring(0, caret) + "\n" + text.Substring(caret);
+                InputBox.CaretIndex = caret + 1;
+            }
+            else
+            {
+                Send();
+            }
+            e.Handled = true;
+        }
+
         // 发送: 本地先显示"自己发的"气泡, 再把文字交给宿主走网络
-        private void Send_Click(object? sender, RoutedEventArgs e)
+        private void Send()
         {
             var t = InputBox.Text?.Trim();
             if (string.IsNullOrEmpty(t)) return;
@@ -63,6 +88,22 @@ namespace CC
             InputBox.Text = string.Empty;
             InputBox.Focus();
             SendRequested?.Invoke(t);
+        }
+
+        // ---- 顶栏"更多"下拉菜单 ----
+        private void AddContact_Click(object? sender, RoutedEventArgs e)
+        {
+            // TODO: 加为联系人
+        }
+
+        private void ClearChat_Click(object? sender, RoutedEventArgs e)
+        {
+            ClearMessages();
+        }
+
+        private void DeleteChat_Click(object? sender, RoutedEventArgs e)
+        {
+            // TODO: 删除对话(需通知 MainWindow 移除会话并回到空态)
         }
     }
 }
