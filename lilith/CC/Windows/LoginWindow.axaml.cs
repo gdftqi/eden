@@ -43,9 +43,9 @@ namespace CC
                 return;
             }
 
-            //KcpSession.Instance.Connect(1, "13.214.204.197:5555");
-
             var main = new MainWindow();
+            KcpSession.Instance.SetEvent(main);
+            KcpSession.Instance.Connect(1, "13.214.204.197:5555");
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.MainWindow = main;

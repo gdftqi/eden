@@ -71,7 +71,7 @@
 
         <!-- ============ 消息区: 气泡挂载点 ============ -->
         <Border Grid.Row="1" Background="#ECE5DD">
-            <ScrollViewer x:Name="MsgScroll" Padding="16,12" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="MsgScroll" HorizontalScrollBarVisibility="Disabled">
                 <ScrollViewer.Resources>
                     <!-- 细圆角滑块滚动条(同会话列表那条) -->
                     <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
@@ -116,7 +116,11 @@
                         </Style>
                     </ControlTheme>
                 </ScrollViewer.Resources>
-                <StackPanel x:Name="MessageList" Spacing="2"/>
+                <!-- 外层至少占满视口高度(绑稳定的 Bounds.Height, 不绑 Viewport 免循环);
+                     消息靠底对齐: 少时贴底, 多时正常滚。内边距挪到 StackPanel 的 Margin。 -->
+                <Panel MinHeight="{Binding #MsgScroll.Bounds.Height}">
+                    <StackPanel x:Name="MessageList" Spacing="2" VerticalAlignment="Bottom" Margin="16,12"/>
+                </Panel>
             </ScrollViewer>
         </Border>
 

@@ -1,16 +1,38 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using lilith.Core;
+using lilith.Utils;
+using System;
+using System.Diagnostics;
+using System.Net;
 
 namespace CC
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, ISessionEvent
     {
+        // ---- KCP echo 测试参数 ----
+        const string SERVER    = "13.214.204.197:5555";
+        const uint   CONV      = Crypto.CONV_BASE;   // 2000, 对应 TOKENS_B64[0]
+        const ushort ECHO_PKID = 1;                  // 业务 echo 号 (= test_kcp.py PK_ID_PING)
+
+        private readonly DispatcherTimer _kcpTimer;
+
         public MainWindow()
         {
             InitializeComponent();
             LoadSampleChats();
             // 刚登录未选会话: 显示空态(Ozymandias), 不显示 ChatWindow
+
+            // 接 KCP: 会话事件统一在主线程回调(DispatcherTimer 周期 Update 投递)
+            KcpSession.Instance.SetEvent(this);
+            ChatView.SendRequested += OnSendText;
+            _kcpTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _kcpTimer.Tick += (_, _) => KcpSession.Instance.Update();
+            _kcpTimer.Start();
+            try { KcpSession.Instance.Connect(CONV, SERVER); }
+            catch (Exception ex) { Debug.WriteLine("KCP connect 失败: " + ex.Message); }
         }
 
         // 临时: 往会话列表塞几条示例数据, 验证 ChatItem 组件效果(以后换成真实数据)
@@ -55,22 +77,6 @@ namespace CC
 
             // 临时: 每个会话都用同一组示例消息(以后换成各自的真实消息)
             ChatView.ClearMessages();
-            (bool mine, string text, string time, int status)[] msgs =
-            {
-                (false, "滴滴滴",               "17:15", 0),
-                (true,  "在",                   "17:15", 3),
-                (false, "11楼",                 "17:16", 0),
-                (true,  "1",                    "17:16", 3),
-                (true,  "我等电梯",             "17:18", 3),
-                (true,  "你找个人帮我按一下",   "17:18", 3),
-                (true,  "你说可以进我就进电梯", "17:18", 3),
-                (false, "1",                    "17:18", 0),
-                (false, "来",                   "17:20", 0),
-                (true,  "还没进，下一趟就进",   "17:20", 3),
-            };
-            foreach (var (mine, text, time, status) in msgs)
-                ChatView.AddText(mine, text, time, status);
-
             EmptyState.IsVisible = false;
             ChatView.IsVisible = true;
         }
@@ -163,6 +169,36 @@ namespace CC
             {
                 this.BeginResizeDrag(System.Enum.Parse<WindowEdge>(edge), e);
             }
+        }
+
+        public void OnConnected(EndPoint host)
+        {
+            Debug.WriteLine("连接 {0} 成功", host);
+        }
+
+        public void OnDisconnected(EndPoint host)
+        {
+            Debug.WriteLine("连接 {0} 断开", host);
+        }
+
+        // 服务端 echo 回来(主线程回调): 显示成"对方"的消息
+        public void OnPackage(Package pkg)
+        {
+            var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
+            ChatView.AddText(false, text, DateTime.Now.ToString("HH:mm"));
+        }
+
+        // ChatWindow 发送时触发: 把文字打包成业务 echo 包发给服务端
+        private void OnSendText(string text)
+        {
+            if (!KcpSession.Instance.Running) return;
+
+            var pkg = Package.Pool.Take();
+            pkg.PkId          = ECHO_PKID;
+            pkg.PkDstId       = Package.PK_DST_ID;
+            pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
+            KcpSession.Instance.Send(pkg);
+            Package.Pool.Return(pkg);
         }
     }
 }

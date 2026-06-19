@@ -1,6 +1,7 @@
 using kcp2k;
 using lilith.Utils;
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -97,6 +98,7 @@ namespace lilith.Core
 
                 remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                sock.Bind(new IPEndPoint(IPAddress.Any, 0));   // 收前必须 Bind 本地端口(ReceiveFrom 要求), 端口取临时
 
                 var kcp = new Kcp(conv, output);
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
@@ -192,8 +194,8 @@ namespace lilith.Core
                         continue;
                     }
 
-                    if (remote.Equals(remotePoint))
-                    {
+                    if (!remote.Equals(remotePoint))
+                    {// 只收来自服务器的包, 其它来源丢弃
                         continue;
                     }
 
@@ -239,15 +241,15 @@ namespace lilith.Core
             }
             catch (ObjectDisposedException)
             {
-                // Close 关了 socket
+                // Close 关了 socket, 正常收尾
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
-                // 网络错误
+                Debug.WriteLine("recvLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
             }
-            catch
+            catch (Exception ex)
             {
-                // log; 单包错误也走到这, 直接收尾
+                Debug.WriteLine("recvLoop error: " + ex);
             }
             finally
             {
@@ -370,15 +372,15 @@ namespace lilith.Core
             }
             catch (ObjectDisposedException)
             {
-                // TODO
+                // Close 关了 socket, 正常收尾
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
-                // TODO
+                Debug.WriteLine("sendLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO
+                Debug.WriteLine("sendLoop error: " + ex);
             }
             finally
             {
