@@ -26,6 +26,7 @@ namespace CC
             InitializeComponent();
             // 回车=发送, Alt+回车=换行: 用 Tunnel 抢在 TextBox 默认换行处理之前拦截
             InputBox.AddHandler(InputElement.KeyDownEvent, InputBox_KeyDown, RoutingStrategies.Tunnel);
+            BuildEmojiPicker();
         }
 
         // 往消息区挂一个气泡(气泡都挂在聊天窗口里), 挂完滚到底
@@ -88,6 +89,29 @@ namespace CC
             InputBox.Text = string.Empty;
             InputBox.Focus();
             SendRequested?.Invoke(t);
+        }
+
+        // ---- 表情选择(列表+网格在 EmojiPicker 组件里) ----
+        private Flyout? _emojiFlyout;
+
+        // 把 EmojiPicker 组件塞进表情按钮的 Flyout, 选中回调插到输入框
+        private void BuildEmojiPicker()
+        {
+            _emojiFlyout = (Flyout)EmojiBtn.Flyout!;
+            var picker = new EmojiPicker();
+            picker.EmojiSelected += InsertEmoji;
+            _emojiFlyout.Content = picker;
+        }
+
+        // 选中表情: 插到光标处, 关闭弹窗, 焦点回输入框
+        private void InsertEmoji(string emo)
+        {
+            int caret = InputBox.CaretIndex;
+            var text = InputBox.Text ?? string.Empty;
+            InputBox.Text = text.Substring(0, caret) + emo + text.Substring(caret);
+            InputBox.CaretIndex = caret + emo.Length;
+            _emojiFlyout?.Hide();
+            InputBox.Focus();
         }
 
         // ---- 顶栏"更多"下拉菜单 ----

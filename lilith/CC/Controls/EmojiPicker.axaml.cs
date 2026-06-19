@@ -1,0 +1,43 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using System;
+
+namespace CC
+{
+    // 表情选择器: emoji 网格, 点选某个抛出 EmojiSelected(表情字符)
+    public partial class EmojiPicker : UserControl
+    {
+        // 选中某个表情时触发
+        public event Action<string>? EmojiSelected;
+
+        private static readonly string[] Emojis =
+        {
+            "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚",
+            "😋","😛","😜","🤪","😝","🤗","🤭","🤫","🤔","😐","😶","😏","😒","🙄","😬","😴","😪","😔","😕","🙁",
+            "😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","😳","🥵","🥶","😱","😨","🤯","😬","😈","💀",
+            "💩","🤡","👻","👽","🤖","😺","😻","🙀","👍","👎","👌","✌️","🤞","🤟","🤘","👏","🙏","💪","🤝","👀",
+            "❤️","🧡","💛","💚","💙","💜","🖤","💔","💕","💞","💓","🔥","✨","⭐","🌟","💫","🎉","🎊","🌹","💯"
+        };
+
+        public EmojiPicker()
+        {
+            InitializeComponent();
+            foreach (var emo in Emojis)
+            {
+                var btn = new Button
+                {
+                    Content = emo,
+                    FontSize = 20,
+                    Width = 38,
+                    Height = 38,
+                    Padding = new Thickness(0),
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0)
+                };
+                btn.Click += (_, _) => EmojiSelected?.Invoke(emo);
+                Panel.Children.Add(btn);
+            }
+        }
+    }
+}
