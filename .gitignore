@@ -3,7 +3,6 @@ build
 *.a
 *.so
 .venv
-*.dll
 
 # --- Unity (echidna/) ---
 # Unity 自动生成的缓存 / 中间产物，重新打开工程会重建
