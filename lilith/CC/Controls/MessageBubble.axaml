@@ -9,7 +9,7 @@
             Background="White" BoxShadow="0 1 1.5 0 #18000000">
         <StackPanel>
             <!-- 文本(含 emoji): Text 有值时显示; SelectableTextBlock 可拖选 + Ctrl+C 复制 -->
-            <SelectableTextBlock Text="{Binding #Root.Text}" TextWrapping="Wrap" FontSize="14" Foreground="#111B21"
+            <SelectableTextBlock x:Name="TextBlk" TextWrapping="Wrap" FontSize="14" Foreground="#111B21"
                                  SelectionBrush="#80128C7E"
                                  IsVisible="{Binding #Root.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
             <!-- 其它类型(文件等): Body 有值时显示 -->

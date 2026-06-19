@@ -13,26 +13,23 @@ namespace CC
     public partial class MainWindow : Window, ISessionEvent
     {
         // ---- KCP echo 测试参数 ----
-        const string SERVER    = "13.214.204.197:5555";
-        const uint   CONV      = Crypto.CONV_BASE;   // 2000, 对应 TOKENS_B64[0]
-        const ushort ECHO_PKID = 1;                  // 业务 echo 号 (= test_kcp.py PK_ID_PING)
+        const ushort ECHO_PKID = 1;
 
-        private readonly DispatcherTimer _kcpTimer;
+        private readonly DispatcherTimer kcpTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
 
-        public MainWindow()
+    public MainWindow()
         {
             InitializeComponent();
             LoadSampleChats();
-            // 刚登录未选会话: 显示空态(Ozymandias), 不显示 ChatWindow
 
-            // 接 KCP: 会话事件统一在主线程回调(DispatcherTimer 周期 Update 投递)
-            KcpSession.Instance.SetEvent(this);
             ChatView.SendRequested += OnSendText;
-            _kcpTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            _kcpTimer.Tick += (_, _) => KcpSession.Instance.Update();
-            _kcpTimer.Start();
-            try { KcpSession.Instance.Connect(CONV, SERVER); }
-            catch (Exception ex) { Debug.WriteLine("KCP connect 失败: " + ex.Message); }
+            Opened += MainWindow_Opened;
+        }
+
+        private void MainWindow_Opened(object? sender, EventArgs e)
+        {
+            kcpTimer.Tick += (_, _) => KcpSession.Instance.Update();
+            kcpTimer.Start();
         }
 
         // 临时: 往会话列表塞几条示例数据, 验证 ChatItem 组件效果(以后换成真实数据)

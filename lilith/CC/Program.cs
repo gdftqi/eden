@@ -25,11 +25,11 @@ namespace CC
 
         public static AppBuilder BuildAvaloniaApp()
         {
-            return AppBuilder.Configure<App>().UsePlatformDetect()
+            var builder = AppBuilder.Configure<App>().UsePlatformDetect();
 #if DEBUG
-               .WithDeveloperTools()
+            builder = builder.WithDeveloperTools();
 #endif
-               .WithInterFont().LogToTrace();
+            return builder.WithInterFont().LogToTrace();
         }
     }
 }

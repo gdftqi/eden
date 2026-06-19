@@ -13,7 +13,7 @@
         Background="Transparent"
         TransparencyLevelHint="Transparent">
     <Border CornerRadius="8" ClipToBounds="True">
-        <!-- 深蓝灰渐变: 上深下浅 -->
+        <!-- Background -->
         <Grid RowDefinitions="38,*">
             <Grid.Background>
                 <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
@@ -22,7 +22,7 @@
                 </LinearGradientBrush>
             </Grid.Background>
 
-            <!-- TOP 栏: 透明露出渐变, 可拖; 左 LOGO, 右 关闭 -->
+            <!-- TOP 栏 -->
             <Grid Grid.Row="0" Background="Transparent" PointerPressed="TopBar_PointerPressed">
                 <Viewbox Width="30" Height="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0">
                     <Canvas Width="32" Height="32">
@@ -34,6 +34,7 @@
                         </Viewbox>
                     </Canvas>
                 </Viewbox>
+                <!-- 关闭按钮 -->
                 <Button Click="Close_Click" HorizontalAlignment="Right" Width="40" Height="38" Padding="0" CornerRadius="0" Background="Transparent">
                     <Button.Styles>
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
@@ -44,7 +45,7 @@
                 </Button>
             </Grid>
 
-            <!-- 表单: 头像在上, 居中竖排 -->
+            <!-- 主体 -->
             <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260" Margin="0,0,0,8">
                 <StackPanel.Styles>
                     <Style Selector="TextBox">
@@ -84,7 +85,7 @@
                     </Style>
                 </StackPanel.Styles>
 
-                <!-- 头像: 图片填满整个圆(无内缩); 浅色环用 Ellipse 叠在上层, 不挤压图片 -->
+                <!-- 头像 -->
                 <Panel Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,16">
                     <Border CornerRadius="36" ClipToBounds="True">
                         <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
@@ -94,8 +95,8 @@
 
                 <!-- 用户名 / 密码 -->
                 <StackPanel Spacing="10">
-                    <TextBox x:Name="UserBox" PlaceholderText="用户名"/>
-                    <TextBox x:Name="PassBox" PlaceholderText="密码" PasswordChar="●"/>
+                    <TextBox x:Name="txtUsername" PlaceholderText="用户名"/>
+                    <TextBox x:Name="txtPassword" PlaceholderText="密码" PasswordChar="●"/>
                 </StackPanel>
 
                 <!-- 记住密码(左) + 错误提示(右, 同一行: 显示与否都不改行高, 按钮不下移) -->

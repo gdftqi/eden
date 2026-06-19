@@ -3,7 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using lilith.Core;
+using lilith.Utils;
+using System;
+using System.Diagnostics;
 
 namespace CC
 {
@@ -34,24 +38,38 @@ namespace CC
 
         private void Login_Click(object? sender, RoutedEventArgs e)
         {
-            var user = UserBox.Text?.Trim() ?? "";
-            var pass = PassBox.Text ?? "";
+            var username = txtUsername.Text?.Trim() ?? "";
+            var password = txtPassword.Text ?? "";
 
-            if (user.Length == 0 || pass.Length == 0)
+            if (username.Length < 6)
             {
-                ShowError("请输入用户名和密码");
+                ShowError("请输入用户名");
+                return;
+            }
+
+            if (password.Length < 8)
+            {
+                ShowError("请输入密码");
                 return;
             }
 
             var main = new MainWindow();
-            KcpSession.Instance.SetEvent(main);
-            KcpSession.Instance.Connect(1, "13.214.204.197:5555");
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+
+            try
             {
-                desktop.MainWindow = main;
+                KcpSession.Instance.Connect(main, 2000, "13.214.204.197:5555");
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.MainWindow = main;
+                }
+                main.Show();
+                Close();
             }
-            main.Show();
-            Close();
+            catch (Exception ex)
+            {
+                ShowError("KCP连接失败: " + ex.Message);
+                return;
+            }
         }
 
         private void ShowError(string msg)

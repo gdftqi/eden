@@ -28,9 +28,9 @@ namespace CC
                 var btn = new Button
                 {
                     Content = emo,
-                    FontSize = 20,
-                    Width = 38,
-                    Height = 38,
+                    FontSize = 28,
+                    Width = 40,
+                    Height = 40,
                     Padding = new Thickness(0),
                     Background = Brushes.Transparent,
                     BorderThickness = new Thickness(0)

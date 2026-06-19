@@ -56,21 +56,14 @@ namespace lilith.Core
             }
         }
 
-        public void SetEvent(ISessionEvent ev)
-        {// 设置事件
-            if (ev == null)
-            {
-                throw new Exception("ISessionEvent is invalid");
-            }
-            this.ev = ev;
-        }
-
-        public void Connect(uint conv, string host)
+        public void Connect(ISessionEvent ev, uint conv, string host)
         {// 连接服务
             if (ev == null)
             {
                 throw new Exception("SessionEvent is invalid");
             }
+
+            this.ev = ev;
 
             if (string.IsNullOrEmpty(host) || conv == 0)
             {
