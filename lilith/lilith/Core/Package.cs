@@ -58,21 +58,13 @@ namespace lilith.Core
         // ---- 派生 ----
         public int PkLen => HEADER_SIZE + PayloadLength;
 
-
-        /// <summary>清空字段 (Payload 内字节保持原状, 下次写入时覆盖)。</summary>
         public void Reset()
         {
             PkId = 0;
-            PkSeq = 0;
-            PkDstId = 0;
+            PkSeq = PkDstId = 0;
             PayloadLength = 0;
         }
 
-
-        /// <summary>
-        /// 深拷贝 src 的字段 + payload 到本对象。用于把调用方的 Package 拷成一份
-        /// 独占副本跨线程投递, 拷完调用方即可复用/归还原对象。
-        /// </summary>
         public void CopyFrom(Package src)
         {
             PkId = src.PkId;
@@ -80,20 +72,26 @@ namespace lilith.Core
             PkDstId = src.PkDstId;
             PayloadLength = src.PayloadLength;
             if (src.PayloadLength > 0)
+            {
                 Buffer.BlockCopy(src.Payload, 0, Payload, 0, src.PayloadLength);
+            }
         }
 
-
-        // ---- big-endian 编码 ----
         public static int Encode16BE(byte[] p, int offset, ushort value)
-        {
+        {// 16 大端编码
             p[offset + 0] = (byte)(value >> 8);
             p[offset + 1] = (byte)(value >> 0);
             return 2;
         }
 
+        public static int Decode16BE(byte[] p, int offset, out ushort value)
+        {// 16 大端解码
+            value = (ushort)((p[offset + 0] << 8) | p[offset + 1]);
+            return 2;
+        }
+
         public static int Encode32BE(byte[] p, int offset, uint value)
-        {
+        {// 32 大端编码
             p[offset + 0] = (byte)(value >> 24);
             p[offset + 1] = (byte)(value >> 16);
             p[offset + 2] = (byte)(value >> 8);
@@ -101,15 +99,8 @@ namespace lilith.Core
             return 4;
         }
 
-        // ---- big-endian 解码 ----
-        public static int Decode16BE(byte[] p, int offset, out ushort value)
-        {
-            value = (ushort)((p[offset + 0] << 8) | p[offset + 1]);
-            return 2;
-        }
-
         public static int Decode32BE(byte[] p, int offset, out uint value)
-        {
+        {// 32 大端解码
             value = ((uint)p[offset + 0] << 24)
                    | ((uint)p[offset + 1] << 16)
                    | ((uint)p[offset + 2] << 8)
@@ -117,30 +108,32 @@ namespace lilith.Core
             return 4;
         }
 
-
-        /// <summary>
-        /// 把 pkg 的**明文** header + payload 序列化到 wireBuf(从 index 0)。
-        /// pkg.PkSeq 必须已 stamp(!= 0), 通常由 KcpSession.SendPk 设置。
-        /// 加密 / tag 由调用方(KcpSession)在此基础上叠加。
-        /// </summary>
-        /// <returns>写入字节数 = HEADER_SIZE + pkg.PayloadLength</returns>
         public static int Pack(Package pkg, byte[] wireBuf)
-        {
+        {// 装包
             if (pkg.PkSeq == 0)
+            {
                 throw new ArgumentException("PkSeq must be != 0");
+            }
+
             if (pkg.PayloadLength > PAYLOAD_MAX)
+            {
                 throw new ArgumentException("payload too large: " + pkg.PayloadLength);
+            }
 
             int total = HEADER_SIZE + pkg.PayloadLength;
             if (wireBuf.Length < total)
+            {
                 throw new ArgumentException("wireBuf too small");
+            }
 
             Encode16BE(wireBuf, OFFSET_ID, pkg.PkId);
             Encode32BE(wireBuf, OFFSET_SEQ, pkg.PkSeq);
             Encode32BE(wireBuf, OFFSET_DST_ID, pkg.PkDstId);
 
             if (pkg.PayloadLength > 0)
+            {
                 Buffer.BlockCopy(pkg.Payload, 0, wireBuf, HEADER_SIZE, pkg.PayloadLength);
+            }
 
             return total;
         }
@@ -169,8 +162,6 @@ namespace lilith.Core
             return true;
         }
 
-
-        // 进程级单例池, 主线程使用(kcp2k.Pool 内部用 Stack, 非 thread-safe)。
         private static SafePool<Package> pool = new SafePool<Package>(() => new Package(), pkg => pkg.Reset());
         public static SafePool<Package> Pool
         {

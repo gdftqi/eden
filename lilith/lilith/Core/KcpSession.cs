@@ -18,8 +18,8 @@ namespace lilith.Core
 
     enum IOEventType : byte
     {// IO 事件 类型
-        Connected, 
-        Data
+        Connected, // 连接
+        RcvData // 接收数据
     }
 
     struct IOEvent
@@ -27,7 +27,7 @@ namespace lilith.Core
         public readonly IOEventType Type;
         public readonly Package? Pkg;
 
-        public IOEvent(IOEventType type, Package? pkg)
+        public IOEvent(IOEventType type, Package? pkg = null)
         {
             Type = type;
             Pkg = pkg;
@@ -48,9 +48,13 @@ namespace lilith.Core
             get { return instance; }
         }
 
-        private KcpSession() { }
+        private KcpSession()
+        { /* 构造函数 */ }
 
-        public uint GatewayID { get; set; }
+        public uint GatewayID
+        {// 网关ID
+            get; set;
+        }
 
         public bool Running
         {// 是否运行中
@@ -62,20 +66,15 @@ namespace lilith.Core
 
         public void Connect(ISessionEvent ev, string host, uint conv, string b64Token, uint gwId)
         {// 连接服务
-            if (ev == null)
-            {
-                throw new Exception("SessionEvent is invalid");
+            if (ev == null || string.IsNullOrEmpty(host) || conv == 0 || string.IsNullOrEmpty(b64Token) || gwId == 0)
+            {// 入参检查
+                throw new Exception("param is invalid");
             }
 
             this.ev = ev;
 
-            if (string.IsNullOrEmpty(host) || conv == 0)
-            {
-                throw new Exception("conv or host is null or empty");
-            }
-
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0)
-            {
+            {// 是否运行
                 return;
             }
 
@@ -127,7 +126,7 @@ namespace lilith.Core
         }
 
         public void Update()
-        {// 宿主(UI 线程)调用; 由 OnEventQueued 事件触发, 非轮询
+        {// 刷新 Package 句柄
             Interlocked.Exchange(ref notifyPending, 0);
             if (!Running)
             {
@@ -160,7 +159,7 @@ namespace lilith.Core
                         ev?.OnConnected(remotePoint!);
                         break;
 
-                    case IOEventType.Data:
+                    case IOEventType.RcvData:
                         ev?.OnPackage(evs[i].Pkg!);
                         Package.Pool.Return(evs[i].Pkg!);
                         break;
@@ -168,11 +167,12 @@ namespace lilith.Core
             }
         }
 
-        // 合并通知: 入队/关闭时调; 已排队未消费则不再重复触发, Update 一次清空队列
         private void Notify()
         {
             if (Interlocked.Exchange(ref notifyPending, 1) == 0)
+            {
                 OnEventQueued?.Invoke();
+            }
         }
 
         public void Send(Package pkg)
@@ -200,7 +200,7 @@ namespace lilith.Core
                 {
                     n = sock!.ReceiveFrom(recvBuf, UDP_MTU, SocketFlags.None, ref remote);
                     if (n < MIN_SIZE)
-                    {
+                    {// 最小的包为 ENVELOPE MAC(8) + KCP HEADER (24)
                         continue;
                     }
 
@@ -211,7 +211,7 @@ namespace lilith.Core
 
                     var tag = Crypto.SipHashTag(recvBuf, Crypto.ENVELOPE_MAC_LEN, Crypto.ENVELOPE_MAC_HASH_LEN);
                     if (!MacMatch(tag, recvBuf))
-                    {
+                    {// 校验 SIPHASH
                         continue;
                     }
 
@@ -267,44 +267,6 @@ namespace lilith.Core
             }
         }
 
-        private bool decode(byte[] data, int n, Package pkg)
-        {// 解包
-            if (n < Package.HEADER_SIZE)
-            {
-                return false;
-            }
-
-            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.PkId);
-            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
-            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.PkDstId);
-            if (pkg.PkSeq == 0)
-            {
-                return false;
-            }
-
-            int plen = n - Package.HEADER_SIZE;
-            if (authed && plen > 0)
-            {
-                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_S2C);
-                int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
-                if (m < 0)
-                {
-                    return false;
-                }
-                pkg.PayloadLength = m;
-            }
-            else
-            {
-                pkg.PayloadLength = plen;
-                if (plen > 0)
-                {
-                    Buffer.BlockCopy(data, Package.HEADER_SIZE, pkg.Payload, 0, plen);
-                }
-            }
-
-            return true;
-        }
-
         private void onRegistRsp(Package pkg)
         {// PKID_REGIST_RSP 句柄
             if (authed)
@@ -317,9 +279,10 @@ namespace lilith.Core
                 return;
             }
 
+            // 交换密钥
             Crypto.KxClient(pkg.Payload, out rxKey, out txKey);
             authed = true;
-            recvQue.Enqueue(new IOEvent(IOEventType.Connected, null));
+            recvQue.Enqueue(new IOEvent(IOEventType.Connected));
             Notify();
             Package.Pool.Return(pkg);
         }
@@ -349,7 +312,7 @@ namespace lilith.Core
             }
 
             rcvSeq = pkg.PkSeq;
-            recvQue.Enqueue(new IOEvent(IOEventType.Data, pkg));
+            recvQue.Enqueue(new IOEvent(IOEventType.RcvData, pkg));
             Notify();
         }
 
@@ -369,21 +332,17 @@ namespace lilith.Core
                         Package.Pool.Return(pks[i]);
                     }
 
-                    uint now = (uint)Environment.TickCount;
-                    safeKcp!.Update(now);
+                    uint tnow = (uint)Environment.TickCount;
+                    safeKcp!.Update(tnow);
 
-                    wait = (int)(safeKcp!.Check(now) - now);
-                    if (wait < 0)
+                    wait = (int)(safeKcp!.Check(tnow) - tnow);
+                    if (wait < 0 || n == pks.Length)
                     {
                         wait = 0;
                     }
                     else if (wait > TICK_INTERVAL_MS)
                     {
                         wait = TICK_INTERVAL_MS;
-                    }
-                    else if (n == pks.Length)
-                    {
-                        wait = 0;
                     }
                 }
             }
@@ -436,6 +395,44 @@ namespace lilith.Core
             }
 
             return Package.HEADER_SIZE + plen;
+        }
+
+        private bool decode(byte[] data, int n, Package pkg)
+        {// 解包
+            if (n < Package.HEADER_SIZE)
+            {
+                return false;
+            }
+
+            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.PkId);
+            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
+            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.PkDstId);
+            if (pkg.PkSeq == 0)
+            {
+                return false;
+            }
+
+            int plen = n - Package.HEADER_SIZE;
+            if (authed && plen > 0)
+            {
+                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_S2C);
+                int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
+                if (m < 0)
+                {
+                    return false;
+                }
+                pkg.PayloadLength = m;
+            }
+            else
+            {
+                pkg.PayloadLength = plen;
+                if (plen > 0)
+                {
+                    Buffer.BlockCopy(data, Package.HEADER_SIZE, pkg.Payload, 0, plen);
+                }
+            }
+
+            return true;
         }
 
         private void registReq()
