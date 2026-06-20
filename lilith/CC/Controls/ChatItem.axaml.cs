@@ -8,14 +8,9 @@ namespace CC
     public partial class ChatItem : UserControl
     {// 会话列表项
         public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(Nickname));
-
         public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(LastMessage));
-
         public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(Time));
-
         public static readonly StyledProperty<IImage?> AvatarProperty = AvaloniaProperty.Register<ChatItem, IImage?>(nameof(Avatar));
-
-        // 未读数: 0 不显示角标; >99 显示 "99+"
         public static readonly StyledProperty<int> UnreadProperty = AvaloniaProperty.Register<ChatItem, int>(nameof(Unread));
 
         public string? Nickname
@@ -58,7 +53,9 @@ namespace CC
         {
             base.OnPropertyChanged(change);
             if (change.Property == UnreadProperty)
+            {
                 ApplyUnread();
+            }
         }
 
         private void ApplyUnread()
@@ -76,7 +73,6 @@ namespace CC
         {
             base.OnPointerReleased(e);
             Unread = 0;
-            Badge.IsVisible = false;
         }
     }
 }
