@@ -19,33 +19,21 @@ namespace lilith.Utils
             }
         }
 
-        public bool Dequeue(out T item)
-        {// 出队
-            lock (locker)
-            {
-                if (queue.Count > 0)
-                {
-                    item = queue.Dequeue();
-                    return true;
-                }
-                item = default!;
-                return false;
-            }
-        }
-
-        public void Wait(int timeoutMs)
+        public int Wait(T[] items, int timeoutMs = 0)
         {
-            if (timeoutMs <= 0)
-            {
-                return;   // 已到 tick 时刻(或已逾期), 不睡, 直接回去跑 Update
-            }
-
             lock (locker)
             {
-                if (queue.Count == 0)
+                if (queue.Count == 0 && timeoutMs > 0)
                 {
                     Monitor.Wait(locker, timeoutMs);
                 }
+
+                int n = 0;
+                while (n < items.Length && queue.Count > 0)
+                {
+                    items[n++] = queue.Dequeue();
+                }
+                return n;
             }
         }
 

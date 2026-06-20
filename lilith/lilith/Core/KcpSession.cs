@@ -38,6 +38,8 @@ namespace lilith.Core
     {// Kcp 会话
         const int UDP_MTU = 1400;
         const int TICK_INTERVAL_MS = 10;
+        const int SEND_BATCH = 256;
+        const int RECV_BATCH = 128;
 
         static KcpSession instance = new KcpSession();
 
@@ -144,17 +146,20 @@ namespace lilith.Core
                 return;
             }
 
-            while (recvQue.Dequeue(out IOEvent e))
+            var evs = new IOEvent[RECV_BATCH];
+            int n = recvQue.Wait(evs);
+
+            for (int i = 0; i < n; i++)
             {
-                switch (e.Type)
+                switch (evs[i].Type)
                 {
                     case IOEventType.Connected:
                         ev?.OnConnected(remotePoint!);
                         break;
 
                     case IOEventType.Data:
-                        ev?.OnPackage(e.Pkg!);
-                        Package.Pool.Return(e.Pkg!);
+                        ev?.OnPackage(evs[i].Pkg!);
+                        Package.Pool.Return(evs[i].Pkg!);
                         break;
                 }
             }
@@ -350,28 +355,33 @@ namespace lilith.Core
             try
             {
                 registReq();
+                var pks = new Package[SEND_BATCH];
+                int wait = 0;
                 while (Running)
                 {
-                    while (sendQue.Dequeue(out Package pkg))
+                    int n = sendQue.Wait(pks, wait);
+                    for (int i = 0; i < n; i++)
                     {
-                        doSend(pkg);
-                        Package.Pool.Return(pkg);
+                        doSend(pks[i]);
+                        Package.Pool.Return(pks[i]);
                     }
 
                     uint now = (uint)Environment.TickCount;
                     safeKcp!.Update(now);
 
-                    int wait = (int)(safeKcp!.Check(now) - now);
+                    wait = (int)(safeKcp!.Check(now) - now);
                     if (wait < 0)
                     {
                         wait = 0;
                     }
-
-                    if (wait > TICK_INTERVAL_MS)
+                    else if (wait > TICK_INTERVAL_MS)
                     {
                         wait = TICK_INTERVAL_MS;
                     }
-                    sendQue.Wait(wait);
+                    else if (n == pks.Length)
+                    {
+                        wait = 0;
+                    }
                 }
             }
             catch (ObjectDisposedException)
