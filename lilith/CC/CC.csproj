@@ -31,8 +31,4 @@
   <ItemGroup>
     <ProjectReference Include="..\lilith\lilith.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Utils\" />
-  </ItemGroup>
 </Project>
