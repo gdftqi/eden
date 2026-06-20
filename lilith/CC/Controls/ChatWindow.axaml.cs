@@ -92,7 +92,7 @@ namespace CC
         // ---- 表情选择 ----
         private Flyout? emojiFlyout;
 
-        
+
         private void BuildEmojiPicker()
         {// 创建 EmojiPicker
             emojiFlyout = (Flyout)EmojiBtn.Flyout!;

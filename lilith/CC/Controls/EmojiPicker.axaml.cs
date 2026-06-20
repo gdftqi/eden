@@ -5,7 +5,7 @@ using System;
 
 namespace CC
 {
-    
+
     public partial class EmojiPicker : UserControl
     {// 表情选择器
         // 选中某个表情时触发

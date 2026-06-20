@@ -34,24 +34,25 @@ namespace CC
             };
 
             foreach (var (nick, msg, time, unread) in data)
+            {
                 AddChat(avatar, nick, msg, time, unread);
+            }
 
-            // 多补几条, 让列表溢出, 看垂直滚动条效果
             for (int i = 1; i <= 15; i++)
+            {
                 AddChat(avatar, $"联系人 {i}", "这是一条示例消息，用来撑高列表", "昨天");
+            }
         }
 
-        // 建一个会话项, 点击 = 选中(focus 高亮) + 抛 ChatSelected
         private void AddChat(Avalonia.Media.IImage avatar, string nick, string msg, string time, int unread = 0)
-        {
+        {// // 建一个会话项
             var item = new ChatItem { Avatar = avatar, Nickname = nick, LastMessage = msg, Time = time, Unread = unread };
             item.PointerPressed += (_, _) => ChatSelected?.Invoke(item);
             ChatList.Children.Add(item);
         }
 
-        // 搜索框 × : 清空并重新聚焦(× 由绑定在有文字时显示)
         private void ClearSearch_Click(object? sender, RoutedEventArgs e)
-        {
+        {// 搜索框 清空文字
             SearchBox.Text = string.Empty;
             SearchBox.Focus();
         }

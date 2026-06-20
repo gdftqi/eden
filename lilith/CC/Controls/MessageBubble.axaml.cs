@@ -23,17 +23,25 @@ namespace CC
         // 回执(仅自己发的显示): 0 无 / 1 已送达(单勾) / 2 已读(双勾)
         public static readonly StyledProperty<int> StatusProperty = AvaloniaProperty.Register<MessageBubble, int>(nameof(Status));
 
-        public bool IsOutgoing {
-            get => GetValue(IsOutgoingProperty); set => SetValue(IsOutgoingProperty, value); 
+        public bool IsOutgoing
+        {
+            get => GetValue(IsOutgoingProperty); set => SetValue(IsOutgoingProperty, value);
         }
-        public string? Time {
+        public string? Time
+        {
             get => GetValue(TimeProperty); set => SetValue(TimeProperty, value);
         }
-        public string? Text { get => GetValue(TextProperty); set => SetValue(TextProperty, value); 
+        public string? Text
+        {
+            get => GetValue(TextProperty); set => SetValue(TextProperty, value);
         }
-        public object? Body { get => GetValue(BodyProperty); set => SetValue(BodyProperty, value); 
+        public object? Body
+        {
+            get => GetValue(BodyProperty); set => SetValue(BodyProperty, value);
         }
-        public int Status { get => GetValue(StatusProperty); set => SetValue(StatusProperty, value);
+        public int Status
+        {
+            get => GetValue(StatusProperty); set => SetValue(StatusProperty, value);
         }
 
         static readonly IBrush InBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));   // 对方: 白
@@ -81,20 +89,30 @@ namespace CC
 
         private void ApplyText()
         {
-            if (TextBlk == null) return;
+            if (TextBlk == null)
+            {
+                return;
+            }
+
             var inlines = TextBlk.Inlines;
-            if (inlines == null) return;
+            if (inlines == null)
+            {
+                return;
+            }
             inlines.Clear();
 
             var s = Text ?? "";
-            if (s.Length == 0) return;
+            if (s.Length == 0)
+            {
+                return;
+            }
 
             double emojiSize = EmojiCount(s) switch
             {
-                0      => 24,   // 含普通文字: 表情和选择列表一样大
-                1      => 32,   // 纯表情 1 个: 最大
+                0 => 24,   // 含普通文字: 表情和选择列表一样大
+                1 => 32,   // 纯表情 1 个: 最大
                 2 or 3 => 28,
-                _      => 24
+                _ => 24
             };
 
             bool hasEmoji = false;
