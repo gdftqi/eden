@@ -7,11 +7,8 @@ namespace lilith.Utils
     public class SafePool<T>
     {
         readonly Stack<T> objects = new Stack<T>();
-
         readonly Func<T> objectGenerator;
-
         readonly Action<T> objectResetter;
-
         readonly object locker = new object();
 
         public SafePool(Func<T> objectGenerator, Action<T> objectResetter)
@@ -47,17 +44,6 @@ namespace lilith.Utils
             lock (locker)
             {
                 objects.Clear();
-            }
-        }
-
-        public int Count
-        {
-            get
-            {
-                lock (locker)
-                {
-                    return objects.Count;
-                }
             }
         }
     }

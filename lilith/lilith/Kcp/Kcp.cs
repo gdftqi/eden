@@ -1,7 +1,3 @@
-// Kcp based on https://github.com/skywind3000/kcp
-// Kept as close to original as possible.
-// 对齐 C 版 ikcp.c: 它 #define IKCP_FASTACK_CONSERVE 打开(input 的 maxack 走保守分支)。
-// 定义此符号让下面 #if !FASTACK_CONSERVE 走 #else 保守分支, 与 C 版一致。
 #define FASTACK_CONSERVE
 using System;
 using System.Collections.Generic;
