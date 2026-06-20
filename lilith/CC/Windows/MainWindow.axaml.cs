@@ -19,8 +19,7 @@ namespace CC
             InitializeComponent();
             ChatPanel.ChatSelected += OpenChat;
             ChatView.SendRequested += OnSendText;
-            // 事件驱动: IO 线程有事件时通知, 切到 UI 线程跑一次 Update(替代轮询定时器)
-            KcpSession.Instance.OnEventQueued = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
+            KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
         }
 
         // 选中某个会话(由 ChatListPanel.ChatSelected 触发): 顶栏换成该用户, 显示 ChatWindow(隐藏空态)

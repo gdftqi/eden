@@ -102,10 +102,10 @@ namespace lilith.Core
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
                 safeKcp = new SafeKcp(kcp);
 
-                recvThread = new Thread(recvLoop) { IsBackground = true };
-                sendThread = new Thread(sendLoop) { IsBackground = true };
-                recvThread.Start();
-                sendThread.Start();
+                rcvThread = new Thread(rcvLoop) { IsBackground = true };
+                sndThread = new Thread(sndLoop) { IsBackground = true };
+                rcvThread.Start();
+                sndThread.Start();
             }
             catch
             {
@@ -130,12 +130,12 @@ namespace lilith.Core
             Interlocked.Exchange(ref notifyPending, 0);
             if (!Running)
             {
-                if (recvThread != null || sendThread != null)
+                if (rcvThread != null || sndThread != null)
                 {
-                    recvThread?.Join();
-                    sendThread?.Join();
-                    recvThread = null;
-                    sendThread = null;
+                    rcvThread?.Join();
+                    sndThread?.Join();
+                    rcvThread = null;
+                    sndThread = null;
                     ev?.OnDisconnected(remotePoint!);
                     remotePoint = null;
                     sock = null;
@@ -171,7 +171,7 @@ namespace lilith.Core
         {
             if (Interlocked.Exchange(ref notifyPending, 1) == 0)
             {
-                OnEventQueued?.Invoke();
+                OnWakeup?.Invoke();
             }
         }
 
@@ -187,7 +187,7 @@ namespace lilith.Core
             sendQue.Enqueue(copy);
         }
 
-        private void recvLoop()
+        private void rcvLoop()
         {// 接收线程
             EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
             var recvBuf = new byte[UDP_MTU];
@@ -316,7 +316,7 @@ namespace lilith.Core
             Notify();
         }
 
-        private void sendLoop()
+        private void sndLoop()
         {// 发送线程
             try
             {
@@ -467,16 +467,16 @@ namespace lilith.Core
 
         // ---- 控制 / 共享 ----
         private int running = 0;
-        private Thread? recvThread = null;
-        private Thread? sendThread = null;
+        private Thread? rcvThread = null;
+        private Thread? sndThread = null;
         private ISessionEvent? ev = null;
         private EndPoint? remotePoint = null;
         private Socket? sock = null;
         private SafeKcp? safeKcp = null;
         private volatile bool authed = false;
 
-        // 事件驱动: IO 线程入队/关闭时通知宿主跑一次 Update(替代 UI 轮询定时器)
-        public Action? OnEventQueued;
+        // 事件驱动: IO 线程入队/关闭时通知宿主跑一次 Update
+        public Action? OnWakeup;
         private int notifyPending = 0;
 
         // ---- 身份属性 ----
