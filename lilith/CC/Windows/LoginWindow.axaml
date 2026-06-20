@@ -76,7 +76,7 @@
                         <Setter Property="Background" Value="#2E7D32"/>
                         <Setter Property="Foreground" Value="White"/>
                     </Style>
-                    <!-- 记住密码: 文字默认浅灰, hover 这一行时变亮绿 -->
+                    <!-- 记住密码 -->
                     <Style Selector="StackPanel.remember TextBlock">
                         <Setter Property="Foreground" Value="#C8D0DA"/>
                     </Style>
@@ -93,22 +93,24 @@
                     <Ellipse Width="72" Height="72" Stroke="#66FFFFFF" StrokeThickness="2"/>
                 </Panel>
 
-                <!-- 用户名 / 密码 -->
                 <StackPanel Spacing="10">
+                    <!-- 用户名 -->
                     <TextBox x:Name="txtUsername" PlaceholderText="用户名"/>
+                    <!-- 密码 -->
                     <TextBox x:Name="txtPassword" PlaceholderText="密码" PasswordChar="●"/>
                 </StackPanel>
 
-                <!-- 记住密码(左) + 错误提示(右, 同一行: 显示与否都不改行高, 按钮不下移) -->
                 <Grid Margin="0,10,0,0">
                     <StackPanel Classes="remember" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="6">
+                        <!-- 记住密码 -->
                         <CheckBox VerticalAlignment="Center" Padding="0"/>
                         <TextBlock Text="记住密码" FontSize="12" VerticalAlignment="Center"/>
                     </StackPanel>
+                    <!-- 错误提示 -->
                     <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="False"/>
                 </Grid>
 
-                <!-- 登录 (居中, 不太宽) -->
+                <!-- 登录 -->
                 <Button Classes="login" Content="登 录" Click="Login_Click" IsDefault="True" HorizontalAlignment="Center" Width="200" Margin="0,12,0,0"/>
             </StackPanel>
         </Grid>

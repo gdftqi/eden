@@ -4,23 +4,18 @@
              x:Class="CC.MessageBubble"
              x:Name="Root"
              Margin="0,1.5">
-    <!-- 外框: 圆角气泡 + 轻阴影; 方向/颜色由代码后端按 IsOutgoing 设 -->
-    <Border x:Name="Bubble" CornerRadius="8" Padding="9,6,9,5" MaxWidth="460"
-            Background="White" BoxShadow="0 1 1.5 0 #18000000">
+    <!-- 外框 -->
+    <Border x:Name="Bubble" CornerRadius="8" Padding="9,6,9,5" MaxWidth="460" Background="White" BoxShadow="0 1 1.5 0 #18000000">
         <StackPanel>
-            <!-- 文本(含 emoji): Text 有值时显示; SelectableTextBlock 可拖选 + Ctrl+C 复制 -->
-            <SelectableTextBlock x:Name="TextBlk" TextWrapping="Wrap" FontSize="14" Foreground="#111B21"
-                                 SelectionBrush="#80128C7E"
-                                 IsVisible="{Binding #Root.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
-            <!-- 其它类型(文件等): Body 有值时显示 -->
-            <ContentPresenter Content="{Binding #Root.Body}"
-                              IsVisible="{Binding #Root.Body, Converter={x:Static conv:ObjectConverters.IsNotNull}}"/>
-
-            <!-- 时间 + 回执 (右下角) -->
+            <!-- 文本 -->
+            <SelectableTextBlock x:Name="TextBlk" TextWrapping="Wrap" FontSize="14" Foreground="#111B21" SelectionBrush="#80128C7E" IsVisible="{Binding #Root.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
+            <!-- 其它类型 -->
+            <ContentPresenter Content="{Binding #Root.Body}" IsVisible="{Binding #Root.Body, Converter={x:Static conv:ObjectConverters.IsNotNull}}"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4" Margin="8,1,0,0">
+                <!-- 时间 -->
                 <TextBlock Text="{Binding #Root.Time}" FontSize="11" Foreground="#8696A0" VerticalAlignment="Center"/>
-                <Path x:Name="Ticks" StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round"
-                      VerticalAlignment="Center" IsVisible="False"/>
+                <!-- 回执 -->
+                <Path x:Name="Ticks" StrokeThickness="1.4" StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center" IsVisible="False"/>
             </StackPanel>
         </StackPanel>
     </Border>

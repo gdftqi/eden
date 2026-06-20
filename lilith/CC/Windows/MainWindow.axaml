@@ -14,7 +14,7 @@
         TransparencyLevelHint="Transparent">
     <Border CornerRadius="8" ClipToBounds="True">
     <Grid>
-        <!-- 主内容 -->
+        <!-- Main -->
         <Grid RowDefinitions="38,*" ColumnDefinitions="60,280,*">
             <!-- TopBar -->
             <Grid Grid.Row="0" Grid.ColumnSpan="3" PointerPressed="TopBar_PointerPressed">
@@ -25,7 +25,7 @@
                     </LinearGradientBrush>
                 </Grid.Background>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
-                    <!-- LOGO: 白色气泡轮廓(空心) + 白色 x -->
+                    <!-- LOGO -->
                     <Viewbox Width="34" Height="34">
                         <Canvas Width="32" Height="32">
                             <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
@@ -39,7 +39,7 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel.Styles>
-                        <!-- 平时透明无背景, 只有 hover 才显灰 -->
+                        <!-- TopBar 样式 -->
                         <Style Selector="Button">
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="CornerRadius" Value="0"/>
@@ -52,23 +52,25 @@
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
                             <Setter Property="Background" Value="#33FFFFFF"/>
                         </Style>
-                        <!-- 关闭按钮 hover 红底 (class 更具体, 覆盖上面的浅白) -->
                         <Style Selector="Button.close:pointerover /template/ ContentPresenter">
                             <Setter Property="Background" Value="#E81123"/>
                         </Style>
                     </StackPanel.Styles>
+                    <!-- 最小化 -->
                     <Button Click="Minimize_Click">
                         <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M0,8 H16"/>
                     </Button>
+                    <!-- 最大化 -->
                     <Button Click="Maximize_Click">
                         <Path x:Name="MaxIcon" Width="16" Height="16" Stroke="White" StrokeThickness="1" Fill="Transparent" Data="M1,1 H15 V15 H1 Z"/>
                     </Button>
+                    <!-- 关闭 -->
                     <Button Click="Button_Click" Classes="close">
                         <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M1,1 L15,15 M15,1 L1,15"/>
                     </Button>
                 </StackPanel>
             </Grid>
-            <!-- 导航栏 -->
+            <!-- SideBar -->
             <Border Grid.Row="1" Grid.Column="0">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
@@ -78,7 +80,6 @@
                 </Border.Background>
 
                 <Grid>
-                <!-- 顶部: 聊天 + 组织架构 (竖直, 居中靠顶) -->
                 <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="6">
                     <StackPanel.Styles>
                         <Style Selector="Button">
@@ -102,7 +103,7 @@
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 联系人列表 -->
+                    <!-- 联系人 -->
                     <Button Click="Contacts_Click">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
@@ -120,7 +121,7 @@
                     </Button>
                 </StackPanel>
 
-                <!-- 底部: 设置齿轮 + 用户头像 (竖直, 居中靠底) -->
+                <!-- SideBar: 底部 -->
                 <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" Spacing="12">
                     <StackPanel.Styles>
                         <Style Selector="Button">
@@ -135,7 +136,7 @@
                         </Style>
                     </StackPanel.Styles>
 
-                    <!-- 设置按钮 (齿轮) -->
+                    <!-- 设置 -->
                     <Button Click="Settings_Click" Width="44" Height="44">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
@@ -144,179 +145,38 @@
                         </Viewbox>
                     </Button>
 
-                    <!-- 用户头像 (圆形): 真实图片, ClipToBounds+CornerRadius 裁成圆 -->
+                    <!-- 用户头像 -->
                     <Border Width="42" Height="42" CornerRadius="21" ClipToBounds="True">
                         <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
                     </Border>
                 </StackPanel>
                 </Grid>
             </Border>
-            <!-- 用户/会话列表: 头部(聊天) + 搜索栏 + 列表(占位 ScrollViewer, 待换自定义组件) -->
-            <Grid Grid.Row="1" Grid.Column="1" Background="White" RowDefinitions="48,Auto,*">
-                <!-- 头部: 标题 + 右侧图标 -->
-                <Grid Grid.Row="0" Margin="14,0,8,0">
-                    <TextBlock Text="聊天" FontSize="18" FontWeight="SemiBold" Foreground="#1E1E1E"
-                               VerticalAlignment="Center"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="2">
-                        <StackPanel.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Width" Value="32"/>
-                                <Setter Property="Height" Value="32"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="CornerRadius" Value="16"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                            </Style>
-                            <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                <Setter Property="Background" Value="#11000000"/>
-                            </Style>
-                        </StackPanel.Styles>
-                        <!-- 新建聊天 -->
-                        <Button>
-                            <Path Width="18" Height="18" Stroke="#555" StrokeThickness="1.6"
-                                  StrokeJoin="Round" StrokeLineCap="Round"
-                                  Data="M4,4 H14 V14 H4 Z M9,7.5 V10.5 M7.5,9 H10.5"/>
-                        </Button>
-                        <!-- 菜单 -->
-                        <Button>
-                            <StackPanel Spacing="2.6">
-                                <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
-                                <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
-                                <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-
-                <!-- 搜索栏: focus 时外框变绿+白底, 内层蓝边框被干掉; 有文字时显示 × -->
-                <Border Classes="search" Grid.Row="1" Height="36" Margin="12,2,12,8">
-                    <Border.Styles>
-                        <Style Selector="Border.search">
-                            <Setter Property="Background" Value="#F0F2F5"/>
-                            <Setter Property="BorderBrush" Value="Transparent"/>
-                            <Setter Property="BorderThickness" Value="1.5"/>
-                            <Setter Property="CornerRadius" Value="18"/>
-                        </Style>
-                        <Style Selector="Border.search:focus-within">
-                            <Setter Property="Background" Value="White"/>
-                            <Setter Property="BorderBrush" Value="#43A047"/>
-                        </Style>
-                        <!-- 干掉内层 TextBox 的(蓝色)边框 -->
-                        <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                        </Style>
-                    </Border.Styles>
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Path Grid.Column="0" Width="16" Height="16" Margin="11,0,8,0" VerticalAlignment="Center"
-                              Stroke="#888" StrokeThickness="1.6" Fill="Transparent"
-                              Data="M7,2 A5,5 0 1 1 7,12 A5,5 0 1 1 7,2 Z M10.5,10.5 L15,15"/>
-                        <TextBox x:Name="SearchBox" Classes="search" Grid.Column="1" PlaceholderText="搜索或开始新聊天"
-                                 Background="Transparent" BorderThickness="0" FontSize="13"
-                                 VerticalContentAlignment="Center" Padding="0,0,4,0"/>
-                        <Button Grid.Column="2" Click="ClearSearch_Click" Width="26" Height="26" Padding="0"
-                                Background="Transparent" CornerRadius="13" Margin="0,0,5,0" VerticalAlignment="Center"
-                                IsVisible="{Binding #SearchBox.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
-                            <Button.Styles>
-                                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                    <Setter Property="Background" Value="#15000000"/>
-                                </Style>
-                            </Button.Styles>
-                            <Path Width="11" Height="11" Stroke="#888" StrokeThickness="1.5" StrokeLineCap="Round"
-                                  Data="M1,1 L10,10 M10,1 L1,10"/>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- 会话列表: ScrollViewer + 自定义细滚动条(仿 WhatsApp); 自定义组件后续放进来 -->
-                <ScrollViewer Grid.Row="2" Padding="0,0,2,0" HorizontalScrollBarVisibility="Disabled">
-                    <ScrollViewer.Resources>
-                        <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
-                            <Setter Property="Background" Value="Transparent"/>
-
-                            <!-- 滑块: 细圆角灰 -->
-                            <Style Selector="^ /template/ Thumb">
-                                <Setter Property="Background" Value="#C2C5CB"/>
-                                <Setter Property="Template">
-                                    <ControlTemplate>
-                                        <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
-                                    </ControlTemplate>
-                                </Setter>
-                            </Style>
-                            <Style Selector="^ /template/ Thumb:pointerover">
-                                <Setter Property="Background" Value="#A6AAB1"/>
-                            </Style>
-                            <Style Selector="^ /template/ Thumb:pressed">
-                                <Setter Property="Background" Value="#8E939B"/>
-                            </Style>
-
-                            <!-- 翻页空白区: 透明 -->
-                            <Style Selector="^ /template/ RepeatButton.page">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MinHeight" Value="0"/>
-                                <Setter Property="Template">
-                                    <ControlTemplate><Border Background="{TemplateBinding Background}"/></ControlTemplate>
-                                </Setter>
-                            </Style>
-
-                            <!-- 垂直滚动条: 只有细圆角滑块, 无箭头(去掉箭头, 对齐问题消失) -->
-                            <Style Selector="^:vertical">
-                                <Setter Property="Width" Value="10"/>
-                                <Setter Property="Template">
-                                    <ControlTemplate>
-                                        <Border Background="{TemplateBinding Background}">
-                                            <Track Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
-                                                   Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
-                                                   ViewportSize="{TemplateBinding ViewportSize}"
-                                                   Value="{TemplateBinding Value, Mode=TwoWay}">
-                                                <Track.DecreaseButton>
-                                                    <RepeatButton Name="PART_PageUpButton" Classes="page" Focusable="False"/>
-                                                </Track.DecreaseButton>
-                                                <Track.IncreaseButton>
-                                                    <RepeatButton Name="PART_PageDownButton" Classes="page" Focusable="False"/>
-                                                </Track.IncreaseButton>
-                                                <Thumb Width="6" HorizontalAlignment="Center" MinHeight="28"/>
-                                            </Track>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter>
-                            </Style>
-                        </ControlTheme>
-                    </ScrollViewer.Resources>
-                    <StackPanel x:Name="ChatList"/>
-                </ScrollViewer>
-            </Grid>
-            <!-- 聊天区: ChatWindow 自定义组件(顶栏+消息区+输入栏, 气泡挂它内部); Ozymandias 为未选会话空态 -->
+            <!-- 二级列表 -->
+            <cc:ChatListPanel x:Name="ChatPanel" Grid.Row="1" Grid.Column="1"/>
+            <!-- 主功能区 -->
             <Border Grid.Row="1" Grid.Column="2">
                 <Grid>
                     <cc:ChatWindow x:Name="ChatView" IsVisible="False"/>
-                    <!-- 空会话留白: 默认显示, 选中某会话后隐藏 -->
                     <Border x:Name="EmptyState" IsVisible="True" Background="#ECE5DD">
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640" Margin="40">
-                            <TextBlock Text="&#x201C;Look on my Works, ye Mighty, and despair!&#x201D;"
-                                       FontFamily="Georgia" FontSize="30" FontStyle="Italic" FontWeight="SemiBold"
-                                       Foreground="#4B4B4B" TextAlignment="Center" TextWrapping="Wrap" LineHeight="44"/>
+                            <TextBlock Text="&#x201C;Look on my Works, ye Mighty, and despair!&#x201D;" FontFamily="Georgia" FontSize="30" FontStyle="Italic" FontWeight="SemiBold" Foreground="#4B4B4B" TextAlignment="Center" TextWrapping="Wrap" LineHeight="44"/>
                             <Border Height="1" Width="120" Background="#C9C9C9" Margin="0,22,0,14"/>
-                            <TextBlock Text="— Ozymandias · Percy Bysshe Shelley, 1818"
-                                       FontFamily="Georgia" FontSize="14" FontStyle="Italic"
-                                       Foreground="#8A8A8A" TextAlignment="Center"/>
+                            <TextBlock Text="— Ozymandias · Percy Bysshe Shelley, 1818" FontFamily="Georgia" FontSize="14" FontStyle="Italic" Foreground="#8A8A8A" TextAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- 鼠标缩放窗体: 边缘/四角透明拖拽区 (无边框窗口需手动 BeginResizeDrag); 角在边之后, 上层优先 -->
-        <Rectangle VerticalAlignment="Top"    HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth"   Tag="North"     PointerPressed="Resize_PointerPressed"/>
-        <Rectangle VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth"   Tag="South"     PointerPressed="Resize_PointerPressed"/>
-        <Rectangle HorizontalAlignment="Left"  VerticalAlignment="Stretch" Width="6" Margin="0,6"  Fill="Transparent" Cursor="SizeWestEast"     Tag="West"      PointerPressed="Resize_PointerPressed"/>
-        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="6" Margin="0,6"  Fill="Transparent" Cursor="SizeWestEast"     Tag="East"      PointerPressed="Resize_PointerPressed"/>
-        <Rectangle HorizontalAlignment="Left"  VerticalAlignment="Top"    Width="10" Height="10" Fill="Transparent" Cursor="TopLeftCorner"     Tag="NorthWest" PointerPressed="Resize_PointerPressed"/>
-        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Top"    Width="10" Height="10" Fill="Transparent" Cursor="TopRightCorner"    Tag="NorthEast" PointerPressed="Resize_PointerPressed"/>
-        <Rectangle HorizontalAlignment="Left"  VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomLeftCorner"  Tag="SouthWest" PointerPressed="Resize_PointerPressed"/>
+        <!-- 窗体边缘 -->
+        <Rectangle VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth" Tag="North" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth" Tag="South" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6" Margin="0,6" Fill="Transparent" Cursor="SizeWestEast" Tag="West" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="6" Margin="0,6" Fill="Transparent" Cursor="SizeWestEast" Tag="East" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Top" Width="10" Height="10" Fill="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Top" Width="10" Height="10" Fill="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="Resize_PointerPressed"/>
         <Rectangle HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="Resize_PointerPressed"/>
     </Grid>
     </Border>

@@ -117,11 +117,13 @@ namespace lilith.Core
             {
                 sock?.Close();
                 sendQue.Signal();
+                Notify();   // 通知宿主跑 Update → 检测断线 + 清理 + OnDisconnected
             }
         }
 
         public void Update()
-        {// 主线程调用
+        {// 宿主(UI 线程)调用; 由 OnEventQueued 事件触发, 非轮询
+            Interlocked.Exchange(ref notifyPending, 0);
             if (!Running)
             {
                 if (recvThread != null || sendThread != null)
@@ -156,6 +158,13 @@ namespace lilith.Core
                         break;
                 }
             }
+        }
+
+        // 合并通知: 入队/关闭时调; 已排队未消费则不再重复触发, Update 一次清空队列
+        private void Notify()
+        {
+            if (Interlocked.Exchange(ref notifyPending, 1) == 0)
+                OnEventQueued?.Invoke();
         }
 
         public void Send(Package pkg)
@@ -303,6 +312,7 @@ namespace lilith.Core
             Crypto.KxClient(pkg.Payload, out rxKey, out txKey);
             authed = true;
             recvQue.Enqueue(new IOEvent(IOEventType.Connected, null));
+            Notify();
             Package.Pool.Return(pkg);
         }
 
@@ -332,6 +342,7 @@ namespace lilith.Core
 
             rcvSeq = pkg.PkSeq;
             recvQue.Enqueue(new IOEvent(IOEventType.Data, pkg));
+            Notify();
         }
 
         private void sendLoop()
@@ -453,6 +464,10 @@ namespace lilith.Core
         private Socket? sock = null;
         private SafeKcp? safeKcp = null;
         private volatile bool authed = false;
+
+        // 事件驱动: IO 线程入队/关闭时通知宿主跑一次 Update(替代 UI 轮询定时器)
+        public Action? OnEventQueued;
+        private int notifyPending = 0;
 
         // ---- 身份属性 ----
         private uint conv = 0;

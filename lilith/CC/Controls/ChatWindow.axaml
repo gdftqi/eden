@@ -4,14 +4,14 @@
              x:Name="Root">
     <Grid RowDefinitions="56,*,Auto">
 
-        <!-- ============ 顶栏: 对方头像 + 名字 + 图标 ============ -->
+        <!-- 顶栏 -->
         <Border Grid.Row="0" Background="White" BorderBrush="#E6E6E6" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,0">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Border Width="38" Height="38" CornerRadius="19" ClipToBounds="True">
                         <Image Source="{Binding #Root.PeerAvatar}" Stretch="UniformToFill"/>
                     </Border>
-                    <!-- 昵称(上) + 最后在线(下, 小灰字) -->
+                    <!-- 昵称 -->
                     <StackPanel VerticalAlignment="Center" Spacing="1">
                         <TextBlock Text="{Binding #Root.PeerName}" FontSize="15" FontWeight="SemiBold"
                                    Foreground="#1E1E1E"/>
@@ -33,7 +33,7 @@
                             <Setter Property="Background" Value="#11000000"/>
                         </Style>
                     </StackPanel.Styles>
-                    <!-- 视频 videocam: 机身镂空 + 实心镜头 -->
+                    <!-- 视频 -->
                     <Button Classes="icon">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
@@ -41,7 +41,7 @@
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 电话 call: 实心听筒 -->
+                    <!-- 电话 -->
                     <Button Classes="icon">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
@@ -49,7 +49,7 @@
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 搜索 search: 镂空圆 + 把手 -->
+                    <!-- 搜索 -->
                     <Button Classes="icon">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
@@ -57,7 +57,7 @@
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 菜单 more_vert: 三个点, 点击弹出下拉 -->
+                    <!-- 菜单 -->
                     <Button Classes="icon">
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -100,11 +100,11 @@
             </Grid>
         </Border>
 
-        <!-- ============ 消息区: 气泡挂载点 ============ -->
+        <!-- 消息区 -->
         <Border Grid.Row="1" Background="#ECE5DD">
             <ScrollViewer x:Name="MsgScroll" HorizontalScrollBarVisibility="Disabled">
                 <ScrollViewer.Resources>
-                    <!-- 细圆角滑块滚动条(同会话列表那条) -->
+                    <!-- 滚动条 -->
                     <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
                         <Setter Property="Background" Value="Transparent"/>
                         <Style Selector="^ /template/ Thumb">
@@ -129,10 +129,7 @@
                             <Setter Property="Template">
                                 <ControlTemplate>
                                     <Border Background="{TemplateBinding Background}">
-                                        <Track Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
-                                               Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
-                                               ViewportSize="{TemplateBinding ViewportSize}"
-                                               Value="{TemplateBinding Value, Mode=TwoWay}">
+                                        <Track Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{TemplateBinding Value, Mode=TwoWay}">
                                             <Track.DecreaseButton>
                                                 <RepeatButton Name="PART_PageUpButton" Classes="page" Focusable="False"/>
                                             </Track.DecreaseButton>
@@ -147,15 +144,14 @@
                         </Style>
                     </ControlTheme>
                 </ScrollViewer.Resources>
-                <!-- 外层至少占满视口高度(绑稳定的 Bounds.Height, 不绑 Viewport 免循环);
-                     消息靠底对齐: 少时贴底, 多时正常滚。内边距挪到 StackPanel 的 Margin。 -->
+                <!-- 消息区 -->
                 <Panel MinHeight="{Binding #MsgScroll.Bounds.Height}">
                     <StackPanel x:Name="MessageList" Spacing="2" VerticalAlignment="Bottom" Margin="16,12"/>
                 </Panel>
             </ScrollViewer>
         </Border>
 
-        <!-- ============ 输入栏: 浮动白胶囊(加号 表情 文本 发送, 两端圆); focus 时整条变绿边 ============ -->
+        <!-- 输入框 -->
         <Border Grid.Row="2" Background="#ECE5DD">
             <Border Classes="inputpill" Margin="12,8" MinHeight="44" Padding="6,2,5,2">
                 <Border.Styles>
@@ -166,11 +162,9 @@
                         <Setter Property="CornerRadius" Value="24"/>
                         <Setter Property="BoxShadow" Value="0 1 2 0 #12000000"/>
                     </Style>
-                    <!-- focus 时整个胶囊高亮(绿边), 仿搜索栏 -->
                     <Style Selector="Border.inputpill:focus-within">
                         <Setter Property="BorderBrush" Value="#43A047"/>
                     </Style>
-                    <!-- 胶囊里的小图标按钮 -->
                     <Style Selector="Button.tool">
                         <Setter Property="Width" Value="38"/>
                         <Setter Property="Height" Value="38"/>
@@ -184,7 +178,6 @@
                     <Style Selector="Button.tool:pointerover /template/ ContentPresenter">
                         <Setter Property="Background" Value="#0F000000"/>
                     </Style>
-                    <!-- 发送圆 -->
                     <Style Selector="Button.send">
                         <Setter Property="Width" Value="40"/>
                         <Setter Property="Height" Value="40"/>
@@ -198,7 +191,6 @@
                     <Style Selector="Button.send:pointerover /template/ ContentPresenter">
                         <Setter Property="Background" Value="#4CAF50"/>
                     </Style>
-                    <!-- 去掉 TextBox 自带内框 + 聚焦/悬停时的蓝色边框 -->
                     <Style Selector="TextBox /template/ Border#PART_BorderElement">
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="Background" Value="Transparent"/>
@@ -212,19 +204,16 @@
                         <Setter Property="Background" Value="Transparent"/>
                     </Style>
                 </Border.Styles>
-
-                <!-- Grid 撑满胶囊高度, 三个按钮钉在底部, 输入框变高时它们不上移 -->
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                     <!-- 加号 -->
                     <Button Grid.Column="0" Classes="tool">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
-                                <Path Stroke="#555" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent"
-                                      Data="M12 5 V19 M5 12 H19"/>
+                                <Path Stroke="#555" StrokeThickness="2" StrokeLineCap="Round" Fill="Transparent" Data="M12 5 V19 M5 12 H19"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 表情: 点击弹出 emoji 选择(内容在代码里建并塞进 Flyout) -->
+                    <!-- 表情 -->
                     <Button Grid.Column="1" x:Name="EmojiBtn" Classes="tool">
                         <Button.Flyout>
                             <Flyout Placement="Top"/>
@@ -236,15 +225,12 @@
                         </Viewbox>
                     </Button>
                     <!-- 输入框 -->
-                    <TextBox Grid.Column="2" x:Name="InputBox" PlaceholderText="输入消息" Background="Transparent"
-                             BorderThickness="0" FontSize="14" VerticalContentAlignment="Center"
-                             Padding="6,9" MaxHeight="120" AcceptsReturn="True" TextWrapping="Wrap"/>
-                    <!-- 发送: 绿圆 + > (90° 角) -->
+                    <TextBox Grid.Column="2" x:Name="InputBox" PlaceholderText="输入消息" Background="Transparent" BorderThickness="0" FontSize="14" VerticalContentAlignment="Center" Padding="6,9" MaxHeight="120" AcceptsReturn="True" TextWrapping="Wrap"/>
+                    <!-- 发送 -->
                     <Button Grid.Column="3" Classes="send" Click="Send_Click" Margin="4,0,0,0">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
-                                <Path Stroke="White" StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round" Fill="Transparent"
-                                      Data="M9.5 7 L14.5 12 L9.5 17"/>
+                                <Path Stroke="White" StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round" Fill="Transparent" Data="M9.5 7 L14.5 12 L9.5 17"/>
                             </Canvas>
                         </Viewbox>
                     </Button>

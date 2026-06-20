@@ -5,9 +5,9 @@ using System;
 
 namespace CC
 {
-    // 表情选择器: emoji 网格, 点选某个抛出 EmojiSelected(表情字符)
+    
     public partial class EmojiPicker : UserControl
-    {
+    {// 表情选择器
         // 选中某个表情时触发
         public event Action<string>? EmojiSelected;
 
