@@ -140,11 +140,14 @@ namespace CC
         // ChatWindow 发送时触发: 把文字打包成业务 echo 包发给服务端
         private void OnSendText(string text)
         {
-            if (!KcpSession.Instance.Running) return;
+            if (!KcpSession.Instance.Running)
+            {
+                return;
+            }
 
             var pkg = Package.Pool.Take();
-            pkg.PkId          = ECHO_PKID;
-            pkg.PkDstId       = Package.PK_DST_ID;
+            pkg.PkId = ECHO_PKID;
+            pkg.PkDstId = 10000;
             pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
             KcpSession.Instance.Send(pkg);
             Package.Pool.Return(pkg);

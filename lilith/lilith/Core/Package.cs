@@ -33,31 +33,27 @@ namespace lilith.Core
     public class Package
     {
         // ---- 字段偏移 / 大小 ----
-        public const int OFFSET_ID     = 0;
-        public const int OFFSET_SEQ    = 2;
+        public const int OFFSET_ID = 0;
+        public const int OFFSET_SEQ = 2;
         public const int OFFSET_DST_ID = 6;
-        public const int HEADER_SIZE   = 10;     // = sizeof(C++ Package), 无 len 字段
-        public const int TAG_LEN       = 16;     // ChaCha20-Poly1305 tag, 加密后附在 payload 尾
-        public const int PACK_MAX_LEN  = 65535;  // wire frame 上限 (任意方向)
-        public const int PAYLOAD_MAX   = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
+        public const int HEADER_SIZE = 10;     // sizeof(Package)
+        public const int TAG_LEN = 16;     // ChaCha20-Poly1305 tag, 加密后附在 payload 尾
+        public const int PACK_MAX_LEN = 65535;  // wire frame 上限 (任意方向)
+        public const int PAYLOAD_MAX = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
 
-        public const ushort PKID_PING       = 100;  // PING
-        public const ushort PKID_PONG       = 101;  // PONG
+        public const ushort PKID_PING = 100;  // PING
+        public const ushort PKID_PONG = 101;  // PONG
         public const ushort PKID_REGIST_REQ = 102;  // 鉴权注册请求
         public const ushort PKID_REGIST_RSP = 103;  // 鉴权注册应答
 
-        // ---- 路由 id (与 test_kcp.py 一致) ----
-        public const uint GATEWAY_ID = 1000;   // 网关 id; REGIST_REQ 的 dst_id 必须等于它
-        public const uint PK_DST_ID  = 10000;  // 后端 service id; 业务包 dst_id
-
         // ---- 字段 (host order) ----
         public ushort PkId;
-        public uint   PkSeq;
-        public uint   PkDstId;
+        public uint PkSeq;
+        public uint PkDstId;
 
         // ---- payload 缓冲: owned, 固定 PAYLOAD_MAX 长, 跨池化周期复用 ----
         public readonly byte[] Payload = new byte[PAYLOAD_MAX];
-        public int             PayloadLength;
+        public int PayloadLength;
 
         // ---- 派生 ----
         public int PkLen => HEADER_SIZE + PayloadLength;
@@ -66,9 +62,9 @@ namespace lilith.Core
         /// <summary>清空字段 (Payload 内字节保持原状, 下次写入时覆盖)。</summary>
         public void Reset()
         {
-            PkId          = 0;
-            PkSeq         = 0;
-            PkDstId       = 0;
+            PkId = 0;
+            PkSeq = 0;
+            PkDstId = 0;
             PayloadLength = 0;
         }
 
@@ -79,9 +75,9 @@ namespace lilith.Core
         /// </summary>
         public void CopyFrom(Package src)
         {
-            PkId          = src.PkId;
-            PkSeq         = src.PkSeq;
-            PkDstId       = src.PkDstId;
+            PkId = src.PkId;
+            PkSeq = src.PkSeq;
+            PkDstId = src.PkDstId;
             PayloadLength = src.PayloadLength;
             if (src.PayloadLength > 0)
                 Buffer.BlockCopy(src.Payload, 0, Payload, 0, src.PayloadLength);
@@ -100,8 +96,8 @@ namespace lilith.Core
         {
             p[offset + 0] = (byte)(value >> 24);
             p[offset + 1] = (byte)(value >> 16);
-            p[offset + 2] = (byte)(value >>  8);
-            p[offset + 3] = (byte)(value >>  0);
+            p[offset + 2] = (byte)(value >> 8);
+            p[offset + 3] = (byte)(value >> 0);
             return 4;
         }
 
@@ -114,10 +110,10 @@ namespace lilith.Core
 
         public static int Decode32BE(byte[] p, int offset, out uint value)
         {
-            value =  ((uint)p[offset + 0] << 24)
+            value = ((uint)p[offset + 0] << 24)
                    | ((uint)p[offset + 1] << 16)
-                   | ((uint)p[offset + 2] <<  8)
-                   | ((uint)p[offset + 3] <<  0);
+                   | ((uint)p[offset + 2] << 8)
+                   | ((uint)p[offset + 3] << 0);
             return 4;
         }
 
@@ -139,8 +135,8 @@ namespace lilith.Core
             if (wireBuf.Length < total)
                 throw new ArgumentException("wireBuf too small");
 
-            Encode16BE(wireBuf, OFFSET_ID,     pkg.PkId);
-            Encode32BE(wireBuf, OFFSET_SEQ,    pkg.PkSeq);
+            Encode16BE(wireBuf, OFFSET_ID, pkg.PkId);
+            Encode32BE(wireBuf, OFFSET_SEQ, pkg.PkSeq);
             Encode32BE(wireBuf, OFFSET_DST_ID, pkg.PkDstId);
 
             if (pkg.PayloadLength > 0)
@@ -156,8 +152,8 @@ namespace lilith.Core
                 return false;
             }
 
-            Decode16BE(wireBuf, OFFSET_ID,     out pkg.PkId);
-            Decode32BE(wireBuf, OFFSET_SEQ,    out pkg.PkSeq);
+            Decode16BE(wireBuf, OFFSET_ID, out pkg.PkId);
+            Decode32BE(wireBuf, OFFSET_SEQ, out pkg.PkSeq);
             Decode32BE(wireBuf, OFFSET_DST_ID, out pkg.PkDstId);
             if (pkg.PkSeq == 0)
             {

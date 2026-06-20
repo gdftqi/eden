@@ -38,7 +38,7 @@ namespace lilith.Core
     {// Kcp 会话
         const int UDP_MTU = 1400;
         const int TICK_INTERVAL_MS = 10;
-        const int SEND_BATCH = 256;
+        const int SEND_BATCH = 128;
         const int RECV_BATCH = 128;
 
         static KcpSession instance = new KcpSession();
@@ -50,6 +50,8 @@ namespace lilith.Core
 
         private KcpSession() { }
 
+        public uint GatewayID { get; set; }
+
         public bool Running
         {// 是否运行中
             get
@@ -58,7 +60,7 @@ namespace lilith.Core
             }
         }
 
-        public void Connect(ISessionEvent ev, string host, uint conv, string b64Token)
+        public void Connect(ISessionEvent ev, string host, uint conv, string b64Token, uint gwId)
         {// 连接服务
             if (ev == null)
             {
@@ -90,6 +92,7 @@ namespace lilith.Core
                 token = Crypto.Token(b64Token);
                 authed = false;
                 sndSeq = rcvSeq = 0;
+                GatewayID = gwId;
 
                 remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -439,7 +442,7 @@ namespace lilith.Core
         {// 鉴权请求
             var pkg = Package.Pool.Take();
             pkg.PkId = Package.PKID_REGIST_REQ;
-            pkg.PkDstId = Package.GATEWAY_ID;
+            pkg.PkDstId = GatewayID;
             Buffer.BlockCopy(token, 0, pkg.Payload, 0, token!.Length);
             pkg.PayloadLength = token.Length;
             doSend(pkg);
