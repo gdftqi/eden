@@ -58,7 +58,7 @@ namespace lilith.Core
             }
         }
 
-        public void Connect(ISessionEvent ev, uint conv, string host)
+        public void Connect(ISessionEvent ev, string host, uint conv, string b64Token)
         {// 连接服务
             if (ev == null)
             {
@@ -87,13 +87,13 @@ namespace lilith.Core
             try
             {
                 this.conv = conv;
-                token = Crypto.Token(conv);
+                token = Crypto.Token(b64Token);
                 authed = false;
                 sndSeq = rcvSeq = 0;
 
                 remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                sock.Bind(new IPEndPoint(IPAddress.Any, 0));   // 收前必须 Bind 本地端口(ReceiveFrom 要求), 端口取临时
+                sock.Bind(new IPEndPoint(IPAddress.Any, 0));
 
                 var kcp = new Kcp(conv, output);
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
@@ -448,7 +448,7 @@ namespace lilith.Core
 
         private void output(byte[] segment, int size)
         {// kcp set output
-            var mac = Crypto.SipHashTag(segment, Math.Min(size, Crypto.ENVELOPE_MAC_HASH_LEN));
+            var mac = Crypto.SipHashTag(segment, 0, Math.Min(size, Crypto.ENVELOPE_MAC_HASH_LEN));
             Buffer.BlockCopy(mac, 0, udpSendBuf, 0, Crypto.ENVELOPE_MAC_LEN);
             Buffer.BlockCopy(segment, 0, udpSendBuf, Crypto.ENVELOPE_MAC_LEN, size);
             size += Crypto.ENVELOPE_MAC_LEN;

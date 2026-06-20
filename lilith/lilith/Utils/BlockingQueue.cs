@@ -1,4 +1,3 @@
-// 阻塞队列 —— Queue<T> + 一把锁 + 条件变量(C# 用 Monitor.Wait/Pulse)。
 using System.Collections.Generic;
 using System.Threading;
 
