@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using lilith.Core;
-using lilith.Utils;
 using System;
 using System.Diagnostics;
 using System.Net;

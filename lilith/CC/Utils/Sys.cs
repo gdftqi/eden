@@ -1,9 +1,10 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+
 
 namespace CC.Utils
 {

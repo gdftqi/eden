@@ -3,11 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 using lilith.Core;
-using lilith.Utils;
 using System;
-using System.Diagnostics;
+
 
 namespace CC
 {
