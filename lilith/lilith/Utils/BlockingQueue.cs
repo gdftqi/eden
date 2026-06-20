@@ -10,9 +10,8 @@ namespace lilith.Utils
         readonly Queue<T> queue = new Queue<T>();
         readonly object locker = new object();
 
-        // 入队并唤醒一个等待中的消费者。
         public void Enqueue(T item)
-        {
+        {// 入队
             lock (locker)
             {
                 queue.Enqueue(item);
@@ -20,9 +19,8 @@ namespace lilith.Utils
             }
         }
 
-        // 非阻塞取一个; 空则返回 false。消费者循环 drain 用。
-        public bool TryDequeue(out T item)
-        {
+        public bool Dequeue(out T item)
+        {// 出队
             lock (locker)
             {
                 if (queue.Count > 0)
@@ -35,14 +33,13 @@ namespace lilith.Utils
             }
         }
 
-        // 队列为空时最多睡 timeoutMs 毫秒; 期间被 Enqueue/Signal 唤醒会提前返回。
-        // 空检查紧贴在锁内 → 不会丢唤醒(生产者要拿同一把锁才能 Pulse)。
         public void Wait(int timeoutMs)
         {
             if (timeoutMs <= 0)
             {
                 return;   // 已到 tick 时刻(或已逾期), 不睡, 直接回去跑 Update
             }
+
             lock (locker)
             {
                 if (queue.Count == 0)
@@ -52,7 +49,6 @@ namespace lilith.Utils
             }
         }
 
-        // 不入队, 仅唤醒消费者。给 recv 线程在 Input 后叫醒 send 线程及时 flush ACK 用。
         public void Signal()
         {
             lock (locker)
@@ -61,9 +57,8 @@ namespace lilith.Utils
             }
         }
 
-        // 清空(断开清理用)。
         public void Clear()
-        {
+        {// 清空
             lock (locker)
             {
                 queue.Clear();

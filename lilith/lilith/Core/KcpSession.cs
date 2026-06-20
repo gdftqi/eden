@@ -117,7 +117,7 @@ namespace lilith.Core
             {
                 sock?.Close();
                 sendQue.Signal();
-                Notify();   // 通知宿主跑 Update → 检测断线 + 清理 + OnDisconnected
+                Notify();
             }
         }
 
@@ -144,7 +144,7 @@ namespace lilith.Core
                 return;
             }
 
-            while (recvQue.TryDequeue(out IOEvent e))
+            while (recvQue.Dequeue(out IOEvent e))
             {
                 switch (e.Type)
                 {
@@ -352,7 +352,7 @@ namespace lilith.Core
                 registReq();
                 while (Running)
                 {
-                    while (sendQue.TryDequeue(out Package pkg))
+                    while (sendQue.Dequeue(out Package pkg))
                     {
                         doSend(pkg);
                         Package.Pool.Return(pkg);

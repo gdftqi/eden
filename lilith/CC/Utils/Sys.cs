@@ -2,7 +2,6 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -10,16 +9,35 @@ namespace CC.Utils
 {
     public class Sys
     {
-        [DllImport("user32.dll")] private static extern IntPtr GetDesktopWindow();
-        [DllImport("user32.dll")] private static extern IntPtr GetWindowDC(IntPtr hWnd);
-        [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-        [DllImport("gdi32.dll")] private static extern bool BitBlt(IntPtr hdcDest, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, int dwRop);
-        [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
-        [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
-        [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
-        [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr hdc);
-        [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr hObject);
-        [DllImport("gdi32.dll")] private static extern bool GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines, [Out] byte[] lpvBits, ref BITMAPINFO lpbmi, uint uUsage);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetDesktopWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindowDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool BitBlt(IntPtr hdcDest, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hdcSrc, int nXSrc, int nYSrc, int dwRop);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleBitmap(IntPtr hDC, int nWidth, int nHeight);
+
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines, [Out] byte[] lpvBits, ref BITMAPINFO lpbmi, uint uUsage);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct BITMAPINFOHEADER
@@ -45,7 +63,7 @@ namespace CC.Utils
             public byte[] bmiColors;
         }
 
-        static public unsafe void CaptureWindowsDesktopNative(int width, int height)
+        static public void CaptureWindowsDesktopNative(int width, int height)
         {
             IntPtr hSrcDC = GetWindowDC(GetDesktopWindow());
             IntPtr hDestDC = CreateCompatibleDC(hSrcDC);
