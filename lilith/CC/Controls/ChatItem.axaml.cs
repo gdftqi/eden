@@ -7,11 +7,11 @@ namespace CC
 {
     public partial class ChatItem : UserControl
     {// 会话列表项
-        public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(Nickname));
-        public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(LastMessage));
-        public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<ChatItem, string?>(nameof(Time));
-        public static readonly StyledProperty<IImage?> AvatarProperty = AvaloniaProperty.Register<ChatItem, IImage?>(nameof(Avatar));
-        public static readonly StyledProperty<int> UnreadProperty = AvaloniaProperty.Register<ChatItem, int>(nameof(Unread));
+        public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ChatItem, string?>("Nickname");
+        public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<ChatItem, string?>("LastMessage");
+        public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<ChatItem, string?>("Time");
+        public static readonly StyledProperty<IImage?> AvatarProperty = AvaloniaProperty.Register<ChatItem, IImage?>("Avatar");
+        public static readonly StyledProperty<int> UnreadProperty = AvaloniaProperty.Register<ChatItem, int>("Unread");
 
         public string? Nickname
         {
