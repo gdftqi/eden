@@ -16,18 +16,16 @@ namespace CC
             InitializeComponent();
         }
 
-        // 标题栏拖拽 (固定大小, 不做双击最大化)
         private void TopBar_PointerPressed(object? sender, PointerPressedEventArgs e)
-        {
+        {// TopBar 拖动窗体
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
                 BeginMoveDrag(e);
             }
         }
 
-        // 登录窗的 X = 退出程序
         private void Close_Click(object? sender, RoutedEventArgs e)
-        {
+        {// 退出程序
             if (Application.Current?.ApplicationLifetime is IControlledApplicationLifetime life)
             {
                 life.Shutdown();
@@ -35,19 +33,19 @@ namespace CC
         }
 
         private void Login_Click(object? sender, RoutedEventArgs e)
-        {
+        {// 登录
             var username = txtUsername.Text?.Trim() ?? "";
             var password = txtPassword.Text ?? "";
 
             if (username.Length < 6)
             {
-                ShowError("请输入用户名");
+                ShowError("无效的用户名");
                 return;
             }
 
             if (password.Length < 8)
             {
-                ShowError("请输入密码");
+                ShowError("无效的密码");
                 return;
             }
 
@@ -70,7 +68,7 @@ namespace CC
             }
             catch (Exception ex)
             {
-                ShowError("KCP连接失败: " + ex.Message);
+                ShowError("连接服务失败: " + ex.Message);
                 return;
             }
         }

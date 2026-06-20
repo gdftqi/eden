@@ -57,6 +57,13 @@
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
                         <Setter Property="FontSize" Value="12"/>
                     </Style>
+                    <Style Selector="TextBox /template/ Border#PART_BorderElement">
+                        <Setter Property="BorderThickness" Value="1.5"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                    </Style>
+                    <Style Selector="TextBox:focus-within /template/ Border#PART_BorderElement">
+                        <Setter Property="BorderBrush" Value="#43A047"/>
+                    </Style>
                     <Style Selector="Button.login">
                         <Setter Property="Height" Value="32"/>
                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
