@@ -143,7 +143,7 @@ namespace CC
                 // 2. 调用封装好的核心截屏方法（这里以 Windows 为例）
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    Sys.CaptureWindowsDesktopNative(screenWidth, screenHeight);
+                    Sys.CaptureDesktop(screenWidth, screenHeight);
                 }
                 else
                 {

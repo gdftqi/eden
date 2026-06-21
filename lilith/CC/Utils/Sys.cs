@@ -10,6 +10,7 @@ namespace CC.Utils
 {
     public class Sys
     {
+#if WINDOWS
         [DllImport("user32.dll")]
         private static extern IntPtr GetDesktopWindow();
 
@@ -64,7 +65,7 @@ namespace CC.Utils
             public byte[] bmiColors;
         }
 
-        static public void CaptureWindowsDesktopNative(int width, int height)
+        static public void CaptureDesktop(int width, int height)
         {
             IntPtr hSrcDC = GetWindowDC(GetDesktopWindow());
             IntPtr hDestDC = CreateCompatibleDC(hSrcDC);
@@ -101,5 +102,10 @@ namespace CC.Utils
             string savePath = Path.Combine(AppContext.BaseDirectory, "desktop_native.png");
             avaloniaBitmap.Save(savePath);
         }
+#elif MACOS
+// TODO MacOS
+#else
+// TODO Linux
+#endif
     }
 }
