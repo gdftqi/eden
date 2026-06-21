@@ -10,9 +10,9 @@
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DefineConstants>WINDOWS</DefineConstants>
-    <!-- <DefineConstants>MACOS</DefineConstants> -->
-    <!-- <DefineConstants>LINUX</DefineConstants> -->
+	<DefineConstants>WINDOWS</DefineConstants>
+	<!-- <DefineConstants>MACOS</DefineConstants> -->
+	<!-- <DefineConstants>LINUX</DefineConstants> -->
   </PropertyGroup>
 
   <ItemGroup>

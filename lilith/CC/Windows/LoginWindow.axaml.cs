@@ -53,7 +53,7 @@ namespace CC
 
             try
             {
-                const string host = "13.214.204.197:5555";
+                const string host = "172.26.29.158:5555";
                 const uint conv = 2000;
                 const string b64Token = "GCyA8dctBmgMpd66bczhC6Aqh0rtDu8gGwaPrzgrQjm7F50bBTyhsNYAOTHIoWQFUuNt7jq4sFcNJMjaBvYR5Ws46YMbsCNW07XgV+0JCx8Q9tgrJyO00Mssbt06+Pu/mOMClJmKpzt6sMjRVbZRPH5837tNBCaInd6Nr78FfyGs3JRP3/srinrujFOmOHZQaxCPoHmFz/zWIhl8CyFMqg==";
                 const uint gwId = 1000;
