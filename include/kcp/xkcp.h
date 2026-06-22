@@ -99,88 +99,88 @@
 //=====================================================================
 // QUEUE DEFINITION                                                  
 //=====================================================================
-#ifndef __IQUEUE_DEF__
-#define __IQUEUE_DEF__
+#ifndef __XQUEUE_DEF__
+#define __XQUEUE_DEF__
 
-struct IQUEUEHEAD {
-	struct IQUEUEHEAD *next, *prev;
+struct XQUEUEHEAD {
+	struct XQUEUEHEAD *next, *prev;
 };
 
-typedef struct IQUEUEHEAD iqueue_head;
+typedef struct XQUEUEHEAD iqueue_head;
 
 
 //---------------------------------------------------------------------
 // queue init                                                         
 //---------------------------------------------------------------------
-#define IQUEUE_HEAD_INIT(name) { &(name), &(name) }
+#define XQUEUE_HEAD_INIT(name) { &(name), &(name) }
 #define IQUEUE_HEAD(name) \
-	struct IQUEUEHEAD name = IQUEUE_HEAD_INIT(name)
+	struct IQUEUEHEAD name = XQUEUE_HEAD_INIT(name)
 
 #define IQUEUE_INIT(ptr) ( \
 	(ptr)->next = (ptr), (ptr)->prev = (ptr))
 
-#define IOFFSETOF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define XOFFSETOF(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 
-#define ICONTAINEROF(ptr, type, member) ( \
-		(type*)( ((char*)((type*)ptr)) - IOFFSETOF(type, member)) )
+#define XCONTAINEROF(ptr, type, member) ( \
+		(type*)( ((char*)((type*)ptr)) - XOFFSETOF(type, member)) )
 
-#define IQUEUE_ENTRY(ptr, type, member) ICONTAINEROF(ptr, type, member)
+#define XQUEUE_ENTRY(ptr, type, member) XCONTAINEROF(ptr, type, member)
 
 
 //---------------------------------------------------------------------
 // queue operation                     
 //---------------------------------------------------------------------
-#define IQUEUE_ADD(node, head) ( \
+#define XQUEUE_ADD(node, head) ( \
 	(node)->prev = (head), (node)->next = (head)->next, \
 	(head)->next->prev = (node), (head)->next = (node))
 
-#define IQUEUE_ADD_TAIL(node, head) ( \
+#define XQUEUE_ADD_TAIL(node, head) ( \
 	(node)->prev = (head)->prev, (node)->next = (head), \
 	(head)->prev->next = (node), (head)->prev = (node))
 
-#define IQUEUE_DEL_BETWEEN(p, n) ((n)->prev = (p), (p)->next = (n))
+#define XQUEUE_DEL_BETWEEN(p, n) ((n)->prev = (p), (p)->next = (n))
 
-#define IQUEUE_DEL(entry) (\
+#define XQUEUE_DEL(entry) (\
 	(entry)->next->prev = (entry)->prev, \
 	(entry)->prev->next = (entry)->next, \
 	(entry)->next = 0, (entry)->prev = 0)
 
-#define IQUEUE_DEL_INIT(entry) do { \
-	IQUEUE_DEL(entry); IQUEUE_INIT(entry); } while (0)
+#define XQUEUE_DEL_INIT(entry) do { \
+	XQUEUE_DEL(entry); IQUEUE_INIT(entry); } while (0)
 
-#define IQUEUE_IS_EMPTY(entry) ((entry) == (entry)->next)
+#define XQUEUE_IS_EMPTY(entry) ((entry) == (entry)->next)
 
-#define iqueue_init		IQUEUE_INIT
-#define iqueue_entry	IQUEUE_ENTRY
-#define iqueue_add		IQUEUE_ADD
-#define iqueue_add_tail	IQUEUE_ADD_TAIL
-#define iqueue_del		IQUEUE_DEL
-#define iqueue_del_init	IQUEUE_DEL_INIT
-#define iqueue_is_empty IQUEUE_IS_EMPTY
+#define xqueue_init		IQUEUE_INIT
+#define xqueue_entry	XQUEUE_ENTRY
+#define xqueue_add		XQUEUE_ADD
+#define xqueue_add_tail	XQUEUE_ADD_TAIL
+#define xqueue_del		XQUEUE_DEL
+#define xqueue_del_init	XQUEUE_DEL_INIT
+#define xqueue_is_empty IQUEUE_IS_EMPTY
 
-#define IQUEUE_FOREACH(iterator, head, TYPE, MEMBER) \
-	for ((iterator) = iqueue_entry((head)->next, TYPE, MEMBER); \
+#define XQUEUE_FOREACH(iterator, head, TYPE, MEMBER) \
+	for ((iterator) = xqueue_entry((head)->next, TYPE, MEMBER); \
 		&((iterator)->MEMBER) != (head); \
-		(iterator) = iqueue_entry((iterator)->MEMBER.next, TYPE, MEMBER))
+		(iterator) = xqueue_entry((iterator)->MEMBER.next, TYPE, MEMBER))
 
-#define iqueue_foreach(iterator, head, TYPE, MEMBER) \
-	IQUEUE_FOREACH(iterator, head, TYPE, MEMBER)
+#define xqueue_foreach(iterator, head, TYPE, MEMBER) \
+	XQUEUE_FOREACH(iterator, head, TYPE, MEMBER)
 
-#define iqueue_foreach_entry(pos, head) \
+#define xqueue_foreach_entry(pos, head) \
 	for( (pos) = (head)->next; (pos) != (head) ; (pos) = (pos)->next )
 	
 
-#define __iqueue_splice(list, head) do {	\
+#define __xqueue_splice(list, head) do {	\
 		iqueue_head *first = (list)->next, *last = (list)->prev; \
 		iqueue_head *at = (head)->next; \
 		(first)->prev = (head), (head)->next = (first);		\
 		(last)->next = (at), (at)->prev = (last); }	while (0)
 
-#define iqueue_splice(list, head) do { \
-	if (!iqueue_is_empty(list)) __iqueue_splice(list, head); } while (0)
+#define xqueue_splice(list, head) do { \
+	if (!xqueue_is_empty(list)) __xqueue_splice(list, head); } while (0)
 
-#define iqueue_splice_init(list, head) do {	\
-	iqueue_splice(list, head);	iqueue_init(list); } while (0)
+#define xqueue_splice_init(list, head) do {	\
+	xqueue_splice(list, head);	xqueue_init(list); } while (0)
 
 
 #ifdef _MSC_VER
@@ -195,36 +195,36 @@ typedef struct IQUEUEHEAD iqueue_head;
 //---------------------------------------------------------------------
 // BYTE ORDER & ALIGNMENT
 //---------------------------------------------------------------------
-#ifndef IWORDS_BIG_ENDIAN
+#ifndef XWORDS_BIG_ENDIAN
     #ifdef _BIG_ENDIAN_
         #if _BIG_ENDIAN_
-            #define IWORDS_BIG_ENDIAN 1
+            #define XWORDS_BIG_ENDIAN 1
         #endif
     #endif
-    #ifndef IWORDS_BIG_ENDIAN
+    #ifndef XWORDS_BIG_ENDIAN
         #if defined(__hppa__) || \
             defined(__m68k__) || defined(mc68000) || defined(_M_M68K) || \
             (defined(__MIPS__) && defined(__MIPSEB__)) || \
             defined(__ppc__) || defined(__POWERPC__) || defined(_M_PPC) || \
             defined(__sparc__) || defined(__powerpc__) || \
             defined(__mc68000__) || defined(__s390x__) || defined(__s390__)
-            #define IWORDS_BIG_ENDIAN 1
+            #define XWORDS_BIG_ENDIAN 1
         #endif
     #endif
-    #ifndef IWORDS_BIG_ENDIAN
-        #define IWORDS_BIG_ENDIAN  0
+    #ifndef XWORDS_BIG_ENDIAN
+        #define XWORDS_BIG_ENDIAN  0
     #endif
 #endif
 
-#ifndef IWORDS_MUST_ALIGN
+#ifndef XWORDS_MUST_ALIGN
 	#if defined(__i386__) || defined(__i386) || defined(_i386_)
-		#define IWORDS_MUST_ALIGN 0
+		#define XWORDS_MUST_ALIGN 0
 	#elif defined(_M_IX86) || defined(_X86_) || defined(__x86_64__)
-		#define IWORDS_MUST_ALIGN 0
+		#define XWORDS_MUST_ALIGN 0
 	#elif defined(__amd64) || defined(__amd64__)
-		#define IWORDS_MUST_ALIGN 0
+		#define XWORDS_MUST_ALIGN 0
 	#else
-		#define IWORDS_MUST_ALIGN 1
+		#define XWORDS_MUST_ALIGN 1
 	#endif
 #endif
 
@@ -246,7 +246,7 @@ typedef struct XKCPCB xkcpcb;
 //=====================================================================
 // KCP 段(= 一个 KCP 协议单元, wire 上是 24B 头 + data)。原生结构, 字段含义:
 struct XKCPSEG {
-	struct IQUEUEHEAD node;   // 链入 snd_queue/snd_buf/rcv_queue/rcv_buf 的节点
+	struct XQUEUEHEAD node;    // 链入 snd_queue/snd_buf/rcv_queue/rcv_buf 的节点
 	uint32_t conv;             // 会话号(两端必须一致, 否则 ikcp_input 丢弃)
 	uint32_t cmd;              // 命令: PUSH/ACK/WASK/WINS, 以及 [XKCP] REGIST/RST/KIC/PING/PONG
 	uint32_t frg;              // 分片编号(同一消息倒数第几片, 0 = 最后一片)
@@ -336,10 +336,10 @@ struct XKCPCB {
 	void*    congest;       // 拥塞策略私有状态
 	int32_t   logmask;       // 日志掩码
 
-	struct IQUEUEHEAD snd_queue;  // 待分片发送队列(ikcp_send 入口)
-	struct IQUEUEHEAD rcv_queue;  // 已就绪、待上层读取队列(ikcp_recv 出口)
-	struct IQUEUEHEAD snd_buf;    // 已发送待确认缓冲(重传的源)
-	struct IQUEUEHEAD rcv_buf;    // 乱序到达的暂存缓冲
+	struct XQUEUEHEAD snd_queue;  // 待分片发送队列(ikcp_send 入口)
+	struct XQUEUEHEAD rcv_queue;  // 已就绪、待上层读取队列(ikcp_recv 出口)
+	struct XQUEUEHEAD snd_buf;    // 已发送待确认缓冲(重传的源)
+	struct XQUEUEHEAD rcv_buf;    // 乱序到达的暂存缓冲
 	struct XKCPOPS*   ccops;      // 可插拔拥塞控制策略(原生无)
 	int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);
 	void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);
