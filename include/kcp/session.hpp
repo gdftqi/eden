@@ -6,7 +6,7 @@
 #include "core/package.hpp"
 #include "core/error.hpp"
 #include "kcp/config.hpp"
-#include "kcp/ikcp.h"
+#include "kcp/xkcp.h"
 
 
 namespace typhon::kcp {
@@ -46,7 +46,7 @@ public:
      */
     static uint32_t
     getconv(const void* data, int len) noexcept {
-        return len < 4 ? 0 : ::ikcp_getconv(data);
+        return len < 4 ? 0 : ::xkcp_getconv(data);
     }
 
 
@@ -62,7 +62,7 @@ public:
      */
     ~Session() noexcept {
         if (kcp_) {
-            ::ikcp_release(kcp_);
+            ::xkcp_release(kcp_);
         }
     }
 
@@ -158,9 +158,9 @@ public:
      * @brief 推动 KCP 内部状态机:超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
      */
-    void
+    int
     update(uint64_t current) noexcept {
-        ::ikcp_update(kcp_, (uint32_t)current);
+        return ::xkcp_update(kcp_, (uint32_t)current);
     }
 
 
@@ -176,7 +176,7 @@ public:
      */
     int
     input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
-        int res = ::ikcp_input(kcp_, (const char*)data, len);
+        int res = ::xkcp_input(kcp_, (uint8_t*)data, len);
         if (res == 0) {
             ::memcpy(&addr_, addr, addrlen);
             addrlen_ = addrlen;
@@ -186,8 +186,8 @@ public:
 
 
     void
-    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
-        ::ikcp_setoutput(kcp_, output);
+    set_output(int (*output)(const uint8_t *buf, int len, struct XKCPCB *kcp)) noexcept {
+        kcp_->output = output;
     }
 
 
@@ -230,7 +230,7 @@ private:
     uint64_t           last_recv_ms_ { 0 };
     uint32_t           snd_seq_      { 0 };
     uint32_t           rcv_req_      { 0 };
-    ::ikcpcb*          kcp_          { nullptr };
+    ::xkcpcb*          kcp_          { nullptr };
     ::sockaddr_storage addr_         {};
     ::socklen_t        addrlen_      { sizeof(addr_) };
     Xx20Key             tx_key_       { 0 };

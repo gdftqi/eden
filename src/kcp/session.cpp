@@ -26,15 +26,14 @@ typhon::kcp::Session::Session(
 ) noexcept
     : server_(server)
     , desc_(std::format("[{}]{}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
-    kcp_ = ::ikcp_create(conv, this);
+    kcp_ = ::xkcp_create(conv, this);
 
     ::memcpy(&addr_, addr, addrlen);
     addrlen_ = addrlen;
 
     auto* c = Conf::instance();
-    ::ikcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
-    ::ikcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
-    ::ikcp_setmtu(kcp_, core::KCP_MTU);
+    ::xkcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
+    ::xkcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
 
     last_recv_ms_ = server->tnow();
 }
@@ -42,7 +41,7 @@ typhon::kcp::Session::Session(
 
 int
 typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
-    int res = ::ikcp_recv(kcp_, (char*)buf, len);
+    int res = ::xkcp_recv(kcp_, buf, len);
     if (res < 0) {
         // ikcp_recv: -1/-2 无完整包 → xAGAIN, -3 buf 太小 → xERR_KCP_BUFSMALL
         return core::from_ikcp_recv(res);
@@ -130,11 +129,11 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
         core::pk_hton((core::Package*)sndbuf);                         // 翻头字节序 (payload/tag 不动)
 
         int wire = core::PKG_HDR_LEN + plen + (int)utils::XX20_TAG_LEN;
-        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)sndbuf, wire));
+        res = core::from_ikcp_send(::xkcp_send(kcp_, sndbuf, wire));
     } else {
         // 未加密(空 payload 或未 authed)
         core::hton(pk);
-        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
+        res = core::from_ikcp_send(::xkcp_send(kcp_, pk.raw(), pk.len()));
     }
 
     // if (res >= xOK) {
