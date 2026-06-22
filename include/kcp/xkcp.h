@@ -20,8 +20,7 @@
 //
 // 扩展点(完整说明见仓库根 XKCP.md):
 //   - 控制 cmd 85–90: REGIST_REQ/RSP(握手)、RST(顶号)、KIC(踢人)、PING/PONG(保活)
-//   - 这些 cmd 在 ikcp_input 里"早分发"绕过 sn 窗口; REGIST 传输层去重 + ikcp_reset(重连)
-//   - 保活 / 空闲超时(on_timeout)
+//   - 这些 cmd 在 xkcp_input 里"早分发"绕过 sn 窗口; REGIST 传输层去重 + xkcp_reset(重连)
 //   - 加解密直链 libsodium: 整条消息 ChaCha20-Poly1305 AEAD + crypto_kx 密钥协商
 //
 // 约定: 注释里标 [XKCP] 的是扩展部分; 其余为原生 KCP。
@@ -235,7 +234,7 @@ typedef struct XQUEUEHEAD iqueue_head;
 struct XKCPCB;
 typedef struct XKCPCB xkcpcb;
 
-// REGIST 去重: 握手 id 取 REGIST_REQ payload 头部这么多字节(= 客户端临时公钥, ikcp 当不透明)
+// REGIST 去重: 握手 id 取 REGIST_REQ payload 头部这么多字节(= 客户端临时公钥, xkcp 当不透明)
 #define XKCP_REGIST_ID_LEN 32
 // 缓存的 RSP 字节上限(整段), 用于对"重发的 REQ"重发同一份 RSP
 #define XKCP_REGIST_RSP_MAX 256
@@ -247,7 +246,7 @@ typedef struct XKCPCB xkcpcb;
 // KCP 段(= 一个 KCP 协议单元, wire 上是 24B 头 + data)。原生结构, 字段含义:
 struct XKCPSEG {
 	struct XQUEUEHEAD node;    // 链入 snd_queue/snd_buf/rcv_queue/rcv_buf 的节点
-	uint32_t conv;             // 会话号(两端必须一致, 否则 ikcp_input 丢弃)
+	uint32_t conv;             // 会话号(两端必须一致, 否则 xkcp_input 丢弃)
 	uint32_t cmd;              // 命令: PUSH/ACK/WASK/WINS, 以及 [XKCP] REGIST/RST/KIC/PING/PONG
 	uint32_t frg;              // 分片编号(同一消息倒数第几片, 0 = 最后一片)
 	uint32_t wnd;              // 发送者通告的可用接收窗口
@@ -264,7 +263,7 @@ struct XKCPSEG {
 
 
 //---------------------------------------------------------------------
-// IKCPOPS - 可插拔拥塞控制策略 [XKCP 扩展, 原生 KCP 没有]
+// XKCPOPS - 可插拔拥塞控制策略 [XKCP 扩展, 原生 KCP 没有]
 // 经 kcp->ccops 注入; 在 ack/超时/快重传/发包等时机回调给具体拥塞算法。
 // 不设置(NULL)则走原生 KCP 的内置拥塞行为。
 //---------------------------------------------------------------------
@@ -286,7 +285,7 @@ struct XKCPOPS {
 
 
 //---------------------------------------------------------------------
-// IKCPCB
+// XKCPCB
 //---------------------------------------------------------------------
 struct XKCPCB {
 	// ----- 原生 KCP 状态 -----
@@ -318,7 +317,7 @@ struct XKCPCB {
 	uint32_t  nrcv_que; 		// rcv_queue
 	uint32_t  nsnd_que;    	// snd_queue
 	uint32_t  nodelay; 		// 快速模式开关
-	uint32_t  updated;       // 是否已调过 ikcp_update
+	uint32_t  updated;       // 是否已调过 xkcp_update
 	uint32_t  ts_probe;
 	uint32_t  probe_wait;    // 窗口探测计时
 	uint32_t  dead_link; 	// 连续重传多少次判链路死
@@ -329,6 +328,7 @@ struct XKCPCB {
 	uint32_t  ackedlen;
 	void*    user;          // 用户指针(本项目 = kcp::Session)
 	uint8_t* buffer;        // flush 组包临时缓冲
+	uint8_t* mac_buf;       // [XKCP] 出向信封暂存 [8B MAC | buffer], 随 buffer 同步分配/释放
 	int32_t   fastresend;    // 跨越多少次触发快速重传(0=关)
 	int32_t   fastlimit;     // 快速重传的 xmit 次数上限
 	int32_t   nocwnd;		// 关闭拥塞控制
@@ -336,8 +336,8 @@ struct XKCPCB {
 	void*    congest;       // 拥塞策略私有状态
 	int32_t   logmask;       // 日志掩码
 
-	struct XQUEUEHEAD snd_queue;  // 待分片发送队列(ikcp_send 入口)
-	struct XQUEUEHEAD rcv_queue;  // 已就绪、待上层读取队列(ikcp_recv 出口)
+	struct XQUEUEHEAD snd_queue;  // 待分片发送队列(xkcp_send 入口)
+	struct XQUEUEHEAD rcv_queue;  // 已就绪、待上层读取队列(xkcp_recv 出口)
 	struct XQUEUEHEAD snd_buf;    // 已发送待确认缓冲(重传的源)
 	struct XQUEUEHEAD rcv_buf;    // 乱序到达的暂存缓冲
 	struct XKCPOPS*   ccops;      // 可插拔拥塞控制策略(原生无)
@@ -355,13 +355,12 @@ struct XKCPCB {
 	uint8_t regist_rsp[XKCP_REGIST_RSP_MAX];
 	int32_t  regist_rsp_len;
 
-	// 保活/超时(ms 用 ikcp 的 current 32bit 时钟; 阈值 0 = 关闭)
+	// 保活/超时(ms 用 xkcp 的 current 32bit 时钟; 阈值 0 = 关闭)
 	uint32_t last_snd_ms;      // 最近一次发送
 	uint32_t last_rcv_ms;      // 最近一次收到
 	uint32_t ping_interval;    // 空闲多久发 PING
 	uint32_t dead_timeout;     // 多久没收到判死
 	int32_t  dead;             // on_timeout 只触发一次
-	void (*on_timeout)(struct XKCPCB *kcp);  // 判死回调(上层摘会话)
 
 	// 加解密(直链 libsodium): 会话密钥 + 按消息的 nonce 计数器 + 方向
 	uint8_t tx_key[32];     // 发送密钥
@@ -373,6 +372,10 @@ struct XKCPCB {
 	uint8_t snd_dir;        // 发送方向: 0=C2S 1=S2C
 	uint8_t rcv_dir;        // 接收方向
 	int32_t has_key;                  // 密钥已就绪(kx 完成); 0 时 send/recv 不加解密
+
+	// [XKCP] 信封 MAC 密钥(SipHash / crypto_shorthash, 16B == crypto_shorthash_KEYBYTES)。
+	// 每个出向 UDP 数据报前置 8B tag; 入向校验在 XDP, userland 只跳过这 8B。上层创建后设置。
+	uint8_t mac_key[16];
 };
 
 
@@ -458,7 +461,7 @@ xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len);
 /**
  * @brief 帧刷新
  */
-void
+int
 xkcp_update(xkcpcb *kcp, uint32_t current);
 
 
@@ -502,7 +505,7 @@ xkcp_setmtu(xkcpcb *kcp, int mtu);
 /** 
  * @brief 设置 发送/接收 窗口
  */
-int
+void
 xkcp_wndsize(xkcpcb *kcp, int sndwnd, int rcvwnd);
 
 
@@ -524,7 +527,7 @@ xkcp_waitsnd(const xkcpcb *kcp);
  * 
  * @param nc 是否关闭拥塞控制算法. 0: 默认开启. 1, 关闭拥塞控制算法
  */
-int
+void
 xkcp_nodelay(xkcpcb *kcp, int nodelay, int interval, int resend, int nc);
 
 
