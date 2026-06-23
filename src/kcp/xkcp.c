@@ -103,6 +103,8 @@ struct XKCPCONF {
     uint32_t dead_link;        // 连续重传多少次判链路死
     int32_t  logmask;          // 日志掩码(XKCP_LOG_*)
     uint32_t dead_timeout;     // 多久没收到判死(ms)
+    void*    congest;          // [X] 策略私有状态
+    struct XKCPOPS* ccops;     // [X] 策略回调集
 };
 static struct XKCPCONF __conf_;
 
@@ -151,7 +153,7 @@ xkcp_decode16u(const uint8_t *p, uint16_t *w) {
     return p;
 }
 
-/* encode 32 bits unsigned int (lsb) */
+
 static inline uint8_t*
 xkcp_encode32u(uint8_t *p, uint32_t l) {
 #if XWORDS_BIG_ENDIAN || XWORDS_MUST_ALIGN
@@ -166,7 +168,7 @@ xkcp_encode32u(uint8_t *p, uint32_t l) {
     return p;
 }
 
-/* decode 32 bits unsigned int (lsb) */
+
 static inline const uint8_t*
 xkcp_decode32u(const uint8_t *p, uint32_t *l) {
 #if XWORDS_BIG_ENDIAN || XWORDS_MUST_ALIGN
@@ -178,6 +180,44 @@ xkcp_decode32u(const uint8_t *p, uint32_t *l) {
     memcpy(l, p, 4);
 #endif
     p += 4;
+    return p;
+}
+
+
+static inline uint8_t*
+xkcp_encode64u(uint8_t *p, uint64_t l) {
+#if XWORDS_BIG_ENDIAN || XWORDS_MUST_ALIGN
+    *(uint8_t*)(p + 0) = (uint8_t)((l >>  0) & 0xff);
+    *(uint8_t*)(p + 1) = (uint8_t)((l >>  8) & 0xff);
+    *(uint8_t*)(p + 2) = (uint8_t)((l >> 16) & 0xff);
+    *(uint8_t*)(p + 3) = (uint8_t)((l >> 24) & 0xff);
+    *(uint8_t*)(p + 4) = (uint8_t)((l >> 32) & 0xff);
+    *(uint8_t*)(p + 5) = (uint8_t)((l >> 40) & 0xff);
+    *(uint8_t*)(p + 6) = (uint8_t)((l >> 48) & 0xff);
+    *(uint8_t*)(p + 7) = (uint8_t)((l >> 56) & 0xff);
+#else
+    memcpy(p, &l, 8);
+#endif
+    p += 8;
+    return p;
+}
+
+
+static inline const uint8_t*
+xkcp_decode64u(const uint8_t* p, uint64_t* l) {
+#if XWORDS_BIG_ENDIAN || XWORDS_MUST_ALIGN
+    *l = *(const uint8_t*)(p + 7);
+    *l = *(const uint8_t*)(p + 6) + (*l << 8);
+    *l = *(const uint8_t*)(p + 5) + (*l << 8);
+    *l = *(const uint8_t*)(p + 4) + (*l << 8);
+    *l = *(const uint8_t*)(p + 3) + (*l << 8);
+    *l = *(const uint8_t*)(p + 2) + (*l << 8);
+    *l = *(const uint8_t*)(p + 1) + (*l << 8);
+    *l = *(const uint8_t*)(p + 0) + (*l << 8);
+#else 
+    memcpy(l, p, 8);
+#endif
+    p += 8;
     return p;
 }
 
@@ -367,8 +407,7 @@ xkcp_sealedbox_encrypt(uint8_t *out, const uint8_t *in, size_t inlen, const uint
 
 // sealedbox 解密: 用本端 x25519 pk+sk 开封; 成功返回 0, 失败 -1
 static inline int
-xkcp_sealedbox_decrypt(uint8_t *out, const uint8_t *in, size_t inlen,
-                       const uint8_t *pk, const uint8_t *sk) {
+xkcp_sealedbox_decrypt(uint8_t *out, const uint8_t *in, size_t inlen, const uint8_t *pk, const uint8_t *sk) {
     return crypto_box_seal_open(out, in, (unsigned long long)inlen, pk, sk);
 }
 
@@ -412,26 +451,22 @@ xkcp_init(
 
 
 void
-xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk) {
-    crypto_kx_keypair(pk, sk);
+xkcp_x25519_keygen(xkcpcb* kcp) {
+    crypto_kx_keypair(kcp->eph_pk, kcp->eph_sk);
 }
 
 
 int
-xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk) {
+xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk) {
     uint8_t sk[crypto_kx_SECRETKEYBYTES];
-    if (crypto_kx_keypair(out_server_pk, sk) != 0) {
-        return -1;
-    }
-
-    if (crypto_kx_server_session_keys(kcp->rx_key, kcp->tx_key, out_server_pk, sk, client_pk) != 0) {
+    if (crypto_kx_server_session_keys(kcp->rx_key, kcp->tx_key, kcp->eph_pk, kcp->eph_sk, client_pk) != 0) {
         return -1;
     }
         
     kcp->snd_dir = 1;  // S2C
     kcp->rcv_dir = 0;  // C2S
-    kcp->last_snd_seq = 0;
-    kcp->last_rcv_seq = 0;
+    kcp->snd_seq = 0;
+    kcp->rcv_seq = 0;
     kcp->has_key = 1;
 
     return 0;
@@ -446,8 +481,8 @@ xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk) {
 
     kcp->snd_dir = 0;  // C2S
     kcp->rcv_dir = 1;  // S2C
-    kcp->last_snd_seq = 0;
-    kcp->last_rcv_seq = 0;
+    kcp->snd_seq = 0;
+    kcp->rcv_seq = 0;
     kcp->has_key = 1;
 
     return 0;
@@ -507,20 +542,13 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->ssthresh     = XKCP_THRESH_INIT;
     kcp->xmit         = 0;
     kcp->output       = NULL;
-    kcp->ccops        = NULL;
-    kcp->congest      = NULL;
     kcp->writelog     = NULL;
-    kcp->on_reg_req   = NULL;
-    kcp->on_reg_rsp   = NULL;
-    kcp->on_rst       = NULL;
-    kcp->on_kic       = NULL;
     kcp->has_regist   = 0;
-    kcp->reg_rsp_len  = 0;
     kcp->last_snd_ms  = 0;
     kcp->last_rcv_ms  = 0;
     kcp->dead         = 0;
-    kcp->last_snd_seq = 0;
-    kcp->last_rcv_seq = 0;
+    kcp->snd_seq = 0;
+    kcp->rcv_seq = 0;
     kcp->snd_dir      = 0;
     kcp->rcv_dir      = 0;
     kcp->has_key      = 0;
@@ -538,10 +566,6 @@ xkcp_release(xkcpcb *kcp) {
     
     if (kcp == NULL) {
         return;
-    }
-
-    if (kcp->ccops && kcp->ccops->release) {
-        kcp->ccops->release(kcp);
     }
 
     while (!xqueue_is_empty(&kcp->snd_buf)) {
@@ -652,13 +676,12 @@ xkcp_reset(xkcpcb *kcp) {
     kcp->rx_rto         = XKCP_RTO_DEF;
     kcp->xmit           = 0;
     kcp->has_regist     = 0;
-    kcp->reg_rsp_len = 0;
     kcp->last_snd_ms    = kcp->current;
     kcp->last_rcv_ms    = kcp->current;
     kcp->dead           = 0;
     kcp->has_key        = 0;
-    kcp->last_snd_seq   = 0;
-    kcp->last_rcv_seq   = 0;
+    kcp->snd_seq   = 0;
+    kcp->rcv_seq   = 0;
 }
 
 
@@ -738,7 +761,7 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
     if (kcp->has_key && savedbuf != NULL && len >= (int)crypto_aead_chacha20poly1305_ietf_ABYTES) {
         uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
         int plen = len - (int)crypto_aead_chacha20poly1305_ietf_ABYTES;
-        xkcp_make_nonce(nonce, kcp->conv, ++kcp->last_rcv_seq, kcp->rcv_dir);
+        xkcp_make_nonce(nonce, kcp->conv, ++kcp->rcv_seq, kcp->rcv_dir);
         if (crypto_aead_chacha20poly1305_ietf_decrypt_detached((uint8_t*)savedbuf, NULL, (const uint8_t*)savedbuf, (uint64_t)plen, (const uint8_t*)(savedbuf + plen), NULL, 0, nonce, kcp->rx_key) != 0) {
             return -4;
         }
@@ -855,7 +878,7 @@ xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len) {
             return -1;
         }
     
-        xkcp_make_nonce(nonce, kcp->conv, ++kcp->last_snd_seq, kcp->snd_dir);
+        xkcp_make_nonce(nonce, kcp->conv, ++kcp->snd_seq, kcp->snd_dir);
         if (crypto_aead_chacha20poly1305_ietf_encrypt_detached((uint8_t*)ct, (uint8_t*)(ct + len), NULL, (const uint8_t*)buffer, (uint64_t)len, NULL, 0, NULL, nonce, kcp->tx_key) < 0) {
             mi_free(ct);
             return -1;
@@ -895,8 +918,8 @@ xkcp_update_ack(xkcpcb *kcp, int32_t rtt) {
 
     rto = kcp->rx_srtt + _xmax_(__conf_.interval, 4 * kcp->rx_rttval);
     kcp->rx_rto = _xbound_(__conf_.rx_minrto, rto, XKCP_RTO_MAX);
-    if (kcp->ccops && kcp->ccops->on_rtt) {
-        kcp->ccops->on_rtt(kcp, rtt);
+    if (__conf_.ccops && __conf_.ccops->on_rtt) {
+        __conf_.ccops->on_rtt(kcp, rtt);
     }
 }
 
@@ -934,14 +957,14 @@ xkcp_parse_ack(xkcpcb *kcp, uint32_t sn) {
         if (sn == seg->sn) {
             kcp->ackedlen += seg->len;
 
-            if (kcp->ccops && kcp->ccops->on_pkt_acked) {
+            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
                 pkt_rtt = -1;
     
                 if (_xtimediff(kcp->current, seg->ts) >= 0) {
                     pkt_rtt = _xtimediff(kcp->current, seg->ts);
                 }
 
-                kcp->ccops->on_pkt_acked(kcp, seg->sn, seg->ts, seg->len, pkt_rtt, seg->xmit);
+                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts, seg->len, pkt_rtt, seg->xmit);
             }
 
             xqueue_del(p);
@@ -969,8 +992,8 @@ xkcp_parse_una(xkcpcb *kcp, uint32_t una) {
         next = p->next;
         if (_xtimediff(una, seg->sn) > 0) {
             kcp->ackedlen += seg->len;
-            if (kcp->ccops && kcp->ccops->on_pkt_acked) {
-                kcp->ccops->on_pkt_acked(kcp, seg->sn, seg->ts,
+            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
+                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts,
                         seg->len, -1, seg->xmit);
             }
 
@@ -1174,25 +1197,50 @@ static void
 xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     // 同一握手的重发: 直接重发缓存的 RSP
     if (kcp->has_regist && len >= XKCP_REGIST_ID_LEN && memcmp(data, kcp->regist_id, XKCP_REGIST_ID_LEN) == 0) {
-        xkcp_output(kcp, kcp->regist_rsp, kcp->reg_rsp_len);
+        // TODO: 发送公钥
         return;
     }
 
-    // 新握手: 回调只产出业务 payload, xkcp 把它包成 REGIST_RSP 段后缓存并发出
-    if (kcp->on_reg_req) {
-        // Step 1, 检查 data 长度
+    // Step 1, 检查 data 长度
         
-        // Step 2, 使用 sealedbox 私钥进行解密
-
-        // Step 3, 校验 Token 签名
-
-        // Step 4, 生成密钥对
-        xkcp_x25519_keygen(kcp->eph_pk, kcp->eph_sk);
-
-        // Step 5, 通过 token.peer_pk 生成服务端 key
-
-        // Step 6, 回发生成的公钥对给对端
+    // Step 2, 使用 sealedbox 私钥进行解密
+    struct XKCPTOKEN token;
+    memset(&token, 0, sizeof(token));
+    uint8_t plaint[sizeof(token)];
+    if (xkcp_sealedbox_decrypt(plaint, data, len, __conf_.x25519_pk, __conf_.x25519_sk) != 0) {
+        return;
     }
+
+    // Step 3, 校验 Token 签名
+    uint8_t* p = plaint;
+    const uint8_t* saved = plaint;
+    p = xkcp_decode64u(p, &token.expire);
+    if (token.expire < time(NULL)) {
+        return;
+    }
+
+    p = xkcp_decode32u(p, &token.conv);
+    if (token.conv != kcp->conv) {
+        return;
+    }
+
+    memcpy(&token.peer_pk, p, sizeof(token.peer_pk));
+    p += sizeof(token.peer_pk);
+
+    if (xkcp_ed25519_verify(p, saved, p - saved, __conf_.ed25519_pk) != 0) {
+        return;
+    }
+
+    // Step 4, 生成密钥对
+    xkcp_x25519_keygen(kcp);
+
+    // Step 5, 通过 token.peer_pk 生成服务端 key
+    if (xkcp_kx_server(kcp, token.peer_pk) != 0) {
+        return;
+    }
+
+    // Step 6, 回发生成的公钥对给对端
+    // TODO kcp->eph_pk 发给对端
 }
 
 /**
@@ -1203,9 +1251,7 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
-    if (kcp->on_reg_rsp) {
-        kcp->on_reg_rsp(data, len, kcp);
-    }
+    // ....
 }
 
 /**
@@ -1216,9 +1262,7 @@ xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
-    if (kcp->on_rst) {
-        kcp->on_rst(data, len, kcp);
-    }
+    
 }
 
 /**
@@ -1229,9 +1273,7 @@ xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
-    if (kcp->on_kic) {
-        kcp->on_kic(data, len, kcp);
-    }
+    
 }
 
 /**
@@ -1440,8 +1482,8 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
     if (_xtimediff(kcp->snd_una, prev_una) > 0) {
         acked_segs = kcp->snd_una - prev_una;
         prior_in_flight = prev_nsnd_buf;
-        if (kcp->ccops && kcp->ccops->on_ack) {
-            kcp->ccops->on_ack(kcp, acked_segs, kcp->ackedlen, prior_in_flight);
+        if (__conf_.ccops && __conf_.ccops->on_ack) {
+            __conf_.ccops->on_ack(kcp, acked_segs, kcp->ackedlen, prior_in_flight);
         }
         else {
             if (kcp->cwnd < kcp->rmt_wnd) {
@@ -1528,12 +1570,12 @@ xkcp_flush(xkcpcb *kcp) {
         return;
     }
 
-    if (kcp->ccops && kcp->ccops->on_tick) {
-        kcp->ccops->on_tick(kcp);
+    if (__conf_.ccops && __conf_.ccops->on_tick) {
+        __conf_.ccops->on_tick(kcp);
     }
 
-    if (kcp->ccops && kcp->ccops->pacing_rate) {
-        pacing_budget = (int32_t)kcp->ccops->pacing_rate(kcp);
+    if (__conf_.ccops && __conf_.ccops->pacing_rate) {
+        pacing_budget = (int32_t)__conf_.ccops->pacing_rate(kcp);
     }
 
     prior_cwnd = kcp->cwnd;
@@ -1609,7 +1651,9 @@ xkcp_flush(xkcpcb *kcp) {
 
     // calculate window size
     cwnd = _xmin_(__conf_.snd_wnd, kcp->rmt_wnd);
-    if (kcp->ccops != NULL || __conf_.nocwnd == 0) cwnd = _xmin_(kcp->cwnd, cwnd);
+    if (__conf_.ccops != NULL || __conf_.nocwnd == 0) {
+        cwnd = _xmin_(kcp->cwnd, cwnd);
+    }
 
     // move data from snd_queue to snd_buf
     while (_xtimediff(kcp->snd_nxt, kcp->snd_una + cwnd) < 0) {
@@ -1638,13 +1682,13 @@ xkcp_flush(xkcpcb *kcp) {
     }
 
     // check on_app_limited
-    if (kcp->ccops && kcp->ccops->on_app_limited) {
+    if (__conf_.ccops && __conf_.ccops->on_app_limited) {
         if (xqueue_is_empty(&kcp->snd_queue)) {
             eff_cwnd = _xmin_(__conf_.snd_wnd, kcp->rmt_wnd);
             eff_cwnd = _xmin_(kcp->cwnd, eff_cwnd);
             cur_inflight = kcp->nsnd_buf;
             if (cur_inflight < eff_cwnd) {
-                kcp->ccops->on_app_limited(kcp, cur_inflight);
+                __conf_.ccops->on_app_limited(kcp, cur_inflight);
             }
         }
     }
@@ -1698,9 +1742,8 @@ xkcp_flush(xkcpcb *kcp) {
                 break;
             }
 
-            if (kcp->ccops && kcp->ccops->on_pkt_sent) {
-                kcp->ccops->on_pkt_sent(kcp, segment->sn, current,
-                        segment->len, kcp->nsnd_buf, segment->xmit);
+            if (__conf_.ccops && __conf_.ccops->on_pkt_sent) {
+                __conf_.ccops->on_pkt_sent(kcp, segment->sn, current, segment->len, kcp->nsnd_buf, segment->xmit);
             }
 
             size = (int)(ptr - buffer);
@@ -1736,8 +1779,8 @@ xkcp_flush(xkcpcb *kcp) {
 
     // update ssthresh
     if (change) {
-        if (kcp->ccops && kcp->ccops->on_fast_retransmit) {
-            kcp->ccops->on_fast_retransmit(kcp, (uint32_t)change, 
+        if (__conf_.ccops && __conf_.ccops->on_fast_retransmit) {
+            __conf_.ccops->on_fast_retransmit(kcp, (uint32_t)change, 
                     kcp->nsnd_buf, prior_cwnd);
         }
         else {
@@ -1751,8 +1794,8 @@ xkcp_flush(xkcpcb *kcp) {
     }
 
     if (lost) {
-        if (kcp->ccops && kcp->ccops->on_timeout) {
-            kcp->ccops->on_timeout(kcp, prior_cwnd);
+        if (__conf_.ccops && __conf_.ccops->on_timeout) {
+            __conf_.ccops->on_timeout(kcp, prior_cwnd);
         }
         else {
             kcp->ssthresh = prior_cwnd / 2;
@@ -1890,16 +1933,16 @@ int
 xkcp_setcc(xkcpcb *kcp, const struct XKCPOPS *ops) {
     ASSERT(kcp != NULL);
 
-    if (kcp->ccops && kcp->ccops->release) {
-        kcp->ccops->release(kcp);
+    if (__conf_.ccops && __conf_.ccops->release) {
+        __conf_.ccops->release(kcp);
     }
 
-    kcp->congest = NULL;
-    kcp->ccops = ops;
+    __conf_.congest = NULL;
+    __conf_.ccops = ops;
     if (ops) {
         if (ops->init && ops->init(kcp) < 0) {
-            kcp->ccops = NULL;
-            kcp->congest = NULL;
+            __conf_.ccops = NULL;
+            __conf_.congest = NULL;
 
             if (kcp->cwnd < 1) {
                 kcp->cwnd = 1;
@@ -1908,8 +1951,7 @@ xkcp_setcc(xkcpcb *kcp, const struct XKCPOPS *ops) {
             kcp->incr = kcp->cwnd * XKCP_MSS;
             return -1;
         }
-    }
-    else {
+    } else {
         if (kcp->cwnd < 1) {
             kcp->cwnd = 1;
         }

@@ -345,21 +345,9 @@ struct XKCPCB {
     
     uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
 
-    // [X] 可插拔拥塞控制(原生无; ccops = NULL 时用内置算法)
-    struct XKCPOPS* ccops;   // [X] 策略回调集
-    void* congest;           // [X] 策略私有状态
-
-    // [X] 控制 cmd 回调(握手 / 顶号 / 踢人)
-    void (*on_reg_req)(const uint8_t *data, int len, struct XKCPCB *kcp, uint8_t *out_data, int *out_len); // 服务端收 REGIST_REQ(仅新握手); out_data/out_len 填 RSP 业务 payload, xkcp 自动包成 REGIST_RSP 段发出
-    void (*on_reg_rsp)(const uint8_t *data, int len, struct XKCPCB *kcp);  // 客户端收 REGIST_RSP
-    void (*on_rst)(const uint8_t *data, int len, struct XKCPCB *kcp);         // 客户端收 RST(顶号)
-    void (*on_kic)(const uint8_t *data, int len, struct XKCPCB *kcp);         // 客户端收 KIC(被踢)
-
     // [X] REGIST 传输层去重缓存: 握手 id(REQ payload 头部) + 对应 RSP, 供重发 REQ 时重发 RSP
     uint8_t   regist_id[XKCP_REGIST_ID_LEN];   // [X] 当前握手 id
     int32_t   has_regist;                      // [X] 是否已缓存握手
-    uint8_t   regist_rsp[32];               // [X] 缓存的 RSP 字节
-    int32_t   reg_rsp_len;                  // [X] 缓存 RSP 长度
 
     // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
     uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
@@ -369,10 +357,10 @@ struct XKCPCB {
     // [X] 加解密(直链 libsodium): 会话密钥 + 按消息 nonce 计数器 + 方向
     uint8_t   tx_key[32];    // [X] 发送密钥
     uint8_t   rx_key[32];    // [X] 接收密钥
-    uint8_t   eph_pk[32];    // [X] 握手临时公钥(客户端 REQ→RSP 之间保留)
+    uint8_t   eph_pk[32];    // [X] 握手临时公钥
     uint8_t   eph_sk[32];    // [X] 握手临时私钥
-    uint32_t  last_snd_seq;  // [X] AEAD 发送 nonce 计数器(按消息)
-    uint32_t  last_rcv_seq;  // [X] AEAD 接收 nonce 计数器(按消息)
+    uint32_t  snd_seq;  // [X] AEAD 发送 nonce 计数器(按消息)
+    uint32_t  rcv_seq;  // [X] AEAD 接收 nonce 计数器(按消息)
     uint8_t   snd_dir;       // [X] 发送方向(0 = C2S, 1 = S2C)
     uint8_t   rcv_dir;       // [X] 接收方向
     int32_t   has_key;       // [X] 密钥就绪(kx 完成); 0 时 send/recv 不加解密
@@ -402,7 +390,7 @@ extern "C" {
  * @param kcp  会话
  */
 void
-xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk);
+xkcp_x25519_keygen(xkcpcb* kcp);
 
 
 /**
@@ -413,7 +401,7 @@ xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk);
  * @return 成功 0; 失败 -1
  */
 int
-xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk);
+xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk);
 
 
 /**
