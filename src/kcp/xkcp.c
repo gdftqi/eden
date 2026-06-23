@@ -34,9 +34,8 @@
 #define XKCP_CMD_SYNC       (85)        // [XKCP] 注册/重连握手请求 (绕过 sn 窗口, 客户端发)
 #define XKCP_CMD_SACK       (86)        // [XKCP] 注册/重连握手应答 (服务端发, 客户端 on_regist_rsp)
 #define XKCP_CMD_RST        (87)        // [XKCP] 顶号复位 (其他设备登录, 服务端发给旧端)
-#define XKCP_CMD_KICK       (88)        // [XKCP] 主动踢人 (admin, 服务端发)
-#define XKCP_CMD_PING       (89)        // [XKCP] 保活心跳 (空闲自动发)
-#define XKCP_CMD_PONG       (90)        // [XKCP] 心跳应答
+#define XKCP_CMD_PING       (88)        // [XKCP] 保活心跳 (空闲自动发)
+#define XKCP_CMD_PONG       (89)        // [XKCP] 心跳应答
 #define XKCP_RTO_NDL        (30)        // no delay min rto
 #define XKCP_RTO_MIN        (100)       // normal min rto
 #define XKCP_RTO_DEF        (200)
@@ -349,29 +348,21 @@ xkcp_make_nonce(uint8_t* nonce, uint32_t conv, uint32_t seq, uint8_t dir) {
 }
 
 
-/**
- * @brief ED25519 验签
- * @return 成功返回 0, 否则返回 -1
- */
-static inline int
+
+inline int
 xkcp_ed25519_verify(const uint8_t* sig, const uint8_t* msg, size_t mlen, const uint8_t* pk) {
     return crypto_sign_verify_detached(sig, msg, (uint64_t)mlen, pk);
 }
 
 
-/**
- * @brief sealedbox 加密
- */
-static inline int
+
+inline int
 xkcp_sealedbox_encrypt(uint8_t* out, const uint8_t* in, size_t inlen, const uint8_t* pk) {
     return crypto_box_seal(out, in, (uint64_t)inlen, pk);
 }
 
 
-/**
- * @brief sealedbox 解密
- */
-static inline int
+inline int
 xkcp_sealedbox_decrypt(uint8_t* out, const uint8_t* in, size_t inlen, const uint8_t* pk, const uint8_t* sk) {
     return crypto_box_seal_open(out, in, (uint64_t)inlen, pk, sk);
 }
@@ -669,6 +660,11 @@ xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
     if (len != XKCP_PAYLOAD_MAX) {
         return;
     }
+
+    if (kcp->auth > XKCP_FASTACK_LIMIT) {
+        kcp->state = (uint32_t)-1;
+        return;
+    }
         
     // Step 2, 使用 sealedbox 私钥进行解密
     struct XKCPTOKEN token;
@@ -704,11 +700,6 @@ xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
 
     if (kcp->gen < token.gen) {
         if (kcp->auth > 0) {
-            if (kcp->auth > XKCP_FASTACK_LIMIT) {
-                kcp->state = (uint32_t)-1;
-                return;
-            }
-
             xkcp_reset(kcp);
         }
 
@@ -735,7 +726,11 @@ xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
  */
 static inline void
 xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
-    // ....
+    if (data == NULL || len != 32 || xkcp_kx_client(kcp, data) < 0) {
+        return;
+    }
+
+    kcp->auth = 1;
 }
 
 /**
@@ -746,19 +741,9 @@ xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
-    
+    kcp->state = (uint32_t)-1;
 }
 
-/**
- * @brief [XKCP] 客户端收 KIC(被踢): 上抛 on_kic 回调
- * @param kcp   会话
- * @param data  KIC payload
- * @param len   payload 长度
- */
-static inline void
-xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
-    
-}
 
 /**
  * @brief [XKCP] 收 PING: 立即回 PONG
@@ -766,6 +751,10 @@ xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_ping(xkcpcb *kcp) {
+    if (kcp->auth == 0) {
+        return;
+    }
+
     xkcp_output_ctrl(kcp, XKCP_CMD_PONG, NULL, 0);
 }
 
@@ -774,8 +763,10 @@ xkcp_on_ping(xkcpcb *kcp) {
  * @param kcp  会话
  */
 static inline void
-xkcp_on_pong(xkcpcb *kcp) {
-    (void)kcp;
+xkcp_on_pong(xkcpcb* kcp) {
+    if (kcp->auth == 0) {
+        return;
+    }
 }
 
 /**
@@ -783,7 +774,11 @@ xkcp_on_pong(xkcpcb *kcp) {
  * @param kcp  会话
  */
 static inline void
-xkcp_on_wask(xkcpcb *kcp) {
+xkcp_on_wask(xkcpcb* kcp) {
+    if (kcp->auth == 0) {
+        return;
+    }
+
     kcp->probe |= XKCP_ASK_TELL;
     if (xkcp_canlog(kcp, XKCP_LOG_IN_PROBE)) {
         xkcp_log(kcp, XKCP_LOG_IN_PROBE, "input probe");
@@ -797,6 +792,10 @@ xkcp_on_wask(xkcpcb *kcp) {
  */
 static inline void
 xkcp_on_wins(xkcpcb *kcp, uint16_t wnd) {
+    if (kcp->auth == 0) {
+        return;
+    }
+
     if (xkcp_canlog(kcp, XKCP_LOG_IN_WINS)) {
         xkcp_log(kcp, XKCP_LOG_IN_WINS, "input wins: %lu", (unsigned long)wnd);
     }
@@ -1373,10 +1372,6 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             xkcp_on_rst(kcp, data, (int)len);
             break;
 
-        case XKCP_CMD_KICK:
-            xkcp_on_kick(kcp, data, (int)len);
-            break;
-
         case XKCP_CMD_PING:
             xkcp_on_ping(kcp);
             break;
@@ -1396,17 +1391,23 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_ACK:
+            if (kcp->auth == 0) {
+                return;
+            }
+
             xkcp_input_window(kcp, wnd, una);
             if (_xtimediff(kcp->current, ts) >= 0) {
                 xkcp_update_ack(kcp, _xtimediff(kcp->current, ts));
             }
+
             xkcp_parse_ack(kcp, sn);
             xkcp_shrink_buf(kcp);
+
             if (flag == 0) {
                 flag = 1;
                 maxack = sn;
                 latest_ts = ts;
-            }   else {
+            } else {
                 if (_xtimediff(sn, maxack) > 0) {
                 #ifndef XKCP_FASTACK_CONSERVE
                     maxack = sn;
@@ -1428,11 +1429,16 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_PUSH:
+            if (kcp->auth == 0) {
+                return;
+            }
+
             xkcp_input_window(kcp, wnd, una);
             if (xkcp_canlog(kcp, XKCP_LOG_IN_DATA)) {
                 xkcp_log(kcp, XKCP_LOG_IN_DATA, 
                     "input psh: sn=%lu ts=%lu", (unsigned long)sn, (unsigned long)ts);
             }
+
             if (_xtimediff(sn, kcp->rcv_nxt + __conf_.rcv_wnd) < 0) {
                 xkcp_ack_push(kcp, sn, ts);
                 if (_xtimediff(sn, kcp->rcv_nxt) >= 0) {
@@ -1450,7 +1456,6 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
                     if (len > 0) {
                         memcpy(seg->data, data, len);
                     }
-
                     xkcp_parse_data(kcp, seg);
                 }
             }

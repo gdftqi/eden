@@ -310,6 +310,33 @@ extern "C" {
 #endif
 
 
+/* ------------------------------------------------------------------------------- */
+/* 加/解密 公共函数 */
+/* ------------------------------------------------------------------------------- */
+
+
+/**
+ * @brief ED25519 验签
+ * @return 成功返回 0, 否则返回 -1
+ */
+int
+xkcp_ed25519_verify(const uint8_t* sig, const uint8_t* msg, size_t mlen, const uint8_t* pk);
+
+
+/**
+ * @brief sealedbox 加密
+ */
+int
+xkcp_sealedbox_encrypt(uint8_t* out, const uint8_t* in, size_t inlen, const uint8_t* pk);
+
+
+/**
+ * @brief sealedbox 解密
+ */
+int
+xkcp_sealedbox_decrypt(uint8_t* out, const uint8_t* in, size_t inlen, const uint8_t* pk, const uint8_t* sk);
+
+
 /**
  * @brief 生成本端握手用的 x25519 临时密钥对
  * @param kcp  会话
@@ -353,7 +380,7 @@ xkcp_kx_client(xkcpcb* kcp, const uint8_t* svr_pk);
  * @param dead_timeout 多久没收到判死(ms)
  */
 void
-xkcp_init(const uint8_t* x25519_pk, const uint8_t* x25519_sk, const uint8_t* ed25519_pk, const uint8_t* siphash_key, uint32_t snd_wnd, uint32_t rcv_wnd, uint32_t interval, int32_t fastresend, int32_t fastlimit, uint32_t dead_link, uint32_t dead_timeout);
+xkcp_init(const uint8_t* x25519_pk, const uint8_t* x25519_sk, const uint8_t* ed25519_pk, const uint8_t* siphash_key, uint32_t snd_wnd, uint32_t rcv_wnd, uint32_t interval, int32_t fastresend, uint32_t dead_timeout);
 
 
 /**
