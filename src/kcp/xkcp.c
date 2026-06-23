@@ -70,7 +70,7 @@
 #define XKCP_PROBE_LIMIT    (120000)    // up to 120 secs to probe window
 #define XKCP_FASTACK_LIMIT  (5)         // max times to trigger fastack
 #define XKCP_DEAD_TIMEOUT   (45000)
-#define XKCP_PAYLOAD_MAX (sizeof(struct XKCPTOKEN) + 32 + 16)
+#define XKCP_PAYLOAD_MAX    (sizeof(struct XKCPTOKEN) + 32 + 16)
 
 
 #define ASSERT(expr)                                         \
@@ -515,12 +515,12 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->writelog     = NULL;
     kcp->last_snd_ms  = 0;
     kcp->last_rcv_ms  = 0;
-    kcp->dead         = 0;
+    kcp->state        = 0;
     kcp->snd_seq = 0;
     kcp->rcv_seq = 0;
     kcp->snd_dir      = 0;
     kcp->rcv_dir      = 0;
-    kcp->valid = 0;
+    kcp->gen = 0;
 
     return kcp;
 }
@@ -646,10 +646,10 @@ xkcp_reset(xkcpcb *kcp) {
     kcp->xmit           = 0;
     kcp->last_snd_ms    = kcp->current;
     kcp->last_rcv_ms    = kcp->current;
-    kcp->dead           = 0;
+    kcp->state           = 0;
     kcp->snd_seq   = 0;
     kcp->rcv_seq   = 0;
-    kcp->valid = 0;
+    kcp->gen = 0;
 }
 
 
@@ -726,7 +726,7 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
     }
 
     // AEAD 解密: 整条消息在用户 buffer 原地解密; 认证失败 = 篡改/错乱 → 返回 -4
-    if (kcp->valid > 0 && savedbuf != NULL && len >= (int)crypto_aead_chacha20poly1305_ietf_ABYTES) {
+    if (kcp->state > 0 && savedbuf != NULL && len >= (int)crypto_aead_chacha20poly1305_ietf_ABYTES) {
         uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
         int plen = len - (int)crypto_aead_chacha20poly1305_ietf_ABYTES;
         xkcp_make_nonce(nonce, kcp->conv, ++kcp->rcv_seq, kcp->rcv_dir);
@@ -837,7 +837,7 @@ xkcp_send_raw(xkcpcb *kcp, const uint8_t *buffer, int len) {
 
 int 
 xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len) {
-    if (kcp->valid && buffer && len > 0) {
+    if (kcp->state > 0 && buffer && len > 0) {
         int clen = len + (int)crypto_aead_chacha20poly1305_ietf_ABYTES;
         uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
         uint8_t *ct = (uint8_t*)mi_malloc(clen);
@@ -1159,17 +1159,6 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     if (len != XKCP_PAYLOAD_MAX) {
         return;
     }
-
-    if (kcp->valid > XKCP_FASTACK_LIMIT) {
-        return;
-    }
-
-    // 同一握手的重发: 直接重发缓存的 RSP
-    if (kcp->valid > 0) {
-        ++kcp->valid;
-        xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
-        return;
-    }
         
     // Step 2, 使用 sealedbox 私钥进行解密
     struct XKCPTOKEN token;
@@ -1191,6 +1180,11 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
         return;
     }
 
+    p = xkcp_decode32u(p, &token.gen);
+    if (token.gen == 0 || kcp->gen > token.gen) {
+        return;
+    }
+
     memcpy(&token.peer_pk, p, sizeof(token.peer_pk));
     p += sizeof(token.peer_pk);
 
@@ -1198,18 +1192,27 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
         return;
     }
 
-    // Step 4, 生成密钥对
-    xkcp_x25519_keygen(kcp);
+    if (kcp->gen < token.gen) {
+        if (kcp->state > 0) {
+            xkcp_reset(kcp);
+        }
 
-    // Step 5, 通过 token.peer_pk 生成服务端 key
-    if (xkcp_kx_server(kcp, token.peer_pk) != 0) {
+        // Step 4, 生成密钥对
+        xkcp_x25519_keygen(kcp);
+
+        // Step 5, 通过 token.peer_pk 生成服务端 key
+        if (xkcp_kx_server(kcp, token.peer_pk) != 0) {
+            return;
+        }
+        kcp->gen = token.gen;
+    } else if (kcp->state > XKCP_FASTACK_LIMIT) {
+        kcp->state = -1;
         return;
     }
 
     // Step 6, 回发生成的公钥对给对端
     xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
-
-    ++kcp->valid;
+    ++kcp->state;
 }
 
 /**
@@ -1814,11 +1817,10 @@ xkcp_update(xkcpcb *kcp, uint32_t current) {
     }
 
     // 保活/超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
-    if (__conf_.dead_timeout > 0 && !kcp->dead && _xtimediff(kcp->current, kcp->last_rcv_ms) > (int32_t)__conf_.dead_timeout) {
-        kcp->dead = 1;
+    if (__conf_.dead_timeout > 0 && kcp->state < 0 && _xtimediff(kcp->current, kcp->last_rcv_ms) > (int32_t)__conf_.dead_timeout) {
         return -1;
     }
-    else if (ping_interval > 0 && !kcp->dead && _xtimediff(kcp->current, kcp->last_snd_ms) > (int32_t)ping_interval) {
+    else if (ping_interval > 0 && kcp->state > 0 && _xtimediff(kcp->current, kcp->last_snd_ms) > (int32_t)ping_interval) {
         xkcp_output_ctrl(kcp, XKCP_CMD_PING, NULL, 0);
     }
 
