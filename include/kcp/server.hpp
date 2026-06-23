@@ -144,7 +144,7 @@ public:
 
 private:
     static int
-    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
+    output(const uint8_t *buf, int len, struct XKCPCB *kcp) noexcept;
 
 
     void

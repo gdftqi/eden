@@ -240,6 +240,7 @@ typedef struct XKCPCB xkcpcb;
 #define XKCP_REGIST_RSP_MAX 256
 
 
+
 //=====================================================================
 // SEGMENT
 //=====================================================================
@@ -290,13 +291,7 @@ struct XKCPOPS {
 struct XKCPCB {
     // ===== 标识 / 基本配置 =====
     uint32_t  conv;          // 会话号(两端一致; 本项目 = userID 路由键)
-    uint32_t  mtu;           // MTU(一个 KCP 数据报的字节上限)
-    uint32_t  mss;           // 最大分片 = mtu - overhead
     uint32_t  state;         // 链路状态(-1 = 链路死)
-    uint32_t  nodelay;       // 低延迟(极速)模式开关
-    uint32_t  interval;      // flush 间隔(ms)
-    int32_t   stream;        // 流模式开关
-    int32_t   logmask;       // 日志掩码(XKCP_LOG_*)
 
     // ===== 收发序号 =====
     uint32_t  snd_una;       // 最早未确认序号
@@ -304,8 +299,6 @@ struct XKCPCB {
     uint32_t  rcv_nxt;       // 下一期望接收序号
 
     // ===== 窗口 / 拥塞 =====
-    uint32_t  snd_wnd;       // 发送窗口
-    uint32_t  rcv_wnd;       // 接收窗口
     uint32_t  rmt_wnd;       // 对端通告窗口
     uint32_t  cwnd;          // 拥塞窗口
     uint32_t  ssthresh;      // 慢启动阈值
@@ -313,22 +306,17 @@ struct XKCPCB {
     uint32_t  probe;         // 窗口探测标志(ASK_SEND / ASK_TELL)
     uint32_t  probe_wait;    // 窗口探测计时
     uint32_t  ts_probe;      // 下次窗口探测时刻
-    int32_t   nocwnd;        // 关闭拥塞控制
-    int32_t   fastresend;    // 跨越多少次触发快速重传(0 = 关)
-    int32_t   fastlimit;     // 快速重传的 xmit 次数上限
 
     // ===== RTT / 计时 / 重传 =====
     int32_t   rx_rttval;     // RTT 抖动
     int32_t   rx_srtt;       // 平滑 RTT
     int32_t   rx_rto;        // 重传超时 RTO
-    int32_t   rx_minrto;     // 最小 RTO
     uint32_t  ts_recent;     // 最近收到的时间戳
     uint32_t  ts_lastack;    // 上次 ack 时间
     uint32_t  current;       // 当前时刻(ms, 由 xkcp_update 传入)
     uint32_t  ts_flush;      // 下次 flush 时刻
     uint32_t  updated;       // 是否已调过 xkcp_update
     uint32_t  xmit;          // 总重传次数
-    uint32_t  dead_link;     // 连续重传多少次判链路死
 
     // ===== 队列 / 缓冲 / 计数 =====
     struct XQUEUEHEAD snd_queue;   // 待分片发送队列(xkcp_send 入口)
@@ -358,29 +346,26 @@ struct XKCPCB {
 
     
     uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
-    uint8_t   mac_key[16]; // [X] 信封 MAC 密钥(SipHash/crypto_shorthash)
 
     // [X] 可插拔拥塞控制(原生无; ccops = NULL 时用内置算法)
     struct XKCPOPS* ccops;   // [X] 策略回调集
     void* congest;           // [X] 策略私有状态
 
     // [X] 控制 cmd 回调(握手 / 顶号 / 踢人)
-    void (*on_regist)(const uint8_t *data, int len, struct XKCPCB *kcp, uint8_t *out_data, int *out_len); // 服务端收 REGIST_REQ(仅新握手)
-    void (*on_regist_rsp)(const uint8_t *data, int len, struct XKCPCB *kcp);  // 客户端收 REGIST_RSP
+    void (*on_reg_req)(const uint8_t *data, int len, struct XKCPCB *kcp, uint8_t *out_data, int *out_len); // 服务端收 REGIST_REQ(仅新握手); out_data/out_len 填 RSP 业务 payload, xkcp 自动包成 REGIST_RSP 段发出
+    void (*on_reg_rsp)(const uint8_t *data, int len, struct XKCPCB *kcp);  // 客户端收 REGIST_RSP
     void (*on_rst)(const uint8_t *data, int len, struct XKCPCB *kcp);         // 客户端收 RST(顶号)
     void (*on_kic)(const uint8_t *data, int len, struct XKCPCB *kcp);         // 客户端收 KIC(被踢)
 
     // [X] REGIST 传输层去重缓存: 握手 id(REQ payload 头部) + 对应 RSP, 供重发 REQ 时重发 RSP
     uint8_t   regist_id[XKCP_REGIST_ID_LEN];   // [X] 当前握手 id
     int32_t   has_regist;                      // [X] 是否已缓存握手
-    uint8_t   regist_rsp[XKCP_REGIST_RSP_MAX]; // [X] 缓存的 RSP 字节
-    int32_t   regist_rsp_len;                  // [X] 缓存 RSP 长度
+    uint8_t   regist_rsp[32];               // [X] 缓存的 RSP 字节
+    int32_t   reg_rsp_len;                  // [X] 缓存 RSP 长度
 
     // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
     uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
     uint32_t  last_rcv_ms;   // [X] 最近一次收到时刻
-    uint32_t  ping_interval; // [X] 空闲多久发 PING
-    uint32_t  dead_timeout;  // [X] 多久没收到判死
     int32_t   dead;          // [X] 判死只触发一次(xkcp_update 返回 -1 一次)
 
     // [X] 加解密(直链 libsodium): 会话密钥 + 按消息 nonce 计数器 + 方向
@@ -415,6 +400,26 @@ extern "C" {
 
 
 /**
+ * @brief [XKCP] 初始化全局配置(鉴权密钥 + KCP 调参), 进程启动时调用一次, 所有会话共享
+ * @note  各调参传 0 用内置默认值, 非 0 用传入值; 密钥定长拷入
+ */
+void
+xkcp_init(
+    const uint8_t* x25519_pk,   // 用于 sealedbox 加解密的公钥
+    const uint8_t* x25519_sk,   // 用于 sealedbox 加解密的私钥
+    const uint8_t* ed25519_pk,  // 用于 ed25519 验签的公钥
+    const uint8_t* siphash_key, // 用于 envelope_mac 验签的密钥
+    uint32_t snd_wnd,           // 发送窗口(段)
+    uint32_t rcv_wnd,           // 接收窗口(段)
+    uint32_t interval,          // flush 间隔(ms)
+    int32_t  fastresend,        // 快速重传
+    int32_t  fastlimit,         // 快速重传的 xmit 次数上限
+    uint32_t dead_link,         // 连续重传多少次判链路死
+    uint32_t dead_timeout       // 多久没收到判死(ms)
+);
+
+
+/**
  * @brief 创建一个 kcp 会话控制块(xkcpcb)
  * @param conv  会话号, 两端必须一致(本项目 = userID 路由键)
  * @param user  用户指针, 原样回传给 output/writelog 回调(本项目 = kcp::Session)
@@ -444,7 +449,7 @@ xkcp_reset(xkcpcb *kcp);
  * @param kcp  会话
  */
 void
-xkcp_kx_keygen(xkcpcb *kcp);
+xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk);
 
 
 /**
@@ -563,7 +568,7 @@ xkcp_waitsnd(const xkcpcb *kcp);
 /**
  * @brief 设置 kcp 核心参数(延迟模式 / 帧间隔 / 快重传 / 拥塞开关)
  * @param kcp       会话
- * @param nodelay   是否开启低延迟模式, 默认关闭. 1, 极速模式. 2, 将会开启流模式
+ * @param nodelay   是否开启低延迟模式: 0 默认关闭, 1 极速模式
  * @param interval  帧间隔(ms)
  * @param resend    快速重传值
  * @param nc        是否关闭拥塞控制算法. 0 默认开启, 1 关闭

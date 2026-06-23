@@ -103,11 +103,11 @@ typhon::kcp::Server::run() noexcept {
 
 
 int
-typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
-    auto* s  = (Session*)user;
+typhon::kcp::Server::output(const uint8_t *buf, int len, XKCPCB *kcp) noexcept {
+    // buf 已是完整 wire 数据报(8B SipHash 信封由 xkcp_output 加好), 这里只入发送队列
+    auto* s  = (Session*)kcp->user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
-    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->siphash()));
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -245,10 +245,11 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto  hdr    = &rmsgs_[i].msg_hdr;
-                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base + core::ENVELOPE_MAC_LEN;
-                auto  msglen = msg.msg_len - core::ENVELOPE_MAC_LEN;
+                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base;   // 完整数据报(含 8B 信封)
+                auto  msglen = (long)msg.msg_len;
 
-                auto conv = Session::getconv(pbuf, msglen);
+                // conv 在信封之后(偏移 8); 信封由 XDP 校验, xkcp_input 内部再剥这 8B
+                auto conv = Session::getconv(pbuf + core::ENVELOPE_MAC_LEN, msglen - core::ENVELOPE_MAC_LEN);
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
@@ -551,7 +552,6 @@ int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
     // PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48) = 170
     constexpr int REGIST_REQ_LEN = (int)sizeof(core::AuthToken) + 48;
-
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
     }

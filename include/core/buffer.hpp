@@ -22,21 +22,19 @@ struct SndBuf {
 
     ::sockaddr_storage addr;         ///< 对端地址
     ::socklen_t        addrlen;      ///< 地址长度
-    uint32_t           len;          ///< 消息长度
+    uint32_t           len;          ///< wire 数据报长度(含 8B SipHash 信封, 由 xkcp 加好)
     uint64_t           time;         ///< 缓冲区创建的时间
-    uint64_t*          siphash;      ///< buf[0:8) 的数据, siphash 签名段
-    uint8_t            buf[UDP_MTU]; ///< 缓冲区大小
+    uint8_t            buf[UDP_MTU]; ///< 缓冲区(直接存 xkcp 产出的完整 wire 数据报)
 
 
     explicit
-    SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
+    SndBuf(const void* addr, ::socklen_t addrlen, const uint8_t* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
-        , len(l + ENVELOPE_MAC_LEN)
+        , len(l)
         , time(time) {
-        siphash = (uint64_t*)this->buf;
         ::memcpy(&this->addr, addr, addrlen);
-        ASSERT(l <= KCP_MTU, "len = {}, max = {}", l, KCP_MTU);
-        ::memcpy(this->buf + ENVELOPE_MAC_LEN, b, l);
+        ASSERT(l <= UDP_MTU, "len = {}, max = {}", l, UDP_MTU);
+        ::memcpy(this->buf, b, l);
     }
 
 
