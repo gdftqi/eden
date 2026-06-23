@@ -324,10 +324,11 @@ xkcp_output_ctrl(xkcpcb* kcp, uint32_t cmd, const uint8_t* payload, int plen) {
     // una
     p = xkcp_encode32u(p, kcp->rcv_nxt);
     // len
-    p = xkcp_encode32u(p, 0);
+    p = xkcp_encode32u(p, plen);
     // payload
     if (plen > 0 && payload != NULL) {
         memcpy(p, payload, plen);
+        p += plen;
     }
 
     xkcp_output(kcp, buf, (int)(p - buf));
@@ -854,7 +855,7 @@ xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...) {
 
 void
 xkcp_init(
-    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp),
+    int (*output)(const uint8_t* buf, int len, xkcpcb* kcp),
     const uint8_t* x25519_pk,
     const uint8_t* x25519_sk,
     const uint8_t* ed25519_pk,
@@ -889,6 +890,8 @@ xkcp_init(
     __conf_.interval     = interval     ? interval     : XKCP_INTERVAL;
     __conf_.fastresend   = fastresend   ? fastresend   : XKCP_ACK_FAST;
     __conf_.dead_timeout = dead_timeout ? dead_timeout : XKCP_DEAD_TIMEOUT;
+
+    ASSERT(__conf_.dead_timeout > 0);
 
     __conf_.nodelay   = 1;
     __conf_.nocwnd    = 1;
@@ -1369,6 +1372,10 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             return -2;
         }
 
+        if (kcp->auth == 0 && cmd != XKCP_CMD_SYNC && cmd != XKCP_CMD_SACK) {
+            return -1;
+        }
+
         switch (cmd) {
         case XKCP_CMD_SYNC:
             xkcp_on_sync(kcp, data, (int)len);
@@ -1401,10 +1408,6 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_ACK:
-            if (kcp->auth == 0) {
-                return;
-            }
-
             xkcp_input_window(kcp, wnd, una);
             if (_xtimediff(kcp->current, ts) >= 0) {
                 xkcp_update_ack(kcp, _xtimediff(kcp->current, ts));
@@ -1439,10 +1442,6 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_PUSH:
-            if (kcp->auth == 0) {
-                return;
-            }
-
             xkcp_input_window(kcp, wnd, una);
             if (xkcp_canlog(kcp, XKCP_LOG_IN_DATA)) {
                 xkcp_log(kcp, XKCP_LOG_IN_DATA, 
@@ -1819,7 +1818,11 @@ xkcp_update(xkcpcb* kcp, uint32_t current) {
     }
 
     // 保活/超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
-    if (__conf_.dead_timeout > 0 && kcp->auth > 0 && _xtimediff(kcp->current, kcp->last_rcv_ms) > (int32_t)__conf_.dead_timeout) {
+    // 判死不限 auth: 半开会话(auth==0 收到首包后无下文)空闲超时也要被摘除。
+    // 真在重传 SYNC 的客户端每次 input 都刷新 last_rcv_ms, 不会误杀。
+    int32_t timeout = kcp->auth > 0 ? (int32_t)__conf_.dead_timeout : 5000;
+
+    if (_xtimediff(kcp->current, kcp->last_rcv_ms) > timeout) {
         kcp->state = (uint32_t)-1;
         return -1;
     }

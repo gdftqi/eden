@@ -257,23 +257,25 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto  msglen = (long)msg.msg_len;
 
                 // conv 在信封之后(偏移 8); 信封由 XDP 校验, xkcp_input 内部再剥这 8B
-                auto conv = xkcp_getconv(raw);
-                auto s = get_session(conv);
-                if (s == nullptr) {
-                    s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
-                    if (add_session(conv, s) != 0) {
-                        continue;
-                    }
+                auto conv   = xkcp_getconv(raw);
+                auto sess   = get_session(conv);
+                bool is_new = false;
+                if (sess == nullptr) {
+                    sess = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
                 }
 
-                if (s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
+                if (sess->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
+                    continue;
+                }
+
+                if (is_new && add_session(conv, sess) != 0) {
                     continue;
                 }
 
                 core::PK<core::Host> pk;
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
+                    res = sess->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
                     if (res == xAGAIN) {
                         // 没有更多消息了
                         break;
@@ -281,13 +283,13 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         // 幂等重复, 跳过
                         continue;
                     } else if (res < 0) {
-                        remove_session(s->conv());   // 协议错误
+                        remove_session(sess->conv());   // 协议错误
                         break;
                     }
 
-                    res = on_c2s(s, pk);
+                    res = on_c2s(sess, pk);
                     if (res < 0) {
-                        remove_session(s->conv());
+                        remove_session(sess->conv());
                         break;
                     }
                 }
