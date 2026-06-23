@@ -221,73 +221,59 @@ typedef struct XKCPOPS {
 
 
 typedef struct XKCPCB {
-    // ===== 标识 / 基本配置 =====
-    uint32_t  conv;          // 会话号(两端一致; 本项目 = userID 路由键)
-    uint32_t  state;         // 链路状态(-1 = 链路死)
-
-    // ===== 收发序号 =====
-    uint32_t  snd_una;       // 最早未确认序号
-    uint32_t  snd_nxt;       // 下一发送序号
-    uint32_t  rcv_nxt;       // 下一期望接收序号
-
-    // ===== 窗口 / 拥塞 =====
-    uint32_t  rmt_wnd;       // 对端通告窗口
-    uint32_t  cwnd;          // 拥塞窗口
-    uint32_t  ssthresh;      // 慢启动阈值
-    uint32_t  incr;          // 拥塞窗口字节增量
-    uint32_t  probe;         // 窗口探测标志(ASK_SEND / ASK_TELL)
-    uint32_t  probe_wait;    // 窗口探测计时
-    uint32_t  ts_probe;      // 下次窗口探测时刻
-
-    // ===== RTT / 计时 / 重传 =====
-    int32_t   rx_rttval;     // RTT 抖动
-    int32_t   rx_srtt;       // 平滑 RTT
-    int32_t   rx_rto;        // 重传超时 RTO
-    uint32_t  current;       // 当前时刻(ms, 由 xkcp_update 传入)
-    uint32_t  ts_flush;      // 下次 flush 时刻
-    uint32_t  updated;       // 是否已调过 xkcp_update
-    uint32_t  xmit;          // 总重传次数
-
-    // ===== 队列 / 缓冲 / 计数 =====
-    struct XQUEUEHEAD snd_queue;   // 待分片发送队列(xkcp_send 入口)
     struct XQUEUEHEAD rcv_queue;   // 已就绪待读队列(xkcp_recv 出口)
-    struct XQUEUEHEAD snd_buf;     // 已发送待确认缓冲(重传源)
+    struct XQUEUEHEAD snd_queue;   // 待分片发送队列(xkcp_send 入口)
     struct XQUEUEHEAD rcv_buf;     // 乱序到达暂存缓冲
+    struct XQUEUEHEAD snd_buf;     // 已发送待确认缓冲(重传源)
+
+    uint8_t   rcv_dir;             // [X] 接收方向
+    uint8_t   snd_dir;             // [X] 发送方向(0 = C2S, 1 = S2C)
+    int32_t   auth;                // [X] 是否已缓存握手
+    int32_t   rx_rttval;           // RTT 抖动
+    int32_t   rx_srtt;             // 平滑 RTT
+    int32_t   rx_rto;              // 重传超时 RTO
+    uint32_t  conv;                // 会话号(两端一致; 本项目 = userID 路由键)
+    uint32_t  state;               // 链路状态(-1 = 链路死)
+    uint32_t  snd_una;             // 最早未确认序号
+    uint32_t  snd_nxt;             // 下一发送序号
+    uint32_t  rcv_nxt;             // 下一期望接收序号
+    uint32_t  rmt_wnd;             // 对端通告窗口
+    uint32_t  cwnd;                // 拥塞窗口
+    uint32_t  ssthresh;            // 慢启动阈值
+    uint32_t  incr;                // 拥塞窗口字节增量
+    uint32_t  probe;               // 窗口探测标志(ASK_SEND / ASK_TELL)
+    uint32_t  probe_wait;          // 窗口探测计时
+    uint32_t  ts_probe;            // 下次窗口探测时刻
+    uint32_t  current;             // 当前时刻(ms, 由 xkcp_update 传入)
+    uint32_t  ts_flush;            // 下次 flush 时刻
+    uint32_t  updated;             // 是否已调过 xkcp_update
+    uint32_t  xmit;                // 总重传次数
     uint32_t  nsnd_que;            // snd_queue 段数
     uint32_t  nrcv_que;            // rcv_queue 段数
     uint32_t  nsnd_buf;            // snd_buf 段数
     uint32_t  nrcv_buf;            // rcv_buf 段数
+    uint32_t  ackcount;            // 待回 ACK 个数
+    uint32_t  ackblock;            // acklist 容量
+    uint32_t  ackedlen;            // 本次 input 累计被确认字节数
+    uint32_t  last_snd_ms;         // [X] 最近一次发送时刻
+    uint32_t  last_rcv_ms;         // [X] 最近一次收到时刻
+    uint32_t  gen;                 // [X] 世代号
+    uint32_t  snd_seq;             // [X] AEAD 发送 nonce 计数器(按消息)
+    uint32_t  rcv_seq;             // [X] AEAD 接收 nonce 计数器(按消息)
     uint8_t*  buffer;              // flush 组包临时缓冲
+    uint8_t*  mac_buf;             // [X] 出向信封暂存 [8B SipHash MAC | buffer]
+    uint32_t* acklist;             // 待回 ACK 列表(sn,ts 成对存)
+    uint8_t   tx_key[32];          // [X] 发送密钥
+    uint8_t   rx_key[32];          // [X] 接收密钥
+    uint8_t   eph_pk[32];          // [X] 握手临时公钥
+    uint8_t   eph_sk[32];          // [X] 握手临时私钥
+    void*  user;                   // 用户指针(本项目 = kcp::Session)
 
-    // ===== 待回 ACK 列表 =====
-    uint32_t* acklist;       // 待回 ACK 列表(sn,ts 成对存)
-    uint32_t  ackcount;      // 待回 ACK 个数
-    uint32_t  ackblock;      // acklist 容量
-    uint32_t  ackedlen;      // 本次 input 累计被确认字节数
+    // 出向发送回调
+    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);
 
-    
-    uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
-    int32_t   auth;        // [X] 是否已缓存握手
-
-    // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
-    uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
-    uint32_t  last_rcv_ms;   // [X] 最近一次收到时刻
-    uint32_t  gen;           // [X] 世代号
-
-    // [X] 加解密(直链 libsodium): 会话密钥 + 按消息 nonce 计数器 + 方向
-    uint8_t   tx_key[32];    // [X] 发送密钥
-    uint8_t   rx_key[32];    // [X] 接收密钥
-    uint8_t   eph_pk[32];    // [X] 握手临时公钥
-    uint8_t   eph_sk[32];    // [X] 握手临时私钥
-    uint32_t  snd_seq;       // [X] AEAD 发送 nonce 计数器(按消息)
-    uint32_t  rcv_seq;       // [X] AEAD 接收 nonce 计数器(按消息)
-    uint8_t   snd_dir;       // [X] 发送方向(0 = C2S, 1 = S2C)
-    uint8_t   rcv_dir;       // [X] 接收方向
-
-    // ===== 用户指针 / 回调 =====
-    void*  user;          // 用户指针(本项目 = kcp::Session)
-    int  (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);    // 出向发送回调
-    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);  // 日志回调
+     // 日志回调
+    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);
 } xkcpcb;
 
 
@@ -325,7 +311,7 @@ extern "C" {
 
 
 /**
- * @brief 生成本端握手用的 x25519 临时密钥对(存入 kcp->eph_pk / eph_sk)
+ * @brief 生成本端握手用的 x25519 临时密钥对
  * @param kcp  会话
  */
 void
@@ -333,73 +319,77 @@ xkcp_x25519_keygen(xkcpcb* kcp);
 
 
 /**
- * @brief 服务端侧 x25519 密钥协商; 方向 snd=S2C / rcv=C2S, nonce seq 归零
- * @param kcp            会话
- * @param client_pk      对端(客户端)公钥
- * @param out_server_pk  [out] 本端新生成的服务端公钥(需回传给客户端)
+ * @brief 服务端侧 x25519 密钥协商
+ * @param kcp    会话
+ * @param cli_pk 对端(客户端)公钥
  * @return 成功 0; 失败 -1
  */
 int
-xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk);
+xkcp_kx_server(xkcpcb* kcp, const uint8_t* cli_pk);
 
 
 /**
  * @brief 客户端侧 x25519 密钥协商; 用本端 eph 私钥与服务端公钥导出会话密钥
- * @param kcp        会话
- * @param server_pk  对端(服务端)公钥
+ * @param kcp     会话
+ * @param svr_pk  对端(服务端)公钥
  * @return 成功 0; 失败 -1
  */
 int
-xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk);
+xkcp_kx_client(xkcpcb* kcp, const uint8_t* svr_pk);
 
 
 /**
  * @brief [XKCP] 初始化全局配置(鉴权密钥 + KCP 调参), 进程启动时调用一次, 所有会话共享
  * @note  各调参传 0 用内置默认值, 非 0 用传入值; 密钥定长拷入
+ * 
+ * @param x25519_pk    用于 sealedbox 加解密的公钥
+ * @param x25519_sk    用于 sealedbox 加解密的私钥
+ * @param ed25519_pk   用于 ed25519 验签的公钥
+ * @param siphash_key  用于 envelope_mac 验签的密钥
+ * @param snd_wnd      发送窗口(段)
+ * @param rcv_wnd      接收窗口(段)
+ * @param interval     flush 间隔(ms)
+ * @param fastresend   快速重传
+ * @param fastlimit    快速重传的 xmit 次数上限
+ * @param dead_link    连续重传多少次判链路死
+ * @param dead_timeout 多久没收到判死(ms)
  */
 void
-xkcp_init(
-    const uint8_t* x25519_pk,   // 用于 sealedbox 加解密的公钥
-    const uint8_t* x25519_sk,   // 用于 sealedbox 加解密的私钥
-    const uint8_t* ed25519_pk,  // 用于 ed25519 验签的公钥
-    const uint8_t* siphash_key, // 用于 envelope_mac 验签的密钥
-    uint32_t snd_wnd,           // 发送窗口(段)
-    uint32_t rcv_wnd,           // 接收窗口(段)
-    uint32_t interval,          // flush 间隔(ms)
-    int32_t  fastresend,        // 快速重传
-    int32_t  fastlimit,         // 快速重传的 xmit 次数上限
-    uint32_t dead_link,         // 连续重传多少次判链路死
-    uint32_t dead_timeout       // 多久没收到判死(ms)
-);
+xkcp_init(const uint8_t* x25519_pk, const uint8_t* x25519_sk, const uint8_t* ed25519_pk, const uint8_t* siphash_key, uint32_t snd_wnd, uint32_t rcv_wnd, uint32_t interval, int32_t fastresend, int32_t fastlimit, uint32_t dead_link, uint32_t dead_timeout);
 
 
 /**
- * @brief 创建一个 kcp 会话控制块(xkcpcb)
- * @param conv  会话号, 两端必须一致(本项目 = userID 路由键)
- * @param user  用户指针, 原样回传给 output/writelog 回调(本项目 = kcp::Session)
- * @return 成功返回 xkcpcb*; 内存分配失败返回 NULL
+ * @brief 创建一个 xkcpcb
+ * @param conv  会话号
+ * @param user  用户指针
+ * @return 成功返回 xkcpcb*, 否则返回 NULL
  */
 xkcpcb*
-xkcp_create(uint32_t conv, void *user);
+xkcp_create(uint32_t conv, void* user);
 
 
 /**
- * @brief 释放 kcp 会话(收发队列 / acklist / buffer / mac_buf 全部回收)
- * @param kcp  由 xkcp_create 创建的会话
+ * @brief 释放 xkcpcb
+ * @param kcp 由 xkcp_create 创建的会话
  */
 void
-xkcp_release(xkcpcb *kcp);
+xkcp_release(xkcpcb* kcp);
+
 
 /**
  * @brief 复位传输状态用于重连: 保留 conv 与配置, 清空收发队列、序号归零
  * @param kcp  会话
  */
 void
-xkcp_reset(xkcpcb *kcp);
+xkcp_reset(xkcpcb* kcp);
 
 
+/**
+ * @brief 握手请求
+ * @note 由客户端主动发送
+ */
 int
-xkcp_sync(xkcpcb *kcp, const uint8_t* token, int len);
+xkcp_sync(xkcpcb* kcp, const uint8_t* token, int len);
 
 
 /**
@@ -410,7 +400,7 @@ xkcp_sync(xkcpcb *kcp, const uint8_t* token, int len);
  * @return 成功 0; -1 长度不足(< 8+24)或 conv 不符; -2 段长越界; -3 未知 cmd
  */
 int
-xkcp_input(xkcpcb *kcp, const uint8_t *data, int size);
+xkcp_input(xkcpcb* kcp, const uint8_t* data, int size);
 
 
 /**
@@ -421,7 +411,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size);
  * @return 成功返回消息长度; -1 无数据; -2 消息未收全; -3 buffer 太小; -4 解密/认证失败
  */
 int
-xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len);
+xkcp_recv(xkcpcb* kcp, uint8_t* buffer, int len);
 
 
 /**
@@ -432,7 +422,7 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len);
  * @return 成功 >=0; 失败 <0(-1 参数/内存/加密错; -2 分片数超过接收窗口上限)
  */
 int
-xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len);
+xkcp_send(xkcpcb* kcp, const uint8_t* buffer, int len);
 
 
 /**
@@ -442,7 +432,7 @@ xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len);
  * @return 正常 0; 判死(超 dead_timeout 未收到)返回 -1(只触发一次, 上层据此摘除会话)
  */
 int
-xkcp_update(xkcpcb *kcp, uint32_t current);
+xkcp_update(xkcpcb* kcp, uint32_t current);
 
 
 /**
@@ -452,7 +442,7 @@ xkcp_update(xkcpcb *kcp, uint32_t current);
  * @return 下次应调用 xkcp_update 的绝对时刻(ms)
  */
 uint32_t
-xkcp_check(const xkcpcb *kcp, uint32_t current);
+xkcp_check(const xkcpcb* kcp, uint32_t current);
 
 
 /**
@@ -460,7 +450,7 @@ xkcp_check(const xkcpcb *kcp, uint32_t current);
  * @param kcp  会话
  */
 void
-xkcp_flush(xkcpcb *kcp);
+xkcp_flush(xkcpcb* kcp);
 
 
 /**
@@ -469,7 +459,7 @@ xkcp_flush(xkcpcb *kcp);
  * @return 成功返回消息长度; -1 没有就绪的完整消息
  */
 int
-xkcp_peeksize(const xkcpcb *kcp);
+xkcp_peeksize(const xkcpcb* kcp);
 
 
 /**
@@ -478,7 +468,7 @@ xkcp_peeksize(const xkcpcb *kcp);
  * @return snd_queue + snd_buf 中的段数
  */
 int
-xkcp_waitsnd(const xkcpcb *kcp);
+xkcp_waitsnd(const xkcpcb* kcp);
 
 
 /**
@@ -488,7 +478,8 @@ xkcp_waitsnd(const xkcpcb *kcp);
  * @return 成功 0; 失败 <0
  */
 int
-xkcp_setcc(xkcpcb *kcp, const struct XKCPOPS *ops);
+xkcp_setcc(xkcpcb* kcp, const xkcpops* ops);
+
 
 /**
  * @brief 经 kcp->writelog 输出一条日志(受 kcp->logmask 过滤)
@@ -497,7 +488,7 @@ xkcp_setcc(xkcpcb *kcp, const struct XKCPOPS *ops);
  * @param fmt   printf 风格格式串, 后接可变参数
  */
 void
-xkcp_log(xkcpcb *kcp, int mask, const char *fmt, ...);
+xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...);
 
 
 /**
@@ -506,7 +497,7 @@ xkcp_log(xkcpcb *kcp, int mask, const char *fmt, ...);
  * @return conv 会话号
  */
 uint32_t
-xkcp_getconv(const void *ptr);
+xkcp_getconv(const void* ptr);
 
 
 #ifdef __cplusplus
