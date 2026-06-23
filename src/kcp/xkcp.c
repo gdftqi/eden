@@ -91,7 +91,7 @@ static struct XKCPCONF {
     uint32_t rcv_wnd;          // 接收窗口(段)
     uint32_t nodelay;          // 极速模式开关
     uint32_t interval;         // flush 间隔(ms)
-    uint32_t dead_timeout;     // 多久没收到判死(ms)
+    uint32_t dead_timeout;     // 超时(ms)
 
     const xkcpops* ccops;      // 策略回调集
     void*          congest;    // 策略私有状态
