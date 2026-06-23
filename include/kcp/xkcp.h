@@ -350,8 +350,6 @@ xkcp_kx_client(xkcpcb* kcp, const uint8_t* svr_pk);
  * @param rcv_wnd      接收窗口(段)
  * @param interval     flush 间隔(ms)
  * @param fastresend   快速重传
- * @param fastlimit    快速重传的 xmit 次数上限
- * @param dead_link    连续重传多少次判链路死
  * @param dead_timeout 多久没收到判死(ms)
  */
 void

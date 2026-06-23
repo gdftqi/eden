@@ -79,27 +79,24 @@
 /**
  * @brief KCP 全局配置
  */
-struct XKCPCONF {
+static struct XKCPCONF {
     uint8_t  x25519_pk[32];    // 服务端 x25519 公钥(sealedbox 收件)
     uint8_t  x25519_sk[32];    // 服务端 x25519 私钥(sealedbox 开封)
     uint8_t  ed25519_pk[32];   // 登录服 ed25519 公钥(验 token 签名)
     uint8_t  siphash_key[16];  // SipHash 信封 MAC 密钥(每出向数据报前置 8B tag)
     int32_t  rx_minrto;        // 最小 RTO
     int32_t  fastresend;       // 跨越多少次触发快速重传(0 = 关)
-    int32_t  fastlimit;        // 快速重传的 xmit 次数上限
     int32_t  nocwnd;           // 关闭拥塞控制
     int32_t  logmask;          // 日志掩码(XKCP_LOG_*)
     uint32_t snd_wnd;          // 发送窗口(段)
     uint32_t rcv_wnd;          // 接收窗口(段)
     uint32_t nodelay;          // 极速模式开关
     uint32_t interval;         // flush 间隔(ms)
-    uint32_t dead_link;        // 连续重传多少次判链路死
     uint32_t dead_timeout;     // 多久没收到判死(ms)
 
     const xkcpops* ccops;      // 策略回调集
     void*          congest;    // 策略私有状态
-};
-static struct XKCPCONF __conf_;
+} __conf_;
 
 
 /* encode 8 bits unsigned int */
@@ -262,21 +259,6 @@ xkcp_segment_delete(xkcpcb*, xkcpseg* seg) {
 }
 
 
-void
-xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...) {
-    char buffer[1024];
-    va_list argptr;
-    if ((mask & __conf_.logmask) == 0 || kcp->writelog == 0) {
-        return;
-    }
-
-    va_start(argptr, fmt);
-    vsprintf(buffer, fmt, argptr);
-    va_end(argptr);
-    kcp->writelog(buffer, kcp, kcp->user);
-}
-
-
 /**
  * @brief 判断某类日志当前是否需要输出
  * @param kcp   会话
@@ -395,6 +377,480 @@ xkcp_sealedbox_decrypt(uint8_t* out, const uint8_t* in, size_t inlen, const uint
 }
 
 
+/**
+ * @brief 原始发送: 把数据按 mss 分片成段入 snd_queue(原生 KCP 逻辑; xkcp_send 在外层加 AEAD)
+ * @param kcp     会话
+ * @param buffer  待发送数据(可为 NULL, 仅占位)
+ * @param len     数据长度
+ * @return 成功返回已入队字节数(>=0); -1 参数错; -2 分片数超过接收窗口
+ */
+static int
+xkcp_send_raw(xkcpcb* kcp, const uint8_t* buffer, int len) {
+    ASSERT(XKCP_MSS > 0);
+
+    xkcpseg *seg;
+    int count, i;
+    int sent = 0;
+    
+    if (len < 0) {
+        return -1;
+    }
+
+    if (len <= XKCP_MSS) {
+        count = 1;
+    }
+    else {
+        count = (len + XKCP_MSS - 1) / XKCP_MSS;
+    }
+
+    if (count >= XKCP_WND_RCV) {
+        return -2;
+    }
+
+    if (count == 0) {
+        count = 1;
+    }
+
+    // fragment
+    for (i = 0; i < count; i++) {
+        int size = len > XKCP_MSS ? XKCP_MSS : len;
+        seg = xkcp_segment_new(kcp, size);
+        ASSERT(seg != NULL);
+
+        if (buffer && len > 0) {
+            memcpy(seg->data, buffer, size);
+        }
+
+        seg->len = size;
+        seg->frg = count - i - 1;
+        xqueue_init(&seg->node);
+        xqueue_add_tail(&seg->node, &kcp->snd_queue);
+        kcp->nsnd_que++;
+
+        if (buffer) {
+            buffer += size;
+        }
+
+        len -= size;
+        sent += size;
+    }
+
+    return sent;
+}
+
+
+/**
+ * @brief 用一个 RTT 样本更新平滑 RTT(rx_srtt)与重传超时(rx_rto)
+ * @param kcp  会话
+ * @param rtt  本次测得的 RTT 样本(ms)
+ */
+static void 
+xkcp_update_ack(xkcpcb* kcp, int32_t rtt) {
+    int32_t rto = 0;
+    if (kcp->rx_srtt == 0) {
+        kcp->rx_srtt = rtt;
+        kcp->rx_rttval = rtt / 2;
+    } else {
+        long delta = rtt - kcp->rx_srtt;
+        if (delta < 0) {
+            delta = -delta;
+        }
+        kcp->rx_rttval = (3 * kcp->rx_rttval + delta) / 4;
+        kcp->rx_srtt = (7 * kcp->rx_srtt + rtt) / 8;
+        if (kcp->rx_srtt < 1) {
+            kcp->rx_srtt = 1;
+        }
+    }
+
+    rto = kcp->rx_srtt + _xmax_(__conf_.interval, 4 * kcp->rx_rttval);
+    kcp->rx_rto = _xbound_(__conf_.rx_minrto, rto, XKCP_RTO_MAX);
+    if (__conf_.ccops && __conf_.ccops->on_rtt) {
+        __conf_.ccops->on_rtt(kcp, rtt);
+    }
+}
+
+/**
+ * @brief 把 snd_una 推进到 snd_buf 首段的 sn(无未确认段时 = snd_nxt)
+ * @param kcp  会话
+ */
+static void
+xkcp_shrink_buf(xkcpcb *kcp) {
+    struct XQUEUEHEAD *p = kcp->snd_buf.next;
+    if (p != &kcp->snd_buf) {
+        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
+        kcp->snd_una = seg->sn;
+    }   else {
+        kcp->snd_una = kcp->snd_nxt;
+    }
+}
+
+/**
+ * @brief 收到某个 sn 的 ACK: 从 snd_buf 删掉该段(已确认)
+ * @param kcp  会话
+ * @param sn   被确认的段序号
+ */
+static void
+xkcp_parse_ack(xkcpcb* kcp, uint32_t sn) {
+    struct XQUEUEHEAD *p, *next;
+    int32_t pkt_rtt;
+
+    if (_xtimediff(sn, kcp->snd_una) < 0 || _xtimediff(sn, kcp->snd_nxt) >= 0)
+        return;
+
+    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
+        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
+        next = p->next;
+        if (sn == seg->sn) {
+            kcp->ackedlen += seg->len;
+
+            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
+                pkt_rtt = -1;
+    
+                if (_xtimediff(kcp->current, seg->ts) >= 0) {
+                    pkt_rtt = _xtimediff(kcp->current, seg->ts);
+                }
+
+                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts, seg->len, pkt_rtt, seg->xmit);
+            }
+
+            xqueue_del(p);
+            xkcp_segment_delete(kcp, seg);
+            kcp->nsnd_buf--;
+            break;
+        }
+
+        if (_xtimediff(sn, seg->sn) < 0) {
+            break;
+        }
+    }
+}
+
+/**
+ * @brief 按对端 una 批量确认: 删掉 snd_buf 里所有 sn < una 的段
+ * @param kcp  会话
+ * @param una  对端 una(此前的段对端都已收到)
+ */
+static void
+xkcp_parse_una(xkcpcb* kcp, uint32_t una) {
+    struct XQUEUEHEAD *p, *next;
+    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
+        xkcpseg *seg = xqueue_entry(p, xkcpseg, node);
+        next = p->next;
+        if (_xtimediff(una, seg->sn) > 0) {
+            kcp->ackedlen += seg->len;
+            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
+                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts,
+                        seg->len, -1, seg->xmit);
+            }
+
+            xqueue_del(p);
+            xkcp_segment_delete(kcp, seg);
+            kcp->nsnd_buf--;
+        } else {
+            break;
+        }
+    }
+}
+
+
+/**
+ * @brief 给 sn 之前仍未确认的段累计"被跨越"计数(fastack); 达 fastresend 阈值触发快速重传
+ * @param kcp  会话
+ * @param sn   本次 ACK 的最大 sn
+ * @param ts   该 ACK 的时间戳(conserve 模式下参与判定)
+ */
+static void
+xkcp_parse_fastack(xkcpcb* kcp, uint32_t sn, uint32_t ts) {
+    struct XQUEUEHEAD *p, *next;
+
+    if (_xtimediff(sn, kcp->snd_una) < 0 || _xtimediff(sn, kcp->snd_nxt) >= 0)
+        return;
+
+    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
+        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
+        next = p->next;
+        if (_xtimediff(sn, seg->sn) < 0) {
+            break;
+        }
+        else if (sn != seg->sn) {
+        #ifndef XKCP_FASTACK_CONSERVE
+            seg->fastack++;
+        #else
+            if (_xtimediff(ts, seg->ts) >= 0) {
+                seg->fastack++;
+            }
+        #endif
+        }
+    }
+}
+
+
+/**
+ * @brief 记录一个待回的 ACK(sn,ts) 进 acklist, 等 flush 时统一发出
+ * @param kcp  会话
+ * @param sn   待确认的段序号
+ * @param ts   段携带的时间戳(回 ACK 时带回, 供对端算 RTT)
+ */
+static void
+xkcp_ack_push(xkcpcb* kcp, uint32_t sn, uint32_t ts) {
+    uint32_t  newsize = kcp->ackcount + 1;
+    uint32_t* ptr;
+
+    if (newsize > kcp->ackblock) {
+        uint32_t *acklist;
+        uint32_t newblock;
+
+        for (newblock = 8; newblock < newsize; newblock <<= 1);
+        acklist = (uint32_t*)mi_malloc(newblock * sizeof(uint32_t) * 2);
+        ASSERT(acklist != NULL);
+
+        if (kcp->acklist != NULL) {
+            uint32_t x;
+            for (x = 0; x < kcp->ackcount; x++) {
+                acklist[x * 2 + 0] = kcp->acklist[x * 2 + 0];
+                acklist[x * 2 + 1] = kcp->acklist[x * 2 + 1];
+            }
+            mi_free(kcp->acklist);
+        }
+
+        kcp->acklist = acklist;
+        kcp->ackblock = newblock;
+    }
+
+    ptr = &kcp->acklist[kcp->ackcount * 2];
+    ptr[0] = sn;
+    ptr[1] = ts;
+    kcp->ackcount++;
+}
+
+
+/**
+ * @brief 取出 acklist 里第 p 个待回 ACK 的 sn/ts
+ * @param kcp  会话
+ * @param p    acklist 下标
+ * @param sn   [out] 该 ACK 的段序号
+ * @param ts   [out] 该 ACK 的时间戳
+ */
+static void
+xkcp_ack_get(const xkcpcb* kcp, int p, uint32_t* sn, uint32_t* ts) {
+    if (sn) {
+        sn[0] = kcp->acklist[p * 2 + 0];
+    }
+
+    if (ts) {
+        ts[0] = kcp->acklist[p * 2 + 1];
+    }
+}
+
+
+/**
+ * @brief [XKCP] 数据 cmd(PUSH/ACK/WASK/WINS)的公共窗口处理: 更新对端窗口 + 按 una 确认 + 收缩 snd_buf
+ * @param kcp  会话
+ * @param wnd  对端通告的接收窗口
+ * @param una  对端 una
+ */
+static inline void
+xkcp_input_window(xkcpcb* kcp, uint16_t wnd, uint32_t una) {
+    kcp->rmt_wnd = wnd;
+    xkcp_parse_una(kcp, una);
+    xkcp_shrink_buf(kcp);
+}
+
+
+/**
+ * @brief [XKCP] 服务端收 REGIST_REQ: 传输层去重(同 id 重发→重发缓存 RSP), 新握手才上抛 on_regist 回调并缓存/发送 RSP
+ * @param kcp   会话
+ * @param data  REGIST_REQ payload(头部 XKCP_REGIST_ID_LEN 字节为握手 id)
+ * @param len   payload 长度
+ */
+static void
+xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
+    // Step 1, 检查 data 长度
+    if (len != XKCP_PAYLOAD_MAX) {
+        return;
+    }
+        
+    // Step 2, 使用 sealedbox 私钥进行解密
+    struct XKCPTOKEN token;
+    memset(&token, 0, sizeof(token));
+    uint8_t plain[sizeof(token)];
+    if (xkcp_sealedbox_decrypt(plain, data, len, __conf_.x25519_pk, __conf_.x25519_sk) != 0) {
+        return;
+    }
+
+    // Step 3, 校验 Token 签名
+    const uint8_t* p = plain;
+    p = xkcp_decode64u(p, &token.expire);
+    if (token.expire < time(NULL)) {
+        return;
+    }
+
+    p = xkcp_decode32u(p, &token.conv);
+    if (token.conv != kcp->conv) {
+        return;
+    }
+
+    p = xkcp_decode32u(p, &token.gen);
+    if (token.gen == 0 || kcp->gen > token.gen) {
+        return;
+    }
+
+    memcpy(&token.peer_pk, p, sizeof(token.peer_pk));
+    p += sizeof(token.peer_pk);
+
+    if (xkcp_ed25519_verify(p, plain, p - plain, __conf_.ed25519_pk) != 0) {
+        return;
+    }
+
+    if (kcp->gen < token.gen) {
+        if (kcp->auth > 0) {
+            if (kcp->auth > XKCP_FASTACK_LIMIT) {
+                kcp->state = (uint32_t)-1;
+                return;
+            }
+
+            xkcp_reset(kcp);
+        }
+
+        // Step 4, 生成密钥对
+        xkcp_x25519_keygen(kcp);
+
+        // Step 5, 通过 token.peer_pk 生成服务端 key
+        if (xkcp_kx_server(kcp, token.peer_pk) != 0) {
+            return;
+        }
+        kcp->gen = token.gen;
+    }
+
+    // Step 6, 回发生成的公钥对给对端
+    xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
+    ++kcp->auth;
+}
+
+/**
+ * @brief [XKCP] 客户端收 REGIST_RSP: 上抛 on_regist_rsp 回调(取服务端公钥、算密钥、置 authed)
+ * @param kcp   会话
+ * @param data  REGIST_RSP payload
+ * @param len   payload 长度
+ */
+static inline void
+xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
+    // ....
+}
+
+/**
+ * @brief [XKCP] 客户端收 RST(被顶号): 上抛 on_rst 回调
+ * @param kcp   会话
+ * @param data  RST payload
+ * @param len   payload 长度
+ */
+static inline void
+xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
+    
+}
+
+/**
+ * @brief [XKCP] 客户端收 KIC(被踢): 上抛 on_kic 回调
+ * @param kcp   会话
+ * @param data  KIC payload
+ * @param len   payload 长度
+ */
+static inline void
+xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
+    
+}
+
+/**
+ * @brief [XKCP] 收 PING: 立即回 PONG
+ * @param kcp  会话
+ */
+static inline void
+xkcp_on_ping(xkcpcb *kcp) {
+    xkcp_output_ctrl(kcp, XKCP_CMD_PONG, NULL, 0);
+}
+
+/**
+ * @brief [XKCP] 收 PONG: 无需处理(last_rcv_ms 已在 xkcp_input 入口刷新)
+ * @param kcp  会话
+ */
+static inline void
+xkcp_on_pong(xkcpcb *kcp) {
+    (void)kcp;
+}
+
+/**
+ * @brief 收 WASK(对端窗口探测): 标记下次 flush 回 WINS 告知本端窗口
+ * @param kcp  会话
+ */
+static inline void
+xkcp_on_wask(xkcpcb *kcp) {
+    kcp->probe |= XKCP_ASK_TELL;
+    if (xkcp_canlog(kcp, XKCP_LOG_IN_PROBE)) {
+        xkcp_log(kcp, XKCP_LOG_IN_PROBE, "input probe");
+    }
+}
+
+/**
+ * @brief 收 WINS(对端窗口通告): 窗口已在 xkcp_input_window 更新, 此处仅记录日志
+ * @param kcp  会话
+ * @param wnd  对端通告的接收窗口
+ */
+static inline void
+xkcp_on_wins(xkcpcb *kcp, uint16_t wnd) {
+    if (xkcp_canlog(kcp, XKCP_LOG_IN_WINS)) {
+        xkcp_log(kcp, XKCP_LOG_IN_WINS, "input wins: %lu", (unsigned long)wnd);
+    }
+}
+
+
+/**
+ * @brief 把段头(conv/cmd/frg/wnd/ts/sn/una/len, 共 24B)编码进 ptr
+ * @param ptr  写入位置
+ * @param seg  源段
+ * @return 写入后的新位置(ptr + XKCP_OVERHEAD)
+ */
+static inline uint8_t*
+xkcp_encode_seg(uint8_t* ptr, const xkcpseg* seg) {
+    ptr = xkcp_encode32u(ptr, seg->conv);
+    ptr = xkcp_encode8u(ptr, (uint8_t)seg->cmd);
+    ptr = xkcp_encode8u(ptr, (uint8_t)seg->frg);
+    ptr = xkcp_encode16u(ptr, (uint16_t)seg->wnd);
+    ptr = xkcp_encode32u(ptr, seg->ts);
+    ptr = xkcp_encode32u(ptr, seg->sn);
+    ptr = xkcp_encode32u(ptr, seg->una);
+    ptr = xkcp_encode32u(ptr, seg->len);
+    return ptr;
+}
+
+/**
+ * @brief 计算本端接收窗口剩余可用段数(用于在段头通告 wnd)
+ * @param kcp  会话
+ * @return rcv_wnd - nrcv_que; 已满则返回 0
+ */
+static inline int
+xkcp_wnd_unused(const xkcpcb* kcp) {
+    if (kcp->nrcv_que < __conf_.rcv_wnd) {
+        return __conf_.rcv_wnd - kcp->nrcv_que;
+    }
+    return 0;
+}
+
+
+void
+xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...) {
+    char buffer[1024];
+    va_list argptr;
+    if ((mask & __conf_.logmask) == 0 || kcp->writelog == 0) {
+        return;
+    }
+
+    va_start(argptr, fmt);
+    vsprintf(buffer, fmt, argptr);
+    va_end(argptr);
+    kcp->writelog(buffer, kcp, kcp->user);
+}
+
+
 void
 xkcp_init(
     const uint8_t* x25519_pk,
@@ -405,8 +861,6 @@ xkcp_init(
     uint32_t rcv_wnd,
     uint32_t interval,
     int32_t  fastresend,
-    int32_t  fastlimit,
-    uint32_t dead_link,
     uint32_t dead_timeout
 ) {
     ASSERT(x25519_pk != NULL && x25519_sk != NULL && ed25519_pk != NULL && siphash_key != NULL);
@@ -423,8 +877,6 @@ xkcp_init(
     __conf_.rcv_wnd      = rcv_wnd      ? rcv_wnd      : XKCP_WND_RCV;
     __conf_.interval     = interval     ? interval     : XKCP_INTERVAL;
     __conf_.fastresend   = fastresend   ? fastresend   : XKCP_ACK_FAST;
-    __conf_.fastlimit    = fastlimit    ? fastlimit    : XKCP_FASTACK_LIMIT;
-    __conf_.dead_link    = dead_link    ? dead_link    : XKCP_DEADLINK;
     __conf_.dead_timeout = dead_timeout ? dead_timeout : XKCP_DEAD_TIMEOUT;
 
     __conf_.nodelay   = 1;
@@ -777,68 +1229,6 @@ xkcp_peeksize(const xkcpcb* kcp) {
 }
 
 
-/**
- * @brief 原始发送: 把数据按 mss 分片成段入 snd_queue(原生 KCP 逻辑; xkcp_send 在外层加 AEAD)
- * @param kcp     会话
- * @param buffer  待发送数据(可为 NULL, 仅占位)
- * @param len     数据长度
- * @return 成功返回已入队字节数(>=0); -1 参数错; -2 分片数超过接收窗口
- */
-static int
-xkcp_send_raw(xkcpcb* kcp, const uint8_t* buffer, int len) {
-    ASSERT(XKCP_MSS > 0);
-
-    xkcpseg *seg;
-    int count, i;
-    int sent = 0;
-    
-    if (len < 0) {
-        return -1;
-    }
-
-    if (len <= XKCP_MSS) {
-        count = 1;
-    }
-    else {
-        count = (len + XKCP_MSS - 1) / XKCP_MSS;
-    }
-
-    if (count >= XKCP_WND_RCV) {
-        return -2;
-    }
-
-    if (count == 0) {
-        count = 1;
-    }
-
-    // fragment
-    for (i = 0; i < count; i++) {
-        int size = len > XKCP_MSS ? XKCP_MSS : len;
-        seg = xkcp_segment_new(kcp, size);
-        ASSERT(seg != NULL);
-
-        if (buffer && len > 0) {
-            memcpy(seg->data, buffer, size);
-        }
-
-        seg->len = size;
-        seg->frg = count - i - 1;
-        xqueue_init(&seg->node);
-        xqueue_add_tail(&seg->node, &kcp->snd_queue);
-        kcp->nsnd_que++;
-
-        if (buffer) {
-            buffer += size;
-        }
-
-        len -= size;
-        sent += size;
-    }
-
-    return sent;
-}
-
-
 int 
 xkcp_send(xkcpcb* kcp, const uint8_t* buffer, int len) {
     if (kcp->auth > 0 && buffer && len > 0) {
@@ -862,210 +1252,6 @@ xkcp_send(xkcpcb* kcp, const uint8_t* buffer, int len) {
     }
 
     return xkcp_send_raw(kcp, buffer, len);
-}
-
-
-/**
- * @brief 用一个 RTT 样本更新平滑 RTT(rx_srtt)与重传超时(rx_rto)
- * @param kcp  会话
- * @param rtt  本次测得的 RTT 样本(ms)
- */
-static void 
-xkcp_update_ack(xkcpcb* kcp, int32_t rtt) {
-    int32_t rto = 0;
-    if (kcp->rx_srtt == 0) {
-        kcp->rx_srtt = rtt;
-        kcp->rx_rttval = rtt / 2;
-    } else {
-        long delta = rtt - kcp->rx_srtt;
-        if (delta < 0) {
-            delta = -delta;
-        }
-        kcp->rx_rttval = (3 * kcp->rx_rttval + delta) / 4;
-        kcp->rx_srtt = (7 * kcp->rx_srtt + rtt) / 8;
-        if (kcp->rx_srtt < 1) {
-            kcp->rx_srtt = 1;
-        }
-    }
-
-    rto = kcp->rx_srtt + _xmax_(__conf_.interval, 4 * kcp->rx_rttval);
-    kcp->rx_rto = _xbound_(__conf_.rx_minrto, rto, XKCP_RTO_MAX);
-    if (__conf_.ccops && __conf_.ccops->on_rtt) {
-        __conf_.ccops->on_rtt(kcp, rtt);
-    }
-}
-
-/**
- * @brief 把 snd_una 推进到 snd_buf 首段的 sn(无未确认段时 = snd_nxt)
- * @param kcp  会话
- */
-static void
-xkcp_shrink_buf(xkcpcb *kcp) {
-    struct XQUEUEHEAD *p = kcp->snd_buf.next;
-    if (p != &kcp->snd_buf) {
-        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
-        kcp->snd_una = seg->sn;
-    }   else {
-        kcp->snd_una = kcp->snd_nxt;
-    }
-}
-
-/**
- * @brief 收到某个 sn 的 ACK: 从 snd_buf 删掉该段(已确认)
- * @param kcp  会话
- * @param sn   被确认的段序号
- */
-static void
-xkcp_parse_ack(xkcpcb* kcp, uint32_t sn) {
-    struct XQUEUEHEAD *p, *next;
-    int32_t pkt_rtt;
-
-    if (_xtimediff(sn, kcp->snd_una) < 0 || _xtimediff(sn, kcp->snd_nxt) >= 0)
-        return;
-
-    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
-        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
-        next = p->next;
-        if (sn == seg->sn) {
-            kcp->ackedlen += seg->len;
-
-            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
-                pkt_rtt = -1;
-    
-                if (_xtimediff(kcp->current, seg->ts) >= 0) {
-                    pkt_rtt = _xtimediff(kcp->current, seg->ts);
-                }
-
-                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts, seg->len, pkt_rtt, seg->xmit);
-            }
-
-            xqueue_del(p);
-            xkcp_segment_delete(kcp, seg);
-            kcp->nsnd_buf--;
-            break;
-        }
-
-        if (_xtimediff(sn, seg->sn) < 0) {
-            break;
-        }
-    }
-}
-
-/**
- * @brief 按对端 una 批量确认: 删掉 snd_buf 里所有 sn < una 的段
- * @param kcp  会话
- * @param una  对端 una(此前的段对端都已收到)
- */
-static void
-xkcp_parse_una(xkcpcb* kcp, uint32_t una) {
-    struct XQUEUEHEAD *p, *next;
-    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
-        xkcpseg *seg = xqueue_entry(p, xkcpseg, node);
-        next = p->next;
-        if (_xtimediff(una, seg->sn) > 0) {
-            kcp->ackedlen += seg->len;
-            if (__conf_.ccops && __conf_.ccops->on_pkt_acked) {
-                __conf_.ccops->on_pkt_acked(kcp, seg->sn, seg->ts,
-                        seg->len, -1, seg->xmit);
-            }
-
-            xqueue_del(p);
-            xkcp_segment_delete(kcp, seg);
-            kcp->nsnd_buf--;
-        } else {
-            break;
-        }
-    }
-}
-
-
-/**
- * @brief 给 sn 之前仍未确认的段累计"被跨越"计数(fastack); 达 fastresend 阈值触发快速重传
- * @param kcp  会话
- * @param sn   本次 ACK 的最大 sn
- * @param ts   该 ACK 的时间戳(conserve 模式下参与判定)
- */
-static void
-xkcp_parse_fastack(xkcpcb* kcp, uint32_t sn, uint32_t ts) {
-    struct XQUEUEHEAD *p, *next;
-
-    if (_xtimediff(sn, kcp->snd_una) < 0 || _xtimediff(sn, kcp->snd_nxt) >= 0)
-        return;
-
-    for (p = kcp->snd_buf.next; p != &kcp->snd_buf; p = next) {
-        xkcpseg* seg = xqueue_entry(p, xkcpseg, node);
-        next = p->next;
-        if (_xtimediff(sn, seg->sn) < 0) {
-            break;
-        }
-        else if (sn != seg->sn) {
-        #ifndef XKCP_FASTACK_CONSERVE
-            seg->fastack++;
-        #else
-            if (_xtimediff(ts, seg->ts) >= 0) {
-                seg->fastack++;
-            }
-        #endif
-        }
-    }
-}
-
-
-/**
- * @brief 记录一个待回的 ACK(sn,ts) 进 acklist, 等 flush 时统一发出
- * @param kcp  会话
- * @param sn   待确认的段序号
- * @param ts   段携带的时间戳(回 ACK 时带回, 供对端算 RTT)
- */
-static void
-xkcp_ack_push(xkcpcb* kcp, uint32_t sn, uint32_t ts) {
-    uint32_t  newsize = kcp->ackcount + 1;
-    uint32_t* ptr;
-
-    if (newsize > kcp->ackblock) {
-        uint32_t *acklist;
-        uint32_t newblock;
-
-        for (newblock = 8; newblock < newsize; newblock <<= 1);
-        acklist = (uint32_t*)mi_malloc(newblock * sizeof(uint32_t) * 2);
-        ASSERT(acklist != NULL);
-
-        if (kcp->acklist != NULL) {
-            uint32_t x;
-            for (x = 0; x < kcp->ackcount; x++) {
-                acklist[x * 2 + 0] = kcp->acklist[x * 2 + 0];
-                acklist[x * 2 + 1] = kcp->acklist[x * 2 + 1];
-            }
-            mi_free(kcp->acklist);
-        }
-
-        kcp->acklist = acklist;
-        kcp->ackblock = newblock;
-    }
-
-    ptr = &kcp->acklist[kcp->ackcount * 2];
-    ptr[0] = sn;
-    ptr[1] = ts;
-    kcp->ackcount++;
-}
-
-
-/**
- * @brief 取出 acklist 里第 p 个待回 ACK 的 sn/ts
- * @param kcp  会话
- * @param p    acklist 下标
- * @param sn   [out] 该 ACK 的段序号
- * @param ts   [out] 该 ACK 的时间戳
- */
-static void
-xkcp_ack_get(const xkcpcb* kcp, int p, uint32_t* sn, uint32_t* ts) {
-    if (sn) {
-        sn[0] = kcp->acklist[p * 2 + 0];
-    }
-
-    if (ts) {
-        ts[0] = kcp->acklist[p * 2 + 1];
-    }
 }
 
 
@@ -1118,166 +1304,6 @@ xkcp_parse_data(xkcpcb* kcp, xkcpseg* newseg) {
         } else {
             break;
         }
-    }
-}
-
-
-/**
- * @brief [XKCP] 数据 cmd(PUSH/ACK/WASK/WINS)的公共窗口处理: 更新对端窗口 + 按 una 确认 + 收缩 snd_buf
- * @param kcp  会话
- * @param wnd  对端通告的接收窗口
- * @param una  对端 una
- */
-static inline void
-xkcp_input_window(xkcpcb* kcp, uint16_t wnd, uint32_t una) {
-    kcp->rmt_wnd = wnd;
-    xkcp_parse_una(kcp, una);
-    xkcp_shrink_buf(kcp);
-}
-
-
-/**
- * @brief [XKCP] 服务端收 REGIST_REQ: 传输层去重(同 id 重发→重发缓存 RSP), 新握手才上抛 on_regist 回调并缓存/发送 RSP
- * @param kcp   会话
- * @param data  REGIST_REQ payload(头部 XKCP_REGIST_ID_LEN 字节为握手 id)
- * @param len   payload 长度
- */
-static void
-xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
-    // Step 1, 检查 data 长度
-    if (len != XKCP_PAYLOAD_MAX) {
-        return;
-    }
-        
-    // Step 2, 使用 sealedbox 私钥进行解密
-    struct XKCPTOKEN token;
-    memset(&token, 0, sizeof(token));
-    uint8_t plain[sizeof(token)];
-    if (xkcp_sealedbox_decrypt(plain, data, len, __conf_.x25519_pk, __conf_.x25519_sk) != 0) {
-        return;
-    }
-
-    // Step 3, 校验 Token 签名
-    const uint8_t* p = plain;
-    p = xkcp_decode64u(p, &token.expire);
-    if (token.expire < time(NULL)) {
-        return;
-    }
-
-    p = xkcp_decode32u(p, &token.conv);
-    if (token.conv != kcp->conv) {
-        return;
-    }
-
-    p = xkcp_decode32u(p, &token.gen);
-    if (token.gen == 0 || kcp->gen > token.gen) {
-        return;
-    }
-
-    memcpy(&token.peer_pk, p, sizeof(token.peer_pk));
-    p += sizeof(token.peer_pk);
-
-    if (xkcp_ed25519_verify(p, plain, p - plain, __conf_.ed25519_pk) != 0) {
-        return;
-    }
-
-    if (kcp->gen < token.gen) {
-        if (kcp->auth > 0) {
-            if (kcp->auth > XKCP_FASTACK_LIMIT) {
-                kcp->state = (uint32_t)-1;
-                return;
-            }
-
-            xkcp_reset(kcp);
-        }
-
-        // Step 4, 生成密钥对
-        xkcp_x25519_keygen(kcp);
-
-        // Step 5, 通过 token.peer_pk 生成服务端 key
-        if (xkcp_kx_server(kcp, token.peer_pk) != 0) {
-            return;
-        }
-        kcp->gen = token.gen;
-    }
-
-    // Step 6, 回发生成的公钥对给对端
-    xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
-    ++kcp->auth;
-}
-
-/**
- * @brief [XKCP] 客户端收 REGIST_RSP: 上抛 on_regist_rsp 回调(取服务端公钥、算密钥、置 authed)
- * @param kcp   会话
- * @param data  REGIST_RSP payload
- * @param len   payload 长度
- */
-static inline void
-xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
-    // ....
-}
-
-/**
- * @brief [XKCP] 客户端收 RST(被顶号): 上抛 on_rst 回调
- * @param kcp   会话
- * @param data  RST payload
- * @param len   payload 长度
- */
-static inline void
-xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
-    
-}
-
-/**
- * @brief [XKCP] 客户端收 KIC(被踢): 上抛 on_kic 回调
- * @param kcp   会话
- * @param data  KIC payload
- * @param len   payload 长度
- */
-static inline void
-xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
-    
-}
-
-/**
- * @brief [XKCP] 收 PING: 立即回 PONG
- * @param kcp  会话
- */
-static inline void
-xkcp_on_ping(xkcpcb *kcp) {
-    xkcp_output_ctrl(kcp, XKCP_CMD_PONG, NULL, 0);
-}
-
-/**
- * @brief [XKCP] 收 PONG: 无需处理(last_rcv_ms 已在 xkcp_input 入口刷新)
- * @param kcp  会话
- */
-static inline void
-xkcp_on_pong(xkcpcb *kcp) {
-    (void)kcp;
-}
-
-/**
- * @brief 收 WASK(对端窗口探测): 标记下次 flush 回 WINS 告知本端窗口
- * @param kcp  会话
- */
-static inline void
-xkcp_on_wask(xkcpcb *kcp) {
-    kcp->probe |= XKCP_ASK_TELL;
-    if (xkcp_canlog(kcp, XKCP_LOG_IN_PROBE)) {
-        xkcp_log(kcp, XKCP_LOG_IN_PROBE, "input probe");
-    }
-}
-
-/**
- * @brief 收 WINS(对端窗口通告): 窗口已在 xkcp_input_window 更新, 此处仅记录日志
- * @param kcp  会话
- * @param wnd  对端通告的接收窗口
- */
-static inline void
-xkcp_on_wins(xkcpcb *kcp, uint16_t wnd) {
-    if (xkcp_canlog(kcp, XKCP_LOG_IN_WINS)) {
-        xkcp_log(kcp, XKCP_LOG_IN_WINS, "input wins: %lu", (unsigned long)wnd);
     }
 }
 
@@ -1479,39 +1505,6 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
 }
 
 
-/**
- * @brief 把段头(conv/cmd/frg/wnd/ts/sn/una/len, 共 24B)编码进 ptr
- * @param ptr  写入位置
- * @param seg  源段
- * @return 写入后的新位置(ptr + XKCP_OVERHEAD)
- */
-static inline uint8_t*
-xkcp_encode_seg(uint8_t* ptr, const xkcpseg* seg) {
-    ptr = xkcp_encode32u(ptr, seg->conv);
-    ptr = xkcp_encode8u(ptr, (uint8_t)seg->cmd);
-    ptr = xkcp_encode8u(ptr, (uint8_t)seg->frg);
-    ptr = xkcp_encode16u(ptr, (uint16_t)seg->wnd);
-    ptr = xkcp_encode32u(ptr, seg->ts);
-    ptr = xkcp_encode32u(ptr, seg->sn);
-    ptr = xkcp_encode32u(ptr, seg->una);
-    ptr = xkcp_encode32u(ptr, seg->len);
-    return ptr;
-}
-
-/**
- * @brief 计算本端接收窗口剩余可用段数(用于在段头通告 wnd)
- * @param kcp  会话
- * @return rcv_wnd - nrcv_que; 已满则返回 0
- */
-static inline int
-xkcp_wnd_unused(const xkcpcb* kcp) {
-    if (kcp->nrcv_que < __conf_.rcv_wnd) {
-        return __conf_.rcv_wnd - kcp->nrcv_que;
-    }
-    return 0;
-}
-
-
 void
 xkcp_flush(xkcpcb* kcp) {
     uint32_t current = kcp->current;
@@ -1685,7 +1678,7 @@ xkcp_flush(xkcpcb* kcp) {
             lost = 1;
         }
         else if (segment->fastack >= resent) {
-            if ((int)segment->xmit <= __conf_.fastlimit || __conf_.fastlimit <= 0) {
+            if (segment->xmit <= XKCP_FASTACK_LIMIT) {
                 needsend = 1;
                 segment->xmit++;
                 segment->fastack = 0;
@@ -1727,7 +1720,7 @@ xkcp_flush(xkcpcb* kcp) {
                 pacing_budget -= (int32_t)segment->len;
             }
 
-            if (segment->xmit >= __conf_.dead_link) {
+            if (segment->xmit >= XKCP_DEADLINK) {
                 kcp->state = (uint32_t)-1;
             }
         }
