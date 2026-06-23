@@ -527,7 +527,7 @@ xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...);
  * @return conv 会话号
  */
 uint32_t
-xkcp_getconv(const void* ptr);
+xkcp_getconv(const void* raw);
 
 
 #ifdef __cplusplus

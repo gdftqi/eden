@@ -1885,10 +1885,10 @@ xkcp_waitsnd(const xkcpcb *kcp) {
 }
 
 
-uint32_t
-xkcp_getconv(const void *ptr) {
+inline uint32_t
+xkcp_getconv(const void *raw) {
     uint32_t conv;
-    xkcp_decode32u((const uint8_t*)ptr + crypto_shorthash_BYTES, &conv);
+    xkcp_decode32u((const uint8_t*)raw + crypto_shorthash_BYTES, &conv);
     return conv;
 }
 
