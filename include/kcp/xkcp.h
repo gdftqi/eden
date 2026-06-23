@@ -271,12 +271,6 @@ typedef struct XKCPCB {
     uint8_t   eph_pk[32];          // [X] 握手临时公钥
     uint8_t   eph_sk[32];          // [X] 握手临时私钥
     void*  user;                   // 用户指针(本项目 = kcp::Session)
-
-    // 出向发送回调
-    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);
-
-     // 日志回调
-    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);
 } xkcpcb;
 
 
@@ -388,7 +382,10 @@ xkcp_kx_client(xkcpcb* kcp, const uint8_t* svr_pk);
  * @param dead_timeout 多久没收到判死(ms)
  */
 void
-xkcp_init(const uint8_t* x25519_pk, const uint8_t* x25519_sk, const uint8_t* ed25519_pk, const uint8_t* siphash_key, uint32_t snd_wnd, uint32_t rcv_wnd, uint32_t interval, int32_t fastresend, uint32_t dead_timeout);
+xkcp_init(
+    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp), 
+    const uint8_t* x25519_pk, const uint8_t* x25519_sk, const uint8_t* ed25519_pk, const uint8_t* siphash_key, uint32_t snd_wnd, uint32_t rcv_wnd, uint32_t interval, int32_t fastresend, uint32_t dead_timeout
+);
 
 
 /**

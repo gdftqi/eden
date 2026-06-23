@@ -20,11 +20,11 @@ struct SndBuf {
     typedef std::deque<SndBuf*> Que; ///< SndBuf 队列
 
 
-    ::sockaddr_storage addr;         ///< 对端地址
-    ::socklen_t        addrlen;      ///< 地址长度
-    uint32_t           len;          ///< wire 数据报长度(含 8B SipHash 信封, 由 xkcp 加好)
-    uint64_t           time;         ///< 缓冲区创建的时间
-    uint8_t            buf[UDP_MTU]; ///< 缓冲区(直接存 xkcp 产出的完整 wire 数据报)
+    ::sockaddr_storage addr;               ///< 对端地址
+    ::socklen_t        addrlen;            ///< 地址长度
+    uint32_t           len;                ///< wire 数据报长度(含 8B SipHash 信封, 由 xkcp 加好)
+    uint64_t           time;               ///< 缓冲区创建的时间
+    uint8_t            buf[XKCP_LINK_MTU]; ///< 缓冲区(直接存 xkcp 产出的完整 wire 数据报)
 
 
     explicit
@@ -33,7 +33,7 @@ struct SndBuf {
         , len(l)
         , time(time) {
         ::memcpy(&this->addr, addr, addrlen);
-        ASSERT(l <= UDP_MTU, "len = {}, max = {}", l, UDP_MTU);
+        ASSERT(l <= XKCP_LINK_MTU, "len = {}, max = {}", l, XKCP_LINK_MTU);
         ::memcpy(this->buf, b, l);
     }
 

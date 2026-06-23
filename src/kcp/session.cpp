@@ -57,6 +57,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
         return xERR_PK_LEN;
     }
 
+    pk->seq = kcp_->snd_seq + 1;
     core::hton(pk);
     return core::from_ikcp_send(::xkcp_send(kcp_, pk.raw(), pk.len()));
 }

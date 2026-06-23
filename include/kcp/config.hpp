@@ -156,8 +156,8 @@ public:
 
 
     const ED25519Pub&
-    ed25519_pub() const noexcept {
-        return ed25519_pub_;
+    ed25519_pk() const noexcept {
+        return ed25519_pk_;
     }
 
 
@@ -180,7 +180,7 @@ private:
     SipKey     siphash_     {};                    ///< 协议密钥
     X25519Key  x25519_pk_   {};                    ///< LOGIN 服务用来作 sealedbox 加密
     X25519Key  x25519_sk_   {};                    ///< 用于 鉴权时的 sealedbox 解密
-    ED25519Pub ed25519_pub_ {};                    ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
+    ED25519Pub ed25519_pk_  {};                    ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
 };
 
     

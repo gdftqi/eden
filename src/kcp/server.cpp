@@ -17,6 +17,15 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
 
     ASSERT(host_.size() > 0 && ev != nullptr, "invalid host or IEvent instance");
 
+    xkcp_init(
+        Server::output, 
+        Conf::instance()->x25519_pk(),
+        Conf::instance()->x25519_sk(),
+        Conf::instance()->ed25519_pk(),
+        Conf::instance()->siphash(),
+        0, 0, 0, 0, 0
+    );
+
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
         hdr->msg_iov = &riovecs_[i];
@@ -104,7 +113,6 @@ typhon::kcp::Server::run() noexcept {
 
 int
 typhon::kcp::Server::output(const uint8_t *buf, int len, XKCPCB *kcp) noexcept {
-    // buf 已是完整 wire 数据报(8B SipHash 信封由 xkcp_output 加好), 这里只入发送队列
     auto* s  = (Session*)kcp->user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());

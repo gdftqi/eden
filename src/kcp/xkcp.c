@@ -91,6 +91,12 @@ static struct XKCPCONF {
 
     const xkcpops* ccops;      // 策略回调集
     void*          congest;    // 策略私有状态
+
+    // 出向发送回调
+    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);
+
+    // 日志回调
+    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);
 } __conf_;
 
 
@@ -262,7 +268,7 @@ xkcp_segment_delete(xkcpcb*, xkcpseg* seg) {
  */
 static int
 xkcp_canlog(const xkcpcb* kcp, int mask) {
-    if ((mask & __conf_.logmask) == 0 || kcp->writelog == NULL) return 0;
+    if ((mask & __conf_.logmask) == 0 || __conf_.writelog == NULL) return 0;
     return 1;
 }
 
@@ -276,7 +282,7 @@ xkcp_canlog(const xkcpcb* kcp, int mask) {
  */
 static int
 xkcp_output(xkcpcb* kcp, const uint8_t* data, int size) {
-    ASSERT(kcp != NULL && kcp->output != NULL);
+    ASSERT(kcp != NULL && __conf_.output != NULL);
 
     if (xkcp_canlog(kcp, XKCP_LOG_OUTPUT)) {
         xkcp_log(kcp, XKCP_LOG_OUTPUT, "[RO] %ld bytes", (long)size);
@@ -290,7 +296,7 @@ xkcp_output(xkcpcb* kcp, const uint8_t* data, int size) {
     memcpy(kcp->mac_buf + crypto_shorthash_BYTES, data, (size_t)size);
 
     kcp->last_snd_ms = kcp->current;
-    return kcp->output(kcp->mac_buf, size + (int)crypto_shorthash_BYTES, kcp);
+    return __conf_.output(kcp->mac_buf, size + (int)crypto_shorthash_BYTES, kcp);
 }
 
 
@@ -835,19 +841,20 @@ void
 xkcp_log(xkcpcb* kcp, int mask, const char* fmt, ...) {
     char buffer[1024];
     va_list argptr;
-    if ((mask & __conf_.logmask) == 0 || kcp->writelog == 0) {
+    if ((mask & __conf_.logmask) == 0 || __conf_.writelog == 0) {
         return;
     }
 
     va_start(argptr, fmt);
     vsprintf(buffer, fmt, argptr);
     va_end(argptr);
-    kcp->writelog(buffer, kcp, kcp->user);
+    __conf_.writelog(buffer, kcp, kcp->user);
 }
 
 
 void
 xkcp_init(
+    int (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp),
     const uint8_t* x25519_pk,
     const uint8_t* x25519_sk,
     const uint8_t* ed25519_pk,
@@ -858,13 +865,22 @@ xkcp_init(
     int32_t  fastresend,
     uint32_t dead_timeout
 ) {
-    ASSERT(x25519_pk != NULL && x25519_sk != NULL && ed25519_pk != NULL && siphash_key != NULL);
+    static int inited = 0;
+
+    if (inited != 0) {
+        return;
+    }
+
+    inited = 1;
+    ASSERT(output != NULL && x25519_pk != NULL && x25519_sk != NULL && siphash_key != NULL);
     memset(&__conf_, 0, sizeof(__conf_));
 
     // 密钥: 定长直接拷入
     memcpy(__conf_.x25519_pk,   x25519_pk,   sizeof(__conf_.x25519_pk));
     memcpy(__conf_.x25519_sk,   x25519_sk,   sizeof(__conf_.x25519_sk));
-    memcpy(__conf_.ed25519_pk,  ed25519_pk,  sizeof(__conf_.ed25519_pk));
+    if (ed25519_pk != NULL) {
+        memcpy(__conf_.ed25519_pk,  ed25519_pk,  sizeof(__conf_.ed25519_pk));
+    }
     memcpy(__conf_.siphash_key, siphash_key, sizeof(__conf_.siphash_key));
 
     // 调参: 传 0 用内置默认, 非 0 用传入值
@@ -973,8 +989,6 @@ xkcp_create(uint32_t conv, void* user) {
     kcp->updated      = 0;
     kcp->ssthresh     = XKCP_THRESH_INIT;
     kcp->xmit         = 0;
-    kcp->output       = NULL;
-    kcp->writelog     = NULL;
     kcp->last_snd_ms  = 0;
     kcp->last_rcv_ms  = 0;
     kcp->state        = 0;

@@ -28,6 +28,7 @@
 #include <sodium.h>
 
 #include "core/error.hpp"
+#include "kcp/xkcp.h"
 #include "utils/cryptor.hpp"
 #include "utils/log.hpp"
 #include "utils/sys.hpp"
