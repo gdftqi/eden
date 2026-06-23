@@ -1193,7 +1193,12 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     }
 
     if (kcp->gen < token.gen) {
-        if (kcp->state > 0) {
+        if (kcp->auth > 0) {
+            if (kcp->auth > XKCP_FASTACK_LIMIT) {
+                kcp->state = (uint32_t)-1;
+                return;
+            }
+
             xkcp_reset(kcp);
         }
 
@@ -1205,14 +1210,11 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
             return;
         }
         kcp->gen = token.gen;
-    } else if (kcp->state > XKCP_FASTACK_LIMIT) {
-        kcp->state = -1;
-        return;
     }
 
     // Step 6, 回发生成的公钥对给对端
     xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
-    ++kcp->state;
+    ++kcp->auth;
 }
 
 /**
@@ -1791,6 +1793,10 @@ int
 xkcp_update(xkcpcb *kcp, uint32_t current) {
     int32_t slap;
 
+    if (kcp->state != 0) {
+        return -1;
+    }
+
     kcp->current = current;
     uint32_t ping_interval = __conf_.dead_timeout / 3;
 
@@ -1817,7 +1823,8 @@ xkcp_update(xkcpcb *kcp, uint32_t current) {
     }
 
     // 保活/超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
-    if (__conf_.dead_timeout > 0 && kcp->state < 0 && _xtimediff(kcp->current, kcp->last_rcv_ms) > (int32_t)__conf_.dead_timeout) {
+    if (__conf_.dead_timeout > 0 && kcp->auth > 0 && _xtimediff(kcp->current, kcp->last_rcv_ms) > (int32_t)__conf_.dead_timeout) {
+        kcp->state = (uint32_t)-1;
         return -1;
     }
     else if (ping_interval > 0 && kcp->state > 0 && _xtimediff(kcp->current, kcp->last_snd_ms) > (int32_t)ping_interval) {

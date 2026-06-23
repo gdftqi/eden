@@ -330,11 +330,11 @@ struct XKCPCB {
 
     
     uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
+    int32_t   auth;                           // [X] 是否已缓存握手
 
     // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
     uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
     uint32_t  last_rcv_ms;   // [X] 最近一次收到时刻
-    int32_t   state;         // [X] 判死只触发一次(xkcp_update 返回 -1 一次)
     uint32_t  gen;           // 世代号
 
     // [X] 加解密(直链 libsodium): 会话密钥 + 按消息 nonce 计数器 + 方向
