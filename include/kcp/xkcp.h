@@ -234,12 +234,6 @@ typedef struct XQUEUEHEAD iqueue_head;
 struct XKCPCB;
 typedef struct XKCPCB xkcpcb;
 
-// REGIST 去重: 握手 id 取 REGIST_REQ payload 头部这么多字节(= 客户端临时公钥, xkcp 当不透明)
-#define XKCP_REGIST_ID_LEN 32
-// 缓存的 RSP 字节上限(整段), 用于对"重发的 REQ"重发同一份 RSP
-#define XKCP_REGIST_RSP_MAX 256
-
-
 
 //=====================================================================
 // SEGMENT
@@ -263,11 +257,6 @@ struct XKCPSEG {
 };
 
 
-//---------------------------------------------------------------------
-// XKCPOPS - 可插拔拥塞控制策略 [XKCP 扩展, 原生 KCP 没有]
-// 经 kcp->ccops 注入; 在 ack/超时/快重传/发包等时机回调给具体拥塞算法。
-// 不设置(NULL)则走原生 KCP 的内置拥塞行为。
-//---------------------------------------------------------------------
 struct XKCPOPS {
     const char *name;
     int  (*init)(xkcpcb *kcp);
@@ -285,9 +274,6 @@ struct XKCPOPS {
 };
 
 
-//---------------------------------------------------------------------
-// XKCPCB
-//---------------------------------------------------------------------
 struct XKCPCB {
     // ===== 标识 / 基本配置 =====
     uint32_t  conv;          // 会话号(两端一致; 本项目 = userID 路由键)
@@ -344,10 +330,7 @@ struct XKCPCB {
 
     
     uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
-
-    // [X] REGIST 传输层去重缓存: 握手 id(REQ payload 头部) + 对应 RSP, 供重发 REQ 时重发 RSP
-    uint8_t   regist_id[XKCP_REGIST_ID_LEN];   // [X] 当前握手 id
-    int32_t   has_regist;                      // [X] 是否已缓存握手
+    int32_t   valid;                           // [X] 是否已缓存握手
 
     // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
     uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
@@ -363,7 +346,14 @@ struct XKCPCB {
     uint32_t  rcv_seq;  // [X] AEAD 接收 nonce 计数器(按消息)
     uint8_t   snd_dir;       // [X] 发送方向(0 = C2S, 1 = S2C)
     uint8_t   rcv_dir;       // [X] 接收方向
-    int32_t   has_key;       // [X] 密钥就绪(kx 完成); 0 时 send/recv 不加解密
+};
+
+
+struct XKCPTOKEN {
+    uint64_t expire;     // 过期时间
+    uint32_t conv;       // conv
+    uint8_t  peer_pk[32];// 对端的 x25519 公钥
+    uint8_t  sign[64];   // ed25519 签名
 };
 
 
@@ -394,7 +384,7 @@ xkcp_x25519_keygen(xkcpcb* kcp);
 
 
 /**
- * @brief 服务端侧 x25519 密钥协商; 成功后置 has_key=1, 方向 snd=S2C / rcv=C2S, nonce seq 归零
+ * @brief 服务端侧 x25519 密钥协商; 方向 snd=S2C / rcv=C2S, nonce seq 归零
  * @param kcp            会话
  * @param client_pk      对端(客户端)公钥
  * @param out_server_pk  [out] 本端新生成的服务端公钥(需回传给客户端)
@@ -405,7 +395,7 @@ xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk);
 
 
 /**
- * @brief 客户端侧 x25519 密钥协商; 用本端 eph 私钥与服务端公钥导出会话密钥, 置 has_key=1
+ * @brief 客户端侧 x25519 密钥协商; 用本端 eph 私钥与服务端公钥导出会话密钥
  * @param kcp        会话
  * @param server_pk  对端(服务端)公钥
  * @return 成功 0; 失败 -1
@@ -452,7 +442,7 @@ void
 xkcp_release(xkcpcb *kcp);
 
 /**
- * @brief 复位传输状态用于重连: 保留 conv 与配置, 清空收发队列、序号归零、作废密钥(has_key=0)
+ * @brief 复位传输状态用于重连: 保留 conv 与配置, 清空收发队列、序号归零
  * @param kcp  会话
  */
 void

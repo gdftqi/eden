@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <sodium.h>
 #include <mimalloc-3.2/mimalloc.h>
+#include <time.h>
 
 
 //=====================================================================
@@ -69,6 +70,7 @@
 #define XKCP_PROBE_LIMIT    (120000)    // up to 120 secs to probe window
 #define XKCP_FASTACK_LIMIT  (5)         // max times to trigger fastack
 #define XKCP_DEAD_TIMEOUT   (45000)
+#define XKCP_PAYLOAD_MAX (sizeof(struct XKCPTOKEN) + 32 + 16)
 
 
 #define ASSERT(expr)                                         \
@@ -319,7 +321,7 @@ xkcp_output(xkcpcb *kcp, const uint8_t *data, int size) {
     crypto_shorthash(kcp->mac_buf, data, (size_t)size, __conf_.siphash_key);
     memcpy(kcp->mac_buf + crypto_shorthash_BYTES, data, (size_t)size);
 
-    kcp->last_snd_ms = kcp->current;   // 保活: 记录最近一次发送
+    kcp->last_snd_ms = kcp->current;
     return kcp->output(kcp->mac_buf, size + (int)crypto_shorthash_BYTES, kcp);
 }
 
@@ -330,8 +332,8 @@ xkcp_output(xkcpcb *kcp, const uint8_t *data, int size) {
  * @param cmd  控制 cmd(XKCP_CMD_PING / PONG 等)
  */
 static inline void
-xkcp_output_ctrl(xkcpcb *kcp, uint32_t cmd) {
-    uint8_t buf[XKCP_OVERHEAD];
+xkcp_output_ctrl(xkcpcb *kcp, uint32_t cmd, const uint8_t *payload, int plen) {
+    uint8_t buf[XKCP_OVERHEAD + XKCP_PAYLOAD_MAX];
     uint8_t *p = buf;
     p = xkcp_encode32u(p, kcp->conv);
     p = xkcp_encode8u(p, (uint8_t)cmd);
@@ -341,35 +343,10 @@ xkcp_output_ctrl(xkcpcb *kcp, uint32_t cmd) {
     p = xkcp_encode32u(p, 0);                      // sn
     p = xkcp_encode32u(p, kcp->rcv_nxt);           // una
     p = xkcp_encode32u(p, 0);                      // len
-    xkcp_output(kcp, buf, (int)(p - buf));
-}
-
-
-/**
- * @brief [XKCP] 把业务 payload 包成一个带 payload 的控制段 [24B 头(cmd) | payload], 写入 out
- * @param kcp      会话
- * @param cmd      控制 cmd
- * @param payload  业务负载(可为 NULL)
- * @param plen     负载长度
- * @param out      [out] 输出缓冲(容量需 >= XKCP_OVERHEAD + plen)
- * @return 段总长 = XKCP_OVERHEAD + plen
- */
-static inline int
-xkcp_make_ctrl_seg(xkcpcb *kcp, uint32_t cmd, const uint8_t *payload, int plen, uint8_t *out) {
-    uint8_t *p = out;
-    p = xkcp_encode32u(p, kcp->conv);
-    p = xkcp_encode8u(p, (uint8_t)cmd);
-    p = xkcp_encode8u(p, 0);                          // frg
-    p = xkcp_encode16u(p, (uint16_t)__conf_.rcv_wnd);     // wnd
-    p = xkcp_encode32u(p, 0);                          // ts
-    p = xkcp_encode32u(p, 0);                          // sn
-    p = xkcp_encode32u(p, kcp->rcv_nxt);              // una
-    p = xkcp_encode32u(p, (uint32_t)plen);            // len
-    if (plen > 0 && payload) {
-        memcpy(p, payload, (size_t)plen);
-        p += plen;
+    if (plen > 0 && payload != NULL) {
+        memcpy(p, payload, plen);
     }
-    return (int)(p - out);
+    xkcp_output(kcp, buf, (int)(p - buf));
 }
 
 
@@ -389,26 +366,21 @@ xkcp_make_nonce(uint8_t *nonce, uint32_t conv, uint32_t seq, uint8_t dir) {
 }
 
 
-// ---------------------------------------------------------------------
-// [XKCP] 鉴权 / 信封 crypto: 直链 libsodium 的薄封装
-// ---------------------------------------------------------------------
-
-// ed25519 验签: 用登录服公钥验 token 签名; 成功返回 0
 static inline int
 xkcp_ed25519_verify(const uint8_t *sig, const uint8_t *msg, size_t mlen, const uint8_t *pk) {
-    return crypto_sign_verify_detached(sig, msg, (unsigned long long)mlen, pk);
+    return crypto_sign_verify_detached(sig, msg, (uint64_t)mlen, pk);
 }
 
 // sealedbox 加密(匿名封装到对端公钥): out 需 >= inlen + crypto_box_SEALBYTES; 返回 0
 static inline int
 xkcp_sealedbox_encrypt(uint8_t *out, const uint8_t *in, size_t inlen, const uint8_t *pk) {
-    return crypto_box_seal(out, in, (unsigned long long)inlen, pk);
+    return crypto_box_seal(out, in, (uint64_t)inlen, pk);
 }
 
 // sealedbox 解密: 用本端 x25519 pk+sk 开封; 成功返回 0, 失败 -1
 static inline int
 xkcp_sealedbox_decrypt(uint8_t *out, const uint8_t *in, size_t inlen, const uint8_t *pk, const uint8_t *sk) {
-    return crypto_box_seal_open(out, in, (unsigned long long)inlen, pk, sk);
+    return crypto_box_seal_open(out, in, (uint64_t)inlen, pk, sk);
 }
 
 
@@ -446,7 +418,7 @@ xkcp_init(
 
     __conf_.nodelay   = 1;
     __conf_.nocwnd    = 1;
-    __conf_.rx_minrto = XKCP_RTO_MIN;   // 固定最小 RTO(未随 nodelay 切 RTO_NDL)
+    __conf_.rx_minrto = XKCP_RTO_MIN;
 }
 
 
@@ -467,7 +439,6 @@ xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk) {
     kcp->rcv_dir = 0;  // C2S
     kcp->snd_seq = 0;
     kcp->rcv_seq = 0;
-    kcp->has_key = 1;
 
     return 0;
 }
@@ -483,7 +454,6 @@ xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk) {
     kcp->rcv_dir = 1;  // S2C
     kcp->snd_seq = 0;
     kcp->rcv_seq = 0;
-    kcp->has_key = 1;
 
     return 0;
 }
@@ -517,8 +487,8 @@ xkcp_create(uint32_t conv, void *user) {
     ASSERT(kcp->buffer != NULL);
 
     // [XKCP] 出向信封暂存: 比 buffer 多 8B 放前置 MAC
-    kcp->mac_buf = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 3 + crypto_shorthash_BYTES);
-    ASSERT(kcp->mac_buf == NULL);
+    kcp->mac_buf = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 2 + crypto_shorthash_BYTES);
+    ASSERT(kcp->mac_buf != NULL);
 
     xqueue_init(&kcp->snd_queue);
     xqueue_init(&kcp->rcv_queue);
@@ -543,7 +513,6 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->xmit         = 0;
     kcp->output       = NULL;
     kcp->writelog     = NULL;
-    kcp->has_regist   = 0;
     kcp->last_snd_ms  = 0;
     kcp->last_rcv_ms  = 0;
     kcp->dead         = 0;
@@ -551,7 +520,7 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->rcv_seq = 0;
     kcp->snd_dir      = 0;
     kcp->rcv_dir      = 0;
-    kcp->has_key      = 0;
+    kcp->valid = 0;
 
     return kcp;
 }
@@ -604,11 +573,11 @@ xkcp_release(xkcpcb *kcp) {
         mi_free(kcp->acklist);
     }
 
-    kcp->nrcv_buf = 0;
-    kcp->nsnd_buf = 0;
-    kcp->nrcv_que = 0;
-    kcp->nsnd_que = 0;
-    kcp->ackcount = 0;
+    // kcp->nrcv_buf = 0;
+    // kcp->nsnd_buf = 0;
+    // kcp->nrcv_que = 0;
+    // kcp->nsnd_que = 0;
+    // kcp->ackcount = 0;
     kcp->buffer = NULL;
     kcp->mac_buf = NULL;
     kcp->acklist = NULL;
@@ -675,13 +644,12 @@ xkcp_reset(xkcpcb *kcp) {
     kcp->rx_rttval      = 0;
     kcp->rx_rto         = XKCP_RTO_DEF;
     kcp->xmit           = 0;
-    kcp->has_regist     = 0;
     kcp->last_snd_ms    = kcp->current;
     kcp->last_rcv_ms    = kcp->current;
     kcp->dead           = 0;
-    kcp->has_key        = 0;
     kcp->snd_seq   = 0;
     kcp->rcv_seq   = 0;
+    kcp->valid = 0;
 }
 
 
@@ -758,7 +726,7 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
     }
 
     // AEAD 解密: 整条消息在用户 buffer 原地解密; 认证失败 = 篡改/错乱 → 返回 -4
-    if (kcp->has_key && savedbuf != NULL && len >= (int)crypto_aead_chacha20poly1305_ietf_ABYTES) {
+    if (kcp->valid > 0 && savedbuf != NULL && len >= (int)crypto_aead_chacha20poly1305_ietf_ABYTES) {
         uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
         int plen = len - (int)crypto_aead_chacha20poly1305_ietf_ABYTES;
         xkcp_make_nonce(nonce, kcp->conv, ++kcp->rcv_seq, kcp->rcv_dir);
@@ -869,7 +837,7 @@ xkcp_send_raw(xkcpcb *kcp, const uint8_t *buffer, int len) {
 
 int 
 xkcp_send(xkcpcb *kcp, const uint8_t *buffer, int len) {
-    if (kcp->has_key && buffer && len > 0) {
+    if (kcp->valid && buffer && len > 0) {
         int clen = len + (int)crypto_aead_chacha20poly1305_ietf_ABYTES;
         uint8_t nonce[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
         uint8_t *ct = (uint8_t*)mi_malloc(clen);
@@ -1179,14 +1147,6 @@ xkcp_input_window(xkcpcb *kcp, uint16_t wnd, uint32_t una) {
 }
 
 
-struct XKCPTOKEN {
-    uint64_t expire;     // 过期时间
-    uint32_t conv;       // conv
-    uint8_t  peer_pk[32];// 对端的 x25519 公钥
-    uint8_t  sign[64];   // ed25519 签名
-};
-
-
 /**
  * @brief [XKCP] 服务端收 REGIST_REQ: 传输层去重(同 id 重发→重发缓存 RSP), 新握手才上抛 on_regist 回调并缓存/发送 RSP
  * @param kcp   会话
@@ -1195,25 +1155,32 @@ struct XKCPTOKEN {
  */
 static void
 xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
-    // 同一握手的重发: 直接重发缓存的 RSP
-    if (kcp->has_regist && len >= XKCP_REGIST_ID_LEN && memcmp(data, kcp->regist_id, XKCP_REGIST_ID_LEN) == 0) {
-        // TODO: 发送公钥
+    // Step 1, 检查 data 长度
+    if (len != XKCP_PAYLOAD_MAX) {
         return;
     }
 
-    // Step 1, 检查 data 长度
+    if (kcp->valid > XKCP_FASTACK_LIMIT) {
+        return;
+    }
+
+    // 同一握手的重发: 直接重发缓存的 RSP
+    if (kcp->valid > 0) {
+        ++kcp->valid;
+        xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
+        return;
+    }
         
     // Step 2, 使用 sealedbox 私钥进行解密
     struct XKCPTOKEN token;
     memset(&token, 0, sizeof(token));
-    uint8_t plaint[sizeof(token)];
-    if (xkcp_sealedbox_decrypt(plaint, data, len, __conf_.x25519_pk, __conf_.x25519_sk) != 0) {
+    uint8_t plain[sizeof(token)];
+    if (xkcp_sealedbox_decrypt(plain, data, len, __conf_.x25519_pk, __conf_.x25519_sk) != 0) {
         return;
     }
 
     // Step 3, 校验 Token 签名
-    uint8_t* p = plaint;
-    const uint8_t* saved = plaint;
+    const uint8_t* p = plain;
     p = xkcp_decode64u(p, &token.expire);
     if (token.expire < time(NULL)) {
         return;
@@ -1227,7 +1194,7 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     memcpy(&token.peer_pk, p, sizeof(token.peer_pk));
     p += sizeof(token.peer_pk);
 
-    if (xkcp_ed25519_verify(p, saved, p - saved, __conf_.ed25519_pk) != 0) {
+    if (xkcp_ed25519_verify(p, plain, p - plain, __conf_.ed25519_pk) != 0) {
         return;
     }
 
@@ -1240,7 +1207,9 @@ xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     }
 
     // Step 6, 回发生成的公钥对给对端
-    // TODO kcp->eph_pk 发给对端
+    xkcp_output_ctrl(kcp, XKCP_CMD_SACK, kcp->eph_pk, sizeof(kcp->eph_pk));
+
+    ++kcp->valid;
 }
 
 /**
@@ -1282,7 +1251,7 @@ xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
  */
 static inline void
 xkcp_on_ping(xkcpcb *kcp) {
-    xkcp_output_ctrl(kcp, XKCP_CMD_PONG);
+    xkcp_output_ctrl(kcp, XKCP_CMD_PONG, NULL, 0);
 }
 
 /**
@@ -1850,7 +1819,7 @@ xkcp_update(xkcpcb *kcp, uint32_t current) {
         return -1;
     }
     else if (ping_interval > 0 && !kcp->dead && _xtimediff(kcp->current, kcp->last_snd_ms) > (int32_t)ping_interval) {
-        xkcp_output_ctrl(kcp, XKCP_CMD_PING);
+        xkcp_output_ctrl(kcp, XKCP_CMD_PING, NULL, 0);
     }
 
     return 0;
