@@ -358,8 +358,6 @@ xkcp_sealedbox_decrypt(uint8_t *out, const uint8_t *in, size_t inlen,
 }
 
 
-// [XKCP] 初始化全局配置(进程启动调一次, 所有会话共享):
-//   密钥定长拷入; 各调参传 0 用内置默认值, 非 0 用传入值。
 void
 xkcp_init(
     const uint8_t* x25519_pk,
@@ -426,20 +424,27 @@ xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk) {
 
 int
 xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk) {
-    if (crypto_kx_client_session_keys(kcp->rx_key, kcp->tx_key, kcp->eph_pk, kcp->eph_sk, server_pk) != 0)
+    if (crypto_kx_client_session_keys(kcp->rx_key, kcp->tx_key, kcp->eph_pk, kcp->eph_sk, server_pk) != 0) {
         return -1;
+    }
+
     kcp->snd_dir = 0;  // C2S
     kcp->rcv_dir = 1;  // S2C
     kcp->last_snd_seq = 0;
     kcp->last_rcv_seq = 0;
     kcp->has_key = 1;
+
     return 0;
 }
 
 
-//---------------------------------------------------------------------
-// create a new kcpcb
-//---------------------------------------------------------------------
+int
+xkcp_sync(xkcpcb *kcp, const uint8_t* token, int len) {
+    // TODO
+    return 0;
+}
+
+
 xkcpcb*
 xkcp_create(uint32_t conv, void *user) {
     xkcpcb *kcp = (xkcpcb*)mi_malloc(sizeof(struct XKCPCB));
@@ -1861,47 +1866,6 @@ xkcp_interval(xkcpcb *kcp, int interval) {
     }
 
     __conf_.interval = interval;
-}
-
-void
-xkcp_nodelay(xkcpcb *kcp, int nodelay, int interval, int resend, int nc) {
-    (void)kcp;   // 配置已全局化到 __conf_, kcp 仅为兼容旧签名
-    if (nodelay >= 0) {
-        __conf_.nodelay = nodelay;
-        if (nodelay) {
-            __conf_.rx_minrto = XKCP_RTO_NDL;  
-        }   
-        else {
-            __conf_.rx_minrto = XKCP_RTO_MIN;
-        }
-    }
-
-    if (interval >= 0) {
-        if (interval > 5000) interval = 5000;
-        else if (interval < 10) interval = 10;
-        __conf_.interval = interval;
-    }
-
-    if (resend >= 0) {
-        __conf_.fastresend = resend;
-    }
-
-    if (nc >= 0) {
-        __conf_.nocwnd = nc;
-    }
-}
-
-
-void
-xkcp_wndsize(xkcpcb *kcp, int sndwnd, int rcvwnd) {
-    if (kcp) {
-        if (sndwnd > 0) {
-            __conf_.snd_wnd = sndwnd;
-        }
-        if (rcvwnd > 0) {   // must >= max fragment size
-            __conf_.rcv_wnd = _xmax_(rcvwnd, XKCP_WND_RCV);
-        }
-    }
 }
 
 

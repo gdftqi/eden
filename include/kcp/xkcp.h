@@ -398,6 +398,35 @@ extern "C" {
 
 
 /**
+ * @brief 生成本端握手用的 x25519 临时密钥对(存入 kcp->eph_pk / eph_sk)
+ * @param kcp  会话
+ */
+void
+xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk);
+
+
+/**
+ * @brief 服务端侧 x25519 密钥协商; 成功后置 has_key=1, 方向 snd=S2C / rcv=C2S, nonce seq 归零
+ * @param kcp            会话
+ * @param client_pk      对端(客户端)公钥
+ * @param out_server_pk  [out] 本端新生成的服务端公钥(需回传给客户端)
+ * @return 成功 0; 失败 -1
+ */
+int
+xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk);
+
+
+/**
+ * @brief 客户端侧 x25519 密钥协商; 用本端 eph 私钥与服务端公钥导出会话密钥, 置 has_key=1
+ * @param kcp        会话
+ * @param server_pk  对端(服务端)公钥
+ * @return 成功 0; 失败 -1
+ */
+int
+xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk);
+
+
+/**
  * @brief [XKCP] 初始化全局配置(鉴权密钥 + KCP 调参), 进程启动时调用一次, 所有会话共享
  * @note  各调参传 0 用内置默认值, 非 0 用传入值; 密钥定长拷入
  */
@@ -442,37 +471,19 @@ void
 xkcp_reset(xkcpcb *kcp);
 
 
-/**
- * @brief 生成本端握手用的 x25519 临时密钥对(存入 kcp->eph_pk / eph_sk)
- * @param kcp  会话
- */
-void
-xkcp_x25519_keygen(uint8_t* pk, uint8_t* sk);
+int
+xkcp_sync(xkcpcb *kcp, const uint8_t* token, int len);
 
 
 /**
- * @brief 服务端侧 x25519 密钥协商; 成功后置 has_key=1, 方向 snd=S2C / rcv=C2S, nonce seq 归零
- * @param kcp            会话
- * @param client_pk      对端(客户端)公钥
- * @param out_server_pk  [out] 本端新生成的服务端公钥(需回传给客户端)
- * @return 成功 0; 失败 -1
+ * @brief 喂入一个收到的 UDP 数据报(含前置 8B SipHash 信封, 函数内跳过该 8B 不校验)
+ * @param kcp   会话
+ * @param data  数据报首地址(从 8B 信封开始)
+ * @param size  数据报总长度
+ * @return 成功 0; -1 长度不足(< 8+24)或 conv 不符; -2 段长越界; -3 未知 cmd
  */
 int
-xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk);
-
-
-/**
- * @brief 客户端侧 x25519 密钥协商; 用本端 eph 私钥与服务端公钥导出会话密钥, 置 has_key=1
- * @param kcp        会话
- * @param server_pk  对端(服务端)公钥
- * @return 成功 0; 失败 -1
- */
-int
-xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk);
-
-
-int
-xkcp_sync(xkcpcb *kcp, const uint8_t* token);
+xkcp_input(xkcpcb *kcp, const uint8_t *data, int size);
 
 
 /**
@@ -518,17 +529,6 @@ xkcp_check(const xkcpcb *kcp, uint32_t current);
 
 
 /**
- * @brief 喂入一个收到的 UDP 数据报(含前置 8B SipHash 信封, 函数内跳过该 8B 不校验)
- * @param kcp   会话
- * @param data  数据报首地址(从 8B 信封开始)
- * @param size  数据报总长度
- * @return 成功 0; -1 长度不足(< 8+24)或 conv 不符; -2 段长越界; -3 未知 cmd
- */
-int
-xkcp_input(xkcpcb *kcp, const uint8_t *data, int size);
-
-
-/**
  * @brief 立即把待发送数据 / ACK / 窗口探测刷出(经 output 回调发送)
  * @param kcp  会话
  */
@@ -545,19 +545,6 @@ int
 xkcp_peeksize(const xkcpcb *kcp);
 
 
-// [XKCP] xkcp_setmtu 已取消: MTU 由 XKCP_MTU_DEF(xkcp.c)编译期定死。
-
-
-/**
- * @brief 设置发送/接收窗口大小(单位: 段)
- * @param kcp     会话
- * @param sndwnd  发送窗口
- * @param rcvwnd  接收窗口(应 >= 最大分片数)
- */
-void
-xkcp_wndsize(xkcpcb *kcp, int sndwnd, int rcvwnd);
-
-
 /**
  * @brief 获取待发送 + 已发送未确认的段数量(背压判断用)
  * @param kcp  会话
@@ -565,18 +552,6 @@ xkcp_wndsize(xkcpcb *kcp, int sndwnd, int rcvwnd);
  */
 int
 xkcp_waitsnd(const xkcpcb *kcp);
-
-
-/**
- * @brief 设置 kcp 核心参数(延迟模式 / 帧间隔 / 快重传 / 拥塞开关)
- * @param kcp       会话
- * @param nodelay   是否开启低延迟模式: 0 默认关闭, 1 极速模式
- * @param interval  帧间隔(ms)
- * @param resend    快速重传值
- * @param nc        是否关闭拥塞控制算法. 0 默认开启, 1 关闭
- */
-void
-xkcp_nodelay(xkcpcb *kcp, int nodelay, int interval, int resend, int nc);
 
 
 /**
