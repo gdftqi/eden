@@ -1817,11 +1817,7 @@ xkcp_update(xkcpcb* kcp, uint32_t current) {
         xkcp_flush(kcp);
     }
 
-    // 保活/超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
-    // 判死不限 auth: 半开会话(auth==0 收到首包后无下文)空闲超时也要被摘除。
-    // 真在重传 SYNC 的客户端每次 input 都刷新 last_rcv_ms, 不会误杀。
     int32_t timeout = kcp->auth > 0 ? (int32_t)__conf_.dead_timeout : 5000;
-
     if (_xtimediff(kcp->current, kcp->last_rcv_ms) > timeout) {
         kcp->state = (uint32_t)-1;
         return -1;
