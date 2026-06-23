@@ -76,9 +76,6 @@ typedef struct XQUEUEHEAD {
 #define XQUEUE_ENTRY(ptr, type, member) XCONTAINEROF(ptr, type, member)
 
 
-//---------------------------------------------------------------------
-// queue operation                     
-//---------------------------------------------------------------------
 #define XQUEUE_ADD(node, head) ( \
     (node)->prev = (head), (node)->next = (head)->next, \
     (head)->next->prev = (node), (head)->next = (node))
@@ -176,6 +173,12 @@ typedef struct XQUEUEHEAD {
         #define XWORDS_MUST_ALIGN 1
     #endif
 #endif
+
+
+#define XKCP_LINK_MTU  (1450) // 链路MTU
+#define XKCP_IPV4_HDR  (20)   // IPV4 头
+#define XKCP_UDP_HDR   (8)    // UDP 头
+#define XKCP_HDR_LEN   (24)   // KCP 消息头
 
 
 struct XKCPCB;

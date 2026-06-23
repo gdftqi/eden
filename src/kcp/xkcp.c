@@ -44,14 +44,10 @@
 #define XKCP_ASK_TELL       (2)         // need to send XKCP_CMD_WINS
 #define XKCP_WND_SND        (128)       // 发送窗口
 #define XKCP_WND_RCV        (128)       // must >= max fragment size
-#define XKCP_LINK_MTU       (1450)
-#define XKCP_IP_HDR         (20)
-#define XKCP_UDP_HDR        (8)
-#define XKCP_MTU_DEF        (XKCP_LINK_MTU - XKCP_IP_HDR - XKCP_UDP_HDR - crypto_shorthash_BYTES)
-#define XKCP_MSS            (XKCP_MTU_DEF - XKCP_OVERHEAD)   // 最大分片(编译期常量, setmtu 已取消)
+#define XKCP_MTU_DEF        (XKCP_LINK_MTU - XKCP_IPV4_HDR - XKCP_UDP_HDR - crypto_shorthash_BYTES)
+#define XKCP_MSS            (XKCP_MTU_DEF - XKCP_HDR_LEN)   // 最大分片(编译期常量, setmtu 已取消)
 #define XKCP_ACK_FAST       (3)
 #define XKCP_INTERVAL       (100)
-#define XKCP_OVERHEAD       (24)
 #define XKCP_DEADLINK       (20)
 #define XKCP_THRESH_INIT    (2)
 #define XKCP_THRESH_MIN     (2)
@@ -305,7 +301,7 @@ xkcp_output(xkcpcb* kcp, const uint8_t* data, int size) {
  */
 static inline void
 xkcp_output_ctrl(xkcpcb* kcp, uint32_t cmd, const uint8_t* payload, int plen) {
-    uint8_t buf[XKCP_OVERHEAD + XKCP_PAYLOAD_MAX];
+    uint8_t buf[XKCP_HDR_LEN + XKCP_PAYLOAD_MAX];
     uint8_t *p = buf;
     // conv
     p = xkcp_encode32u(p, kcp->conv);
@@ -949,11 +945,11 @@ xkcp_create(uint32_t conv, void* user) {
     kcp->incr = 0;
     kcp->probe = 0;
 
-    kcp->buffer = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 3);
+    kcp->buffer = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_HDR_LEN) * 3);
     ASSERT(kcp->buffer != NULL);
 
     // [XKCP] 出向信封暂存: 比 buffer 多 8B 放前置 MAC
-    kcp->mac_buf = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 2 + crypto_shorthash_BYTES);
+    kcp->mac_buf = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_HDR_LEN) * 2 + crypto_shorthash_BYTES);
     ASSERT(kcp->mac_buf != NULL);
 
     xqueue_init(&kcp->snd_queue);
@@ -1321,7 +1317,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
         xkcp_log(kcp, XKCP_LOG_INPUT, "[RI] %d bytes", size);
     }
 
-    if (data == NULL || size < crypto_shorthash_BYTES + XKCP_OVERHEAD) {
+    if (data == NULL || size < crypto_shorthash_BYTES + XKCP_HDR_LEN) {
         return -1;
     }
 
@@ -1336,7 +1332,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
         uint8_t cmd, frg;
         xkcpseg *seg;
 
-        if (size < XKCP_OVERHEAD) {
+        if (size < XKCP_HDR_LEN) {
             break;
         }
 
@@ -1353,7 +1349,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
         data = xkcp_decode32u(data, &una);
         data = xkcp_decode32u(data, &len);
 
-        size -= XKCP_OVERHEAD;
+        size -= XKCP_HDR_LEN;
 
         if ((long)size < (long)len || (int)len < 0) {
             return -2;
@@ -1554,7 +1550,7 @@ xkcp_flush(xkcpcb* kcp) {
     count = kcp->ackcount;
     for (i = 0; i < count; i++) {
         size = (int)(ptr - buffer);
-        if (size + (int)XKCP_OVERHEAD > (int)XKCP_MTU_DEF) {
+        if (size + (int)XKCP_HDR_LEN > (int)XKCP_MTU_DEF) {
             xkcp_output(kcp, buffer, size);
             ptr = buffer;
         }
@@ -1590,7 +1586,7 @@ xkcp_flush(xkcpcb* kcp) {
     if (kcp->probe & XKCP_ASK_SEND) {
         seg.cmd = XKCP_CMD_WASK;
         size = (int)(ptr - buffer);
-        if (size + (int)XKCP_OVERHEAD > (int)XKCP_MTU_DEF) {
+        if (size + (int)XKCP_HDR_LEN > (int)XKCP_MTU_DEF) {
             xkcp_output(kcp, buffer, size);
             ptr = buffer;
         }
@@ -1601,7 +1597,7 @@ xkcp_flush(xkcpcb* kcp) {
     if (kcp->probe & XKCP_ASK_TELL) {
         seg.cmd = XKCP_CMD_WINS;
         size = (int)(ptr - buffer);
-        if (size + (int)XKCP_OVERHEAD > (int)XKCP_MTU_DEF) {
+        if (size + (int)XKCP_HDR_LEN > (int)XKCP_MTU_DEF) {
             xkcp_output(kcp, buffer, size);
             ptr = buffer;
         }
@@ -1707,7 +1703,7 @@ xkcp_flush(xkcpcb* kcp) {
             }
 
             size = (int)(ptr - buffer);
-            need = XKCP_OVERHEAD + segment->len;
+            need = XKCP_HDR_LEN + segment->len;
 
             if (size + need > (int)XKCP_MTU_DEF) {
                 xkcp_output(kcp, buffer, size);

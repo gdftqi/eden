@@ -27,7 +27,6 @@ class Session {
 
 public:
     typedef std::shared_ptr<Session> Ptr;
-    typedef uint8_t Xx20Key[utils::XX20_KEY_LEN];
 
 
     /**
@@ -38,15 +37,6 @@ public:
     static Ptr
     create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
         return std::make_shared<Session>(conv, server, addr, addrlen);
-    }
-
-
-    /**
-     * @brief 获取 conv
-     */
-    static uint32_t
-    getconv(const void* data, int len) noexcept {
-        return len < 4 ? 0 : ::xkcp_getconv(data);
     }
 
 
@@ -84,13 +74,7 @@ public:
 
     bool
     authed() const noexcept {
-        return authed_;
-    }
-
-
-    void
-    set_authed(bool authed) noexcept {
-        authed_ = authed;
+        return kcp_->auth > 0;
     }
     
 
@@ -136,24 +120,6 @@ public:
     }
 
 
-    void
-    set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
-        ::memcpy(tx_key_, tx, utils::XX20_KEY_LEN);
-        ::memcpy(rx_key_, rx, utils::XX20_KEY_LEN);
-    }
-
-
-    /**
-     * @brief 检测超时
-     */
-    bool
-    check_timeout(uint64_t tnow) const noexcept {
-        // 未鉴权时, 超时值为 5s
-        auto timeout = authed_ ? (uint64_t)Conf::instance()->timeout() : 5000;
-        return tnow - last_recv_ms_ > timeout;
-    }
-
-
     /**
      * @brief 推动 KCP 内部状态机:超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
@@ -186,7 +152,7 @@ public:
 
 
     void
-    set_output(int (*output)(const uint8_t *buf, int len, struct XKCPCB *kcp)) noexcept {
+    set_output(int (*output)(const uint8_t *buf, int len, xkcpcb *kcp)) noexcept {
         kcp_->output = output;
     }
 
@@ -216,25 +182,10 @@ public:
 
 
 private:
-    /**
-     * @brief 下一个发送幂等
-     */
-    uint32_t
-    next_snd_seq() noexcept {
-        return ++snd_seq_;
-    }
-
-
-    bool               authed_       { false };
     Server*            server_       { nullptr };
-    uint64_t           last_recv_ms_ { 0 };
-    uint32_t           snd_seq_      { 0 };
-    uint32_t           rcv_req_      { 0 };
     ::xkcpcb*          kcp_          { nullptr };
     ::sockaddr_storage addr_         {};
     ::socklen_t        addrlen_      { sizeof(addr_) };
-    Xx20Key             tx_key_       { 0 };
-    Xx20Key             rx_key_       { 0 };
     std::string        desc_;
 }; // class Kcp;
 

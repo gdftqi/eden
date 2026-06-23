@@ -245,15 +245,6 @@ private:
 
 
     // --------------------------------- 用户侧 ---------------------------------
-
-    int
-    on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
-
-
-    int
-    on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
-
-
     int
     on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 

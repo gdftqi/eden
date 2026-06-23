@@ -15,12 +15,6 @@ typhon::kcp::Session::Session(
 
     ::memcpy(&addr_, addr, addrlen);
     addrlen_ = addrlen;
-
-    auto* c = Conf::instance();
-    ::xkcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
-    ::xkcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
-
-    last_recv_ms_ = server->tnow();
 }
 
 
@@ -52,14 +46,6 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PKT_DST;
     }
 
-    if (rcv_req_ >= p->seq && p->id != PKID_REGIST_REQ) {
-        // 幂等重复包, 跳过.
-        // 但是, 如果是 PDID_REGIST_REQ 可以通过, 因为有可能是断线重连的
-        return xDUP;
-    }
-
-    last_recv_ms_ = now;
-    rcv_req_ = p->seq;
     return xOK;
 }
 
@@ -70,7 +56,6 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     if (plen > core::PKG_MAX_PAYLOAD) {
         return xERR_PK_LEN;
     }
-    pk->seq  = next_snd_seq();
 
     core::hton(pk);
     return core::from_ikcp_send(::xkcp_send(kcp_, pk.raw(), pk.len()));
