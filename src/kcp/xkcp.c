@@ -71,6 +71,19 @@
 #define XKCP_DEAD_TIMEOUT   (45000)
 
 
+#define ASSERT(expr)                                         \
+    do {                                                     \
+        if (!(expr)) {                                       \
+            fprintf(stderr,                                  \
+                    "ASSERT FAILED: %s\n"                    \
+                    "FILE: %s\n"                             \
+                    "LINE: %d\n",                            \
+                    #expr, __FILE__, __LINE__);              \
+            abort();                                         \
+        }                                                    \
+    } while (0)
+
+
 //=====================================================================
 // [XKCP] 全局配置(所有会话共享, 仅本 .c 内部可见; 启动时 xkcp_init 设置一次)
 //=====================================================================
@@ -222,7 +235,10 @@ void
 xkcp_log(xkcpcb *kcp, int mask, const char *fmt, ...) {
     char buffer[1024];
     va_list argptr;
-    if ((mask & __conf_.logmask) == 0 || kcp->writelog == 0) return;
+    if ((mask & __conf_.logmask) == 0 || kcp->writelog == 0) {
+        return;
+    }
+
     va_start(argptr, fmt);
     vsprintf(buffer, fmt, argptr);
     va_end(argptr);
@@ -250,8 +266,8 @@ xkcp_canlog(const xkcpcb *kcp, int mask) {
  */
 static int
 xkcp_output(xkcpcb *kcp, const uint8_t *data, int size) {
-    assert(kcp);
-    assert(kcp->output);
+    ASSERT(kcp != NULL && kcp->output != NULL);
+
     if (xkcp_canlog(kcp, XKCP_LOG_OUTPUT)) {
         xkcp_log(kcp, XKCP_LOG_OUTPUT, "[RO] %ld bytes", (long)size);
     }
@@ -260,7 +276,6 @@ xkcp_output(xkcpcb *kcp, const uint8_t *data, int size) {
         return 0;
     }
 
-    // [XKCP] 信封: mac_buf = [8B SipHash MAC | 数据报]; MAC over 数据报本体, 再交给 output 发
     crypto_shorthash(kcp->mac_buf, data, (size_t)size, __conf_.siphash_key);
     memcpy(kcp->mac_buf + crypto_shorthash_BYTES, data, (size_t)size);
 
@@ -372,6 +387,7 @@ xkcp_init(
     uint32_t dead_link,
     uint32_t dead_timeout
 ) {
+    ASSERT(x25519_pk != NULL && x25519_sk != NULL && ed25519_pk != NULL && siphash_key != NULL);
     memset(&__conf_, 0, sizeof(__conf_));
 
     // 密钥: 定长直接拷入
@@ -448,9 +464,7 @@ xkcp_sync(xkcpcb *kcp, const uint8_t* token, int len) {
 xkcpcb*
 xkcp_create(uint32_t conv, void *user) {
     xkcpcb *kcp = (xkcpcb*)mi_malloc(sizeof(struct XKCPCB));
-    if (kcp == NULL) {
-        return NULL;
-    }
+    ASSERT(kcp != NULL);
 
     kcp->conv = conv;
     kcp->user = user;
@@ -465,18 +479,11 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->probe = 0;
 
     kcp->buffer = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 3);
-    if (kcp->buffer == NULL) {
-        mi_free(kcp);
-        return NULL;
-    }
+    ASSERT(kcp->buffer != NULL);
 
     // [XKCP] 出向信封暂存: 比 buffer 多 8B 放前置 MAC
     kcp->mac_buf = (uint8_t*)mi_malloc((XKCP_MTU_DEF + XKCP_OVERHEAD) * 3 + crypto_shorthash_BYTES);
-    if (kcp->mac_buf == NULL) {
-        mi_free(kcp->buffer);
-        mi_free(kcp);
-        return NULL;
-    }
+    ASSERT(kcp->mac_buf == NULL);
 
     xqueue_init(&kcp->snd_queue);
     xqueue_init(&kcp->rcv_queue);
@@ -528,65 +535,67 @@ xkcp_create(uint32_t conv, void *user) {
 void
 xkcp_release(xkcpcb *kcp) {
     XKCPSEG *seg;
-    assert(kcp);
-    if (kcp) {
-        if (kcp->ccops && kcp->ccops->release) {
-            kcp->ccops->release(kcp);
-        }
-
-        while (!xqueue_is_empty(&kcp->snd_buf)) {
-            seg = xqueue_entry(kcp->snd_buf.next, XKCPSEG, node);
-            xqueue_del(&seg->node);
-            xkcp_segment_delete(kcp, seg);
-        }
-
-        while (!xqueue_is_empty(&kcp->rcv_buf)) {
-            seg = xqueue_entry(kcp->rcv_buf.next, XKCPSEG, node);
-            xqueue_del(&seg->node);
-            xkcp_segment_delete(kcp, seg);
-        }
-
-        while (!xqueue_is_empty(&kcp->snd_queue)) {
-            seg = xqueue_entry(kcp->snd_queue.next, XKCPSEG, node);
-            xqueue_del(&seg->node);
-            xkcp_segment_delete(kcp, seg);
-        }
-
-        while (!xqueue_is_empty(&kcp->rcv_queue)) {
-            seg = xqueue_entry(kcp->rcv_queue.next, XKCPSEG, node);
-            xqueue_del(&seg->node);
-            xkcp_segment_delete(kcp, seg);
-        }
-
-        if (kcp->buffer) {
-            mi_free(kcp->buffer);
-        }
-
-        if (kcp->mac_buf) {
-            mi_free(kcp->mac_buf);
-        }
-
-        if (kcp->acklist) {
-            mi_free(kcp->acklist);
-        }
-
-        kcp->nrcv_buf = 0;
-        kcp->nsnd_buf = 0;
-        kcp->nrcv_que = 0;
-        kcp->nsnd_que = 0;
-        kcp->ackcount = 0;
-        kcp->buffer = NULL;
-        kcp->mac_buf = NULL;
-        kcp->acklist = NULL;
-        mi_free(kcp);
+    
+    if (kcp == NULL) {
+        return;
     }
+
+    if (kcp->ccops && kcp->ccops->release) {
+        kcp->ccops->release(kcp);
+    }
+
+    while (!xqueue_is_empty(&kcp->snd_buf)) {
+        seg = xqueue_entry(kcp->snd_buf.next, XKCPSEG, node);
+        xqueue_del(&seg->node);
+        xkcp_segment_delete(kcp, seg);
+    }
+
+    while (!xqueue_is_empty(&kcp->rcv_buf)) {
+        seg = xqueue_entry(kcp->rcv_buf.next, XKCPSEG, node);
+        xqueue_del(&seg->node);
+        xkcp_segment_delete(kcp, seg);
+    }
+
+    while (!xqueue_is_empty(&kcp->snd_queue)) {
+        seg = xqueue_entry(kcp->snd_queue.next, XKCPSEG, node);
+        xqueue_del(&seg->node);
+        xkcp_segment_delete(kcp, seg);
+    }
+
+    while (!xqueue_is_empty(&kcp->rcv_queue)) {
+        seg = xqueue_entry(kcp->rcv_queue.next, XKCPSEG, node);
+        xqueue_del(&seg->node);
+        xkcp_segment_delete(kcp, seg);
+    }
+
+    if (kcp->buffer) {
+        mi_free(kcp->buffer);
+    }
+
+    if (kcp->mac_buf) {
+        mi_free(kcp->mac_buf);
+    }
+
+    if (kcp->acklist) {
+        mi_free(kcp->acklist);
+    }
+
+    kcp->nrcv_buf = 0;
+    kcp->nsnd_buf = 0;
+    kcp->nrcv_que = 0;
+    kcp->nsnd_que = 0;
+    kcp->ackcount = 0;
+    kcp->buffer = NULL;
+    kcp->mac_buf = NULL;
+    kcp->acklist = NULL;
+    mi_free(kcp);
 }
 
 
 void
 xkcp_reset(xkcpcb *kcp) {
     XKCPSEG *seg;
-    assert(kcp);
+
     if (kcp == NULL) {
         return;
     }
@@ -655,10 +664,11 @@ xkcp_reset(xkcpcb *kcp) {
 
 int
 xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
+    ASSERT(kcp != NULL);
+
     struct XQUEUEHEAD *p;
     int recover = 0;
     uint8_t *const savedbuf = buffer;
-    assert(kcp);
 
     int peeksize = xkcp_peeksize(kcp);
     if (peeksize < 0)  {
@@ -702,7 +712,7 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
         }
     }
 
-    assert(len == peeksize);
+    ASSERT(len == peeksize);
 
     // 移除已到达的数据
     while (!xqueue_is_empty(&kcp->rcv_buf)) {
@@ -741,11 +751,11 @@ xkcp_recv(xkcpcb *kcp, uint8_t *buffer, int len) {
 
 int
 xkcp_peeksize(const xkcpcb *kcp) {
+    ASSERT(kcp != NULL);
+
     struct XQUEUEHEAD *p;
     XKCPSEG *seg;
     int length = 0;
-
-    assert(kcp);
 
     if (xqueue_is_empty(&kcp->rcv_queue)) {
         return -1;
@@ -781,16 +791,17 @@ xkcp_peeksize(const xkcpcb *kcp) {
  */
 static int
 xkcp_send_raw(xkcpcb *kcp, const uint8_t *buffer, int len) {
+    ASSERT(XKCP_MSS > 0);
+
     XKCPSEG *seg;
     int count, i;
     int sent = 0;
-
-    assert(XKCP_MSS > 0);
+    
     if (len < 0) {
         return -1;
     }
 
-    if (len <= (int)XKCP_MSS) {
+    if (len <= XKCP_MSS) {
         count = 1;
     }
     else {
@@ -807,12 +818,9 @@ xkcp_send_raw(xkcpcb *kcp, const uint8_t *buffer, int len) {
 
     // fragment
     for (i = 0; i < count; i++) {
-        int size = len > (int)XKCP_MSS ? (int)XKCP_MSS : len;
+        int size = len > XKCP_MSS ? XKCP_MSS : len;
         seg = xkcp_segment_new(kcp, size);
-        assert(seg);
-        if (seg == NULL) {
-            return -2;
-        }
+        ASSERT(seg != NULL);
 
         if (buffer && len > 0) {
             memcpy(seg->data, buffer, size);
@@ -1025,11 +1033,7 @@ xkcp_ack_push(xkcpcb *kcp, uint32_t sn, uint32_t ts) {
 
         for (newblock = 8; newblock < newsize; newblock <<= 1);
         acklist = (uint32_t*)mi_malloc(newblock * sizeof(uint32_t) * 2);
-
-        if (acklist == NULL) {
-            assert(acklist != NULL);
-            abort();
-        }
+        ASSERT(acklist != NULL);
 
         if (kcp->acklist != NULL) {
             uint32_t x;
@@ -1402,6 +1406,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
                 xkcp_ack_push(kcp, sn, ts);
                 if (_xtimediff(sn, kcp->rcv_nxt) >= 0) {
                     seg = xkcp_segment_new(kcp, len);
+                    ASSERT(seg != NULL);
                     seg->conv = conv;
                     seg->cmd = cmd;
                     seg->frg = frg;
@@ -1848,8 +1853,6 @@ xkcp_check(const xkcpcb *kcp, uint32_t current) {
 }
 
 
-// [XKCP] xkcp_setmtu 已取消: MTU 由 XKCP_MTU_DEF 编译期定死, mss/buffer/mac_buf 在 create 一次定型。
-
 /**
  * @brief 设置内部 flush 帧间隔(钳制到 [10, 5000] ms)
  * @param kcp       会话
@@ -1885,7 +1888,8 @@ xkcp_getconv(const void *ptr) {
 
 int
 xkcp_setcc(xkcpcb *kcp, const struct XKCPOPS *ops) {
-    assert(kcp);
+    ASSERT(kcp != NULL);
+
     if (kcp->ccops && kcp->ccops->release) {
         kcp->ccops->release(kcp);
     }
