@@ -452,8 +452,6 @@ xkcp_create(uint32_t conv, void *user) {
     kcp->snd_una = 0;
     kcp->snd_nxt = 0;
     kcp->rcv_nxt = 0;
-    kcp->ts_recent = 0;
-    kcp->ts_lastack = 0;
     kcp->ts_probe = 0;
     kcp->probe_wait = 0;
     kcp->rmt_wnd = XKCP_WND_RCV;
@@ -628,8 +626,6 @@ xkcp_reset(xkcpcb *kcp) {
     kcp->nrcv_que       = 0;
     kcp->nsnd_que       = 0;
     kcp->state          = 0;
-    kcp->ts_recent      = 0;
-    kcp->ts_lastack     = 0;
     kcp->ts_probe       = 0;
     kcp->probe_wait     = 0;
     kcp->probe          = 0;
@@ -1166,7 +1162,7 @@ struct XKCPTOKEN {
  * @param len   payload 长度
  */
 static void
-xkcp_on_reg_req(xkcpcb *kcp, const uint8_t *data, int len) {
+xkcp_on_sync(xkcpcb *kcp, const uint8_t *data, int len) {
     // 同一握手的重发: 直接重发缓存的 RSP
     if (kcp->has_regist && len >= XKCP_REGIST_ID_LEN && memcmp(data, kcp->regist_id, XKCP_REGIST_ID_LEN) == 0) {
         xkcp_output(kcp, kcp->regist_rsp, kcp->reg_rsp_len);
@@ -1197,7 +1193,7 @@ xkcp_on_reg_req(xkcpcb *kcp, const uint8_t *data, int len) {
  * @param len   payload 长度
  */
 static inline void
-xkcp_on_reg_rsp(xkcpcb *kcp, const uint8_t *data, int len) {
+xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
     if (kcp->on_reg_rsp) {
         kcp->on_reg_rsp(data, len, kcp);
     }
@@ -1223,7 +1219,7 @@ xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
  * @param len   payload 长度
  */
 static inline void
-xkcp_on_kic(xkcpcb *kcp, const uint8_t *data, int len) {
+xkcp_on_kick(xkcpcb *kcp, const uint8_t *data, int len) {
     if (kcp->on_kic) {
         kcp->on_kic(data, len, kcp);
     }
@@ -1326,11 +1322,11 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
 
         switch (cmd) {
         case XKCP_CMD_SYNC:
-            xkcp_on_reg_req(kcp, data, (int)len);
+            xkcp_on_sync(kcp, data, (int)len);
             break;
 
         case XKCP_CMD_SACK:
-            xkcp_on_reg_rsp(kcp, data, (int)len);
+            xkcp_on_sack(kcp, data, (int)len);
             break;
 
         case XKCP_CMD_RST:
@@ -1338,7 +1334,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_KICK:
-            xkcp_on_kic(kcp, data, (int)len);
+            xkcp_on_kick(kcp, data, (int)len);
             break;
 
         case XKCP_CMD_PING:

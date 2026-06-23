@@ -311,8 +311,6 @@ struct XKCPCB {
     int32_t   rx_rttval;     // RTT 抖动
     int32_t   rx_srtt;       // 平滑 RTT
     int32_t   rx_rto;        // 重传超时 RTO
-    uint32_t  ts_recent;     // 最近收到的时间戳
-    uint32_t  ts_lastack;    // 上次 ack 时间
     uint32_t  current;       // 当前时刻(ms, 由 xkcp_update 传入)
     uint32_t  ts_flush;      // 下次 flush 时刻
     uint32_t  updated;       // 是否已调过 xkcp_update
@@ -470,7 +468,11 @@ xkcp_kx_server(xkcpcb *kcp, const uint8_t *client_pk, uint8_t *out_server_pk);
  * @return 成功 0; 失败 -1
  */
 int
-xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk);                              
+xkcp_kx_client(xkcpcb *kcp, const uint8_t *server_pk);
+
+
+int
+xkcp_sync(xkcpcb *kcp, const uint8_t* token);
 
 
 /**
