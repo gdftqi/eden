@@ -245,11 +245,11 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto  hdr    = &rmsgs_[i].msg_hdr;
-                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base;
+                auto* raw    = (uint8_t*)hdr->msg_iov[0].iov_base;
                 auto  msglen = (long)msg.msg_len;
 
                 // conv 在信封之后(偏移 8); 信封由 XDP 校验, xkcp_input 内部再剥这 8B
-                auto conv = xkcp_getconv(pbuf);
+                auto conv = xkcp_getconv(raw);
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
@@ -258,7 +258,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
                 }
 
-                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
+                if (s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
                     continue;
                 }
 
