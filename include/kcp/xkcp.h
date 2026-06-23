@@ -25,54 +25,11 @@
 //
 // 约定: 注释里标 [XKCP] 的是扩展部分; 其余为原生 KCP。
 //=====================================================================
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <errno.h>
 
-
-//=====================================================================
-// 32BIT INTEGER DEFINITION 
-//=====================================================================
-#ifndef __INTEGER_32_BITS__
-#define __INTEGER_32_BITS__
-#if defined(_WIN64) || defined(WIN64) || defined(__amd64__) || \
-    defined(__x86_64) || defined(__x86_64__) || defined(_M_IA64) || \
-    defined(_M_AMD64)
-    typedef unsigned int ISTDUINT32;
-    typedef int ISTDINT32;
-#elif defined(_WIN32) || defined(WIN32) || defined(__i386__) || \
-    defined(__i386) || defined(_M_X86)
-    typedef unsigned long ISTDUINT32;
-    typedef long ISTDINT32;
-#elif defined(__MACOS__)
-    typedef UInt32 ISTDUINT32;
-    typedef SInt32 ISTDINT32;
-#elif defined(__APPLE__) && defined(__MACH__)
-    #include <sys/types.h>
-    typedef u_int32_t ISTDUINT32;
-    typedef int32_t ISTDINT32;
-#elif defined(__BEOS__)
-    #include <sys/inttypes.h>
-    typedef u_int32_t ISTDUINT32;
-    typedef int32_t ISTDINT32;
-#elif (defined(_MSC_VER) || defined(__BORLANDC__)) && (!defined(__MSDOS__))
-    typedef unsigned __int32 ISTDUINT32;
-    typedef __int32 ISTDINT32;
-#elif defined(__GNUC__)
-    #include <stdint.h>
-    typedef uint32_t ISTDUINT32;
-    typedef int32_t ISTDINT32;
-#else 
-    typedef unsigned long ISTDUINT32; 
-    typedef long ISTDINT32;
-#endif
-#endif
-
-
-//=====================================================================
-// Integer Definition
-//=====================================================================
 
 #ifndef INLINE
 #if defined(__GNUC__)
@@ -95,22 +52,15 @@
 #endif
 
 
-//=====================================================================
-// QUEUE DEFINITION                                                  
-//=====================================================================
 #ifndef __XQUEUE_DEF__
 #define __XQUEUE_DEF__
 
-struct XQUEUEHEAD {
+
+typedef struct XQUEUEHEAD {
     struct XQUEUEHEAD *next, *prev;
-};
-
-typedef struct XQUEUEHEAD iqueue_head;
+} iqueue_head;
 
 
-//---------------------------------------------------------------------
-// queue init                                                         
-//---------------------------------------------------------------------
 #define XQUEUE_HEAD_INIT(name) { &(name), &(name) }
 #define IQUEUE_HEAD(name) \
     struct IQUEUEHEAD name = XQUEUE_HEAD_INIT(name)
@@ -228,36 +178,32 @@ typedef struct XQUEUEHEAD iqueue_head;
 #endif
 
 
-//=====================================================================
-// Predefine struct
-//=====================================================================
 struct XKCPCB;
 typedef struct XKCPCB xkcpcb;
 
 
-//=====================================================================
-// SEGMENT
-//=====================================================================
-// KCP 段(= 一个 KCP 协议单元, wire 上是 24B 头 + data)。原生结构, 字段含义:
-struct XKCPSEG {
+/**
+ * @brief kcp 段
+ */
+typedef struct XKCPSEG {
     struct XQUEUEHEAD node;    // 链入 snd_queue/snd_buf/rcv_queue/rcv_buf 的节点
-    uint32_t conv;             // 会话号(两端必须一致, 否则 xkcp_input 丢弃)
-    uint32_t cmd;              // 命令: PUSH/ACK/WASK/WINS, 以及 [XKCP] REGIST/RST/KIC/PING/PONG
-    uint32_t frg;              // 分片编号(同一消息倒数第几片, 0 = 最后一片)
-    uint32_t wnd;              // 发送者通告的可用接收窗口
-    uint32_t ts;               // 发送时间戳(算 RTT 用; 每次重传都会刷新)
-    uint32_t sn;               // 段序号
-    uint32_t una;              // 发送者的 rcv_nxt(此序号之前的都已收到)
-    uint32_t len;              // data 字节数
+    uint32_t conv;             // [N:32] 会话号(两端必须一致, 否则 xkcp_input 丢弃)
+    uint32_t cmd;              // [N: 8] 命令: PUSH/ACK/WASK/WINS, 以及 [XKCP] REGIST/RST/KIC/PING/PONG
+    uint32_t frg;              // [N: 8] 分片编号(同一消息倒数第几片, 0 = 最后一片)
+    uint32_t wnd;              // [N:16] 发送者通告的可用接收窗口
+    uint32_t ts;               // [N:32] 发送时间戳(算 RTT 用; 每次重传都会刷新)
+    uint32_t sn;               // [N:32] 段序号
+    uint32_t una;              // [N:32] 发送者的 rcv_nxt(此序号之前的都已收到)
+    uint32_t len;              // [N:32] data 字节数
     uint32_t resendts;         // 下次重传时刻
     uint32_t rto;              // 该段的重传超时
     uint32_t fastack;          // 被跨越次数(达到阈值触发快速重传)
     uint32_t xmit;             // 已发送次数
     uint8_t  data[1];          // 段负载(柔性数组)
-};
+} xkcpseg;
 
 
-struct XKCPOPS {
+typedef struct XKCPOPS {
     const char *name;
     int  (*init)(xkcpcb *kcp);
     void (*release)(xkcpcb *kcp);
@@ -271,10 +217,10 @@ struct XKCPOPS {
     void (*on_pkt_acked)(xkcpcb *kcp, uint32_t sn, uint32_t ts, uint32_t len, int32_t rtt, uint32_t xmit);
     uint32_t (*get_info)(xkcpcb *kcp, void *buf, uint32_t bufsize);
     uint32_t (*pacing_rate)(xkcpcb *kcp);
-};
+} xkcpops;
 
 
-struct XKCPCB {
+typedef struct XKCPCB {
     // ===== 标识 / 基本配置 =====
     uint32_t  conv;          // 会话号(两端一致; 本项目 = userID 路由键)
     uint32_t  state;         // 链路状态(-1 = 链路死)
@@ -319,43 +265,39 @@ struct XKCPCB {
     uint32_t  ackblock;      // acklist 容量
     uint32_t  ackedlen;      // 本次 input 累计被确认字节数
 
-    // ===== 用户指针 / 回调 =====
-    void*  user;          // 用户指针(本项目 = kcp::Session)
-    int  (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);    // 出向发送回调
-    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user); // 日志回调
-
-    //=================================================================
-    //  以下为 XKCP 扩展字段([X])
-    //=================================================================
-
     
     uint8_t*  mac_buf;     // [X] 出向信封暂存 [8B SipHash MAC | buffer]
-    int32_t   auth;                           // [X] 是否已缓存握手
+    int32_t   auth;        // [X] 是否已缓存握手
 
     // [X] 保活 / 空闲超时(用 current 这个 32bit 时钟; 阈值 0 = 关闭)
     uint32_t  last_snd_ms;   // [X] 最近一次发送时刻
     uint32_t  last_rcv_ms;   // [X] 最近一次收到时刻
-    uint32_t  gen;           // 世代号
+    uint32_t  gen;           // [X] 世代号
 
     // [X] 加解密(直链 libsodium): 会话密钥 + 按消息 nonce 计数器 + 方向
     uint8_t   tx_key[32];    // [X] 发送密钥
     uint8_t   rx_key[32];    // [X] 接收密钥
     uint8_t   eph_pk[32];    // [X] 握手临时公钥
     uint8_t   eph_sk[32];    // [X] 握手临时私钥
-    uint32_t  snd_seq;  // [X] AEAD 发送 nonce 计数器(按消息)
-    uint32_t  rcv_seq;  // [X] AEAD 接收 nonce 计数器(按消息)
+    uint32_t  snd_seq;       // [X] AEAD 发送 nonce 计数器(按消息)
+    uint32_t  rcv_seq;       // [X] AEAD 接收 nonce 计数器(按消息)
     uint8_t   snd_dir;       // [X] 发送方向(0 = C2S, 1 = S2C)
     uint8_t   rcv_dir;       // [X] 接收方向
-};
+
+    // ===== 用户指针 / 回调 =====
+    void*  user;          // 用户指针(本项目 = kcp::Session)
+    int  (*output)(const uint8_t* buf, int len, struct XKCPCB *kcp);    // 出向发送回调
+    void (*writelog)(const char *log, struct XKCPCB *kcp, void *user);  // 日志回调
+} xkcpcb;
 
 
-struct XKCPTOKEN {
+typedef struct XKCPTOKEN {
     uint64_t expire;     // 过期时间
     uint32_t conv;       // conv
     uint32_t gen;        // 世代号
     uint8_t  peer_pk[32];// 对端的 x25519 公钥
     uint8_t  sign[64];   // ed25519 签名
-};
+} xkcptoken;
 
 
 #define XKCP_LOG_OUTPUT         1
@@ -370,6 +312,12 @@ struct XKCPTOKEN {
 #define XKCP_LOG_OUT_ACK        512
 #define XKCP_LOG_OUT_PROBE      1024
 #define XKCP_LOG_OUT_WINS       2048
+
+
+#define XKCP_OK    (0)
+#define XKCP_ERR   (-1)
+#define XKCP_AGAIN (-EAGAIN)
+
 
 #ifdef __cplusplus
 extern "C" {

@@ -14,3 +14,6 @@ update中添加了超时检测，会主动发送ping。但是只有客户端的�
 如果XKCP 某个 segment XMIT 超过 5也被认为无效。
 
 XKCP 的 state 表示有效或无效，state == 0 有效, state == (uint32_t)-1 无效
+
+作为服务端不应该收到 PONG，SACK，RST
+作为客户端不应该收到 PING, SYNC
