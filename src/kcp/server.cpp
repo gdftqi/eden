@@ -549,8 +549,8 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
-    // PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48) = 170
-    constexpr int REGIST_REQ_LEN = (int)sizeof(core::AuthToken) + 48;
+    // PKG_HDR(10) + sizeof(AuthToken)(116) + crypto_box_SEALBYTES(48) = 170
+    constexpr int REGIST_REQ_LEN = (int)sizeof(core::Token) + 48;
 
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
@@ -561,15 +561,15 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     }
 
     size_t plen = in.plen();
-    core::AuthToken token;
-    size_t atlen = sizeof(token);
+    core::Token token;
+    size_t tklen = sizeof(token);
     
     // 1. 使用服务端私钥解密 Token
-    if (utils::sealedbox_decrypt(in->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+    if (utils::sealedbox_decrypt(in->payload, plen, (uint8_t*)&token, &tklen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
 
-    if (atlen != sizeof(token)) {
+    if (tklen != sizeof(token)) {
         return xERR_PK_DEC;
     }
 
@@ -582,8 +582,12 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
         return xERR_TOKEN_CONV;
     }
 
+    if (token.user_id != in->src_id) {
+        return xERR_TOKEN_USER;
+    }
+
     // 3. 校验登录服签名
-    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AuthToken, sign), Conf::instance()->ed25519_pub()) != 0) {
+    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::Token, sign), Conf::instance()->ed25519_pub()) != 0) {
         return xERR_TOKEN_VER;
     }
 
@@ -605,7 +609,7 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     // 6. 构造回包
     auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, s->conv(), tmppk, utils::X25519_KEY_LEN);
     int res = s->send(out);
-    s->set_authed(true);
+    s->set_user_id(token.user_id);
     core::PK<core::Host>::release(out);
     return res;
 }

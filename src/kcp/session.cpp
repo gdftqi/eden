@@ -54,7 +54,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
 
     // payload 可为 0: 空包(res == PKG_HDR_LEN)放行, 不解密;
     // 仅"authed 且有 payload"的包必须带 16B tag, 否则连 tag 都放不下 = 畸形。
-    if (authed_ && res > core::PKG_HDR_LEN && res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
+    if (authed() && res > core::PKG_HDR_LEN && res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
         return xERR_PK_LEN;
     }
 
@@ -79,7 +79,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xDUP;
     }
 
-    if (authed_ && res > core::PKG_HDR_LEN) {
+    if (authed() && res > core::PKG_HDR_LEN) {
         if (res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
             return xERR_PK_LEN;
         }
@@ -114,7 +114,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     pk->seq  = next_snd_seq();
 
     int res;
-    if (plen > 0 && authed_) {
+    if (plen > 0 && authed()) {
         // 加密输出到 worker 级发送暂存 buf, 不原地改 pk —— 避免踩 pk 所在的共享缓冲
         // (如 on_s2c 的 Connector rbuf_)。xx20_encrypt 支持 in≠out, 加密这步顺便把
         // payload 从 pk 搬到 sndbuf, 不额外整包 memcpy。

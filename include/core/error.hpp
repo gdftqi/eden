@@ -26,6 +26,7 @@
 #define xERR_X25519_KX      (-10107)   // x25519 密钥协商失败
 #define xERR_NOT_AUTH       (-10108)   // 未认证
 #define xERR_TOKEN_CONV     (-10109)   // 不匹配的 conv
+#define xERR_TOKEN_USER     (-10110)   // 不匹配的 user_id
 
 
 // ---- KCP / ikcp 边界 ----

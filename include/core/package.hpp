@@ -13,6 +13,9 @@ namespace typhon::core {
 #define PKID_PONG       (101) ///< 心跳 PONG
 #define PKID_REGIST_REQ (102) ///< 注册请求
 #define PKID_REGIST_RSP (103) ///< 注册应答
+#define PKID_KICK_REQ   (104) ///< 踢人请求
+#define PKID_KICK_RSP   (105) ///< 踢人应答
+#define PKID_KICK_NTF   (106) ///< 踢人通知
 
 
 #pragma pack(push, 1)
@@ -23,8 +26,9 @@ namespace typhon::core {
  */
 struct Package {
     uint16_t id;        // 业务消息号, [1, 1024)
+    uint32_t src_id;    // 源 id
     uint32_t seq;       // 消息序号, 必须 > 0, 确保每条消息的唯一性
-    uint32_t dst_id;    // 目标服务id (路由键)
+    uint32_t dst_id;    // 目标 id (路由键)
     uint8_t  payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
@@ -43,9 +47,10 @@ struct PackageEx {
 /**
  * @brief 网关鉴权
  */
-struct AuthToken {
+struct Token {
     uint64_t expire;     // 过期时间戳
     uint32_t conv;       // 会话 ID
+    uint32_t user_id;    // 用户 ID
     uint32_t ip;         // 登录IP
     uint8_t  cli_pk[32]; // 客户端 X25519 公钥
     uint8_t  sign[64];   // 登录服 Ed25519 签名
@@ -238,7 +243,7 @@ constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10,
 constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;  // 65509
 
 
-static_assert(PKG_HDR_LEN == 10, "Package header size changed");
+static_assert(PKG_HDR_LEN == 14, "Package header size changed");
 static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
 
 

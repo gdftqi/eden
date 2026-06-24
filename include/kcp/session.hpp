@@ -84,13 +84,19 @@ public:
 
     bool
     authed() const noexcept {
-        return authed_;
+        return user_id_ > 0;
+    }
+
+
+    uint32_t
+    user_id() const noexcept {
+        return user_id_;
     }
 
 
     void
-    set_authed(bool authed) noexcept {
-        authed_ = authed;
+    set_user_id(uint32_t user_id) noexcept {
+        user_id_ = user_id;
     }
     
 
@@ -149,7 +155,7 @@ public:
     bool
     check_timeout(uint64_t tnow) const noexcept {
         // 未鉴权时, 超时值为 5s
-        auto timeout = authed_ ? (uint64_t)Conf::instance()->timeout() : 5000;
+        auto timeout = user_id_ > 0 ? (uint64_t)Conf::instance()->timeout() : 5000;
         return tnow - last_recv_ms_ > timeout;
     }
 
@@ -224,8 +230,7 @@ private:
         return ++snd_seq_;
     }
 
-
-    bool               authed_       { false };
+    uint32_t           user_id_      { 0 };
     Server*            server_       { nullptr };
     uint64_t           last_recv_ms_ { 0 };
     uint32_t           snd_seq_      { 0 };
