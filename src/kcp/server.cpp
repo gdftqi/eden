@@ -31,6 +31,7 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
 
     ufd_ = core::udp_bind(host_, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
     ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ::ikcp_allocator(::mi_malloc, ::mi_free);
 }
 
 
@@ -107,7 +108,6 @@ typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexc
     auto* s  = (Session*)user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
-    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->siphash()));
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -245,10 +245,14 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto  hdr    = &rmsgs_[i].msg_hdr;
-                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base + core::ENVELOPE_MAC_LEN;
-                auto  msglen = msg.msg_len - core::ENVELOPE_MAC_LEN;
+                auto* raw    = (uint8_t*)hdr->msg_iov[0].iov_base;
+                auto  msglen = (long)msg.msg_len;
 
-                auto conv = Session::getconv(pbuf, msglen);
+                auto conv = Session::getconv(raw, msglen);
+                if (conv == 0) {
+                    continue;
+                }
+
                 auto s = get_session(conv);
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
@@ -257,7 +261,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
                 }
 
-                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
+                if (s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
                     continue;
                 }
 

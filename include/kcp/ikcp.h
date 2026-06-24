@@ -332,6 +332,8 @@ struct IKCPCB
 	IUINT32 ts_probe, probe_wait;
 	IUINT32 dead_link, incr;
 	IUINT32 last_rcv_ms, timeout;
+	IUINT8 siphash[16];
+	char *mac_buf;
 	struct IQUEUEHEAD snd_queue;
 	struct IQUEUEHEAD rcv_queue;
 	struct IQUEUEHEAD snd_buf;
@@ -396,6 +398,9 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len);
 // ikcp_check when to call it again (without ikcp_input/_send calling).
 // 'current' - current timestamp in millisec. 
 int ikcp_update(ikcpcb *kcp, IUINT32 current);
+
+// [typhon] 设置信封 MAC 密钥(16B SipHash-2-4 key); 不设则用全 0 key
+void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call

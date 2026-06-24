@@ -54,7 +54,7 @@ namespace typhon::core {
  *   再留 ~72B 余量穿 PPPoE(1492)/隧道, 规避公网 IP 分片 → 1400 (亦为 KCP 默认)
  *   注: 纯内网/可控网络可直接取 1472 榨满.
  */
-constexpr int UDP_MTU          = 1400;
+constexpr int UDP_MTU          = 1450;
 constexpr int ENVELOPE_MAC_LEN = 8; // Envelope MAC (SipHash-2-4 tag) 长度
 constexpr int KCP_MTU          = UDP_MTU - ENVELOPE_MAC_LEN;
 constexpr int KCP_HDR_LEN      = 24;

@@ -35,6 +35,7 @@ typhon::kcp::Session::Session(
     ::ikcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
     ::ikcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
     ::ikcp_setmtu(kcp_, core::KCP_MTU);
+    ::ikcp_set_siphash(kcp_, Conf::instance()->siphash());
     kcp_->timeout = 5000;
 }
 

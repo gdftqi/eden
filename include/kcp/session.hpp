@@ -46,7 +46,7 @@ public:
      */
     static uint32_t
     getconv(const void* data, int len) noexcept {
-        return len < 4 ? 0 : ::ikcp_getconv(data);
+        return len < core::ENVELOPE_MAC_LEN + 4 ? 0 : ::ikcp_getconv(data);
     }
 
 

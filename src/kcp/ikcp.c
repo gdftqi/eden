@@ -38,6 +38,8 @@ const IUINT32 IKCP_MTU_DEF = 1400;
 const IUINT32 IKCP_ACK_FAST	= 3;
 const IUINT32 IKCP_INTERVAL	= 100;
 const IUINT32 IKCP_OVERHEAD = 24;
+/* [typhon] 信封 MAC 长度, 必须等于 core::ENVELOPE_MAC_LEN(8) */
+#define IKCP_ENVELOPE_LEN 8
 const IUINT32 IKCP_DEADLINK = 20;
 const IUINT32 IKCP_THRESH_INIT = 2;
 const IUINT32 IKCP_THRESH_MIN = 2;
@@ -200,16 +202,89 @@ static int ikcp_canlog(const ikcpcb *kcp, int mask)
 	return 1;
 }
 
-// output segment
+
+static inline IUINT64
+ikcp_rotl64(IUINT64 x, int b) { 
+	return (x << b) | (x >> (64 - b)); 
+}
+
+
+static inline IUINT64
+ikcp_load_le64(const unsigned char *p) {
+	IUINT64 v; memcpy(&v, p, 8); return v;
+}
+
+
+#define IKCP_SIPROUND \
+	do { \
+		v0 += v1;  v1 = ikcp_rotl64(v1, 13);  v1 ^= v0;  v0 = ikcp_rotl64(v0, 32); \
+		v2 += v3;  v3 = ikcp_rotl64(v3, 16);  v3 ^= v2; \
+		v0 += v3;  v3 = ikcp_rotl64(v3, 21);  v3 ^= v0; \
+		v2 += v1;  v1 = ikcp_rotl64(v1, 17);  v1 ^= v2;  v2 = ikcp_rotl64(v2, 32); \
+	} while (0)
+
+static IUINT64 ikcp_siphash24(const void *data, size_t len, const unsigned char key[16])
+{
+	IUINT64 k0 = ikcp_load_le64(key);
+	IUINT64 k1 = ikcp_load_le64(key + 8);
+	IUINT64 v0 = k0 ^ 0x736f6d6570736575ULL;
+	IUINT64 v1 = k1 ^ 0x646f72616e646f6dULL;
+	IUINT64 v2 = k0 ^ 0x6c7967656e657261ULL;
+	IUINT64 v3 = k1 ^ 0x7465646279746573ULL;
+	const unsigned char *p = (const unsigned char*)data;
+	const unsigned char *end = p + (len - len % 8);
+	IUINT64 b;
+	size_t tail;
+	for (; p != end; p += 8) {
+		IUINT64 m = ikcp_load_le64(p);
+		v3 ^= m;
+		IKCP_SIPROUND;
+		IKCP_SIPROUND;
+		v0 ^= m;
+	}
+	b = (IUINT64)len << 56;
+	tail = len & 7;
+	switch (tail) {
+	case 7: b |= (IUINT64)p[6] << 48; /* fallthrough */
+	case 6: b |= (IUINT64)p[5] << 40; /* fallthrough */
+	case 5: b |= (IUINT64)p[4] << 32; /* fallthrough */
+	case 4: b |= (IUINT64)p[3] << 24; /* fallthrough */
+	case 3: b |= (IUINT64)p[2] << 16; /* fallthrough */
+	case 2: b |= (IUINT64)p[1] <<  8; /* fallthrough */
+	case 1: b |= (IUINT64)p[0];       /* fallthrough */
+	case 0: break;
+	}
+	v3 ^= b;
+	IKCP_SIPROUND;
+	IKCP_SIPROUND;
+	v0 ^= b;
+	v2 ^= 0xFF;
+	IKCP_SIPROUND;
+	IKCP_SIPROUND;
+	IKCP_SIPROUND;
+	IKCP_SIPROUND;
+	return v0 ^ v1 ^ v2 ^ v3;
+}
+
+
 static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 {
+	IUINT64 mac;
+	int i;
 	assert(kcp);
 	assert(kcp->output);
 	if (ikcp_canlog(kcp, IKCP_LOG_OUTPUT)) {
 		ikcp_log(kcp, IKCP_LOG_OUTPUT, "[RO] %ld bytes", (long)size);
 	}
 	if (size == 0) return 0;
-	return kcp->output((const char*)data, size, kcp, kcp->user);
+
+	/* [typhon] 前置 8B SipHash 信封(MAC 算 KCP 头 24B), 拼成 [MAC][datagram] 整段发出 */
+	mac = ikcp_siphash24(data, IKCP_OVERHEAD, kcp->siphash);
+	for (i = 0; i < IKCP_ENVELOPE_LEN; i++) {
+		kcp->mac_buf[i] = (char)(mac >> (8 * i));   /* 小端, 等价 htole64 */
+	}
+	memcpy(kcp->mac_buf + IKCP_ENVELOPE_LEN, data, (size_t)size);
+	return kcp->output(kcp->mac_buf, size + IKCP_ENVELOPE_LEN, kcp, kcp->user);
 }
 
 // output queue
@@ -259,6 +334,15 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 		ikcp_free(kcp);
 		return NULL;
 	}
+
+	/* [typhon] 出向信封暂存 [8B MAC][datagram]; 信封 key 默认全 0, 由 ikcp_set_siphash 设置 */
+	kcp->mac_buf = (char*)ikcp_malloc(kcp->mtu + IKCP_ENVELOPE_LEN);
+	if (kcp->mac_buf == NULL) {
+		ikcp_free(kcp->buffer);
+		ikcp_free(kcp);
+		return NULL;
+	}
+	memset(kcp->siphash, 0, sizeof(kcp->siphash));
 
 	iqueue_init(&kcp->snd_queue);
 	iqueue_init(&kcp->rcv_queue);
@@ -334,6 +418,9 @@ void ikcp_release(ikcpcb *kcp)
 		if (kcp->buffer) {
 			ikcp_free(kcp->buffer);
 		}
+		if (kcp->mac_buf) {   /* [typhon] */
+			ikcp_free(kcp->mac_buf);
+		}
 		if (kcp->acklist) {
 			ikcp_free(kcp->acklist);
 		}
@@ -344,6 +431,7 @@ void ikcp_release(ikcpcb *kcp)
 		kcp->nsnd_que = 0;
 		kcp->ackcount = 0;
 		kcp->buffer = NULL;
+		kcp->mac_buf = NULL;   /* [typhon] */
 		kcp->acklist = NULL;
 		ikcp_free(kcp);
 	}
@@ -793,7 +881,10 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		ikcp_log(kcp, IKCP_LOG_INPUT, "[RI] %d bytes", (int)size);
 	}
 
-	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return -1;
+	/* [typhon] 入参为原始 UDP 报文 [8B 信封][KCP 数据报]; 剥掉信封(MAC 已由 XDP 校验, 此处不重复) */
+	if (data == NULL || (int)size < (int)(IKCP_ENVELOPE_LEN + IKCP_OVERHEAD)) return -1;
+	data += IKCP_ENVELOPE_LEN;
+	size -= IKCP_ENVELOPE_LEN;
 
 	kcp->last_rcv_ms = kcp->current;
 
@@ -1327,16 +1418,31 @@ IUINT32 ikcp_check(const ikcpcb *kcp, IUINT32 current)
 int ikcp_setmtu(ikcpcb *kcp, int mtu)
 {
 	char *buffer;
-	if (mtu < 50 || mtu < (int)IKCP_OVERHEAD) 
+	char *macbuf;   /* [typhon] */
+	if (mtu < 50 || mtu < (int)IKCP_OVERHEAD)
 		return -1;
 	buffer = (char*)ikcp_malloc((mtu + IKCP_OVERHEAD) * 3);
-	if (buffer == NULL) 
+	if (buffer == NULL)
 		return -2;
+	macbuf = (char*)ikcp_malloc(mtu + IKCP_ENVELOPE_LEN);   /* [typhon] */
+	if (macbuf == NULL) {
+		ikcp_free(buffer);
+		return -2;
+	}
 	kcp->mtu = mtu;
 	kcp->mss = kcp->mtu - IKCP_OVERHEAD;
 	ikcp_free(kcp->buffer);
 	kcp->buffer = buffer;
+	ikcp_free(kcp->mac_buf);   /* [typhon] */
+	kcp->mac_buf = macbuf;
 	return 0;
+}
+
+
+/* [typhon] 设置信封 MAC 密钥(16B SipHash key) */
+void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key)
+{
+	memcpy(kcp->siphash, key, sizeof(kcp->siphash));
 }
 
 int ikcp_interval(ikcpcb *kcp, int interval)
@@ -1396,7 +1502,8 @@ int ikcp_waitsnd(const ikcpcb *kcp)
 IUINT32 ikcp_getconv(const void *ptr)
 {
 	IUINT32 conv;
-	ikcp_decode32u((const char*)ptr, &conv);
+	/* [typhon] ptr 为原始 UDP 报文, conv 在 8B 信封之后 */
+	ikcp_decode32u((const char*)ptr + IKCP_ENVELOPE_LEN, &conv);
 	return conv;
 }
 
