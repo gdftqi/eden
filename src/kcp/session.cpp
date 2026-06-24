@@ -52,8 +52,6 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noex
         return xERR_PK_LEN;
     }
 
-    // payload 可为 0: 空包(res == PKG_HDR_LEN)放行, 不解密;
-    // 仅"authed 且有 payload"的包必须带 16B tag, 否则连 tag 都放不下 = 畸形。
     if (authed() && res > core::PKG_HDR_LEN && res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
         return xERR_PK_LEN;
     }

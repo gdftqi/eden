@@ -270,11 +270,14 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 while (true) {
                     res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN);
                     if (res == xAGAIN) {
-                        break;          // 没有更多消息了
+                        // 没有更多消息了
+                        break;
                     } else if (res == xDUP) {
-                        continue;       // 幂等重复, 跳过
+                        // 幂等重复, 跳过
+                        continue;
                     } else if (res < 0) {
-                        remove_session(s->conv());   // 协议错误
+                        // 协议错误
+                        remove_session(s->conv());
                         break;
                     }
 
