@@ -101,6 +101,13 @@ struct RcvBuf {
     /**
      * @brief 解码
      *
+     * @warning **生命周期契约**: 成功时 *pkx 指向本 RcvBuf 内部 buf(零拷贝),
+     *          仅在下一次 append()/compact() 之前有效 —— append 可能触发
+     *          mi_realloc(换地址) 或 compact 的 memmove(数据前移), 都会让 *pkx 悬垂。
+     *          约束: **持有 decode 出来的 *pkx 期间, 绝不能对同一 RcvBuf 调 append/compact**。
+     *          典型用法是"先把本轮可读数据全 append 进来, 再循环 decode 逐个处理完",
+     *          循环内不再 append, 即满足此约束。
+     *
      * @return xOK 取到一个完整包 / xAGAIN 半包
      */
     int
