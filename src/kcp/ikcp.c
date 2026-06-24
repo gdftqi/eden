@@ -30,8 +30,8 @@ const IUINT32 IKCP_CMD_PUSH = 81;		// cmd: push data
 const IUINT32 IKCP_CMD_ACK  = 82;		// cmd: ack
 const IUINT32 IKCP_CMD_WASK = 83;		// cmd: window probe (ask)
 const IUINT32 IKCP_CMD_WINS = 84;		// cmd: window size (tell)
-const IUINT32 IKCP_CMD_PING = 85;		// [typhon] cmd: keepalive ping
-const IUINT32 IKCP_CMD_PONG = 86;		// [typhon] cmd: keepalive pong
+const IUINT32 IKCP_CMD_PING = 85;		// cmd: keepalive ping
+const IUINT32 IKCP_CMD_PONG = 86;		// cmd: keepalive pong
 const IUINT32 IKCP_ASK_SEND = 1;		// need to send IKCP_CMD_WASK
 const IUINT32 IKCP_ASK_TELL = 2;		// need to send IKCP_CMD_WINS
 const IUINT32 IKCP_WND_SND = 32;
@@ -40,7 +40,6 @@ const IUINT32 IKCP_MTU_DEF = 1400;
 const IUINT32 IKCP_ACK_FAST	= 3;
 const IUINT32 IKCP_INTERVAL	= 100;
 const IUINT32 IKCP_OVERHEAD = 24;
-/* [typhon] 信封 MAC 长度, 必须等于 core::ENVELOPE_MAC_LEN(8) */
 #define IKCP_ENVELOPE_LEN 8
 const IUINT32 IKCP_DEADLINK = 20;
 const IUINT32 IKCP_THRESH_INIT = 2;
@@ -280,9 +279,8 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 	}
 	if (size == 0) return 0;
 
-	kcp->last_snd_ms = kcp->current;   /* [typhon] 记录最近发出时刻(空闲发 PING 用) */
+	kcp->last_snd_ms = kcp->current;
 
-	/* [typhon] 前置 8B SipHash 信封(MAC 算 KCP 头 24B), 拼成 [MAC][datagram] 整段发出 */
 	mac = ikcp_siphash24(data, IKCP_OVERHEAD, kcp->siphash);
 	for (i = 0; i < IKCP_ENVELOPE_LEN; i++) {
 		kcp->mac_buf[i] = (char)(mac >> (8 * i));   /* 小端, 等价 htole64 */

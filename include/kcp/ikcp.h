@@ -332,10 +332,10 @@ struct IKCPCB
 	IUINT32 ts_probe, probe_wait;
 	IUINT32 dead_link, incr;
 	IUINT32 last_rcv_ms, timeout;
-	IUINT32 last_snd_ms;          /* [typhon] 最近发出数据的时刻(空闲发 PING 用) */
-	IUINT32 ping_active, pong;    /* [typhon] ping_active=1: 主动发 PING(客户端); pong=1: 待回 PONG */
-	IUINT8 siphash[16];
+	IUINT32 last_snd_ms;
+	IUINT32 ping_active, pong;
 	char *mac_buf;
+	IUINT8 siphash[16];
 	struct IQUEUEHEAD snd_queue;
 	struct IQUEUEHEAD rcv_queue;
 	struct IQUEUEHEAD snd_buf;
