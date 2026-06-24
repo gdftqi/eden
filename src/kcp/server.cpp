@@ -587,7 +587,7 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     }
 
     // 3. 校验登录服签名
-    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::Token, sign), Conf::instance()->ed25519_pub()) != 0) {
+    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::Token, sign), Conf::instance()->ed25519_pk()) != 0) {
         return xERR_TOKEN_VER;
     }
 

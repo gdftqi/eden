@@ -71,7 +71,7 @@ pk_hton(Package* p) noexcept {
 inline void
 pk_ntoh(Package* p) noexcept {
     p->id     = ntohs(p->id);
-    p->src_id = ntohs(p->src_id);
+    p->src_id = ntohl(p->src_id);
     p->seq    = ntohl(p->seq);
     p->dst_id = ntohl(p->dst_id);
 }
