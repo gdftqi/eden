@@ -151,30 +151,21 @@ public:
     }
 
 
-    void
-    set_output(int (*output)(const uint8_t *buf, int len, xkcpcb *kcp)) noexcept {
-        kcp_->output = output;
-    }
-
-
     /**
-     * @brief 从 KCP 队列读出一条完整 Package,做协议自检 + 单调性幂等校验,
-     *        并刷新 last_recv_ms_(用于 session 超时判定)。
-     *        相当于 recv() 之上加一层应用协议层处理。
+     * @brief 从 xkcp 队列读出一条完整 Package(整条消息 AEAD 已在 xkcp_recv 内解好),
+     *        做协议自检(id / seq / dst_id 必须非 0)。
      *
-     * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
-     * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
+     * @param[out] pk  解析成功时指向 buf 起始(host 字节序, 可直接访问字段)
+     * @param      buf 接收缓冲; 长度应 >= PKG_MAX_LEN, 否则触发 xkcp_recv 的 -3
      * @param      len buf 长度
-     * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      *
      * @return  xOK    成功(包长度在 *pk 的 len() 里)
-     *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
      *          xAGAIN rcv_queue 空 / 无完整包, 当前没有更多消息
-     *          xERR_KCP_BUFSMALL          buf 太小, 放大后重试
-     *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
+     *          xERR_KCP_BUFSMALL                  buf 太小, 放大后重试
+     *          xERR_PK_LEN/PK_ID/PKT_SEQ/PKT_DST  协议自检失败(见 core/error.hpp)
      */
     int
-    recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept;
+    recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept;
 
 
     int

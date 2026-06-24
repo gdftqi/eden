@@ -267,14 +267,16 @@ xkcp_segment_delete(xkcpcb*, xkcpseg* seg) {
  * @return 需要输出返回 1, 否则 0
  */
 static int
-xkcp_canlog(const xkcpcb* kcp, int mask) {
-    if ((mask & __conf_.logmask) == 0 || __conf_.writelog == NULL) return 0;
+xkcp_canlog(const xkcpcb*, int mask) {
+    if ((mask & __conf_.logmask) == 0 || __conf_.writelog == NULL) {
+        return 0;
+    }
     return 1;
 }
 
 
 /**
- * @brief 出向唯一收口: 前置 8B SipHash 信封后经 kcp->output 回调发出, 并刷新 last_snd_ms
+ * @brief 出向唯一收口: 前置 8B SipHash 信封后经 __conf_.output 回调发出, 并刷新 last_snd_ms
  * @param kcp   会话
  * @param data  待发送的 KCP 数据报(不含信封)
  * @param size  数据报字节数(为 0 则直接返回)
@@ -390,7 +392,7 @@ xkcp_send_raw(xkcpcb* kcp, const uint8_t* buffer, int len) {
         return -1;
     }
 
-    if (len <= XKCP_MSS) {
+    if (len <= (int)XKCP_MSS) {
         count = 1;
     }
     else {
@@ -407,7 +409,7 @@ xkcp_send_raw(xkcpcb* kcp, const uint8_t* buffer, int len) {
 
     // fragment
     for (i = 0; i < count; i++) {
-        int size = len > XKCP_MSS ? XKCP_MSS : len;
+        int size = len > (int)XKCP_MSS ? (int)XKCP_MSS : len;
         seg = xkcp_segment_new(kcp, size);
         ASSERT(seg != NULL);
 
@@ -554,7 +556,7 @@ xkcp_parse_una(xkcpcb* kcp, uint32_t una) {
  * @param ts   该 ACK 的时间戳(conserve 模式下参与判定)
  */
 static void
-xkcp_parse_fastack(xkcpcb* kcp, uint32_t sn, uint32_t ts) {
+xkcp_parse_fastack(xkcpcb* kcp, uint32_t sn, uint32_t) {
     struct XQUEUEHEAD *p, *next;
 
     if (_xtimediff(sn, kcp->snd_una) < 0 || _xtimediff(sn, kcp->snd_nxt) >= 0)
@@ -680,7 +682,7 @@ xkcp_on_sync(xkcpcb* kcp, const uint8_t* data, int len) {
     // Step 3, 校验 Token 签名
     const uint8_t* p = plain;
     p = xkcp_decode64u(p, &token.expire);
-    if (token.expire < time(NULL)) {
+    if (token.expire < (uint64_t)time(NULL)) {
         return;
     }
 
@@ -743,7 +745,7 @@ xkcp_on_sack(xkcpcb *kcp, const uint8_t *data, int len) {
  * @param len   payload 长度
  */
 static inline void
-xkcp_on_rst(xkcpcb *kcp, const uint8_t *data, int len) {
+xkcp_on_rst(xkcpcb *kcp) {
     kcp->state = (uint32_t)-1;
 }
 
@@ -907,7 +909,6 @@ xkcp_x25519_keygen(xkcpcb* kcp) {
 
 int
 xkcp_kx_server(xkcpcb* kcp, const uint8_t* client_pk) {
-    uint8_t sk[crypto_kx_SECRETKEYBYTES];
     if (crypto_kx_server_session_keys(kcp->rx_key, kcp->tx_key, kcp->eph_pk, kcp->eph_sk, client_pk) != 0) {
         return -1;
     }
@@ -1334,7 +1335,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
         xkcp_log(kcp, XKCP_LOG_INPUT, "[RI] %d bytes", size);
     }
 
-    if (data == NULL || size < crypto_shorthash_BYTES + XKCP_HDR_LEN) {
+    if (data == NULL || size < (int)(crypto_shorthash_BYTES + XKCP_HDR_LEN)) {
         return -1;
     }
 
@@ -1386,7 +1387,7 @@ xkcp_input(xkcpcb *kcp, const uint8_t *data, int size) {
             break;
 
         case XKCP_CMD_RST:
-            xkcp_on_rst(kcp, data, (int)len);
+            xkcp_on_rst(kcp);
             break;
 
         case XKCP_CMD_PING:

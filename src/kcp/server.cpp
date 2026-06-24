@@ -23,7 +23,11 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
         Conf::instance()->x25519_sk(),
         Conf::instance()->ed25519_pk(),
         Conf::instance()->siphash(),
-        0, 0, 0, 0, 0
+        Conf::instance()->sndwnd(),
+        Conf::instance()->rcvwnd(),
+        Conf::instance()->interval(),
+        Conf::instance()->resend(),
+        Conf::instance()->timeout()
     );
 
     for (int i = 0; i < MAX_RECV; ++i) {
@@ -261,6 +265,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto sess   = get_session(conv);
                 bool is_new = false;
                 if (sess == nullptr) {
+                    is_new = true;
                     sess = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
                 }
 
@@ -275,15 +280,13 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 core::PK<core::Host> pk;
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    res = sess->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
+                    res = sess->recv(&pk, pkbuf, core::PKG_MAX_LEN);
                     if (res == xAGAIN) {
                         // 没有更多消息了
                         break;
-                    } else if (res == xDUP) {
-                        // 幂等重复, 跳过
-                        continue;
                     } else if (res < 0) {
-                        remove_session(sess->conv());   // 协议错误
+                        // 协议错误
+                        remove_session(sess->conv());
                         break;
                     }
 
@@ -370,7 +373,19 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
 
         core::PKx<core::Host> pkx;
         while (conn->recv(&pkx, tnow_) == xOK) {
-            on_s2c(conn, pkx);
+            switch (pkx.pk()->id) {
+            case PKID_PONG:
+                on_pong(conn, pkx);
+                break;
+
+            case PKID_REGIST_RSP:
+                on_regist_rsp(conn, pkx);
+                break;
+
+            default:
+                on_s2c(conn, pkx);
+                break;
+            }
         } // while;
     }
 }

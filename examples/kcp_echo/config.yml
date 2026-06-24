@@ -17,7 +17,7 @@ kcp:
   resend: 3
   nc: 1
 
-  timeout: 30000
+  timeout: 45000
   siphash: "XA1,y9Mn]0+iu2Y9"
   x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
   x25519_sk: "MLCRzqZTtmEIerqQeJKiIMgNOpEZOKH3f/ehhle6bhA="

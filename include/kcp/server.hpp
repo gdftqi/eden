@@ -168,7 +168,6 @@ private:
      */
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
-        s->set_output(output);
         users_.emplace(conv, s);
         if (event_->on_connected(s)) {
             users_.erase(conv);

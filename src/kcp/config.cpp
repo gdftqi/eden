@@ -59,6 +59,6 @@ typhon::kcp::Conf::load(const YAML::Node& node) {
     ASSERT(utils::base64_decode(tmp, x25519_sk_, &len) == xOK && len == sizeof(x25519_sk_), "无效的 x25519_sk"); 
 
     tmp = node["ed25519_pub"].as<std::string>();
-    len = sizeof(ed25519_pub_);
-    ASSERT(utils::base64_decode(tmp, ed25519_pub_, &len) == xOK && len == sizeof(ed25519_pub_), "无效的 ed25519_pub"); 
+    len = sizeof(ed25519_pk_);
+    ASSERT(utils::base64_decode(tmp, ed25519_pk_, &len) == xOK && len == sizeof(ed25519_pk_), "无效的 ed25519_pub"); 
 }

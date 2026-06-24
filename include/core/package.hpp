@@ -9,6 +9,12 @@
 namespace typhon::core {
 
 
+#define PKID_PING       (100) ///< 心跳 PING
+#define PKID_PONG       (101) ///< 心跳 PONG
+#define PKID_REGIST_REQ (102) ///< 注册请求
+#define PKID_REGIST_RSP (103) ///< 注册应答
+
+
 #pragma pack(push, 1)
 
 

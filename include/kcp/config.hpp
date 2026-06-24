@@ -176,7 +176,7 @@ private:
     int        interval_    { 10 };                ///< update 间隔
     int        resend_      { 3 };                 ///< 快速重传, 表示连接跳过3个包的时候就会重传
     int        nc_          { 1 };                 ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
-    uint32_t   timeout_     { 30000 };             ///< 超时(ms)
+    uint32_t   timeout_     { 45000 };             ///< 超时(ms)
     SipKey     siphash_     {};                    ///< 协议密钥
     X25519Key  x25519_pk_   {};                    ///< LOGIN 服务用来作 sealedbox 加密
     X25519Key  x25519_sk_   {};                    ///< 用于 鉴权时的 sealedbox 解密

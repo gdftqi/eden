@@ -43,7 +43,7 @@ $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -o $@
 
 # Linux libkcp.so:给 test_kcp.py(在本目录)用 ctypes 加载
-$(LIBKCP_SO): ../../src/kcp/ikcp.c
+$(LIBKCP_SO): ../../src/kcp/xkcp.c
 	$(CC) $(CFLAGS) -shared -o $@ $<
 
 # 把 BPF 对象拷到本地 build,server 启动时方便用相对路径加载 (build/kcp.bpf.o 等)

@@ -19,7 +19,7 @@ typhon::kcp::Session::Session(
 
 
 int
-typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
+typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept {
     int res = ::xkcp_recv(kcp_, buf, len);
     if (res < 0) {
         // ikcp_recv: -1/-2 无完整包 → xAGAIN, -3 buf 太小 → xERR_KCP_BUFSMALL

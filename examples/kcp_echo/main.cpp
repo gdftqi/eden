@@ -17,18 +17,6 @@ on_signal(int) {
 
 class EchoService: public typhon::kcp::Server::IEvent {
 public:
-    virtual void 
-    on_init(typhon::kcp::Server* server) noexcept {
-        xINFO("{} running on {}", server->host(), ::pthread_self());
-    }
-
-
-    virtual void
-    on_stopped(typhon::kcp::Server* server) noexcept {
-        xINFO("{} stopped on {}", server->host(), ::pthread_self());
-    }
-
-
     virtual int
     on_connected(typhon::kcp::Session::Ptr kcp) noexcept {
         xINFO("{} connected on {}", kcp->remote_addr(), ::pthread_self());

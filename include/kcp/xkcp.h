@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 
 
 #ifndef INLINE
@@ -102,7 +103,7 @@ typedef struct XQUEUEHEAD {
 #define xqueue_add_tail XQUEUE_ADD_TAIL
 #define xqueue_del      XQUEUE_DEL
 #define xqueue_del_init XQUEUE_DEL_INIT
-#define xqueue_is_empty IQUEUE_IS_EMPTY
+#define xqueue_is_empty XQUEUE_IS_EMPTY
 
 #define XQUEUE_FOREACH(iterator, head, TYPE, MEMBER) \
     for ((iterator) = xqueue_entry((head)->next, TYPE, MEMBER); \
