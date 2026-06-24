@@ -36,7 +36,7 @@ namespace lilith.Core
 
     public class KcpSession
     {// Kcp 会话
-        const int UDP_MTU = 1400;
+        const int UDP_MTU = 1450;   // 必须与服务端 core::typhon.in.hpp 的 UDP_MTU 一致
         const int TICK_INTERVAL_MS = 10;
         const int SEND_BATCH = 128;
         const int RECV_BATCH = 128;
@@ -64,9 +64,9 @@ namespace lilith.Core
             }
         }
 
-        public void Connect(ISessionEvent ev, string host, uint conv, string b64Token, uint gwId)
+        public void Connect(ISessionEvent ev, string host, uint conv, uint userId, string b64Token, uint gwId)
         {// 连接服务
-            if (ev == null || string.IsNullOrEmpty(host) || conv == 0 || string.IsNullOrEmpty(b64Token) || gwId == 0)
+            if (ev == null || string.IsNullOrEmpty(host) || conv == 0 || userId == 0 || string.IsNullOrEmpty(b64Token) || gwId == 0)
             {// 入参检查
                 throw new Exception("param is invalid");
             }
@@ -88,6 +88,7 @@ namespace lilith.Core
             try
             {
                 this.conv = conv;
+                this.userId = userId;
                 token = Crypto.Token(b64Token);
                 authed = false;
                 sndSeq = rcvSeq = 0;
@@ -100,6 +101,8 @@ namespace lilith.Core
                 var kcp = new Kcp(conv, output);
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
+                kcp.SetPing(true);          // [typhon] 客户端: 空闲时主动发 PING 保活
+                kcp.SetTimeout(30000);      // [typhon] 30s 超时; PING 间隔 = timeout/3 = 10s
                 safeKcp = new SafeKcp(kcp);
 
                 rcvThread = new Thread(rcvLoop) { IsBackground = true };
@@ -367,6 +370,7 @@ namespace lilith.Core
         private void doSend(Package pkg)
         {
             pkg.PkSeq = ++sndSeq;
+            pkg.PkSrcId = userId;   // [typhon] 所有出包带 src_id = user_id (网关据此校验 token.user_id)
             int total = encode(pkg, pkSendBuf);
 
             if (safeKcp!.SendFlush(pkSendBuf, 0, total) != 0)
@@ -378,8 +382,9 @@ namespace lilith.Core
         private int encode(Package pkg, byte[] outBuf)
         {// 装包
             Package.Encode16BE(outBuf, Package.OFFSET_ID,     pkg.PkId);
-            Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.PkSeq);
+            Package.Encode32BE(outBuf, Package.OFFSET_SRC_ID, pkg.PkSrcId);
             Package.Encode32BE(outBuf, Package.OFFSET_DST_ID, pkg.PkDstId);
+            Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.PkSeq);
 
             int plen = pkg.PayloadLength;
             if (authed && plen > 0)
@@ -405,8 +410,9 @@ namespace lilith.Core
             }
 
             Package.Decode16BE(data, Package.OFFSET_ID, out pkg.PkId);
-            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
+            Package.Decode32BE(data, Package.OFFSET_SRC_ID, out pkg.PkSrcId);
             Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.PkDstId);
+            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
             if (pkg.PkSeq == 0)
             {
                 return false;
@@ -481,6 +487,7 @@ namespace lilith.Core
 
         // ---- 身份属性 ----
         private uint conv = 0;
+        private uint userId = 0;
         private byte[] token = new byte[170];
 
         // ---- 仅 ioRecv 线程 ----

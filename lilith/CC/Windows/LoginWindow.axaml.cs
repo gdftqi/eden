@@ -55,9 +55,11 @@ namespace CC
             {
                 const string host = "172.26.29.158:5555";
                 const uint conv = 2000;
-                const string b64Token = "GCyA8dctBmgMpd66bczhC6Aqh0rtDu8gGwaPrzgrQjm7F50bBTyhsNYAOTHIoWQFUuNt7jq4sFcNJMjaBvYR5Ws46YMbsCNW07XgV+0JCx8Q9tgrJyO00Mssbt06+Pu/mOMClJmKpzt6sMjRVbZRPH5837tNBCaInd6Nr78FfyGs3JRP3/srinrujFOmOHZQaxCPoHmFz/zWIhl8CyFMqg==";
+                const uint userId = 90000;
+                // test_kcp.py 同款: conv=2000, user_id=90000 (164B sealed token, 网关 x25519 公钥加密)
+                const string b64Token = "q2NxfAgZABiSo0494vmkCXfLTv50Dh0viulcssIfPjmLIg/OD4VHiNsu9Lcf267mjsXtT7E6C6WExNfWsZF/dYZSLve8ApDdfQTUCH8jhpYXM8tJwQjWbjLkLitXETsuR3kU7QHJfEU5HkOctp6gBcHvncFmER4JS82kWUCE71M1i3/MWPMa7+1UqRhe2hvnLZMhQgIs7IpHnkopFDBibQSsuBo=";
                 const uint gwId = 1000;
-                KcpSession.Instance.Connect(main, host, conv, b64Token, gwId);
+                KcpSession.Instance.Connect(main, host, conv, userId, b64Token, gwId);
                 if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
                     desktop.MainWindow = main;

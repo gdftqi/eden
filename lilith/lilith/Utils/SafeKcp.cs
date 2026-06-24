@@ -42,11 +42,12 @@ namespace lilith.Utils
             }
         }
 
-        public void Update(uint currentMs)
+        // [typhon] 透传 KCP 判死信号: 0 存活 / -1 超时
+        public int Update(uint currentMs)
         {
             lock (locker)
             {
-                kcp.Update(currentMs);
+                return kcp.Update(currentMs);
             }
         }
 

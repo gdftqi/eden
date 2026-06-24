@@ -17,6 +17,8 @@ namespace kcp2k
         public const int CMD_ACK  = 82;            // cmd: ack
         public const int CMD_WASK = 83;            // cmd: window probe (ask)
         public const int CMD_WINS = 84;            // cmd: window size (tell/insert)
+        public const int CMD_PING = 85;            // [typhon] cmd: keepalive ping
+        public const int CMD_PONG = 86;            // [typhon] cmd: keepalive pong
         public const int ASK_SEND = 1;             // need to send CMD_WASK
         public const int ASK_TELL = 2;             // need to send CMD_WINS
         public const int WND_SND = 32;             // default send window
@@ -65,6 +67,12 @@ namespace kcp2k
         internal int fastresend;
         internal int fastlimit;
         internal bool nocwnd;        // congestion control, negated. heavily restricts send/recv window sizes.
+        // [typhon] 保活/超时
+        internal uint last_rcv_ms;   // 最近收到对端数据的时刻
+        internal uint last_snd_ms;   // 最近发出数据的时刻(空闲发 PING 用)
+        internal uint timeout;       // 超时阈值 ms (0=禁用)
+        internal bool ping_active;   // true=本端主动发 PING(客户端); 服务端保持 false 只回 PONG
+        internal bool pong;          // true=待回 PONG(收到对端 PING)
         internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
         internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
         // snd_buffer needs index removals.
@@ -550,6 +558,8 @@ namespace kcp2k
 
             if (data == null || size < OVERHEAD) return -1;
 
+            last_rcv_ms = current;   // [typhon] 收到对端数据 → 刷新保活时刻
+
             while (true)
             {
                 // enough data left to decode segment (aka OVERHEAD bytes)?
@@ -579,7 +589,8 @@ namespace kcp2k
 
                 // validate command type
                 if (cmd != CMD_PUSH && cmd != CMD_ACK &&
-                    cmd != CMD_WASK && cmd != CMD_WINS)
+                    cmd != CMD_WASK && cmd != CMD_WINS &&
+                    cmd != CMD_PING && cmd != CMD_PONG)
                     return -3;
 
                 rmt_wnd = wnd;
@@ -650,6 +661,14 @@ namespace kcp2k
                 {
                     // do nothing
                 }
+                else if (cmd == CMD_PING)
+                {
+                    pong = true;   // [typhon] 收到 PING → 下次 flush 回 PONG
+                }
+                else if (cmd == CMD_PONG)
+                {
+                    // [typhon] 收到 PONG → 无需动作, last_rcv_ms 已在 Input 开头刷新
+                }
                 else
                 {
                     return -3;
@@ -699,6 +718,7 @@ namespace kcp2k
         {
             if (size + space > mtu)
             {
+                last_snd_ms = current;   // [typhon] 记录最近发出时刻(空闲发 PING 用)
                 output(buffer, size);
                 size = 0;
             }
@@ -710,6 +730,7 @@ namespace kcp2k
             // flush buffer up to 'offset' (<= MTU)
             if (size > 0)
             {
+                last_snd_ms = current;   // [typhon]
                 output(buffer, size);
             }
         }
@@ -799,6 +820,24 @@ namespace kcp2k
             }
 
             probe = 0;
+
+            // [typhon] 回 PONG(收到对端 PING 后)
+            if (pong)
+            {
+                seg.cmd = CMD_PONG;
+                MakeSpace(ref size, OVERHEAD);
+                size += seg.Encode(buffer, size);
+                pong = false;
+            }
+
+            // [typhon] 主动 PING(仅 ping_active=客户端): 空闲超过 timeout/3 就发, 维持双向保活
+            if (ping_active && timeout > 0 &&
+                Utils.TimeDiff(current, last_snd_ms) >= (int)(timeout / 3))
+            {
+                seg.cmd = CMD_PING;
+                MakeSpace(ref size, OVERHEAD);
+                size += seg.Encode(buffer, size);
+            }
 
             // calculate the window size which is currently safe to send.
             // it's send window, or remote window, whatever is smaller.
@@ -960,7 +999,8 @@ namespace kcp2k
         //
         // time as uint, likely to minimize bandwidth.
         // uint.max = 4294967295 ms = 1193 hours = 49 days
-        public void Update(uint currentTimeMilliSeconds)
+        // [typhon] 返回 0 存活; -1 判死(超时), 由上层据此摘除/重连
+        public int Update(uint currentTimeMilliSeconds)
         {
             current = currentTimeMilliSeconds;
 
@@ -969,6 +1009,14 @@ namespace kcp2k
             {
                 updated = true;
                 ts_flush = current;
+                last_rcv_ms = current;   // [typhon] 初始化保活时刻, 防首次 update 误判超时
+                last_snd_ms = current;
+            }
+
+            // [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → -1
+            if (timeout > 0 && Utils.TimeDiff(current, last_rcv_ms) > (int)timeout)
+            {
+                return -1;
             }
 
             // slap is time since last flush in milliseconds
@@ -997,6 +1045,8 @@ namespace kcp2k
                 }
                 Flush();
             }
+
+            return 0;
         }
 
         // ikcp_check
@@ -1059,6 +1109,12 @@ namespace kcp2k
             this.mtu = mtu;
             mss = mtu - OVERHEAD;
         }
+
+        // [typhon] 是否主动发 PING(客户端 true; 服务端 false 只回 PONG)
+        public void SetPing(bool active) => ping_active = active;
+
+        // [typhon] 设置超时阈值(ms, 0=禁用)
+        public void SetTimeout(uint ms) => timeout = ms;
 
         // ikcp_interval
         public void SetInterval(uint interval)
