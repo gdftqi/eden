@@ -35,13 +35,12 @@ typhon::kcp::Session::Session(
     ::ikcp_wndsize(kcp_, c->sndwnd(), c->rcvwnd());
     ::ikcp_nodelay(kcp_, c->nodelay(), c->interval(), c->resend(), c->nc());
     ::ikcp_setmtu(kcp_, core::KCP_MTU);
-
-    last_recv_ms_ = server->tnow();
+    kcp_->timeout = 5000;
 }
 
 
 int
-typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept {
+typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept {
     int res = ::ikcp_recv(kcp_, (char*)buf, len);
     if (res < 0) {
         // ikcp_recv: -1/-2 无完整包 → xAGAIN, -3 buf 太小 → xERR_KCP_BUFSMALL
@@ -87,27 +86,20 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
             return xERR_PKT_SRC;
         }
 
-        if (res > core::PKG_HDR_LEN) {
-            if (res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
-                return xERR_PK_LEN;
-            }
-            
-            size_t   cipher_len = (size_t)res - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
-            uint8_t* cipher     = buf + core::PKG_HDR_LEN;
-            uint8_t* tag        = cipher + cipher_len;
+        size_t   cipher_len = (size_t)res - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
+        uint8_t* cipher     = buf + core::PKG_HDR_LEN;
+        uint8_t* tag        = cipher + cipher_len;
 
-            uint8_t nonce[utils::XX20_NONCE_LEN];
-            make_nonce(nonce, conv(), p->seq, DIR_C2S);
-            if (utils::xx20_decrypt(cipher, cipher_len, cipher, tag, rx_key_, nonce)) {
-                return xERR_PK_DEC;
-            }
-
-            // 剥掉 tag: 上层 *pk 只到明文 payload 末尾, len_ 不含 16B tag
-            *pk = core::PK<core::Host>((void*)buf, core::PKG_HDR_LEN + (int)cipher_len);
+        uint8_t nonce[utils::XX20_NONCE_LEN];
+        make_nonce(nonce, conv(), p->seq, DIR_C2S);
+        if (utils::xx20_decrypt(cipher, cipher_len, cipher, tag, rx_key_, nonce)) {
+            return xERR_PK_DEC;
         }
+
+        // 剥掉 tag: 上层 *pk 只到明文 payload 末尾, len_ 不含 16B tag
+        *pk = core::PK<core::Host>((void*)buf, core::PKG_HDR_LEN + (int)cipher_len);
     }
 
-    last_recv_ms_ = now;
     rcv_req_ = p->seq;
     return xOK;
 }

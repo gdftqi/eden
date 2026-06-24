@@ -156,7 +156,7 @@ class PK {
 
 public:
     static PK
-    create(uint16_t id, uint32_t dst_id, const void* payload, int plen) noexcept {
+    create(uint16_t id, uint32_t src_id, uint32_t dst_id, const void* payload, int plen) noexcept {
         // 缓冲多留 XX20_TAG_LEN 给加密时附 tag; 但 len_ 只记逻辑长度(HDR + payload, 不含 tag)
         auto size = sizeof(Package) + plen + utils::XX20_TAG_LEN;
         auto buf = ::mi_malloc(size);
@@ -164,6 +164,7 @@ public:
         auto* p = (Package*)buf;
         p->id = id;
         p->dst_id = dst_id;
+        p->src_id = src_id;
         ::memcpy(p->payload, payload, plen);
         return PK(buf, (int)sizeof(Package) + plen);
     }

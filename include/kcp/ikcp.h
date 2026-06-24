@@ -331,6 +331,7 @@ struct IKCPCB
 	IUINT32 nodelay, updated;
 	IUINT32 ts_probe, probe_wait;
 	IUINT32 dead_link, incr;
+	IUINT32 last_rcv_ms, timeout;
 	struct IQUEUEHEAD snd_queue;
 	struct IQUEUEHEAD rcv_queue;
 	struct IQUEUEHEAD snd_buf;
@@ -394,7 +395,7 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len);
 // update state (call it repeatedly, every 10ms-100ms), or you can ask 
 // ikcp_check when to call it again (without ikcp_input/_send calling).
 // 'current' - current timestamp in millisec. 
-void ikcp_update(ikcpcb *kcp, IUINT32 current);
+int ikcp_update(ikcpcb *kcp, IUINT32 current);
 
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call

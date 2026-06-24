@@ -33,6 +33,7 @@ public:
     typedef utils::SPSC<core::QEvent*>                         EvQue;
     typedef std::unique_ptr<Server>                            Ptr;
     typedef utils::ObjPool<core::SndBuf>                       SndBufPool;
+    typedef absl::flat_hash_map<uint32_t, Session::Ptr>        SessMap;
     typedef absl::flat_hash_map<uint32_t, Session::Ptr>        UserMap;
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
@@ -157,7 +158,14 @@ private:
 
     Session::Ptr
     get_session(uint32_t conv) noexcept {
-        auto itr = users_.find(conv);
+        auto itr = sesss_.find(conv);
+        return itr == sesss_.end() ? nullptr : itr->second;
+    }
+
+
+    Session::Ptr
+    get_user(uint32_t user_id) noexcept {
+        auto itr = users_.find(user_id);
         return itr == users_.end() ? nullptr : itr->second;
     }
 
@@ -169,9 +177,9 @@ private:
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
         s->set_output(output);
-        users_.emplace(conv, s);
+        sesss_.emplace(conv, s);
         if (event_->on_connected(s)) {
-            users_.erase(conv);
+            sesss_.erase(conv);
             return -1;
         }
         return 0;
@@ -180,11 +188,21 @@ private:
 
     void
     remove_session(uint32_t conv) noexcept {
-        auto itr = users_.find(conv);
-        if (itr != users_.end()) {
-            auto kcp = itr->second;
-            users_.erase(itr);
-            event_->on_disconnected(kcp);
+        auto sitr = sesss_.find(conv);
+        if (sitr != sesss_.end()) {
+            auto sess = sitr->second;
+            sesss_.erase(sitr);
+            event_->on_disconnected(sess);
+
+            if (sess->authed()) {
+                auto uitr = users_.find(sess->user_id());
+                if (uitr != users_.end()) {
+                    auto user = uitr->second;
+                    if (user->conv() == sess->conv()) {
+                        users_.erase(uitr);
+                    }
+                }
+            }
         }
     }
 
@@ -288,7 +306,8 @@ private:
     
     // --------------------------------- 会话属性 ---------------------------------
 
-    UserMap users_; // 用户侧集合
+    SessMap sesss_; // 会话侧集合
+    UserMap users_; // 用户侧
     ServMap servs_; // 服务侧集合
 }; // class Server;
 

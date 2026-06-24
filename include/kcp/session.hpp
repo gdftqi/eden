@@ -97,6 +97,7 @@ public:
     void
     set_user_id(uint32_t user_id) noexcept {
         user_id_ = user_id;
+        kcp_->timeout = Conf::instance()->timeout();
     }
     
 
@@ -150,23 +151,12 @@ public:
 
 
     /**
-     * @brief 检测超时
-     */
-    bool
-    check_timeout(uint64_t tnow) const noexcept {
-        // 未鉴权时, 超时值为 5s
-        auto timeout = user_id_ > 0 ? (uint64_t)Conf::instance()->timeout() : 5000;
-        return tnow - last_recv_ms_ > timeout;
-    }
-
-
-    /**
-     * @brief 推动 KCP 内部状态机:超时重传、发 ACK、flush 待发数据。
+     * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
      */
-    void
+    int
     update(uint64_t current) noexcept {
-        ::ikcp_update(kcp_, (uint32_t)current);
+        return ::ikcp_update(kcp_, (uint32_t)current);
     }
 
 
@@ -205,7 +195,6 @@ public:
      * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
      * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
-     * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      *
      * @return  xOK    成功(包长度在 *pk 的 len() 里)
      *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
@@ -214,7 +203,7 @@ public:
      *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int
-    recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept;
+    recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept;
 
 
     int
@@ -230,16 +219,15 @@ private:
         return ++snd_seq_;
     }
 
-    uint32_t           user_id_      { 0 };
-    Server*            server_       { nullptr };
-    uint64_t           last_recv_ms_ { 0 };
-    uint32_t           snd_seq_      { 0 };
-    uint32_t           rcv_req_      { 0 };
-    ::ikcpcb*          kcp_          { nullptr };
-    ::sockaddr_storage addr_         {};
-    ::socklen_t        addrlen_      { sizeof(addr_) };
-    Xx20Key             tx_key_       { 0 };
-    Xx20Key             rx_key_       { 0 };
+    uint32_t           user_id_   { 0 };
+    Server*            server_    { nullptr };
+    uint32_t           snd_seq_   { 0 };
+    uint32_t           rcv_req_   { 0 };
+    ::ikcpcb*          kcp_       { nullptr };
+    ::sockaddr_storage addr_      {};
+    ::socklen_t        addrlen_   { sizeof(addr_) };
+    Xx20Key            tx_key_    { 0 };
+    Xx20Key            rx_key_    { 0 };
     std::string        desc_;
 }; // class Kcp;
 

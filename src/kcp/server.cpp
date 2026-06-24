@@ -81,7 +81,7 @@ typhon::kcp::Server::run() noexcept {
         update();
     }
 
-    users_.clear();
+    sesss_.clear();
     servs_.clear();
 
     for (auto* sb: sque_) {
@@ -264,7 +264,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 core::PK<core::Host> pk;
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
+                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN);
                     if (res == xAGAIN) {
                         break;          // 没有更多消息了
                     } else if (res == xDUP) {
@@ -412,14 +412,11 @@ typhon::kcp::Server::update() noexcept {
 
     // 全量遍历: 超时则摘除, 否则推动 KCP。有流量时主循环跑得很快,
     // ts_flush 一到点就被某轮捕获 flush, 延迟接近即时
-    for (auto itr = users_.begin(); itr != users_.end();) {
+    for (auto itr = sesss_.begin(); itr != sesss_.end();) {
         auto s = itr->second;
-        if (s->check_timeout(now)) {
-            users_.erase(itr++);
-            event_->on_disconnected(s);
-        } else {
-            s->update(now);
-            ++itr;
+        ++itr;
+        if (s->update(now) < 0) {
+            remove_session(s->conv());
         }
     }
 
@@ -512,13 +509,13 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
 
 void
 typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
-    auto s = get_session(pkx.pk()->dst_id);
-    if (s != nullptr) {
+    auto user = get_user(pkx.pk()->dst_id);
+    if (user != nullptr) {
         // 直接用 pkx.pk()(指向 Connector rbuf_): Session::send 把密文+tag 加密输出到它
         // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包。
         core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
-        if (s->send(pk) < 0) {
-            xERROR("{} 发送失败", s->to_string());
+        if (user->send(pk) < 0) {
+            xERROR("{} 发送失败", user->to_string());
         }
     }
 }
@@ -607,9 +604,17 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     s->set_key(txkey, rxkey);
 
     // 6. 构造回包
-    auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, s->conv(), tmppk, utils::X25519_KEY_LEN);
+    auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, Conf::instance()->id(), token.user_id, tmppk, utils::X25519_KEY_LEN);
     int res = s->send(out);
     s->set_user_id(token.user_id);
+    auto olditr = users_.find(s->user_id());
+    if (olditr != users_.end()) {
+        // TODO: 踢人
+        // os->second->send()
+        // os->second->set_state(off_line);
+        users_.erase(olditr);
+    }
+    users_.insert(std::make_pair(s->user_id(), s));
     core::PK<core::Host>::release(out);
     return res;
 }

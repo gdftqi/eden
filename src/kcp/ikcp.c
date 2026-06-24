@@ -289,6 +289,8 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	kcp->nocwnd = 0;
 	kcp->xmit = 0;
 	kcp->dead_link = IKCP_DEADLINK;
+	kcp->last_rcv_ms = 0;
+	kcp->timeout = 0;
 	kcp->output = NULL;
 	kcp->ccops = NULL;
 	kcp->congest = NULL;
@@ -793,6 +795,8 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 
 	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return -1;
 
+	kcp->last_rcv_ms = kcp->current;
+
 	while (1) {
 		IUINT32 ts, sn, len, una, conv;
 		IUINT16 wnd;
@@ -1235,7 +1239,7 @@ void ikcp_flush(ikcpcb *kcp)
 // ikcp_check when to call it again (if no ikcp_input/_send calls occur).
 // 'current' - current timestamp in milliseconds.
 //---------------------------------------------------------------------
-void ikcp_update(ikcpcb *kcp, IUINT32 current)
+int ikcp_update(ikcpcb *kcp, IUINT32 current)
 {
 	IINT32 slap;
 
@@ -1244,6 +1248,12 @@ void ikcp_update(ikcpcb *kcp, IUINT32 current)
 	if (kcp->updated == 0) {
 		kcp->updated = 1;
 		kcp->ts_flush = kcp->current;
+		kcp->last_rcv_ms = kcp->current; /* [typhon] 初始化保活时刻, 防首次 update 误判超时 */
+	}
+
+	/* [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */
+	if (kcp->timeout > 0 && _itimediff(kcp->current, kcp->last_rcv_ms) > (IINT32)kcp->timeout) {
+		return -1;
 	}
 
 	slap = _itimediff(kcp->current, kcp->ts_flush);
@@ -1260,6 +1270,8 @@ void ikcp_update(ikcpcb *kcp, IUINT32 current)
 		}
 		ikcp_flush(kcp);
 	}
+
+	return 0;
 }
 
 
