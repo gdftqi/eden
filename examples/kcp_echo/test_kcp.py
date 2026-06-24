@@ -40,9 +40,9 @@ TIMEOUT_SEC   = 5.0      # 单条请求超时阈值（超过算 fail）
 # };
 # 所有多字节字段一律网络字节序（big-endian）。
 # KCP 方向 Package 不带长度字段，长度由 KCP 消息边界给定（ikcp_recv 返回值）。
-HEADER_FMT  = '!HII'                        # big-endian: u16, u32, u32
-HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 10 字节
-assert HEADER_SIZE == 10
+HEADER_FMT  = '!HIII'                       # big-endian: id u16, src_id u32, dst_id u32, seq u32
+HEADER_SIZE = struct.calcsize(HEADER_FMT)   # 14 字节
+assert HEADER_SIZE == 14
 
 PK_ID_PING  = 1     # 业务 echo 消息号 (非 100/102, 走 server on_c2s 转发后端)
 PK_DST_ID   = 10000 # 目标后端服务 id；必须 > 0
@@ -168,20 +168,21 @@ def xx20_decrypt(key, nonce, body):
         _libcrypto.EVP_CIPHER_CTX_free(ctx)
 
 
-def pack_pk(conv, pk_id, pk_seq, pk_dst_id, payload, tx_key=None):
+def pack_pk(conv, pk_id, src_id, pk_seq, pk_dst_id, payload, tx_key=None):
     """组包。header 始终明文; tx_key 为 None (握手前) 时 payload 也明文,
-       否则用会话 tx_key 加密 payload (上行 DIR_C2S), 密文后附 16B tag。"""
+       否则用会话 tx_key 加密 payload (上行 DIR_C2S), 密文后附 16B tag。
+       header 字段顺序与 C++ Package 一致: id, src_id, dst_id, seq。"""
     body = xx20_encrypt(tx_key, make_nonce(conv, pk_seq, DIR_C2S), payload) if tx_key else payload
-    return struct.pack(HEADER_FMT, pk_id, pk_seq, pk_dst_id) + body
+    return struct.pack(HEADER_FMT, pk_id, src_id, pk_dst_id, pk_seq) + body
 
 
 def unpack_pk(conv, data, rx_key=None):
-    """返回 (pk_id, pk_seq, pk_dst_id, payload) 或 None (半包 / 验签失败)。
+    """返回 (pk_id, src_id, pk_dst_id, pk_seq, payload) 或 None (半包 / 验签失败)。
        rx_key 为 None (握手前, 如 REGIST_RSP) 时 payload 明文,
        否则用会话 rx_key 解密 (下行 DIR_S2C); body = 密文 + 16B tag。"""
     if len(data) < HEADER_SIZE:
         return None
-    pk_id, pk_seq, pk_dst_id = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
+    pk_id, src_id, pk_dst_id, pk_seq = struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
     body = data[HEADER_SIZE:]
     if rx_key and body:
         payload = xx20_decrypt(rx_key, make_nonce(conv, pk_seq, DIR_S2C), body)
@@ -189,73 +190,16 @@ def unpack_pk(conv, data, rx_key=None):
             return None   # 验签失败, 丢弃
     else:
         payload = body
-    return (pk_id, pk_seq, pk_dst_id, payload)
+    return (pk_id, src_id, pk_dst_id, pk_seq, payload)
 
 
 # ===== Envelope MAC (SipHash-2-4) =====
-# typhon 在 UDP wire 上套了一层 envelope MAC:
-#   wire = [SipHash tag 8B][KCP frame]
-# 客户端发包时必须按同样的 key 算 SipHash 并 prepend,否则被 server 端 XDP DROP.
-# key 必须与 server 端 kcp::Conf::shkey_ 完全一致。
-#
+# UDP wire = [SipHash tag 8B][KCP frame]。信封现在由 libkcp.so 的 ikcp_output 自己加、
+# ikcp_input 自己剥(见 src/kcp/ikcp.c),客户端只需把 key 通过 ikcp_set_siphash 设进去。
 # key 来自 config.yml 的 kcp.siphash (明文 16 字符, C++ 端直接 memcpy 字节, 不 base64).
 SH_KEY = b"XA1,y9Mn]0+iu2Y9"
 assert len(SH_KEY) == 16
-
 ENVELOPE_MAC_LEN = 8
-# MAC 只覆盖 KCP frame 前 24 字节 (KCP wire header),与 C++ 端 ENVELOPE_MAC_HASH_LEN 一致.
-# 设计目标是 DoS 防御:攻击者必须猜对 conv/sn 才能算出合法 MAC.
-ENVELOPE_MAC_HASH_LEN = 24
-
-
-def _siphash24(data: bytes, key: bytes) -> int:
-    """SipHash-2-4 (Aumasson & Bernstein 2012), 与 utils::siphash24 / envelope.bpf.c 位等价.
-    返回 host-order 64-bit int."""
-    MASK64 = (1 << 64) - 1
-    def rotl(x, b):
-        return ((x << b) | (x >> (64 - b))) & MASK64
-
-    k0 = int.from_bytes(key[:8], 'little')
-    k1 = int.from_bytes(key[8:], 'little')
-
-    v0 = (k0 ^ 0x736f6d6570736575) & MASK64    # "somepseu"
-    v1 = (k1 ^ 0x646f72616e646f6d) & MASK64    # "dorandom"
-    v2 = (k0 ^ 0x6c7967656e657261) & MASK64    # "lygenera"
-    v3 = (k1 ^ 0x7465646279746573) & MASK64    # "tedbytes"
-
-    def sipround():
-        nonlocal v0, v1, v2, v3
-        v0 = (v0 + v1) & MASK64; v1 = rotl(v1, 13); v1 ^= v0; v0 = rotl(v0, 32)
-        v2 = (v2 + v3) & MASK64; v3 = rotl(v3, 16); v3 ^= v2
-        v0 = (v0 + v3) & MASK64; v3 = rotl(v3, 21); v3 ^= v0
-        v2 = (v2 + v1) & MASK64; v1 = rotl(v1, 17); v1 ^= v2; v2 = rotl(v2, 32)
-
-    n = len(data)
-    nblocks = n // 8
-    for i in range(nblocks):
-        m = int.from_bytes(data[i*8 : i*8 + 8], 'little')
-        v3 ^= m
-        sipround()
-        sipround()
-        v0 ^= m
-
-    b = (n & 0xFF) << 56
-    tail = data[nblocks * 8:]
-    for i, byte in enumerate(tail):
-        b |= byte << (i * 8)
-
-    v3 ^= b
-    sipround()
-    sipround()
-    v0 ^= b
-
-    v2 ^= 0xFF
-    sipround()
-    sipround()
-    sipround()
-    sipround()
-
-    return (v0 ^ v1 ^ v2 ^ v3) & MASK64
 
 
 # ===== 鉴权材料 (由 /tmp/gen_tokens.py 预生成, 写死) =====
@@ -263,24 +207,37 @@ def _siphash24(data: bytes, key: bytes) -> int:
 CLI_SK = base64.b64decode("EdJdIDQFPrLTOP7ppHoZi3VOrFqVWKG/e02D5pCn5IA=")
 CLI_PK = base64.b64decode("IeXygWC1oAuSDeZp76WiWTkAj/VvWqs+NJ043/bG2Bo=")
 
-# 每个 conv 一个写死 token (网关公钥 sealedbox 加密的密文, base64)。
-# token 绑定 conv: 第 i 个对应 conv = 2000 + i, 所以 client_id 直接当索引。
-# 有效期 10 年, 无需更新。NUM_CLIENTS 必须 <= len(TOKENS)。
-TOKENS = [
-    "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",
-]
-assert NUM_CLIENTS <= len(TOKENS), f"NUM_CLIENTS({NUM_CLIENTS}) 超过预生成 token 数({len(TOKENS)})"
+# ----- token 生成所需的密钥 -----
+# 网关 x25519 公钥 (sealedbox 加密 token), 取自 examples/kcp_echo/config.yml
+import yaml as _yaml
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')) as _f:
+    _KCP_CFG = _yaml.safe_load(_f)['kcp']
+GW_X25519_PK = base64.b64decode(_KCP_CFG['x25519_pk'])
+assert len(GW_X25519_PK) == 32
+# 登录服 ed25519 私钥 (签 token)。生产在登录服; 这里取 config.yml 里被注释的那把, 仅测试用。
+ED25519_SK = base64.b64decode(
+    "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ==")
+assert len(ED25519_SK) == 64
+
+# libsodium: ed25519 detached 签名 + sealedbox(crypto_box_seal) 加密
+_sodium = ctypes.CDLL('libsodium.so.23')
+_sodium.crypto_sign_detached.argtypes = [c_void_p, c_void_p, c_void_p, ctypes.c_ulonglong, c_void_p]
+_sodium.crypto_box_seal.argtypes      = [c_void_p, c_void_p, ctypes.c_ulonglong, c_void_p]
+_SEALBYTES = 48   # crypto_box_SEALBYTES
+
+def make_token(conv, user_id, ip=0, expire=None):
+    """构造 + ed25519 签名 + sealedbox 加密一个 Token, 返回 REGIST_REQ 的 payload(164B)。
+       Token = expire u64 | conv u32 | user_id u32 | ip u32 | cli_pk[32] | sign[64] (小端 raw struct,
+       与 C++ core::Token 一致)。sign 覆盖前 52B [expire..cli_pk](= C++ offsetof(Token, sign))。"""
+    if expire is None:
+        expire = int(time.time()) + 10 * 365 * 86400          # 10 年
+    signed = struct.pack('<QIII', expire, conv, user_id, ip) + CLI_PK     # 52B
+    sig = ctypes.create_string_buffer(64)
+    assert _sodium.crypto_sign_detached(sig, None, signed, len(signed), ED25519_SK) == 0
+    token = signed + sig.raw[:64]                                         # 116B
+    sealed = ctypes.create_string_buffer(len(token) + _SEALBYTES)
+    assert _sodium.crypto_box_seal(sealed, token, len(token), GW_X25519_PK) == 0
+    return sealed.raw[:len(token) + _SEALBYTES]                           # 164B
 
 
 def x25519(scalar, point):
@@ -329,11 +286,12 @@ _lib.ikcp_setoutput.argtypes = [c_void_p, OutputFn];      _lib.ikcp_setoutput.re
 _lib.ikcp_send.argtypes      = [c_void_p, c_void_p, c_int];  _lib.ikcp_send.restype  = c_int
 _lib.ikcp_recv.argtypes      = [c_void_p, c_void_p, c_int];  _lib.ikcp_recv.restype  = c_int
 _lib.ikcp_input.argtypes     = [c_void_p, c_void_p, c_long]; _lib.ikcp_input.restype = c_int
-_lib.ikcp_update.argtypes    = [c_void_p, c_uint];        _lib.ikcp_update.restype    = None
+_lib.ikcp_update.argtypes    = [c_void_p, c_uint];        _lib.ikcp_update.restype    = c_int
 _lib.ikcp_flush.argtypes     = [c_void_p];                _lib.ikcp_flush.restype     = None
 _lib.ikcp_nodelay.argtypes   = [c_void_p, c_int, c_int, c_int, c_int]; _lib.ikcp_nodelay.restype = c_int
 _lib.ikcp_wndsize.argtypes   = [c_void_p, c_int, c_int];  _lib.ikcp_wndsize.restype   = c_int
 _lib.ikcp_setmtu.argtypes    = [c_void_p, c_int];         _lib.ikcp_setmtu.restype    = c_int
+_lib.ikcp_set_siphash.argtypes = [c_void_p, c_void_p];    _lib.ikcp_set_siphash.restype = None
 
 
 def now_ms():
@@ -422,7 +380,8 @@ def run_client(client_id, stats, stop_event):
     配对: server echo 经 s->send 会重写 Package.seq, 故用 payload 内嵌的
     client seq (前 4B) 来关联请求/响应, 不依赖回包 seq。"""
     conv        = 2000 + client_id
-    token       = base64.b64decode(TOKENS[client_id])
+    user_id     = 90000 + client_id        # user_id 与 conv 解耦; 鉴权/路由用它(签进 token + Package.src_id)
+    token       = make_token(conv, user_id)
     server_addr = (SERVER_HOST, SERVER_PORT)
     sock        = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(0.002)              # 2ms 非阻塞读，让循环及时跑 send/update
@@ -430,17 +389,15 @@ def run_client(client_id, stats, stop_event):
     kcp = _lib.ikcp_create(conv, None)
     _lib.ikcp_wndsize(kcp, 128, 128)
     _lib.ikcp_nodelay(kcp, 1, 10, 3, 1)
-    # KCP mtu = UDP_MTU(1400) - ENVELOPE_MAC_LEN(8) = 1392 (见 core/typhon.in.hpp)
-    _lib.ikcp_setmtu(kcp, 1392)
+    # KCP mtu = UDP_MTU(1450) - ENVELOPE_MAC_LEN(8) = 1442 (见 core/typhon.in.hpp)
+    _lib.ikcp_setmtu(kcp, 1442)
+    _lib.ikcp_set_siphash(kcp, SH_KEY)     # 信封 MAC 现在由 ikcp_output 自己加, 客户端不再手动 prepend
 
     def output(buf, length, _kcp, _user):
+        # frame 已是 [8B 信封][KCP datagram] (ikcp_output 加好), 直接发
         frame = ctypes.string_at(buf, length)
-        # MAC 只算前 24 字节 (KCP wire header), 与 server 端约定一致
-        hash_len = min(length, ENVELOPE_MAC_HASH_LEN)
-        mac = _siphash24(frame[:hash_len], SH_KEY).to_bytes(ENVELOPE_MAC_LEN, 'little')
-        packet = mac + frame
-        sock.sendto(packet, server_addr)
-        stats.record_bytes_out(len(packet))
+        sock.sendto(frame, server_addr)
+        stats.record_bytes_out(length)
         return length
     cb = OutputFn(output)
     _lib.ikcp_setoutput(kcp, cb)
@@ -457,10 +414,9 @@ def run_client(client_id, stats, stop_event):
         try:
             data, _ = sock.recvfrom(2048)
             stats.record_bytes_in(len(data))
-            if len(data) >= ENVELOPE_MAC_LEN:           # strip 回包的 8B envelope MAC
-                frame = data[ENVELOPE_MAC_LEN:]
-                ibuf = ctypes.create_string_buffer(frame, len(frame))
-                _lib.ikcp_input(kcp, ibuf, len(frame))
+            # 整段 wire(含 8B 信封)直接喂 ikcp_input, 内部自己剥信封
+            ibuf = ctypes.create_string_buffer(data, len(data))
+            _lib.ikcp_input(kcp, ibuf, len(data))
         except socket.timeout:
             pass
         while True:
@@ -477,14 +433,14 @@ def run_client(client_id, stats, stop_event):
 
     def on_handshake(parsed):
         nonlocal rx_key, tx_key, authed
-        pk_id, _, _, payload = parsed
+        pk_id, _, _, _, payload = parsed
         if pk_id == PKID_REGIST_RSP and payload and len(payload) >= 32:
             # RSP payload = server 临时 X25519 公钥 (明文)
             rx, tx = kx_client(payload[:32])
             rx_key, tx_key = rx, tx              # ChaCha20-Poly1305 用满 32B
             authed = True
 
-    req = pack_pk(conv, PKID_REGIST_REQ, next_seq(), GATEWAY_ID, token)   # 明文, tx_key=None
+    req = pack_pk(conv, PKID_REGIST_REQ, user_id, next_seq(), GATEWAY_ID, token)   # 明文, tx_key=None
     sbuf = ctypes.create_string_buffer(req, len(req))
     _lib.ikcp_send(kcp, sbuf, len(req))
     _lib.ikcp_flush(kcp)
@@ -504,7 +460,7 @@ def run_client(client_id, stats, stop_event):
     next_send_at  = time.monotonic()
 
     def on_echo(parsed):
-        rcv_id, _, _, rcv_payload = parsed
+        rcv_id, _, _, _, rcv_payload = parsed
         if rcv_id != PK_ID_PING or len(rcv_payload) < 4:
             return
         cseq = struct.unpack('<I', rcv_payload[:4])[0]
@@ -525,7 +481,7 @@ def run_client(client_id, stats, stop_event):
             if now >= next_send_at:
                 cseq    = next_seq()
                 payload = struct.pack('<I', cseq) + os.urandom(DATA_SIZE - 4)
-                pkg = pack_pk(conv, PK_ID_PING, cseq, PK_DST_ID, payload, tx_key)
+                pkg = pack_pk(conv, PK_ID_PING, user_id, cseq, PK_DST_ID, payload, tx_key)
                 sbuf = ctypes.create_string_buffer(pkg, len(pkg))
                 _lib.ikcp_send(kcp, sbuf, len(pkg))
                 _lib.ikcp_flush(kcp)

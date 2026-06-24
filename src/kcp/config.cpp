@@ -6,7 +6,7 @@
 
 void
 typhon::kcp::Conf::load(const YAML::Node& node) {
-    ASSERT(node["id"] && node["siphash"] && node["x25519_pk"] && node["x25519_sk"] && node["ed25519_pub"], "缺少必要参数");
+    ASSERT(node["id"] && node["siphash"] && node["x25519_pk"] && node["x25519_sk"] && node["ed25519_pk"], "缺少必要参数");
 
     id_ = node["id"].as<uint32_t>();
 
