@@ -9,7 +9,7 @@
 // + Lightweight, distributed as a single source file.
 //
 //=====================================================================
-#include "ikcp.h"
+#include "kcp/ikcp.h"
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -170,13 +170,13 @@ void ikcp_allocator(void* (*new_malloc)(size_t), void (*new_free)(void*))
 }
 
 // allocate a new kcp segment
-static IKCPSEG* ikcp_segment_new(ikcpcb *kcp, int size)
+static IKCPSEG* ikcp_segment_new(ikcpcb*, int size)
 {
 	return (IKCPSEG*)ikcp_malloc(sizeof(IKCPSEG) + size);
 }
 
 // delete a segment
-static void ikcp_segment_delete(ikcpcb *kcp, IKCPSEG *seg)
+static void ikcp_segment_delete(ikcpcb*, IKCPSEG *seg)
 {
 	ikcp_free(seg);
 }
@@ -213,7 +213,7 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 }
 
 // output queue
-void ikcp_qprint(const char *name, const struct IQUEUEHEAD *head)
+void ikcp_qprint(const char*, const struct IQUEUEHEAD*)
 {
 #if 0
 	const struct IQUEUEHEAD *p;

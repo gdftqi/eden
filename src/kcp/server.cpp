@@ -17,19 +17,6 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
 
     ASSERT(host_.size() > 0 && ev != nullptr, "invalid host or IEvent instance");
 
-    xkcp_init(
-        Server::output, 
-        Conf::instance()->x25519_pk(),
-        Conf::instance()->x25519_sk(),
-        Conf::instance()->ed25519_pk(),
-        Conf::instance()->siphash(),
-        Conf::instance()->sndwnd(),
-        Conf::instance()->rcvwnd(),
-        Conf::instance()->interval(),
-        Conf::instance()->resend(),
-        Conf::instance()->timeout()
-    );
-
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
         hdr->msg_iov = &riovecs_[i];
@@ -37,8 +24,8 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
         hdr->msg_name = &raddrs_[i];
         hdr->msg_namelen = sizeof(raddrs_[i]);
 
-        riovecs_[i].iov_len = XKCP_LINK_MTU;
-        riovecs_[i].iov_base = ::mi_malloc(XKCP_LINK_MTU);
+        riovecs_[i].iov_len = core::UDP_MTU;
+        riovecs_[i].iov_base = ::mi_malloc(core::UDP_MTU);
         ASSERT(riovecs_[i].iov_base != nullptr, "failed to allocate memory for riovec"); 
     }
 
@@ -116,10 +103,11 @@ typhon::kcp::Server::run() noexcept {
 
 
 int
-typhon::kcp::Server::output(const uint8_t *buf, int len, XKCPCB *kcp) noexcept {
-    auto* s  = (Session*)kcp->user;
+typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
+    auto* s  = (Session*)user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    *sb->siphash = htole64(utils::siphash24(buf, core::KCP_HDR_LEN, Conf::instance()->siphash()));
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -230,7 +218,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
         int round = 0;
         while (round++ < MAX_ROUND) {
             for (i = 0; i < MAX_RECV; ++i) {
-                riovecs_[i].iov_len = XKCP_LINK_MTU;
+                riovecs_[i].iov_len = core::UDP_MTU;
             }
 
             n = ::recvmmsg(ufd_, rmsgs_, MAX_RECV, MSG_DONTWAIT, nullptr);
@@ -251,48 +239,57 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto& msg = rmsgs_[i];
-                if (msg.msg_len < crypto_shorthash_BYTES + XKCP_HDR_LEN) {
+                if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
                     // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法.
                     continue;
                 }
 
                 auto  hdr    = &rmsgs_[i].msg_hdr;
-                auto* raw    = (uint8_t*)hdr->msg_iov[0].iov_base;
-                auto  msglen = (long)msg.msg_len;
+                auto* pbuf   = (uint8_t*)hdr->msg_iov[0].iov_base + core::ENVELOPE_MAC_LEN;
+                auto  msglen = msg.msg_len - core::ENVELOPE_MAC_LEN;
 
-                // conv 在信封之后(偏移 8); 信封由 XDP 校验, xkcp_input 内部再剥这 8B
-                auto conv   = xkcp_getconv(raw);
-                auto sess   = get_session(conv);
-                bool is_new = false;
-                if (sess == nullptr) {
-                    is_new = true;
-                    sess = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
+                auto conv = Session::getconv(pbuf, msglen);
+                auto s = get_session(conv);
+                if (s == nullptr) {
+                    s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
+                    if (add_session(conv, s) != 0) {
+                        continue;
+                    }
                 }
 
-                if (sess->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
-                    continue;
-                }
-
-                if (is_new && add_session(conv, sess) != 0) {
+                if (s->input(pbuf, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
                     continue;
                 }
 
                 core::PK<core::Host> pk;
                 uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
                 while (true) {
-                    res = sess->recv(&pk, pkbuf, core::PKG_MAX_LEN);
+                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN, tnow_);
                     if (res == xAGAIN) {
-                        // 没有更多消息了
-                        break;
+                        break;          // 没有更多消息了
+                    } else if (res == xDUP) {
+                        continue;       // 幂等重复, 跳过
                     } else if (res < 0) {
-                        // 协议错误
-                        remove_session(sess->conv());
+                        remove_session(s->conv());   // 协议错误
                         break;
                     }
 
-                    res = on_c2s(sess, pk);
+                    switch (pk->id) {
+                    case PKID_PING:
+                        res = on_ping(s, pk);
+                        break;
+
+                    case PKID_REGIST_REQ:
+                        res = on_regist_req(s, pk);
+                        break;
+                    
+                    default:
+                        res = on_c2s(s, pk);
+                        break;
+                    }
+
                     if (res < 0) {
-                        remove_session(sess->conv());
+                        remove_session(s->conv());
                         break;
                     }
                 }
@@ -417,10 +414,11 @@ typhon::kcp::Server::update() noexcept {
     // ts_flush 一到点就被某轮捕获 flush, 延迟接近即时
     for (auto itr = users_.begin(); itr != users_.end();) {
         auto s = itr->second;
-        if (s->update(now) < 0) {
+        if (s->check_timeout(now)) {
             users_.erase(itr++);
             event_->on_disconnected(s);
         } else {
+            s->update(now);
             ++itr;
         }
     }
@@ -523,6 +521,93 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
             xERROR("{} 发送失败", s->to_string());
         }
     }
+}
+
+
+int
+typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+    if (!s->authed()) {
+        return xERR_NOT_AUTH;
+    }
+
+    if (pk->dst_id != Conf::instance()->id()) {
+        xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->dst_id);
+        return xERR_PKT_DST;
+    }
+
+    auto plen = pk.plen();
+    if (plen != sizeof(uint64_t)) {
+        xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), plen);
+        return xERR_PK_LEN;
+    }
+
+    pk->id = PKID_PONG;
+    pk->dst_id = Conf::instance()->id();
+    return s->send(pk);
+}
+
+
+int
+typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
+    // PKG_HDR(10) + sizeof(AuthToken)(112) + crypto_box_SEALBYTES(48) = 170
+    constexpr int REGIST_REQ_LEN = (int)sizeof(core::AuthToken) + 48;
+
+    if (in->dst_id != Conf::instance()->id()) {
+        return xERR_PKT_DST;
+    }
+
+    if (in.plen() != REGIST_REQ_LEN) {
+        return xERR_PK_LEN;
+    }
+
+    size_t plen = in.plen();
+    core::AuthToken token;
+    size_t atlen = sizeof(token);
+    
+    // 1. 使用服务端私钥解密 Token
+    if (utils::sealedbox_decrypt(in->payload, plen, (uint8_t*)&token, &atlen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+        return xERR_PK_DEC;
+    }
+
+    if (atlen != sizeof(token)) {
+        return xERR_PK_DEC;
+    }
+
+    // 2. 检查有效期
+    if ((uint64_t)::time(nullptr) > token.expire) {
+        return xERR_TOKEN_EXP;
+    }
+
+    if (token.conv != s->conv()) {
+        return xERR_TOKEN_CONV;
+    }
+
+    // 3. 校验登录服签名
+    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AuthToken, sign), Conf::instance()->ed25519_pub()) != 0) {
+        return xERR_TOKEN_VER;
+    }
+
+    // 4. 计算 ECDH 共享密钥并派生 AES Key
+    uint8_t tmppk[utils::X25519_KEY_LEN];
+    uint8_t tmpsk[utils::X25519_KEY_LEN];
+    ASSERT(utils::x25519_keygen(tmppk, tmpsk) == xOK, "生成临时 x25519 密钥对失败");
+
+    uint8_t rxkey[utils::SESSION_KEY_LEN];
+    uint8_t txkey[utils::SESSION_KEY_LEN];
+
+    if (utils::x25519_kx_server(rxkey, txkey, tmppk, tmpsk, token.cli_pk) != xOK) {
+        return xERR_X25519_KX;
+    }
+
+    // 5. 激活 Session 加密
+    s->set_key(txkey, rxkey);
+
+    // 6. 构造回包
+    auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, s->conv(), tmppk, utils::X25519_KEY_LEN);
+    int res = s->send(out);
+    s->set_authed(true);
+    core::PK<core::Host>::release(out);
+    return res;
 }
 
 

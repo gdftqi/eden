@@ -144,7 +144,7 @@ public:
 
 private:
     static int
-    output(const uint8_t *buf, int len, struct XKCPCB *kcp) noexcept;
+    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
 
 
     void
@@ -168,6 +168,7 @@ private:
      */
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
+        s->set_output(output);
         users_.emplace(conv, s);
         if (event_->on_connected(s)) {
             users_.erase(conv);
@@ -244,6 +245,15 @@ private:
 
 
     // --------------------------------- 用户侧 ---------------------------------
+
+    int
+    on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+
+
+    int
+    on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+
+
     int
     on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 

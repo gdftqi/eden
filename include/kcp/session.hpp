@@ -6,7 +6,7 @@
 #include "core/package.hpp"
 #include "core/error.hpp"
 #include "kcp/config.hpp"
-#include "kcp/xkcp.h"
+#include "kcp/ikcp.h"
 
 
 namespace typhon::kcp {
@@ -27,6 +27,7 @@ class Session {
 
 public:
     typedef std::shared_ptr<Session> Ptr;
+    typedef uint8_t Xx20Key[utils::XX20_KEY_LEN];
 
 
     /**
@@ -37,6 +38,15 @@ public:
     static Ptr
     create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
         return std::make_shared<Session>(conv, server, addr, addrlen);
+    }
+
+
+    /**
+     * @brief 获取 conv
+     */
+    static uint32_t
+    getconv(const void* data, int len) noexcept {
+        return len < 4 ? 0 : ::ikcp_getconv(data);
     }
 
 
@@ -52,7 +62,7 @@ public:
      */
     ~Session() noexcept {
         if (kcp_) {
-            ::xkcp_release(kcp_);
+            ::ikcp_release(kcp_);
         }
     }
 
@@ -74,7 +84,13 @@ public:
 
     bool
     authed() const noexcept {
-        return kcp_->auth > 0;
+        return authed_;
+    }
+
+
+    void
+    set_authed(bool authed) noexcept {
+        authed_ = authed;
     }
     
 
@@ -120,13 +136,31 @@ public:
     }
 
 
+    void
+    set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
+        ::memcpy(tx_key_, tx, utils::XX20_KEY_LEN);
+        ::memcpy(rx_key_, rx, utils::XX20_KEY_LEN);
+    }
+
+
+    /**
+     * @brief 检测超时
+     */
+    bool
+    check_timeout(uint64_t tnow) const noexcept {
+        // 未鉴权时, 超时值为 5s
+        auto timeout = authed_ ? (uint64_t)Conf::instance()->timeout() : 5000;
+        return tnow - last_recv_ms_ > timeout;
+    }
+
+
     /**
      * @brief 推动 KCP 内部状态机:超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
      */
-    int
+    void
     update(uint64_t current) noexcept {
-        return ::xkcp_update(kcp_, (uint32_t)current);
+        ::ikcp_update(kcp_, (uint32_t)current);
     }
 
 
@@ -142,7 +176,7 @@ public:
      */
     int
     input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
-        int res = ::xkcp_input(kcp_, (uint8_t*)data, len);
+        int res = ::ikcp_input(kcp_, (const char*)data, len);
         if (res == 0) {
             ::memcpy(&addr_, addr, addrlen);
             addrlen_ = addrlen;
@@ -151,21 +185,30 @@ public:
     }
 
 
+    void
+    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
+        ::ikcp_setoutput(kcp_, output);
+    }
+
+
     /**
-     * @brief 从 xkcp 队列读出一条完整 Package(整条消息 AEAD 已在 xkcp_recv 内解好),
-     *        做协议自检(id / seq / dst_id 必须非 0)。
+     * @brief 从 KCP 队列读出一条完整 Package,做协议自检 + 单调性幂等校验,
+     *        并刷新 last_recv_ms_(用于 session 超时判定)。
+     *        相当于 recv() 之上加一层应用协议层处理。
      *
-     * @param[out] pk  解析成功时指向 buf 起始(host 字节序, 可直接访问字段)
-     * @param      buf 接收缓冲; 长度应 >= PKG_MAX_LEN, 否则触发 xkcp_recv 的 -3
+     * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
+     * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
+     * @param      now 当前 tnow_(用于刷新 last_recv_ms_)
      *
      * @return  xOK    成功(包长度在 *pk 的 len() 里)
+     *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
      *          xAGAIN rcv_queue 空 / 无完整包, 当前没有更多消息
-     *          xERR_KCP_BUFSMALL                  buf 太小, 放大后重试
-     *          xERR_PK_LEN/PK_ID/PKT_SEQ/PKT_DST  协议自检失败(见 core/error.hpp)
+     *          xERR_KCP_BUFSMALL          buf 太小, 放大后重试
+     *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int
-    recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept;
+    recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint64_t now) noexcept;
 
 
     int
@@ -173,10 +216,25 @@ public:
 
 
 private:
+    /**
+     * @brief 下一个发送幂等
+     */
+    uint32_t
+    next_snd_seq() noexcept {
+        return ++snd_seq_;
+    }
+
+
+    bool               authed_       { false };
     Server*            server_       { nullptr };
-    ::xkcpcb*          kcp_          { nullptr };
+    uint64_t           last_recv_ms_ { 0 };
+    uint32_t           snd_seq_      { 0 };
+    uint32_t           rcv_req_      { 0 };
+    ::ikcpcb*          kcp_          { nullptr };
     ::sockaddr_storage addr_         {};
     ::socklen_t        addrlen_      { sizeof(addr_) };
+    Xx20Key             tx_key_       { 0 };
+    Xx20Key             rx_key_       { 0 };
     std::string        desc_;
 }; // class Kcp;
 

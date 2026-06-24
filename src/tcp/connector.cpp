@@ -87,8 +87,8 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
             constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
             core::PKx<core::Host> pkx{ buf };
-            pkx->len     = BUF_SIZE;
-            pkx.pk()->id = PKID_PING;
+            pkx->len        = BUF_SIZE;
+            pkx.pk()->id     = PKID_PING;
             (*(uint64_t*)pkx.pk()->payload) = now;
             if (send(pkx, now) < 0) {
                 return xERR;

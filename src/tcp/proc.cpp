@@ -268,11 +268,9 @@ typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
     }
 
     auto h = server_->get_handler(pkx.pk()->id);
-    if (h == nullptr) {
+    if (!h) {
         xWARN("no handler for pk_id {}, from {}", pkx.pk()->id, s->remote_addr());
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
-        return;
     }
-
     h(s, pkx);
 }

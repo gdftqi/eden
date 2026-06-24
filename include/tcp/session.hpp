@@ -106,8 +106,6 @@ public:
 
     /**
      * @brief 从 rbuf_ decode 出一个完整 PackageEx(decode 内部已 ntoh → host 序视图)。
-     * @warning *pke 指向 rbuf_ 内部, 仅在下次 input()/append 之前有效;
-     *          持有期间不得对本 session 调 input。详见 RcvBuf::decode。
      * @return  xOK    取到一个完整包, *pke 指向它(host 序)
      * @return  xAGAIN 无数据 / 半包, *pke 不变
      */

@@ -31,7 +31,8 @@ public:
 
 
     int
-    on_connected(typhon::tcp::Session::Ptr) noexcept override {
+    on_connected(typhon::tcp::Session::Ptr sess) noexcept override {
+        xINFO("{} connected on {}", sess->remote_addr(), ::pthread_self());
         return 0;
     }
 

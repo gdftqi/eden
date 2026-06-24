@@ -129,7 +129,6 @@ public:
     }
 
     // 从 rbuf_ 取一个完整包(decode 内部已 ntoh → host 序): xOK 取到 / xAGAIN 无数据或半包。
-    // *pkx 指向 rbuf_ 内部, 仅在下次 input() 之前有效; 持有期间不得 input。详见 RcvBuf::decode。
     int
     recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept;
 

@@ -28,7 +28,6 @@
 #include <sodium.h>
 
 #include "core/error.hpp"
-#include "kcp/xkcp.h"
 #include "utils/cryptor.hpp"
 #include "utils/log.hpp"
 #include "utils/sys.hpp"
@@ -41,6 +40,24 @@
 
 
 namespace typhon::core {
+
+
+/**
+ * @brief 单个 UDP 数据报 的 payload 上限 (字节).
+ *
+ * 推算 (仅支持 IPv4):
+ *   以太网 MTU             = 1500
+ *   - IPv4 头 (无 option)  =   20
+ *   - UDP 头               =    8
+ *   ─────────────────────────────
+ *   纯以太网理论上限         = 1472
+ *   再留 ~72B 余量穿 PPPoE(1492)/隧道, 规避公网 IP 分片 → 1400 (亦为 KCP 默认)
+ *   注: 纯内网/可控网络可直接取 1472 榨满.
+ */
+constexpr int UDP_MTU          = 1400;
+constexpr int ENVELOPE_MAC_LEN = 8; // Envelope MAC (SipHash-2-4 tag) 长度
+constexpr int KCP_MTU          = UDP_MTU - ENVELOPE_MAC_LEN;
+constexpr int KCP_HDR_LEN      = 24;
 
 
 typedef int SOCKET;

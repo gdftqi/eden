@@ -20,21 +20,23 @@ struct SndBuf {
     typedef std::deque<SndBuf*> Que; ///< SndBuf 队列
 
 
-    ::sockaddr_storage addr;               ///< 对端地址
-    ::socklen_t        addrlen;            ///< 地址长度
-    uint32_t           len;                ///< wire 数据报长度(含 8B SipHash 信封, 由 xkcp 加好)
-    uint64_t           time;               ///< 缓冲区创建的时间
-    uint8_t            buf[XKCP_LINK_MTU]; ///< 缓冲区(直接存 xkcp 产出的完整 wire 数据报)
+    ::sockaddr_storage addr;         ///< 对端地址
+    ::socklen_t        addrlen;      ///< 地址长度
+    uint32_t           len;          ///< 消息长度
+    uint64_t           time;         ///< 缓冲区创建的时间
+    uint64_t*          siphash;      ///< buf[0:8) 的数据, siphash 签名段
+    uint8_t            buf[UDP_MTU]; ///< 缓冲区大小
 
 
     explicit
-    SndBuf(const void* addr, ::socklen_t addrlen, const uint8_t* b, uint32_t l, uint64_t time) noexcept
+    SndBuf(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
-        , len(l)
+        , len(l + ENVELOPE_MAC_LEN)
         , time(time) {
+        siphash = (uint64_t*)this->buf;
         ::memcpy(&this->addr, addr, addrlen);
-        ASSERT(l <= XKCP_LINK_MTU, "len = {}, max = {}", l, XKCP_LINK_MTU);
-        ::memcpy(this->buf, b, l);
+        ASSERT(l <= KCP_MTU, "len = {}, max = {}", l, KCP_MTU);
+        ::memcpy(this->buf + ENVELOPE_MAC_LEN, b, l);
     }
 
 
@@ -100,13 +102,6 @@ struct RcvBuf {
 
     /**
      * @brief 解码
-     *
-     * @warning **生命周期契约**: 成功时 *pkx 指向本 RcvBuf 内部 buf(零拷贝),
-     *          仅在下一次 append()/compact() 之前有效 —— append 可能触发
-     *          mi_realloc(换地址) 或 compact 的 memmove(数据前移), 都会让 *pkx 悬垂。
-     *          约束: **持有 decode 出来的 *pkx 期间, 绝不能对同一 RcvBuf 调 append/compact**。
-     *          典型用法是"先把本轮可读数据全 append 进来, 再循环 decode 逐个处理完",
-     *          循环内不再 append, 即满足此约束。
      *
      * @return xOK 取到一个完整包 / xAGAIN 半包
      */

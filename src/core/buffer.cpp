@@ -49,8 +49,6 @@ typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
     }
 
     ntoh(PKx<Net>(p));
-    // *pkx 指向 buf 内部(零拷贝), 仅在下次 append/compact 前有效。
-    // 调用方持有它期间不得对本 RcvBuf 调 append/compact, 否则 use-after-realloc。详见 buffer.hpp。
     *pkx = p;
     rpos += pkxlen;
     return xOK;
