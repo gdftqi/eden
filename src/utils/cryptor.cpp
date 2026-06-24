@@ -20,67 +20,6 @@ load_le64(const uint8_t* p) noexcept {
 }
 
 
-#define SIPROUND \
-    do { \
-        v0 += v1;  v1 = rotl64(v1, 13);  v1 ^= v0;  v0 = rotl64(v0, 32); \
-        v2 += v3;  v3 = rotl64(v3, 16);  v3 ^= v2; \
-        v0 += v3;  v3 = rotl64(v3, 21);  v3 ^= v0; \
-        v2 += v1;  v1 = rotl64(v1, 17);  v1 ^= v2;  v2 = rotl64(v2, 32); \
-    } while (0)
-
-
-uint64_t
-typhon::utils::siphash24(const void* data, size_t len, const uint8_t key[SIPHASH_KEY_LEN]) noexcept {
-    const uint64_t k0 = load_le64(key);
-    const uint64_t k1 = load_le64(key + 8);
-
-    uint64_t v0 = k0 ^ 0x736f6d6570736575ULL;   // "somepseu"
-    uint64_t v1 = k1 ^ 0x646f72616e646f6dULL;   // "dorandom"
-    uint64_t v2 = k0 ^ 0x6c7967656e657261ULL;   // "lygenera"
-    uint64_t v3 = k1 ^ 0x7465646279746573ULL;   // "tedbytes"
-
-    const auto* p   = static_cast<const uint8_t*>(data);
-    const auto* end = p + (len - len % 8);
-
-    for (; p != end; p += 8) {
-        const uint64_t m = load_le64(p);
-        v3 ^= m;
-        SIPROUND;
-        SIPROUND;
-        v0 ^= m;
-    }
-
-    uint64_t b = static_cast<uint64_t>(len) << 56;
-    const size_t tail = len & 7;
-    switch (tail) {
-    case 7: b |= static_cast<uint64_t>(p[6]) << 48; [[fallthrough]];
-    case 6: b |= static_cast<uint64_t>(p[5]) << 40; [[fallthrough]];
-    case 5: b |= static_cast<uint64_t>(p[4]) << 32; [[fallthrough]];
-    case 4: b |= static_cast<uint64_t>(p[3]) << 24; [[fallthrough]];
-    case 3: b |= static_cast<uint64_t>(p[2]) << 16; [[fallthrough]];
-    case 2: b |= static_cast<uint64_t>(p[1]) <<  8; [[fallthrough]];
-    case 1: b |= static_cast<uint64_t>(p[0]);       [[fallthrough]];
-    case 0: break;
-    }
-
-    v3 ^= b;
-    SIPROUND;
-    SIPROUND;
-    v0 ^= b;
-
-    v2 ^= 0xFF;
-    SIPROUND;
-    SIPROUND;
-    SIPROUND;
-    SIPROUND;
-
-    return v0 ^ v1 ^ v2 ^ v3;
-}
-
-
-#undef SIPROUND
-
-
 // =============================================================================
 //                          X25519 (libsodium)
 // =============================================================================

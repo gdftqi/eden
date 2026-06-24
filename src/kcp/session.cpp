@@ -38,7 +38,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noex
         return xERR_PK_ID;
     }
 
-    if (p->seq == 0) {
+    if (p->idempotent == 0) {
         return xERR_PKT_SEQ;
     }
 
@@ -57,7 +57,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
         return xERR_PK_LEN;
     }
 
-    pk->seq = kcp_->snd_seq + 1;
+    pk->idempotent = kcp_->snd_seq + 1;
     core::hton(pk);
     return core::from_ikcp_send(::xkcp_send(kcp_, pk.raw(), pk.len()));
 }

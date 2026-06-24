@@ -196,7 +196,7 @@ typhon::Server::update_serv() noexcept {
         auto* arg = (core::AddServArg*)::mi_malloc(sizeof(core::AddServArg));
         ::memset(arg, 0, sizeof(core::AddServArg));
         arg->id = serv_id;
-        ::strcpy(arg->host, serv_host);
+        ::snprintf(arg->host, sizeof(arg->host), "%s", serv_host);
         s->notify(new core::QEvent(core::QEvent::Type::AddServ, arg));
     }
 

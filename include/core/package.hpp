@@ -22,10 +22,10 @@ namespace typhon::core {
  * @brief 客户端 / 网关 之间的应用层消息头
  */
 struct Package {
-    uint16_t id;        // 业务消息号, [1, 1024)
-    uint32_t seq;       // 消息序号, 必须 > 0, 确保每条消息的唯一性
-    uint32_t dst_id;    // 目标服务id (路由键)
-    uint8_t  payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
+    uint16_t id;         // 业务消息号, [1, 1024)
+    uint32_t idempotent; // 幂等, 必须 > 0, 确保每条消息的唯一性
+    uint32_t dst_id;     // 目标服务id (路由键)
+    uint8_t  payload[];  // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
 
@@ -58,7 +58,7 @@ struct AuthToken {
 inline void
 pk_hton(Package* p) noexcept {
     p->id     = htons(p->id);
-    p->seq   = htonl(p->seq);
+    p->idempotent   = htonl(p->idempotent);
     p->dst_id = htonl(p->dst_id);
 }
 
@@ -66,7 +66,7 @@ pk_hton(Package* p) noexcept {
 inline void
 pk_ntoh(Package* p) noexcept {
     p->id     = ntohs(p->id);
-    p->seq   = ntohl(p->seq);
+    p->idempotent   = ntohl(p->idempotent);
     p->dst_id = ntohl(p->dst_id);
 }
 
@@ -152,13 +152,14 @@ class PK {
 
 public:
     static PK
-    create(uint16_t id, uint32_t dst_id, const void* payload, int plen) noexcept {
+    create(uint16_t id, uint32_t dst_id, uint32_t idempotent, const void* payload, int plen) noexcept {
         // 缓冲多留 XX20_TAG_LEN 给加密时附 tag; 但 len_ 只记逻辑长度(HDR + payload, 不含 tag)
         auto size = sizeof(Package) + plen + utils::XX20_TAG_LEN;
         auto buf = ::mi_malloc(size);
         ASSERT(buf != nullptr, "分配内存失败");
         auto* p = (Package*)buf;
         p->id = id;
+        p->idempotent = idempotent;
         p->dst_id = dst_id;
         ::memcpy(p->payload, payload, plen);
         return PK(buf, (int)sizeof(Package) + plen);
