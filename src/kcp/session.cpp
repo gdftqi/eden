@@ -73,29 +73,38 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len, uint
         return xERR_PKT_DST;
     }
 
-    if (rcv_req_ >= p->seq && p->id != PKID_REGIST_REQ) {
+    if (p->src_id == 0) {
+        return xERR_PKT_SRC;
+    }
+
+    if (rcv_req_ >= p->seq) {
         // 幂等重复包, 跳过.
-        // 但是, 如果是 PDID_REGIST_REQ 可以通过, 因为有可能是断线重连的
         return xDUP;
     }
 
-    if (authed() && res > core::PKG_HDR_LEN) {
-        if (res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
-            return xERR_PK_LEN;
+    if (authed()) {
+        if (p->src_id != user_id_) {
+            return xERR_PKT_SRC;
         }
 
-        size_t   cipher_len = (size_t)res - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
-        uint8_t* cipher     = buf + core::PKG_HDR_LEN;
-        uint8_t* tag        = cipher + cipher_len;
+        if (res > core::PKG_HDR_LEN) {
+            if (res < core::PKG_HDR_LEN + (int)utils::XX20_TAG_LEN) {
+                return xERR_PK_LEN;
+            }
+            
+            size_t   cipher_len = (size_t)res - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
+            uint8_t* cipher     = buf + core::PKG_HDR_LEN;
+            uint8_t* tag        = cipher + cipher_len;
 
-        uint8_t nonce[utils::XX20_NONCE_LEN];
-        make_nonce(nonce, conv(), p->seq, DIR_C2S);
-        if (utils::xx20_decrypt(cipher, cipher_len, cipher, tag, rx_key_, nonce)) {
-            return xERR_PK_DEC;
+            uint8_t nonce[utils::XX20_NONCE_LEN];
+            make_nonce(nonce, conv(), p->seq, DIR_C2S);
+            if (utils::xx20_decrypt(cipher, cipher_len, cipher, tag, rx_key_, nonce)) {
+                return xERR_PK_DEC;
+            }
+
+            // 剥掉 tag: 上层 *pk 只到明文 payload 末尾, len_ 不含 16B tag
+            *pk = core::PK<core::Host>((void*)buf, core::PKG_HDR_LEN + (int)cipher_len);
         }
-
-        // 剥掉 tag: 上层 *pk 只到明文 payload 末尾, len_ 不含 16B tag
-        *pk = core::PK<core::Host>((void*)buf, core::PKG_HDR_LEN + (int)cipher_len);
     }
 
     last_recv_ms_ = now;

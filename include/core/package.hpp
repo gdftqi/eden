@@ -27,8 +27,8 @@ namespace typhon::core {
 struct Package {
     uint16_t id;        // 业务消息号, [1, 1024)
     uint32_t src_id;    // 源 id
-    uint32_t seq;       // 消息序号, 必须 > 0, 确保每条消息的唯一性
     uint32_t dst_id;    // 目标 id (路由键)
+    uint32_t seq;       // 消息序号, 必须 > 0, 确保每条消息的唯一性
     uint8_t  payload[]; // 业务 payload KCP 端由消息边界给定; TCP 端 = len - PKG_HDR_EX_LEN - PKG_HDR_LEN.
 };
 
@@ -38,7 +38,6 @@ struct Package {
  */
 struct PackageEx {
     uint16_t len;       // PackageEx wire frame 总长(含本头 + pke_pk)
-    uint32_t src_id;    // FromPlayerID, 网关查表填写, 客户端无法伪造
     uint32_t src_addr;  // 客户端 IPv4 地址(IPv6 暂不支持)
     uint8_t  pk[];      // 内嵌 Package
 };
@@ -63,15 +62,17 @@ struct Token {
 inline void
 pk_hton(Package* p) noexcept {
     p->id     = htons(p->id);
-    p->seq   = htonl(p->seq);
+    p->seq    = htonl(p->seq);
     p->dst_id = htonl(p->dst_id);
+    p->src_id = htonl(p->src_id);
 }
 
 
 inline void
 pk_ntoh(Package* p) noexcept {
     p->id     = ntohs(p->id);
-    p->seq   = ntohl(p->seq);
+    p->src_id = ntohs(p->src_id);
+    p->seq    = ntohl(p->seq);
     p->dst_id = ntohl(p->dst_id);
 }
 
@@ -132,7 +133,6 @@ inline PKx<Net>
 hton(PKx<Host> v) noexcept {
     auto* p     = (PackageEx*)v.raw();
     p->len      = htons(p->len);
-    p->src_id   = htonl(p->src_id);
     p->src_addr = htonl(p->src_addr);
     pk_hton((Package*)p->pk);
     return PKx<Net>(p);
@@ -143,7 +143,6 @@ inline PKx<Host>
 ntoh(PKx<Net> v) noexcept {
     auto* p     = (PackageEx*)v.raw();
     p->len      = ntohs(p->len);
-    p->src_id   = ntohl(p->src_id);
     p->src_addr = ntohl(p->src_addr);
     pk_ntoh((Package*)p->pk);
     return PKx<Host>(p);
@@ -244,7 +243,7 @@ constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG
 
 
 static_assert(PKG_HDR_LEN == 14, "Package header size changed");
-static_assert(PKX_HDR_LEN == 10, "PackageEx header size changed");
+static_assert(PKX_HDR_LEN == 6, "PackageEx header size changed");
 
 
 } // namespace typhon::core;

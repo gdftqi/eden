@@ -634,7 +634,6 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
 
     core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
     pkx->len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
-    pkx->src_id = s->conv();
     pkx->src_addr = s->remote_addr_u32();
 
     if (sv->send(pkx, tnow_) < 0) {

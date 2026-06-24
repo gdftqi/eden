@@ -50,7 +50,9 @@ public:
  */
 static void
 echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::PKx<typhon::core::Host>& pkx) noexcept {
-    pkx.pk()->dst_id = pkx->src_id;
+    auto* pk = pkx.pk();
+    pk->dst_id = pk->src_id;
+    pk->src_id = pk->dst_id;
 
     int rc = sess->send(pkx);
     if (rc < 0) {

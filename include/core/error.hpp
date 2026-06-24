@@ -17,16 +17,17 @@
 
 // ---- 协议 / 包 (core::Package) ----
 #define xERR_PK_LEN         (-10100)   // 包长度非法
-#define xERR_PK_ID         (-10101)    // pk_id 非法 (0 或越界)
+#define xERR_PK_ID          (-10101)   // pk_id 非法 (0 或越界)
 #define xERR_PKT_SEQ        (-10102)   // pk_idem == 0
 #define xERR_PKT_DST        (-10103)   // pk_dst_id == 0
-#define xERR_PK_DEC         (-10104)   // 解密失败
-#define xERR_TOKEN_EXP      (-10105)   // token 过期
-#define xERR_TOKEN_VER      (-10106)   // token 验签失败
-#define xERR_X25519_KX      (-10107)   // x25519 密钥协商失败
-#define xERR_NOT_AUTH       (-10108)   // 未认证
-#define xERR_TOKEN_CONV     (-10109)   // 不匹配的 conv
-#define xERR_TOKEN_USER     (-10110)   // 不匹配的 user_id
+#define xERR_PKT_SRC        (-10104)   // pk_src_id == 0
+#define xERR_PK_DEC         (-10105)   // 解密失败
+#define xERR_TOKEN_EXP      (-10106)   // token 过期
+#define xERR_TOKEN_VER      (-10107)   // token 验签失败
+#define xERR_X25519_KX      (-10108)   // x25519 密钥协商失败
+#define xERR_NOT_AUTH       (-10109)   // 未认证
+#define xERR_TOKEN_CONV     (-10110)   // 不匹配的 conv
+#define xERR_TOKEN_USER     (-10111)   // 不匹配的 user_id
 
 
 // ---- KCP / ikcp 边界 ----
