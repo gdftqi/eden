@@ -332,6 +332,8 @@ struct IKCPCB
 	IUINT32 ts_probe, probe_wait;
 	IUINT32 dead_link, incr;
 	IUINT32 last_rcv_ms, timeout;
+	IUINT32 last_snd_ms;          /* [typhon] 最近发出数据的时刻(空闲发 PING 用) */
+	IUINT32 ping_active, pong;    /* [typhon] ping_active=1: 主动发 PING(客户端); pong=1: 待回 PONG */
 	IUINT8 siphash[16];
 	char *mac_buf;
 	struct IQUEUEHEAD snd_queue;
@@ -401,6 +403,9 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current);
 
 // [typhon] 设置信封 MAC 密钥(16B SipHash-2-4 key); 不设则用全 0 key
 void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
+
+// [typhon] 是否主动发 PING: 客户端置 1(空闲时发 PING 保活); 服务端保持 0(只回 PONG)
+void ikcp_set_ping(ikcpcb *kcp, int active);
 
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call

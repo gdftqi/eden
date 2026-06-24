@@ -30,6 +30,8 @@ const IUINT32 IKCP_CMD_PUSH = 81;		// cmd: push data
 const IUINT32 IKCP_CMD_ACK  = 82;		// cmd: ack
 const IUINT32 IKCP_CMD_WASK = 83;		// cmd: window probe (ask)
 const IUINT32 IKCP_CMD_WINS = 84;		// cmd: window size (tell)
+const IUINT32 IKCP_CMD_PING = 85;		// [typhon] cmd: keepalive ping
+const IUINT32 IKCP_CMD_PONG = 86;		// [typhon] cmd: keepalive pong
 const IUINT32 IKCP_ASK_SEND = 1;		// need to send IKCP_CMD_WASK
 const IUINT32 IKCP_ASK_TELL = 2;		// need to send IKCP_CMD_WINS
 const IUINT32 IKCP_WND_SND = 32;
@@ -278,6 +280,8 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 	}
 	if (size == 0) return 0;
 
+	kcp->last_snd_ms = kcp->current;   /* [typhon] 记录最近发出时刻(空闲发 PING 用) */
+
 	/* [typhon] 前置 8B SipHash 信封(MAC 算 KCP 头 24B), 拼成 [MAC][datagram] 整段发出 */
 	mac = ikcp_siphash24(data, IKCP_OVERHEAD, kcp->siphash);
 	for (i = 0; i < IKCP_ENVELOPE_LEN; i++) {
@@ -343,6 +347,9 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 		return NULL;
 	}
 	memset(kcp->siphash, 0, sizeof(kcp->siphash));
+	kcp->last_snd_ms = 0;
+	kcp->ping_active = 0;
+	kcp->pong = 0;
 
 	iqueue_init(&kcp->snd_queue);
 	iqueue_init(&kcp->rcv_queue);
@@ -912,7 +919,8 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		if ((long)size < (long)len || (int)len < 0) return -2;
 
 		if (cmd != IKCP_CMD_PUSH && cmd != IKCP_CMD_ACK &&
-			cmd != IKCP_CMD_WASK && cmd != IKCP_CMD_WINS) 
+			cmd != IKCP_CMD_WASK && cmd != IKCP_CMD_WINS &&
+			cmd != IKCP_CMD_PING && cmd != IKCP_CMD_PONG)
 			return -3;
 
 		kcp->rmt_wnd = wnd;
@@ -989,6 +997,12 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 				ikcp_log(kcp, IKCP_LOG_IN_WINS,
 					"input wins: %lu", (unsigned long)(wnd));
 			}
+		}
+		else if (cmd == IKCP_CMD_PING) {
+			kcp->pong = 1;   /* [typhon] 收到 PING → 下次 flush 回 PONG */
+		}
+		else if (cmd == IKCP_CMD_PONG) {
+			/* [typhon] 收到 PONG → 无需动作, last_rcv_ms 已在 input 开头刷新 */
 		}
 		else {
 			return -3;
@@ -1163,6 +1177,30 @@ void ikcp_flush(ikcpcb *kcp)
 	}
 
 	kcp->probe = 0;
+
+	// [typhon] 回 PONG(收到对端 PING 后)
+	if (kcp->pong) {
+		seg.cmd = IKCP_CMD_PONG;
+		size = (int)(ptr - buffer);
+		if (size + (int)IKCP_OVERHEAD > (int)kcp->mtu) {
+			ikcp_output(kcp, buffer, size);
+			ptr = buffer;
+		}
+		ptr = ikcp_encode_seg(ptr, &seg);
+		kcp->pong = 0;
+	}
+
+	// [typhon] 主动 PING(仅 ping_active 的一端=客户端): 空闲超过 timeout/3 就发, 维持双向保活
+	if (kcp->ping_active && kcp->timeout > 0 &&
+		_itimediff(current, kcp->last_snd_ms) >= (long)(kcp->timeout / 3)) {
+		seg.cmd = IKCP_CMD_PING;
+		size = (int)(ptr - buffer);
+		if (size + (int)IKCP_OVERHEAD > (int)kcp->mtu) {
+			ikcp_output(kcp, buffer, size);
+			ptr = buffer;
+		}
+		ptr = ikcp_encode_seg(ptr, &seg);
+	}
 
 	// calculate window size
 	cwnd = _imin_(kcp->snd_wnd, kcp->rmt_wnd);
@@ -1340,6 +1378,7 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current)
 		kcp->updated = 1;
 		kcp->ts_flush = kcp->current;
 		kcp->last_rcv_ms = kcp->current; /* [typhon] 初始化保活时刻, 防首次 update 误判超时 */
+		kcp->last_snd_ms = kcp->current;
 	}
 
 	/* [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */
@@ -1443,6 +1482,13 @@ int ikcp_setmtu(ikcpcb *kcp, int mtu)
 void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key)
 {
 	memcpy(kcp->siphash, key, sizeof(kcp->siphash));
+}
+
+
+/* [typhon] 是否主动发 PING(客户端置 1; 服务端保持 0 只回 PONG) */
+void ikcp_set_ping(ikcpcb *kcp, int active)
+{
+	kcp->ping_active = active ? 1 : 0;
 }
 
 int ikcp_interval(ikcpcb *kcp, int interval)
