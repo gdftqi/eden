@@ -1,0 +1,8 @@
+redis:
+  addr: "127.0.0.1:6379"
+
+host: "0.0.0.0:8080"
+ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
+x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
+self_pk: "LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M="
+self_sk: "YnTMQwNokqRO2CRPHb7zcdVg+/3EdHDoZ3k90bLb3O4="

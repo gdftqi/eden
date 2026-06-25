@@ -14,11 +14,11 @@ type HttpRequest struct {
 type HttpResponse struct {
 	Code  int32  `json:"code"`
 	Error string `json:"error,omitempty"`
-	Data  string `json:"data,omitempty"`
+	Data  any    `json:"data,omitempty"`
 }
 
-func WebResponse(c *gin.Context, code int32, err string, data ...string) {
-	d := ""
+func WebResponse(c *gin.Context, code int32, err string, data ...any) {
+	var d any = nil
 	if len(data) > 0 {
 		d = data[0]
 	}
