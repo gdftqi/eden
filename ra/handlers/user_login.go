@@ -46,6 +46,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 1, 检查入参
 	if len(req.HPK) == 0 {
 		utils.WebResponse(c, -1, "hpk is invalid")
 		return
@@ -79,6 +80,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 2, 交换密钥
 	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)
 	if err != nil {
 		log.Error("交换密钥失败: %v", err)
@@ -86,9 +88,9 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 3, 解密 loginInfo
 	nonce := raw[:utils.XX20NonceLen]
 	cipher := raw[utils.XX20NonceLen:]
-
 	plain, err := utils.XX20Decrypt(rx, nonce, cipher, nil)
 	if err != nil {
 		log.Error("解密失败: %v", err)
@@ -103,6 +105,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 4, 检查登录信息
 	if len(info.Username) == 0 || len(info.Username) > 16 {
 		utils.WebResponse(c, -1, "username is invalid")
 		return
@@ -118,10 +121,11 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	// TODO check username & password
+	// Step 5, TODO check username & password in database
 	userID := uint32(time.Now().Unix())
 	conv := userID
 
+	// Step 6, 设置会话到 redis
 	sess := com.UserSession{
 		UserID: userID,
 		Conv:   conv,
@@ -136,6 +140,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 7, 生成令牌
 	token := &com.Token{
 		Expire: uint64(time.Now().Unix()) + 60, // 1 分钟有效
 		Conv:   conv,
@@ -151,6 +156,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	// Step 8, 加密应答消息
 	rsp := userLoginRsp{
 		Conv:   conv,
 		UserID: userID,
