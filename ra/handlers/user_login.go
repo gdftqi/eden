@@ -149,7 +149,7 @@ func UserLogin(c *gin.Context) {
 	}
 	copy(token.CliPK[:], kpk)
 
-	sealed, err := token.SealeaBox(conf.Instance.Ed25519Sk, conf.Instance.X25519Pk)
+	sealed, err := token.SealeaBoxAndSign(conf.Instance.Ed25519Sk, conf.Instance.X25519Pk)
 	if err != nil {
 		log.Error("token seal 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误3")

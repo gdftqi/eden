@@ -18,10 +18,10 @@ type config struct {
 	SelfPkStr    string           `yaml:"self_pk"`     // 自己用的 x25519_pk
 	SipHashKey   string           `yaml:"siphash_key"` // siphash mac key
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
-	Ed25519Sk    []byte           `yaml:"-"`
-	X25519Pk     []byte           `yaml:"-"` // 网关的 sealedbox 加密公钥
-	SelfSk       []byte           `yaml:"-"`
-	SelfPk       []byte           `yaml:"-"`
+	Ed25519Sk    []byte           `yaml:"-"`           // ed25519 签名私钥, 网关会用公钥验签
+	X25519Pk     []byte           `yaml:"-"`           // 网关的 sealedbox 加密公钥
+	SelfSk       []byte           `yaml:"-"`           // 自己的X25519私钥
+	SelfPk       []byte           `yaml:"-"`           // 自己的X25519公钥
 }
 
 var Instance *config
