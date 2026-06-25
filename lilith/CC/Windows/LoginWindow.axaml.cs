@@ -5,6 +5,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using lilith.Core;
 using System;
+using lilith.Tools;
+using System.Diagnostics;
 
 
 namespace CC
@@ -32,7 +34,7 @@ namespace CC
             }
         }
 
-        private void Login_Click(object? sender, RoutedEventArgs e)
+        private async void Login_Click(object? sender, RoutedEventArgs e)
         {// 登录
             var username = txtUsername.Text?.Trim() ?? "";
             var password = txtPassword.Text ?? "";
@@ -53,7 +55,10 @@ namespace CC
 
             try
             {
-                const string host = "172.26.29.158:5555";
+                var rsp = await HttpHelper.Instance.PostAynsc("http://172.26.29.158:8080/hello", null);
+                Debug.WriteLine(rsp);
+
+                const string host = "13.214.204.197:5555";
                 const uint conv = 2000;
                 const uint userId = 90000;
                 // test_kcp.py 同款: conv=2000, user_id=90000 (164B sealed token, 网关 x25519 公钥加密)
@@ -70,6 +75,7 @@ namespace CC
             }
             catch (Exception ex)
             {
+                Debug.WriteLine(ex.Message);
                 ShowError("连接服务失败: " + ex.Message);
                 return;
             }

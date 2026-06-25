@@ -6,6 +6,7 @@ import (
 	"github.com/ra/handlers"
 	"github.com/ra/log"
 	"github.com/ra/mid"
+	"github.com/ra/utils"
 )
 
 func main() {
@@ -26,6 +27,9 @@ func main() {
 
 	eng.POST(handlers.REGIST_USER, handlers.RegistUser)
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
+	eng.POST("/hello", func(c *gin.Context) {
+		utils.WebResponse(c, 0, "", "Hello world!!!")
+	})
 
 	log.Info("开启服务: %v", conf.Instance.Host)
 	eng.Run(conf.Instance.Host)
