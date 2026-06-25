@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/ra/com"
 	"github.com/ra/conf"
 	"github.com/ra/handlers"
 	"github.com/ra/log"
+	"github.com/ra/mid"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 	}
 	log.Info("加载配置文件完成")
 
-	err = com.InitRedis(conf.Instance.Redis)
+	err = mid.InitRedis(conf.Instance.Redis)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,7 +24,6 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	eng := gin.Default()
 
-	eng.POST(handlers.GET_VERSION, handlers.GetVersion)
 	eng.POST(handlers.REGIST_USER, handlers.RegistUser)
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
 

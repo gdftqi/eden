@@ -1,4 +1,4 @@
-package com
+package mid
 
 import (
 	"database/sql"

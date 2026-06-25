@@ -1,9 +1,190 @@
 package handlers
 
-import "github.com/gin-gonic/gin"
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"math"
+	"net"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/ra/com"
+	"github.com/ra/conf"
+	"github.com/ra/log"
+	"github.com/ra/utils"
+)
 
 const USER_LOGIN = "/user_login"
 
-func UserLogin(c *gin.Context) {
+type loginInfo struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Time     int64  `json:"time"`
+}
 
+type userLoginReq struct {
+	HPK  string `json:"hpk,omitempty"`  // http server pk
+	KPK  string `json:"kpk,omitempty"`  // kcp server pk
+	Info string `json:"info,omitempty"` // 加密之后的数据
+}
+
+type userLoginRsp struct {
+	Conv   uint32 `json:"conv"`    // kcp conv
+	UserID uint32 `json:"user_id"` // 用户ID
+	Host   string `json:"host"`    // kcp host
+	MacKey string `json:"mac_key"` // siphash mac key
+	Token  string `json:"token"`   // 鉴权令牌
+}
+
+func UserLogin(c *gin.Context) {
+	req := userLoginReq{}
+	err := c.BindJSON(&req)
+	if err != nil {
+		utils.WebResponse(c, -1, "无效的参数")
+		return
+	}
+
+	if len(req.HPK) == 0 {
+		utils.WebResponse(c, -1, "hpk is invalid")
+		return
+	}
+
+	if len(req.KPK) == 0 {
+		utils.WebResponse(c, -1, "kpk is invalid")
+		return
+	}
+
+	if len(req.Info) == 0 {
+		utils.WebResponse(c, -1, "info is invalid")
+		return
+	}
+
+	hpk, err := base64.StdEncoding.DecodeString(req.HPK)
+	if err != nil || len(hpk) != utils.X25519KeyLen {
+		utils.WebResponse(c, -1, "hpk is invalid")
+		return
+	}
+
+	kpk, err := base64.StdEncoding.DecodeString(req.KPK)
+	if err != nil || len(kpk) != utils.X25519KeyLen {
+		utils.WebResponse(c, -1, "kpk is invalid")
+		return
+	}
+
+	raw, err := base64.StdEncoding.DecodeString(req.Info)
+	if err != nil || len(raw) == 0 {
+		utils.WebResponse(c, -1, "info is invalid")
+		return
+	}
+
+	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)
+	if err != nil {
+		log.Error("交换密钥失败: %v", err)
+		utils.WebResponse(c, -1, "服务内部错误1")
+		return
+	}
+
+	nonce := raw[:utils.XX20NonceLen]
+	cipher := raw[utils.XX20NonceLen:]
+
+	plain, err := utils.XX20Decrypt(rx, nonce, cipher, nil)
+	if err != nil {
+		log.Error("解密失败: %v", err)
+		utils.WebResponse(c, -1, "无效的数据")
+		return
+	}
+
+	info := loginInfo{}
+	err = json.Unmarshal(plain, &info)
+	if err != nil {
+		utils.WebResponse(c, -1, "无效的登录数据")
+		return
+	}
+
+	if len(info.Username) == 0 || len(info.Username) > 16 {
+		utils.WebResponse(c, -1, "username is invalid")
+		return
+	}
+
+	if len(info.Password) != 64 {
+		utils.WebResponse(c, -1, "password is invalid")
+		return
+	}
+
+	if math.Abs(float64(time.Now().Unix()-info.Time)) > 10 {
+		utils.WebResponse(c, -1, "user login expired")
+		return
+	}
+
+	// TODO check username & password
+	userID := uint32(time.Now().Unix())
+	conv := userID
+
+	sess := com.UserSession{
+		UserID: userID,
+		Conv:   conv,
+		TxKey:  tx,
+		RxKey:  rx,
+	}
+
+	err = sess.UpdateToRedis()
+	if err != nil {
+		log.Error(err)
+		utils.WebResponse(c, -1, "服务器内部错误2")
+		return
+	}
+
+	token := &com.Token{
+		Expire: uint64(time.Now().Unix()) + 60, // 1 分钟有效
+		Conv:   conv,
+		UserID: userID,
+		IP:     ipv4ToU32(c.ClientIP()),
+	}
+	copy(token.CliPK[:], kpk)
+
+	sealed, err := token.SealeaBox(conf.Instance.Ed25519Sk, conf.Instance.X25519Pk)
+	if err != nil {
+		log.Error("token seal 失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误3")
+		return
+	}
+
+	rsp := userLoginRsp{
+		Conv:   conv,
+		UserID: userID,
+		Host:   "172.26.29.158:5555",
+		MacKey: conf.Instance.SipHashKey,
+		Token:  base64.StdEncoding.EncodeToString(sealed),
+	}
+
+	rnonce := make([]byte, utils.XX20NonceLen)
+	_, err = rand.Read(rnonce)
+	if err != nil {
+		log.Error("nonce 生成失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误4")
+		return
+	}
+
+	rspCipher, err := utils.XX20Encrypt(tx, rnonce, []byte(utils.ToJSON(rsp)), nil)
+	if err != nil {
+		log.Error("回包加密失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误5")
+		return
+	}
+
+	utils.WebResponse(c, 0, "", base64.StdEncoding.EncodeToString(append(rnonce, rspCipher...)))
+}
+
+// ipv4ToU32 把客户端 IP 字符串转成 uint32(IPv4)
+func ipv4ToU32(s string) uint32 {
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return 0
+	}
+	if v4 := ip.To4(); v4 != nil {
+		return binary.BigEndian.Uint32(v4)
+	}
+	return 0
 }
