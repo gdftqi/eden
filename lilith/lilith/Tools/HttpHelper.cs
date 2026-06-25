@@ -12,13 +12,14 @@ namespace lilith.Tools
     {
         public class HttpResp
         {
-            public int code;
+            [JsonProperty("code")]
+            public int Code;
 
-            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-            public string? error;
+            [JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Error;
 
-            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-            public string? data;
+            [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Data;
 
             public override string ToString()
             {
