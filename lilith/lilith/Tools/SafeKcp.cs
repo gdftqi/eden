@@ -1,7 +1,4 @@
-using kcp2k;
-
-
-namespace lilith.Utils
+namespace lilith.Tools
 {
     public class SafeKcp
     {// 线程安全的 kcp

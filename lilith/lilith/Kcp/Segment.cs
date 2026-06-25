@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace kcp2k
+namespace lilith
 {
     // KCP Segment Definition
     internal class Segment

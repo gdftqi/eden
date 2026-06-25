@@ -6,7 +6,7 @@ using Org.BouncyCastle.Math.EC.Rfc7748;
 using System;
 
 
-namespace lilith.Utils
+namespace lilith.Tools
 {
     public static class Crypto
     {

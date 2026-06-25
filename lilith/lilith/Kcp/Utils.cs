@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace kcp2k
+namespace lilith
 {
     public static partial class Utils
     {

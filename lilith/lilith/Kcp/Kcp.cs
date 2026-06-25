@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace kcp2k
+namespace lilith
 {
     public class Kcp
     {
