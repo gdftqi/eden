@@ -1,0 +1,15 @@
+services:
+  ra:
+    image: golang:latest
+    container_name: ra
+    network_mode: host
+    privileged: true
+    tty: true
+    stdin_open: true
+    working_dir: /home/go
+    command: ./ra
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+      - ./ra:/home/go/ra
+      - ./config.yml:/home/go/config.yml
