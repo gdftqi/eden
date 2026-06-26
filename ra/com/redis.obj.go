@@ -11,8 +11,8 @@ import (
 type UserSession struct {
 	UserID uint32 `json:"user_id,omitempty"`
 	Conv   uint32 `json:"conv,omitempty"`
-	RxKey  []byte `json:"rx_key"`
-	TxKey  []byte `json:"tx_key"`
+	Rx     []byte `json:"rx"`
+	Tx     []byte `json:"tx"`
 }
 
 func (this_ *UserSession) String() string {

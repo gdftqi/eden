@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"math"
 	"net"
 	"time"
@@ -75,12 +73,6 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	raw, err := base64.StdEncoding.DecodeString(req.Info)
-	if err != nil || len(raw) == 0 {
-		utils.WebResponse(c, -1, "info is invalid")
-		return
-	}
-
 	// Step 2, 交换密钥
 	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)
 	if err != nil {
@@ -90,19 +82,10 @@ func UserLogin(c *gin.Context) {
 	}
 
 	// Step 3, 解密 loginInfo
-	nonce := raw[:utils.XX20NonceLen]
-	cipher := raw[utils.XX20NonceLen:]
-	plain, err := utils.XX20Decrypt(rx, nonce, cipher, nil)
-	if err != nil {
+	info := loginInfo{}
+	if err = utils.Open(rx, req.Info, &info); err != nil {
 		log.Error("解密失败: %v", err)
 		utils.WebResponse(c, -1, "无效的数据")
-		return
-	}
-
-	info := loginInfo{}
-	err = json.Unmarshal(plain, &info)
-	if err != nil {
-		utils.WebResponse(c, -1, "无效的登录数据")
 		return
 	}
 
@@ -130,8 +113,8 @@ func UserLogin(c *gin.Context) {
 	sess := com.UserSession{
 		UserID: userID,
 		Conv:   conv,
-		TxKey:  tx,
-		RxKey:  rx,
+		Tx:     tx,
+		Rx:     rx,
 	}
 
 	err = sess.UpdateToRedis()
@@ -167,22 +150,14 @@ func UserLogin(c *gin.Context) {
 		Token:  base64.StdEncoding.EncodeToString(sealed),
 	}
 
-	rnonce := make([]byte, utils.XX20NonceLen)
-	_, err = rand.Read(rnonce)
+	data, err := utils.Seal(tx, rsp)
 	if err != nil {
-		log.Error("nonce 生成失败: %v", err)
+		log.Error("回包加密失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误4")
 		return
 	}
 
-	rspCipher, err := utils.XX20Encrypt(tx, rnonce, []byte(utils.ToJSON(rsp)), nil)
-	if err != nil {
-		log.Error("回包加密失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误5")
-		return
-	}
-
-	utils.WebResponse(c, 0, "", base64.StdEncoding.EncodeToString(append(rnonce, rspCipher...)))
+	utils.WebResponse(c, 0, "", data)
 }
 
 // ipv4ToU32 把客户端 IP 字符串转成 uint32(IPv4)
