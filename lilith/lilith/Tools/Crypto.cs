@@ -25,23 +25,19 @@ namespace lilith.Tools
         public const byte DIR_C2S = 0;
         public const byte DIR_S2C = 1;
 
-        // X25519 密钥对
-        public static readonly byte[] CLI_SK = Convert.FromBase64String("EdJdIDQFPrLTOP7ppHoZi3VOrFqVWKG/e02D5pCn5IA=");
-        public static readonly byte[] CLI_PK = Convert.FromBase64String("IeXygWC1oAuSDeZp76WiWTkAj/VvWqs+NJ043/bG2Bo=");
-
-        public static byte[] Token(string b64Token)
-        {
-            return Convert.FromBase64String(b64Token);
-        }
-
         public static byte[] SipHashTag(byte[] data, int offset, int len)
         {
+            return SipHashTag(SIPHASH_KEY, data, offset, len);
+        }
+
+        public static byte[] SipHashTag(byte[] key, byte[] data, int offset, int len)
+        {
             var mac = new SipHash();
-            mac.Init(new KeyParameter(SIPHASH_KEY));
+            mac.Init(new KeyParameter(key));
             mac.BlockUpdate(data, offset, len);
             long h = mac.DoFinal();
             var tag = new byte[ENVELOPE_MAC_LEN];
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < ENVELOPE_MAC_LEN; i++)
             {
                 tag[i] = (byte)(h >> (8 * i));
             }
@@ -108,14 +104,14 @@ namespace lilith.Tools
             X25519.ScalarMult(sk, 0, basePoint, 0, pk, 0);
         }
 
-        public static void KxClient(byte[] srvPk, out byte[] rx, out byte[] tx)
-        {// X25519 交换密钥
+        public static void KxClient(byte[] cliSk, byte[] cliPk, byte[] srvPk, out byte[] rx, out byte[] tx)
+        {// X25519 交换密钥(crypto_kx client): 必须传"自己发出去那对"密钥, 否则与对端派生不出同一组 rx/tx
             var q = new byte[32];
-            X25519.ScalarMult(CLI_SK, 0, srvPk, 0, q, 0);
+            X25519.ScalarMult(cliSk, 0, srvPk, 0, q, 0);
 
             var blake = new Blake2bDigest(512);
             blake.BlockUpdate(q, 0, 32);
-            blake.BlockUpdate(CLI_PK, 0, 32);
+            blake.BlockUpdate(cliPk, 0, 32);
             blake.BlockUpdate(srvPk, 0, 32);
             var h = new byte[64];
             blake.DoFinal(h, 0);

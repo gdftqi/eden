@@ -1,6 +1,7 @@
 #define FASTACK_CONSERVE
 using System;
 using System.Collections.Generic;
+using lilith.Tools;
 
 namespace lilith
 {
@@ -31,6 +32,7 @@ namespace lilith
         public const int DEADLINK = 20;            // default maximum amount of 'xmit' retransmissions until a segment is considered lost
         public const int THRESH_INIT = 2;
         public const int THRESH_MIN = 2;
+        public const int ENVELOPE_LEN = 8;         // [typhon] 出站信封 SipHash MAC 长度(对齐 C++ IKCP_ENVELOPE_LEN)
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
@@ -88,6 +90,11 @@ namespace lilith
         // MTU can be changed at runtime, which resizes the buffer.
         internal byte[] buffer;
 
+        // [typhon] 出站信封暂存 [8B MAC][datagram] + 信封 SipHash key(16B)
+        // 对齐 C++ ikcp.c 的 kcp->mac_buf / kcp->siphash; 出站在 KCP 层加 MAC, 入站只剥不验(验在服务端 XDP)
+        byte[] macBuffer;
+        readonly byte[] siphash = new byte[16];
+
         // output function of type <buffer, size>
         readonly Action<byte[], int> output;
 
@@ -122,6 +129,7 @@ namespace lilith
             fastlimit = FASTACK_LIMIT;
             dead_link = DEADLINK;
             buffer = new byte[(mtu + OVERHEAD) * 3];
+            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [typhon]
         }
 
         // ikcp_segment_new
@@ -556,7 +564,11 @@ namespace lilith
             uint latest_ts = 0;
             int flag = 0;
 
-            if (data == null || size < OVERHEAD) return -1;
+            // [typhon] 入站信封: 至少 8B MAC + 24B KCP 头; 与 C++ ikcp_input 一致 —— 只剥不验。
+            //          (出站才加 MAC; 入站 MAC 校验在服务端 XDP, 客户端无 XDP 故不校验, 靠源地址过滤 + AEAD 兜底)
+            if (data == null || size < ENVELOPE_LEN + OVERHEAD) return -1;
+            offset += ENVELOPE_LEN;
+            size -= ENVELOPE_LEN;
 
             last_rcv_ms = current;   // [typhon] 收到对端数据 → 刷新保活时刻
 
@@ -713,13 +725,23 @@ namespace lilith
             return 0;
         }
 
+        // [typhon] 出站信封: 在 KCP datagram 前拼 8B SipHash MAC(覆盖前 OVERHEAD 字节), 与 C++ ikcp_output 一致。
+        //          datagram 可能含多个 segment, 但 MAC 只覆盖第一个 segment 的 24B 头(和服务端 XDP 校验范围一致)。
+        void Output(int size)
+        {
+            last_snd_ms = current;   // [typhon] 记录最近发出时刻(空闲发 PING 用)
+            byte[] mac = Crypto.SipHashTag(siphash, buffer, 0, OVERHEAD);
+            Buffer.BlockCopy(mac, 0, macBuffer, 0, ENVELOPE_LEN);
+            Buffer.BlockCopy(buffer, 0, macBuffer, ENVELOPE_LEN, size);
+            output(macBuffer, size + ENVELOPE_LEN);
+        }
+
         // flush helper function
         void MakeSpace(ref int size, int space)
         {
             if (size + space > mtu)
             {
-                last_snd_ms = current;   // [typhon] 记录最近发出时刻(空闲发 PING 用)
-                output(buffer, size);
+                Output(size);
                 size = 0;
             }
         }
@@ -730,8 +752,7 @@ namespace lilith
             // flush buffer up to 'offset' (<= MTU)
             if (size > 0)
             {
-                last_snd_ms = current;   // [typhon]
-                output(buffer, size);
+                Output(size);
             }
         }
 
@@ -1106,9 +1127,13 @@ namespace lilith
                 throw new ArgumentException("MTU must be higher than 50 and higher than OVERHEAD");
 
             buffer = new byte[(mtu + OVERHEAD) * 3];
+            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [typhon]
             this.mtu = mtu;
             mss = mtu - OVERHEAD;
         }
+
+        // [typhon] 设置出站信封 SipHash key(16B, 对齐 C++ ikcp_set_siphash)
+        public void SetSipHash(byte[] key) => Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
 
         // [typhon] 是否主动发 PING(客户端 true; 服务端 false 只回 PONG)
         public void SetPing(bool active) => ping_active = active;

@@ -1,10 +1,9 @@
-﻿using Avalonia.Controls.Notifications;
+﻿using lilith.Core;
 using lilith.Tools;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -36,11 +35,32 @@ namespace CC.Proxy
             public string? Info;
         }
 
+        class UserLoginRsp
+        {
+            [JsonProperty("conv", NullValueHandling = NullValueHandling.Ignore)]
+            public uint? Conv;
+
+            [JsonProperty("user_id", NullValueHandling = NullValueHandling.Ignore)]
+            public uint? UserID;
+
+            [JsonProperty("host", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Host;
+
+            [JsonProperty("host_id", NullValueHandling = NullValueHandling.Ignore)]
+            public uint? HostID;
+
+            [JsonProperty("mac_key", NullValueHandling = NullValueHandling.Ignore)]
+            public string? MacKey;
+
+            [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Token;
+        }
+
         public static async Task<int> POST(string username, string password)
         {
             Config.Init();
             var pk = Crypto.Base64DecodeToBytes(Config.HTTP_X25519_PK);
-            Crypto.KxClient(pk, out HttpHelper.Instance.RxKey, out HttpHelper.Instance.TxKey);
+            Crypto.KxClient(Config.HttpSk, Config.HttpPk, pk, out HttpHelper.Instance.RxKey, out HttpHelper.Instance.TxKey);
 
             LoginInfo info = new LoginInfo();
             info.Username = username;
@@ -59,16 +79,32 @@ namespace CC.Proxy
 
             UserLoginReq req = new UserLoginReq();
             req.HttpPk = Crypto.Base64Encode(Config.HttpPk);
-            req.KcpPk = Crypto.Base64Encode(Config.KcpPk);
+            req.KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK);
             req.Info = Crypto.Base64Encode(data);
 
 
             var rsp = await HttpHelper.Instance.PostAynsc("/user_login", req);
-            if (rsp.Code != 0)
+            if (rsp.Code != 0 || rsp.Data == null)
             {
                 throw new Exception(rsp.Error);
             }
-            Debug.WriteLine(rsp.ToString());
+
+            data = Crypto.Base64DecodeToBytes(rsp.Data);
+            var rnonce = data.AsSpan(0, Crypto.AEAD_NONCE_LEN).ToArray();
+            var rcipher = data.AsSpan(Crypto.AEAD_NONCE_LEN).ToArray();
+            var plain = new byte[rcipher.Length];
+            int dlen = Crypto.Decrypt(HttpHelper.Instance.RxKey, rnonce, rcipher, 0, rcipher.Length, plain, 0);
+            if (dlen < 0)
+            {
+                throw new Exception("login response decrypt failed");
+            }
+            UserLoginRsp? ulRsp = JsonConvert.DeserializeObject<UserLoginRsp>(Encoding.UTF8.GetString(plain, 0, dlen));
+            if (ulRsp == null)
+            {
+                throw new Exception("server is fake");
+            }
+
+            KcpSession.Instance.Init(ulRsp.Host!, ulRsp.Conv!.Value, ulRsp.UserID!.Value, ulRsp.Token!, ulRsp.HostID!.Value);
 
             return 0;
         }

@@ -48,7 +48,9 @@ namespace lilith.Core
         }
 
         private KcpSession()
-        { /* 构造函数 */ }
+        {
+            Crypto.X25519KeyGen(out pk, out sk);
+        }
 
         public uint GatewayID
         {// 网关ID
@@ -63,9 +65,23 @@ namespace lilith.Core
             }
         }
 
-        public void Connect(ISessionEvent ev, string host, uint conv, uint userId, string b64Token, uint gwId)
+        public byte[] PK { get { return pk; } }
+        public byte[] SK { get { return sk; } }
+
+        public void Init(string host, uint conv, uint userId, string b64Token, uint gwId)
+        {
+            this.host = host;
+            this.conv = conv;
+            this.userId = userId;
+            token = Crypto.Base64DecodeToBytes(b64Token);
+            authed = false;
+            sndSeq = rcvSeq = 0;
+            GatewayID = gwId;
+        }
+
+        public void Connect(ISessionEvent ev)
         {// 连接服务
-            if (ev == null || string.IsNullOrEmpty(host) || conv == 0 || userId == 0 || string.IsNullOrEmpty(b64Token) || gwId == 0)
+            if (ev == null)
             {// 入参检查
                 throw new Exception("param is invalid");
             }
@@ -86,18 +102,12 @@ namespace lilith.Core
 
             try
             {
-                this.conv = conv;
-                this.userId = userId;
-                token = Crypto.Token(b64Token);
-                authed = false;
-                sndSeq = rcvSeq = 0;
-                GatewayID = gwId;
-
                 remotePoint = new IPEndPoint(IPAddress.Parse(ipStr), port);
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 sock.Bind(new IPEndPoint(IPAddress.Any, 0));
 
                 var kcp = new Kcp(conv, output);
+                kcp.SetSipHash(Crypto.SIPHASH_KEY);   // [typhon] 出站信封 MAC key, 服务端 XDP 据此校验
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
                 kcp.SetPing(true);          // [typhon] 客户端: 空闲时主动发 PING 保活
@@ -193,7 +203,6 @@ namespace lilith.Core
         {// 接收线程
             EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
             var recvBuf = new byte[UDP_MTU];
-            const int MIN_SIZE = Crypto.ENVELOPE_MAC_LEN + Crypto.ENVELOPE_MAC_HASH_LEN;
             int n = 0;
 
             try
@@ -201,23 +210,13 @@ namespace lilith.Core
                 while (Running)
                 {
                     n = sock!.ReceiveFrom(recvBuf, UDP_MTU, SocketFlags.None, ref remote);
-                    if (n < MIN_SIZE)
-                    {// 最小的包为 ENVELOPE MAC(8) + KCP HEADER (24)
-                        continue;
-                    }
-
                     if (!remote.Equals(remotePoint))
                     {// 只收来自服务器的包, 其它来源丢弃
                         continue;
                     }
 
-                    var tag = Crypto.SipHashTag(recvBuf, Crypto.ENVELOPE_MAC_LEN, Crypto.ENVELOPE_MAC_HASH_LEN);
-                    if (!MacMatch(tag, recvBuf))
-                    {// 校验 SIPHASH
-                        continue;
-                    }
-
-                    safeKcp!.Input(recvBuf, Crypto.ENVELOPE_MAC_LEN, n - Crypto.ENVELOPE_MAC_LEN);
+                    // [typhon] 信封 MAC 的剥离/长度校验已下沉到 Kcp.Input(和 C++ ikcp_input 一致), 这里直接喂整包
+                    safeKcp!.Input(recvBuf, 0, n);
 
                     while (true)
                     {
@@ -281,8 +280,7 @@ namespace lilith.Core
                 return;
             }
 
-            // 交换密钥
-            Crypto.KxClient(pkg.Payload, out rxKey, out txKey);
+            Crypto.KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
             authed = true;
             recvQue.Enqueue(new IOEvent(IOEventType.Connected));
             Notify();
@@ -452,19 +450,8 @@ namespace lilith.Core
         }
 
         private void output(byte[] segment, int size)
-        {// kcp set output
-            var mac = Crypto.SipHashTag(segment, 0, Math.Min(size, Crypto.ENVELOPE_MAC_HASH_LEN));
-            Buffer.BlockCopy(mac, 0, udpSendBuf, 0, Crypto.ENVELOPE_MAC_LEN);
-            Buffer.BlockCopy(segment, 0, udpSendBuf, Crypto.ENVELOPE_MAC_LEN, size);
-            size += Crypto.ENVELOPE_MAC_LEN;
-            sock!.SendTo(udpSendBuf, size, SocketFlags.None, remotePoint!);
-        }
-
-        private static bool MacMatch(byte[] tag, byte[] data)
-        {// 匹配 SIP HASH
-            for (int i = 0; i < Crypto.ENVELOPE_MAC_LEN; i++)
-                if (tag[i] != data[i]) return false;
-            return true;
+        {// kcp set output —— segment 已是 [8B MAC][datagram](信封在 Kcp.Output 内拼好), 直接发
+            sock!.SendTo(segment, size, SocketFlags.None, remotePoint!);
         }
 
         private readonly BlockingQueue<Package> sendQue = new BlockingQueue<Package>();
@@ -485,9 +472,9 @@ namespace lilith.Core
         private int notifyPending = 0;
 
         // ---- 身份属性 ----
-        private uint conv = 0;
-        private uint userId = 0;
         private byte[] token = new byte[170];
+        private byte[] pk;
+        private byte[] sk;
 
         // ---- 仅 ioRecv 线程 ----
         private byte[] rxKey = new byte[32];
@@ -498,6 +485,10 @@ namespace lilith.Core
         private byte[] txKey = new byte[32];
         private uint sndSeq = 0;
         private byte[] pkSendBuf = new byte[Package.PACK_MAX_LEN];
-        private byte[] udpSendBuf = new byte[Package.PACK_MAX_LEN + Crypto.ENVELOPE_MAC_LEN];
+
+        private uint conv = 0;
+        private uint userId = 0;
+        private string host = "";
+        private uint gwId = 0;
     }
 }

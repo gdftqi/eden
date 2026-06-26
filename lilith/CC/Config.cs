@@ -14,13 +14,10 @@ namespace CC
 
         public static byte[] HttpPk = new byte[32];
         public static byte[] HttpSk = new byte[32];
-        public static byte[] KcpPk = new byte[32];
-        public static byte[] KcpSk = new byte[32];
 
         public static void Init()
         {
             Crypto.X25519KeyGen(out Config.HttpPk, out Config.HttpSk);
-            Crypto.X25519KeyGen(out Config.KcpPk, out Config.KcpSk);
         }
     }
 }

@@ -34,6 +34,7 @@ type userLoginRsp struct {
 	Conv   uint32 `json:"conv"`    // kcp conv
 	UserID uint32 `json:"user_id"` // 用户ID
 	Host   string `json:"host"`    // kcp host
+	HostID uint32 `json:"host_id"` // kcp host id
 	MacKey string `json:"mac_key"` // siphash mac key
 	Token  string `json:"token"`   // 鉴权令牌
 }
@@ -161,6 +162,7 @@ func UserLogin(c *gin.Context) {
 		Conv:   conv,
 		UserID: userID,
 		Host:   "172.26.29.158:5555",
+		HostID: 1000,
 		MacKey: conf.Instance.SipHashKey,
 		Token:  base64.StdEncoding.EncodeToString(sealed),
 	}
