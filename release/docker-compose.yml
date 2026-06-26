@@ -29,7 +29,8 @@ services:
   #   服务注册与发现
   # ------------------------
   etcd:
-    image: tigen-etcd
+    build: ./etcd          # 从 ./etcd/Dockerfile 构建
+    image: tigen-etcd      # 构建产物打成这个 tag, 下次 up 直接复用不重建
     container_name: etcd
     network_mode: host
     restart: unless-stopped
@@ -46,6 +47,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./etcd/data:/etcd-data
+  # ETCD Workbench 视图工具
   # etcdctl user add root
   # etcdctl auth enable
 
