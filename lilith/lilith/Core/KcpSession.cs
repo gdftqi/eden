@@ -68,7 +68,7 @@ namespace lilith.Core
         public byte[] PK { get { return pk; } }
         public byte[] SK { get { return sk; } }
 
-        public void Init(string host, uint conv, uint userId, string b64Token, uint gwId)
+        public void Init(string host, uint conv, uint userId, uint gatewayId, string b64Token)
         {
             this.host = host;
             this.conv = conv;
@@ -76,7 +76,7 @@ namespace lilith.Core
             token = Crypto.Base64DecodeToBytes(b64Token);
             authed = false;
             sndSeq = rcvSeq = 0;
-            GatewayID = gwId;
+            GatewayID = gatewayId;
         }
 
         public void Connect(ISessionEvent ev)

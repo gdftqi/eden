@@ -14,46 +14,46 @@ namespace CC.Proxy
         class LoginInfo
         {
             [JsonProperty("username", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Username;
+            public string? Username { get; set; }
 
             [JsonProperty("password", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Password;
+            public string? Password { get; set; }
 
             [JsonProperty("time", NullValueHandling = NullValueHandling.Ignore)]
-            public Int64? Time;
+            public Int64? Time { get; set; }
         }
 
         class UserLoginReq
         {
             [JsonProperty("hpk", NullValueHandling = NullValueHandling.Ignore)]
-            public string? HttpPk;
+            public string? HttpPk { get; set; }
 
             [JsonProperty("kpk", NullValueHandling = NullValueHandling.Ignore)]
-            public string? KcpPk;
+            public string? KcpPk { get; set; }
 
             [JsonProperty("info", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Info;
+            public string? Info { get; set; }
         }
 
         class UserLoginRsp
         {
             [JsonProperty("conv", NullValueHandling = NullValueHandling.Ignore)]
-            public uint? Conv;
+            public UInt32? Conv { get; set; }
 
             [JsonProperty("user_id", NullValueHandling = NullValueHandling.Ignore)]
-            public uint? UserID;
+            public UInt32? UserID { get; set; }
 
             [JsonProperty("host", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Host;
+            public string? Host { get; set; }
 
             [JsonProperty("host_id", NullValueHandling = NullValueHandling.Ignore)]
-            public uint? HostID;
+            public UInt32? HostID { get; set; }
 
             [JsonProperty("mac_key", NullValueHandling = NullValueHandling.Ignore)]
-            public string? MacKey;
+            public string? MacKey { get; set; }
 
             [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Token;
+            public string? Token { get; set; }
         }
 
         public static async Task<int> POST(string username, string password)
@@ -69,15 +69,14 @@ namespace CC.Proxy
 
             var req = new UserLoginReq
             {
-                HttpPk = Crypto.Base64Encode(HttpHelper.Instance.PK),
+                HttpPk = Crypto.Base64Encode(HttpSession.Instance.PK),
                 KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK),
-                Info = HttpHelper.Instance.Seal(info),          // 序列化 + TxKey 加密 + base64
+                Info = HttpSession.Instance.Seal(info),
             };
 
-            // 发送 + 校验 code + RxKey 解密 + 反序列化, 一把梭
-            var rsp = await HttpHelper.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
+            var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
 
-            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.Token!, rsp.HostID!.Value);
+            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.Token!);
 
             return 0;
         }

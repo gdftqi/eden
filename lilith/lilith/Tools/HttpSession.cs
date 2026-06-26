@@ -24,20 +24,20 @@ namespace lilith.Tools
         }
     }
 
-    public class HttpHelper
+    public class HttpSession
     {
-        private static HttpHelper instance = new HttpHelper();
-        public static HttpHelper Instance { get { return instance; } }
+        private static HttpSession instance = new HttpSession();
+        public static HttpSession Instance { get { return instance; } }
 
-        private HttpHelper()
+        private HttpSession()
         {
             httpClient = new HttpClient();
         }
 
         public byte[] PK { get { return pk!; } }
         public byte[] SK { get { return sk!; } }
-        public byte[] Tx { get { return txKey!; } }
-        public byte[] Rx { get { return rxKey!; } }
+        public byte[] Tx { get { return tx!; } }
+        public byte[] Rx { get { return rx!; } }
 
 
         public void Init(string baseUrl, string b64SserverPK)
@@ -45,7 +45,7 @@ namespace lilith.Tools
             this.baseUrl = baseUrl ?? string.Empty;
             Crypto.X25519KeyGen(out pk, out sk);
             var svrPk = Crypto.Base64DecodeToBytes(b64SserverPK);
-            Crypto.X25519KxClient(sk, pk, svrPk, out rxKey, out txKey);
+            Crypto.X25519KxClient(sk, pk, svrPk, out rx, out tx);
         }
 
         public async Task<HttpResp> PostAynsc(string url, object? payload = null, CancellationToken cancellationToken = default)
@@ -106,8 +106,8 @@ namespace lilith.Tools
 
 
         public string Seal(object obj)
-        {// 序列化 obj → 用 TxKey 加密 → base64( nonce(12) || 密文+tag )。作请求里要放的密文字段
-            if (txKey == null)
+        {// 密封, 加密 + 防篡改(认证)
+            if (tx == null)
             {
                 throw new InvalidOperationException("TxKey 未就绪, 先做密钥交换");
             }
@@ -115,7 +115,7 @@ namespace lilith.Tools
             var nonce = Crypto.RandomNonce();
             var json = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(obj));
             var cipher = new byte[json.Length + Crypto.XX20_TAG_LEN];
-            int clen = Crypto.Encrypt(txKey, nonce, json, 0, json.Length, cipher, 0);
+            int clen = Crypto.Encrypt(tx, nonce, json, 0, json.Length, cipher, 0);
 
             var data = new byte[nonce.Length + clen];
             Buffer.BlockCopy(nonce, 0, data, 0, nonce.Length);
@@ -126,7 +126,7 @@ namespace lilith.Tools
         
         public T Open<T>(string b64)
         {// base64( nonce(12) || 密文+tag )
-            if (rxKey == null)
+            if (rx == null)
             {
                 throw new InvalidOperationException("RxKey 未就绪, 先做密钥交换");
             }
@@ -141,7 +141,7 @@ namespace lilith.Tools
             Buffer.BlockCopy(data, 0, nonce, 0, nonce.Length);
             int clen = data.Length - nonce.Length;
             var plain = new byte[clen];   // 明文 ≤ 密文长
-            int dlen = Crypto.Decrypt(rxKey, nonce, data, nonce.Length, clen, plain, 0);
+            int dlen = Crypto.Decrypt(rx, nonce, data, nonce.Length, clen, plain, 0);
             if (dlen < 0)
             {
                 throw new InvalidOperationException("解密失败");
@@ -170,7 +170,7 @@ namespace lilith.Tools
         private string baseUrl = "";
         private byte[]? pk;
         private byte[]? sk;
-        private byte[]? txKey;
-        private byte[]? rxKey;
+        private byte[]? tx;
+        private byte[]? rx;
     }
 }

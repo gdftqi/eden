@@ -8,10 +8,10 @@ namespace CC.Model
 {
     public class ChatMeta
     {
-        public string SessionID { get; set; }
+        public string? SessionID { get; set; }
         public int ChatType { get; set; }
-        public string PeerID { get; set; }
-        public string PeerNickname { get; set; }
+        public string? PeerID { get; set; }
+        public string? PeerNickname { get; set; }
         public ulong SyncSeq { get; set; }
         public ulong ReadSeq { get; set; }
         public ulong PinSeq { get; set; }

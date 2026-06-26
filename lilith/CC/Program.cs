@@ -20,7 +20,7 @@ namespace CC
                 return;
             }
 
-            HttpHelper.Instance.Init(Config.HTTP_HOST, Config.HTTP_X25519_PK);
+            HttpSession.Instance.Init(Config.HTTP_HOST, Config.HTTP_X25519_PK);
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             mutex.ReleaseMutex();
         }
