@@ -729,7 +729,7 @@ namespace lilith
         //          datagram 可能含多个 segment, 但 MAC 只覆盖第一个 segment 的 24B 头(和服务端 XDP 校验范围一致)。
         void Output(int size)
         {
-            last_snd_ms = current;   // [typhon] 记录最近发出时刻(空闲发 PING 用)
+            last_snd_ms = current;
             byte[] mac = Crypto.SipHashTag(siphash, buffer, 0, OVERHEAD);
             Buffer.BlockCopy(mac, 0, macBuffer, 0, ENVELOPE_LEN);
             Buffer.BlockCopy(buffer, 0, macBuffer, ENVELOPE_LEN, size);

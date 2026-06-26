@@ -14,7 +14,6 @@ namespace lilith.Tools
         // ---- envelope MAC ----
         public const int ENVELOPE_MAC_LEN = 8;
         public const int ENVELOPE_MAC_HASH_LEN = 24;
-        public static readonly byte[] SIPHASH_KEY = System.Text.Encoding.ASCII.GetBytes("XA1,y9Mn]0+iu2Y9");
 
         // ---- ChaCha20-Poly1305 AEAD (IETF) ----
         public const int AEAD_KEY_LEN = 32;
@@ -24,11 +23,6 @@ namespace lilith.Tools
         // ---- 方向标记 ----
         public const byte DIR_C2S = 0;
         public const byte DIR_S2C = 1;
-
-        public static byte[] SipHashTag(byte[] data, int offset, int len)
-        {
-            return SipHashTag(SIPHASH_KEY, data, offset, len);
-        }
 
         public static byte[] SipHashTag(byte[] key, byte[] data, int offset, int len)
         {

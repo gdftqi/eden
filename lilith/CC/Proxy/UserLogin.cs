@@ -76,7 +76,7 @@ namespace CC.Proxy
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
 
-            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.Token!);
+            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.Token!);
 
             return 0;
         }

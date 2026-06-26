@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 
 
@@ -68,7 +69,7 @@ namespace lilith.Core
         public byte[] PK { get { return pk; } }
         public byte[] SK { get { return sk; } }
 
-        public void Init(string host, uint conv, uint userId, uint gatewayId, string b64Token)
+        public void Init(string host, uint conv, uint userId, uint gatewayId, string macKey, string b64Token)
         {
             this.host = host;
             this.conv = conv;
@@ -77,6 +78,7 @@ namespace lilith.Core
             authed = false;
             sndSeq = rcvSeq = 0;
             GatewayID = gatewayId;
+            this.macKey = Encoding.ASCII.GetBytes(macKey);
         }
 
         public void Connect(ISessionEvent ev)
@@ -107,7 +109,7 @@ namespace lilith.Core
                 sock.Bind(new IPEndPoint(IPAddress.Any, 0));
 
                 var kcp = new Kcp(conv, output);
-                kcp.SetSipHash(Crypto.SIPHASH_KEY);   // [typhon] 出站信封 MAC key, 服务端 XDP 据此校验
+                kcp.SetSipHash(macKey!);   // [typhon] 出站信封 MAC key, 服务端 XDP 据此校验
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
                 kcp.SetPing(true);          // [typhon] 客户端: 空闲时主动发 PING 保活
@@ -489,5 +491,6 @@ namespace lilith.Core
         private uint conv = 0;
         private uint userId = 0;
         private string host = "";
+        private byte[]? macKey;
     }
 }
