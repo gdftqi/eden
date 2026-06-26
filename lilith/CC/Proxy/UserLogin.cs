@@ -58,53 +58,26 @@ namespace CC.Proxy
 
         public static async Task<int> POST(string username, string password)
         {
-            Config.Init();
-            var pk = Crypto.Base64DecodeToBytes(Config.HTTP_X25519_PK);
-            Crypto.KxClient(Config.HttpSk, Config.HttpPk, pk, out HttpHelper.Instance.RxKey, out HttpHelper.Instance.TxKey);
+            var raPk = Crypto.Base64DecodeToBytes(Config.HTTP_X25519_PK);
 
-            LoginInfo info = new LoginInfo();
-            info.Username = username;
-            info.Password = Crypto.Sha256(password);
-            info.Time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-            var nonce = Crypto.RandomNonce();
-            var bJson = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(info));
-            byte[] cipher = new byte[1024];
-            int cipherLen = Crypto.Encrypt(HttpHelper.Instance.TxKey, nonce, bJson, 0, bJson.Length, cipher, 0);
-            cipher = cipher.AsSpan(0, cipherLen).ToArray();
-
-            var data = new byte[nonce.Length + cipher.Length];
-            nonce.CopyTo(data.AsSpan());
-            cipher.CopyTo(data.AsSpan(nonce.Length));
-
-            UserLoginReq req = new UserLoginReq();
-            req.HttpPk = Crypto.Base64Encode(Config.HttpPk);
-            req.KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK);
-            req.Info = Crypto.Base64Encode(data);
-
-
-            var rsp = await HttpHelper.Instance.PostAynsc("/user_login", req);
-            if (rsp.Code != 0 || rsp.Data == null)
+            var info = new LoginInfo
             {
-                throw new Exception(rsp.Error);
-            }
+                Username = username,
+                Password = Crypto.Sha256(password),
+                Time = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            };
 
-            data = Crypto.Base64DecodeToBytes(rsp.Data);
-            var rnonce = data.AsSpan(0, Crypto.AEAD_NONCE_LEN).ToArray();
-            var rcipher = data.AsSpan(Crypto.AEAD_NONCE_LEN).ToArray();
-            var plain = new byte[rcipher.Length];
-            int dlen = Crypto.Decrypt(HttpHelper.Instance.RxKey, rnonce, rcipher, 0, rcipher.Length, plain, 0);
-            if (dlen < 0)
+            var req = new UserLoginReq
             {
-                throw new Exception("login response decrypt failed");
-            }
-            UserLoginRsp? ulRsp = JsonConvert.DeserializeObject<UserLoginRsp>(Encoding.UTF8.GetString(plain, 0, dlen));
-            if (ulRsp == null)
-            {
-                throw new Exception("server is fake");
-            }
+                HttpPk = Crypto.Base64Encode(HttpHelper.Instance.PK),
+                KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK),
+                Info = HttpHelper.Instance.Seal(info),          // 序列化 + TxKey 加密 + base64
+            };
 
-            KcpSession.Instance.Init(ulRsp.Host!, ulRsp.Conv!.Value, ulRsp.UserID!.Value, ulRsp.Token!, ulRsp.HostID!.Value);
+            // 发送 + 校验 code + RxKey 解密 + 反序列化, 一把梭
+            var rsp = await HttpHelper.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
+
+            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.Token!, rsp.HostID!.Value);
 
             return 0;
         }

@@ -280,7 +280,7 @@ namespace lilith.Core
                 return;
             }
 
-            Crypto.KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
+            Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
             authed = true;
             recvQue.Enqueue(new IOEvent(IOEventType.Connected));
             Notify();
@@ -489,6 +489,5 @@ namespace lilith.Core
         private uint conv = 0;
         private uint userId = 0;
         private string host = "";
-        private uint gwId = 0;
     }
 }

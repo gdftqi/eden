@@ -104,7 +104,7 @@ namespace lilith.Tools
             X25519.ScalarMult(sk, 0, basePoint, 0, pk, 0);
         }
 
-        public static void KxClient(byte[] cliSk, byte[] cliPk, byte[] srvPk, out byte[] rx, out byte[] tx)
+        public static void X25519KxClient(byte[] cliSk, byte[] cliPk, byte[] srvPk, out byte[] rx, out byte[] tx)
         {// X25519 交换密钥(crypto_kx client): 必须传"自己发出去那对"密钥, 否则与对端派生不出同一组 rx/tx
             var q = new byte[32];
             X25519.ScalarMult(cliSk, 0, srvPk, 0, q, 0);
