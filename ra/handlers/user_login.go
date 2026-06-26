@@ -83,7 +83,8 @@ func UserLogin(c *gin.Context) {
 
 	// Step 3, 解密 loginInfo
 	info := loginInfo{}
-	if err = utils.Open(rx, req.Info, &info); err != nil {
+	err = utils.Open(rx, req.Info, &info)
+	if err != nil {
 		log.Error("解密失败: %v", err)
 		utils.WebResponse(c, -1, "无效的数据")
 		return
