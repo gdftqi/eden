@@ -1,4 +1,5 @@
 using Avalonia;
+using lilith.Tools;
 using System;
 using System.Threading;
 
@@ -19,6 +20,7 @@ namespace CC
                 return;
             }
 
+            HttpHelper.Instance.SetBaseUrl(Config.HTTP_HOST);
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             mutex.ReleaseMutex();
         }

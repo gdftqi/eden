@@ -8,25 +8,25 @@ using System.Threading.Tasks;
 
 namespace lilith.Tools
 {
+    public class HttpResp
+    {
+        [JsonProperty("code")]
+        public int Code;
+
+        [JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Error;
+
+        [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Data;
+
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+    }
+
     public class HttpHelper
     {
-        public class HttpResp
-        {
-            [JsonProperty("code")]
-            public int Code;
-
-            [JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Error;
-
-            [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Data;
-
-            public override string ToString()
-            {
-                return JsonConvert.SerializeObject(this);
-            }
-        }
-
         private static HttpHelper instance = new HttpHelper();
         public static HttpHelper Instance
         {
@@ -41,21 +41,50 @@ namespace lilith.Tools
             httpClient = new HttpClient();
         }
 
-        private HttpClient httpClient;
+        public byte[]? TxKey;
+        public byte[]? RxKey;
+
+        public void SetBaseUrl(string baseUrl)
+        {
+            this.baseUrl = baseUrl ?? string.Empty;
+        }
+
         public async Task<HttpResp> PostAynsc(string url, object? payload = null, CancellationToken cancellationToken = default)
         {
-            HttpContent sctx;
-            if (payload != null)
+            if (!string.IsNullOrEmpty(baseUrl))
             {
-                sctx = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
-            }
-            else
-            {
-                sctx = new ByteArrayContent(Array.Empty<byte>());
-                sctx.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                if (baseUrl.EndsWith("/"))
+                {
+                    if (url.StartsWith("/"))
+                    {
+                        url = baseUrl + url.Substring(1);
+                    }
+                    else
+                    {
+                        url = baseUrl + url;
+                    }
+
+                }
+                else
+                {
+                    if (url.StartsWith("/"))
+                    {
+                        url = baseUrl + url;
+                    }
+                    else
+                    {
+                        url = baseUrl + "/" + url;
+                    }
+                }
             }
 
-            using (sctx)
+            string jstr = string.Empty;
+            if (payload != null)
+            {
+                jstr = JsonConvert.SerializeObject(payload);
+            }
+
+            using (var sctx = new StringContent(jstr, Encoding.UTF8, "application/json"))
             {
                 HttpResponseMessage response = await httpClient.PostAsync(url, sctx, cancellationToken);
                 response.EnsureSuccessStatusCode();
@@ -76,5 +105,7 @@ namespace lilith.Tools
             }
         }
 
+        private HttpClient httpClient;
+        private string baseUrl = "";
     }
 }

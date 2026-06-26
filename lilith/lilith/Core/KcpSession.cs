@@ -234,7 +234,7 @@ namespace lilith.Core
                             continue;
                         }
 
-                        switch (pkg.PkId)
+                        switch (pkg.ID)
                         {
                             case Package.PKID_REGIST_RSP:
                                 onRegistRsp(pkg);
@@ -307,13 +307,13 @@ namespace lilith.Core
 
         private void onDefault(Package pkg)
         {// 默认句柄
-            if (!authed || pkg.PkSeq <= rcvSeq)
+            if (!authed || pkg.Idempotent <= rcvSeq)
             {
                 Package.Pool.Return(pkg);
                 return;
             }
 
-            rcvSeq = pkg.PkSeq;
+            rcvSeq = pkg.Idempotent;
             recvQue.Enqueue(new IOEvent(IOEventType.RcvData, pkg));
             Notify();
         }
@@ -368,8 +368,8 @@ namespace lilith.Core
 
         private void doSend(Package pkg)
         {
-            pkg.PkSeq = ++sndSeq;
-            pkg.PkSrcId = userId;   // [typhon] 所有出包带 src_id = user_id (网关据此校验 token.user_id)
+            pkg.Idempotent = ++sndSeq;
+            pkg.SrcID = userId;   // [typhon] 所有出包带 src_id = user_id (网关据此校验 token.user_id)
             int total = encode(pkg, pkSendBuf);
 
             if (safeKcp!.SendFlush(pkSendBuf, 0, total) != 0)
@@ -380,15 +380,15 @@ namespace lilith.Core
 
         private int encode(Package pkg, byte[] outBuf)
         {// 装包
-            Package.Encode16BE(outBuf, Package.OFFSET_ID,     pkg.PkId);
-            Package.Encode32BE(outBuf, Package.OFFSET_SRC_ID, pkg.PkSrcId);
-            Package.Encode32BE(outBuf, Package.OFFSET_DST_ID, pkg.PkDstId);
-            Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.PkSeq);
+            Package.Encode16BE(outBuf, Package.OFFSET_ID,     pkg.ID);
+            Package.Encode32BE(outBuf, Package.OFFSET_SRC_ID, pkg.SrcID);
+            Package.Encode32BE(outBuf, Package.OFFSET_DST_ID, pkg.DstID);
+            Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
             if (authed && plen > 0)
             {
-                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_C2S);
+                var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_C2S);
                 int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
                 return Package.HEADER_SIZE + clen;
             }
@@ -408,11 +408,11 @@ namespace lilith.Core
                 return false;
             }
 
-            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.PkId);
-            Package.Decode32BE(data, Package.OFFSET_SRC_ID, out pkg.PkSrcId);
-            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.PkDstId);
-            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.PkSeq);
-            if (pkg.PkSeq == 0)
+            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.ID);
+            Package.Decode32BE(data, Package.OFFSET_SRC_ID, out pkg.SrcID);
+            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.DstID);
+            Package.Decode32BE(data, Package.OFFSET_SEQ, out pkg.Idempotent);
+            if (pkg.Idempotent == 0)
             {
                 return false;
             }
@@ -420,7 +420,7 @@ namespace lilith.Core
             int plen = n - Package.HEADER_SIZE;
             if (authed && plen > 0)
             {
-                var nonce = Crypto.MakeNonce(conv, pkg.PkSeq, Crypto.DIR_S2C);
+                var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_S2C);
                 int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
                 if (m < 0)
                 {
@@ -443,8 +443,8 @@ namespace lilith.Core
         private void registReq()
         {// 鉴权请求
             var pkg = Package.Pool.Take();
-            pkg.PkId = Package.PKID_REGIST_REQ;
-            pkg.PkDstId = GatewayID;
+            pkg.ID = Package.PKID_REGIST_REQ;
+            pkg.DstID = GatewayID;
             Buffer.BlockCopy(token, 0, pkg.Payload, 0, token!.Length);
             pkg.PayloadLength = token.Length;
             doSend(pkg);

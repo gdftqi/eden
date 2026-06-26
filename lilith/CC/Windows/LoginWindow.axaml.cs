@@ -7,6 +7,7 @@ using lilith.Core;
 using System;
 using lilith.Tools;
 using System.Diagnostics;
+using CC.Proxy;
 
 
 namespace CC
@@ -55,8 +56,7 @@ namespace CC
 
             try
             {
-                var rsp = await HttpHelper.Instance.PostAynsc("http://172.26.29.158:8080/hello", null);
-                Debug.WriteLine(rsp);
+                int res = await UserLogin.POST(username, password);
 
                 const string host = "13.214.204.197:5555";
                 const uint conv = 2000;

@@ -48,10 +48,10 @@ namespace lilith.Core
         public const ushort PKID_REGIST_RSP = 103;  // 鉴权注册应答
 
         // ---- 字段 (host order) ----
-        public ushort PkId;
-        public uint PkSrcId;   // 源 id (= user_id); 网关据此校验 token.user_id
-        public uint PkDstId;
-        public uint PkSeq;
+        public ushort ID;
+        public uint SrcID;   // 源 id (= user_id); 网关据此校验 token.user_id
+        public uint DstID;
+        public uint Idempotent;
 
         // ---- payload 缓冲: owned, 固定 PAYLOAD_MAX 长, 跨池化周期复用 ----
         public readonly byte[] Payload = new byte[PAYLOAD_MAX];
@@ -62,17 +62,17 @@ namespace lilith.Core
 
         public void Reset()
         {
-            PkId = 0;
-            PkSrcId = PkDstId = PkSeq = 0;
+            ID = 0;
+            SrcID = DstID = Idempotent = 0;
             PayloadLength = 0;
         }
 
         public void CopyFrom(Package src)
         {
-            PkId = src.PkId;
-            PkSrcId = src.PkSrcId;
-            PkDstId = src.PkDstId;
-            PkSeq = src.PkSeq;
+            ID = src.ID;
+            SrcID = src.SrcID;
+            DstID = src.DstID;
+            Idempotent = src.Idempotent;
             PayloadLength = src.PayloadLength;
             if (src.PayloadLength > 0)
             {
@@ -113,7 +113,7 @@ namespace lilith.Core
 
         public static int Pack(Package pkg, byte[] wireBuf)
         {// 装包
-            if (pkg.PkSeq == 0)
+            if (pkg.Idempotent == 0)
             {
                 throw new ArgumentException("PkSeq must be != 0");
             }
@@ -129,10 +129,10 @@ namespace lilith.Core
                 throw new ArgumentException("wireBuf too small");
             }
 
-            Encode16BE(wireBuf, OFFSET_ID, pkg.PkId);
-            Encode32BE(wireBuf, OFFSET_SRC_ID, pkg.PkSrcId);
-            Encode32BE(wireBuf, OFFSET_DST_ID, pkg.PkDstId);
-            Encode32BE(wireBuf, OFFSET_SEQ, pkg.PkSeq);
+            Encode16BE(wireBuf, OFFSET_ID, pkg.ID);
+            Encode32BE(wireBuf, OFFSET_SRC_ID, pkg.SrcID);
+            Encode32BE(wireBuf, OFFSET_DST_ID, pkg.DstID);
+            Encode32BE(wireBuf, OFFSET_SEQ, pkg.Idempotent);
 
             if (pkg.PayloadLength > 0)
             {
@@ -149,11 +149,11 @@ namespace lilith.Core
                 return false;
             }
 
-            Decode16BE(wireBuf, OFFSET_ID, out pkg.PkId);
-            Decode32BE(wireBuf, OFFSET_SRC_ID, out pkg.PkSrcId);
-            Decode32BE(wireBuf, OFFSET_DST_ID, out pkg.PkDstId);
-            Decode32BE(wireBuf, OFFSET_SEQ, out pkg.PkSeq);
-            if (pkg.PkSeq == 0)
+            Decode16BE(wireBuf, OFFSET_ID, out pkg.ID);
+            Decode32BE(wireBuf, OFFSET_SRC_ID, out pkg.SrcID);
+            Decode32BE(wireBuf, OFFSET_DST_ID, out pkg.DstID);
+            Decode32BE(wireBuf, OFFSET_SEQ, out pkg.Idempotent);
+            if (pkg.Idempotent == 0)
             {
                 return false;
             }

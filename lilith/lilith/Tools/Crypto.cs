@@ -4,7 +4,8 @@ using Org.BouncyCastle.Crypto.Modes;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math.EC.Rfc7748;
 using System;
-
+using System.Security.Cryptography;
+using System.Text;
 
 namespace lilith.Tools
 {
@@ -59,6 +60,13 @@ namespace lilith.Tools
             return n;
         }
 
+        public static byte[] RandomNonce()
+        {// 12B 安全随机 nonce
+            var n = new byte[AEAD_NONCE_LEN];
+            RandomNumberGenerator.Fill(n);
+            return n;
+        }
+
         public static int Encrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff)
         {// ChaCha20-Poly1305 加密
             var aead = new ChaCha20Poly1305();
@@ -89,6 +97,17 @@ namespace lilith.Tools
             }
         }
 
+        public static void X25519KeyGen(out byte[] pk, out byte[] sk)
+        {// 生成 X25519 密钥对
+            sk = new byte[32];
+            RandomNumberGenerator.Fill(sk);
+
+            var basePoint = new byte[32];
+            basePoint[0] = 9;
+            pk = new byte[32];
+            X25519.ScalarMult(sk, 0, basePoint, 0, pk, 0);
+        }
+
         public static void KxClient(byte[] srvPk, out byte[] rx, out byte[] tx)
         {// X25519 交换密钥
             var q = new byte[32];
@@ -105,6 +124,56 @@ namespace lilith.Tools
             tx = new byte[32];
             Array.Copy(h, 0, rx, 0, 32);
             Array.Copy(h, 32, tx, 0, 32);
+        }
+
+        public static string Sha256(string plainText)
+        {// SHA256
+            if (string.IsNullOrEmpty(plainText))
+            {
+                return string.Empty;
+            }
+
+            byte[] inputBytes = Encoding.UTF8.GetBytes(plainText);
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                return BitConverter.ToString(sha256.ComputeHash(inputBytes)).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
+        public static string Base64Encode(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText))
+            {
+                return string.Empty;
+            }
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(plainText));
+        }
+
+        public static string Base64DecodeToString(string base64Text)
+        {
+            if (string.IsNullOrEmpty(base64Text))
+            {
+                return string.Empty;
+            }
+            return Encoding.UTF8.GetString(Convert.FromBase64String(base64Text));
+        }
+
+        public static string Base64Encode(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0)
+            {
+                return string.Empty;
+            }
+            return Convert.ToBase64String(bytes);
+        }
+
+        public static byte[] Base64DecodeToBytes(string base64Text)
+        {
+            if (string.IsNullOrEmpty(base64Text))
+            {
+                return Array.Empty<byte>();
+            }
+            return Convert.FromBase64String(base64Text);
         }
     }
 }

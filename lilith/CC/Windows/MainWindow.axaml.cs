@@ -144,8 +144,8 @@ namespace CC
             }
 
             var pkg = Package.Pool.Take();
-            pkg.PkId = ECHO_PKID;
-            pkg.PkDstId = 10000;
+            pkg.ID = ECHO_PKID;
+            pkg.DstID = 10000;
             pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
             KcpSession.Instance.Send(pkg);
             Package.Pool.Return(pkg);
