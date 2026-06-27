@@ -76,6 +76,7 @@ namespace lilith
         internal uint timeout;       // 超时阈值 ms (0=禁用)
         internal bool ping_active;   // true=本端主动发 PING(客户端); 服务端保持 false 只回 PONG
         internal bool pong;          // true=待回 PONG(收到对端 PING)
+        internal bool rst;           // [typhon] true=收到对端 RST(会话已不存在), 上层据此断线
         internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
         internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
         // snd_buffer needs index removals.
@@ -603,7 +604,8 @@ namespace lilith
                 // validate command type
                 if (cmd != CMD_PUSH && cmd != CMD_ACK &&
                     cmd != CMD_WASK && cmd != CMD_WINS &&
-                    cmd != CMD_PING && cmd != CMD_PONG)
+                    cmd != CMD_PING && cmd != CMD_PONG &&
+                    cmd != CMD_RST)
                     return -3;
 
                 rmt_wnd = wnd;
@@ -681,6 +683,10 @@ namespace lilith
                 else if (cmd == CMD_PONG)
                 {
                     // [typhon] 收到 PONG → 无需动作, last_rcv_ms 已在 Input 开头刷新
+                }
+                else if (cmd == CMD_RST)
+                {
+                    rst = true;   // [typhon] 收到 RST → 标记, rcvLoop 据此 Close + 通知断线
                 }
                 else
                 {
@@ -1141,6 +1147,9 @@ namespace lilith
 
         // [typhon] 设置超时阈值(ms, 0=禁用)
         public void SetTimeout(uint ms) => timeout = ms;
+
+        // [typhon] 是否收到过对端 RST(会话已不存在); 上层据此 Close + 通知断线
+        public bool Rst => rst;
 
         // ikcp_interval
         public void SetInterval(uint interval)

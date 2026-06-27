@@ -16,6 +16,7 @@ type config struct {
 	X25519PkStr  string           `yaml:"x25519_pk"`   // 用于对 Token 作 sealedbox 加密
 	SelfSkStr    string           `yaml:"self_sk"`     // 自己用的 x25519_sk
 	SelfPkStr    string           `yaml:"self_pk"`     // 自己用的 x25519_pk
+	RefreshKey   string           `yaml:"refresh_key"` // refresh token key
 	SipHashKey   string           `yaml:"siphash_key"` // siphash mac key
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
 	Ed25519Sk    []byte           `yaml:"-"`           // ed25519 签名私钥, 网关会用公钥验签
@@ -80,6 +81,10 @@ func Init(fname string) error {
 
 	if len(tmp.SipHashKey) == 0 {
 		return errors.New("siphash_key is invalid")
+	}
+
+	if len(tmp.RefreshKey) != 16 {
+		return errors.New("refresh_key is invalid")
 	}
 
 	Instance = &tmp

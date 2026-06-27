@@ -55,5 +55,11 @@ namespace lilith.Tools
                 return kcp.Check(currentMs);
             }
         }
+
+        // [typhon] 是否收到对端 RST(会话已不存在)
+        public bool Rst
+        {
+            get { lock (locker) { return kcp.Rst; } }
+        }
     }
 }

@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-sql-driver/mysql v1.10.0
+	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.12.0
 	github.com/redis/go-redis/v9 v9.21.0
 	go.etcd.io/etcd/client/v3 v3.6.12

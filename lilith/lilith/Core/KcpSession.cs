@@ -220,6 +220,12 @@ namespace lilith.Core
                     // [typhon] 信封 MAC 的剥离/长度校验已下沉到 Kcp.Input(和 C++ ikcp_input 一致), 这里直接喂整包
                     safeKcp!.Input(recvBuf, 0, n);
 
+                    if (safeKcp!.Rst)
+                    {// [typhon] 服务端 RST: 会话已不存在 → 关闭, 宿主 OnDisconnected 后可重新登录连接
+                        Close();
+                        break;
+                    }
+
                     while (true)
                     {
                         n = safeKcp!.Receive(rbuf);
@@ -335,7 +341,11 @@ namespace lilith.Core
                     }
 
                     uint tnow = (uint)Environment.TickCount;
-                    safeKcp!.Update(tnow);
+                    if (safeKcp!.Update(tnow) < 0)
+                    {// [typhon] 超时判死兜底: timeout 内没收到对端任何包(ACK/PONG) → 关闭(RST 丢了也能断)
+                        Close();
+                        break;
+                    }
 
                     wait = (int)(safeKcp!.Check(tnow) - tnow);
                     if (wait < 0 || n == pks.Length)
