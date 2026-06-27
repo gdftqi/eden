@@ -12,6 +12,7 @@ import (
 
 	"github.com/ra/mid"
 	"github.com/ra/utils"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -133,6 +134,9 @@ func (this_ *RefreshToken) UpdateToRedis() error {
 func (this_ *RefreshToken) CheckFromRedis() error {
 	uid, err := mid.RedisGet(fmt.Sprintf("REFRESH_TOKEN_%d", this_.UserID))
 	if err != nil {
+		if err == redis.Nil {
+			return errors.New("会话已过期, 请重新登录")
+		}
 		return err
 	}
 
@@ -140,7 +144,7 @@ func (this_ *RefreshToken) CheckFromRedis() error {
 
 	// uid 与 redis 里存的不一致 = 已被改密/登出/顶号换掉 → 失效
 	if !bytes.Equal(data, this_.Uid) {
-		return errors.New("无效的Token")
+		return errors.New("您的账号已在其他设备登录")
 	}
 
 	return nil

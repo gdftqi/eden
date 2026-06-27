@@ -77,7 +77,7 @@ func Refresh(c *gin.Context) {
 	err = refreshToken.CheckFromRedis()
 	if err != nil {
 		log.Error("检查 RefreshToken 失败: ", err)
-		utils.WebResponse(c, -1, "无效的Token, 请重新登录")
+		utils.WebResponse(c, -1, err.Error())
 		return
 	}
 
