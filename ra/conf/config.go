@@ -79,11 +79,11 @@ func Init(fname string) error {
 		return errors.New("self_sk is invalid")
 	}
 
-	if len(tmp.SipHashKey) == 0 {
+	if len(tmp.SipHashKey) != 16 {
 		return errors.New("siphash_key is invalid")
 	}
 
-	if len(tmp.RefreshKey) != 16 {
+	if len(tmp.RefreshKey) != utils.XX20KeyLen {
 		return errors.New("refresh_key is invalid")
 	}
 
