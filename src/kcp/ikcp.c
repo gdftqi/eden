@@ -32,6 +32,7 @@ const IUINT32 IKCP_CMD_WASK = 83;		// cmd: window probe (ask)
 const IUINT32 IKCP_CMD_WINS = 84;		// cmd: window size (tell)
 const IUINT32 IKCP_CMD_PING = 85;		// cmd: keepalive ping
 const IUINT32 IKCP_CMD_PONG = 86;		// cmd: keepalive pong
+const IUINT32 IKCP_CMD_RST  = 87;		// cmd: 复位
 const IUINT32 IKCP_ASK_SEND = 1;		// need to send IKCP_CMD_WASK
 const IUINT32 IKCP_ASK_TELL = 2;		// need to send IKCP_CMD_WINS
 const IUINT32 IKCP_WND_SND = 32;
@@ -165,6 +166,7 @@ static void ikcp_free(void *ptr) {
 	}
 }
 
+
 // redefine allocator
 void ikcp_allocator(void* (*new_malloc)(size_t), void (*new_free)(void*))
 {
@@ -289,6 +291,34 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 	return kcp->output(kcp->mac_buf, size + IKCP_ENVELOPE_LEN, kcp, kcp->user);
 }
 
+//---------------------------------------------------------------------
+// ikcp_encode_seg
+//---------------------------------------------------------------------
+static char *ikcp_encode_seg(char *ptr, const IKCPSEG *seg)
+{
+	ptr = ikcp_encode32u(ptr, seg->conv);
+	ptr = ikcp_encode8u(ptr, (IUINT8)seg->cmd);
+	ptr = ikcp_encode8u(ptr, (IUINT8)seg->frg);
+	ptr = ikcp_encode16u(ptr, (IUINT16)seg->wnd);
+	ptr = ikcp_encode32u(ptr, seg->ts);
+	ptr = ikcp_encode32u(ptr, seg->sn);
+	ptr = ikcp_encode32u(ptr, seg->una);
+	ptr = ikcp_encode32u(ptr, seg->len);
+	return ptr;
+}
+
+// send rst to peer
+static int ikcp_send_rst(ikcpcb *kcp)
+{
+	char buf[IKCP_OVERHEAD];
+	IKCPSEG seg;
+	memset(&seg, 0, sizeof(seg));
+	seg.conv = kcp->conv;
+	seg.cmd  = IKCP_CMD_RST;
+	ikcp_encode_seg(buf, &seg);
+	return ikcp_output(kcp, buf, IKCP_OVERHEAD);
+}
+
 // output queue
 void ikcp_qprint(const char*, const struct IQUEUEHEAD*)
 {
@@ -348,6 +378,8 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	kcp->last_snd_ms = 0;
 	kcp->ping_active = 0;
 	kcp->pong = 0;
+	kcp->registered = 0;
+	kcp->rst = 0;
 
 	iqueue_init(&kcp->snd_queue);
 	iqueue_init(&kcp->rcv_queue);
@@ -886,7 +918,6 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		ikcp_log(kcp, IKCP_LOG_INPUT, "[RI] %d bytes", (int)size);
 	}
 
-	/* [typhon] 入参为原始 UDP 报文 [8B 信封][KCP 数据报]; 剥掉信封(MAC 已由 XDP 校验, 此处不重复) */
 	if (data == NULL || (int)size < (int)(IKCP_ENVELOPE_LEN + IKCP_OVERHEAD)) return -1;
 	data += IKCP_ENVELOPE_LEN;
 	size -= IKCP_ENVELOPE_LEN;
@@ -916,10 +947,13 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 
 		if ((long)size < (long)len || (int)len < 0) return -2;
 
-		if (cmd != IKCP_CMD_PUSH && cmd != IKCP_CMD_ACK &&
-			cmd != IKCP_CMD_WASK && cmd != IKCP_CMD_WINS &&
-			cmd != IKCP_CMD_PING && cmd != IKCP_CMD_PONG)
+		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_RST)
 			return -3;
+
+		if (kcp->registered == 0 && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
+			ikcp_send_rst(kcp);
+			return IKCP_INPUT_RST;
+		}
 
 		kcp->rmt_wnd = wnd;
 		ikcp_parse_una(kcp, una);
@@ -997,13 +1031,13 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 			}
 		}
 		else if (cmd == IKCP_CMD_PING) {
-			kcp->pong = 1;   /* [typhon] 收到 PING → 下次 flush 回 PONG */
+			kcp->pong = 1;
 		}
 		else if (cmd == IKCP_CMD_PONG) {
-			/* [typhon] 收到 PONG → 无需动作, last_rcv_ms 已在 input 开头刷新 */
+			// nothing to do
 		}
-		else {
-			return -3;
+		else if (cmd == IKCP_CMD_RST) {
+			kcp->rst = 1;
 		}
 
 		data += len;
@@ -1049,22 +1083,6 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 	return 0;
 }
 
-
-//---------------------------------------------------------------------
-// ikcp_encode_seg
-//---------------------------------------------------------------------
-static char *ikcp_encode_seg(char *ptr, const IKCPSEG *seg)
-{
-	ptr = ikcp_encode32u(ptr, seg->conv);
-	ptr = ikcp_encode8u(ptr, (IUINT8)seg->cmd);
-	ptr = ikcp_encode8u(ptr, (IUINT8)seg->frg);
-	ptr = ikcp_encode16u(ptr, (IUINT16)seg->wnd);
-	ptr = ikcp_encode32u(ptr, seg->ts);
-	ptr = ikcp_encode32u(ptr, seg->sn);
-	ptr = ikcp_encode32u(ptr, seg->una);
-	ptr = ikcp_encode32u(ptr, seg->len);
-	return ptr;
-}
 
 static int ikcp_wnd_unused(const ikcpcb *kcp)
 {
@@ -1476,18 +1494,23 @@ int ikcp_setmtu(ikcpcb *kcp, int mtu)
 }
 
 
-/* [typhon] 设置信封 MAC 密钥(16B SipHash key) */
 void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key)
 {
 	memcpy(kcp->siphash, key, sizeof(kcp->siphash));
 }
 
 
-/* [typhon] 是否主动发 PING(客户端置 1; 服务端保持 0 只回 PONG) */
 void ikcp_set_ping(ikcpcb *kcp, int active)
 {
 	kcp->ping_active = active ? 1 : 0;
 }
+
+
+void ikcp_set_registered(ikcpcb *kcp, int v)
+{
+	kcp->registered = v ? 1 : 0;
+}
+
 
 int ikcp_interval(ikcpcb *kcp, int interval)
 {

@@ -78,6 +78,10 @@ public:
     }; // class IEvent;
 
 
+    static int
+    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
+
+
     explicit
     Server(const char* host, IEvent* ev, void* onwer ) noexcept;
 
@@ -144,10 +148,6 @@ public:
 
 
 private:
-    static int
-    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
-
-
     void
     init() noexcept;
 
@@ -176,9 +176,8 @@ private:
      */
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
-        s->set_output(output);
-        sesss_.emplace(conv, s);
-        if (event_->on_connected(s)) {
+        auto [_, res] = sesss_.emplace(conv, s);
+        if (res && event_->on_connected(s)) {
             sesss_.erase(conv);
             return -1;
         }

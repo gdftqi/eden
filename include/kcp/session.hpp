@@ -147,8 +147,8 @@ public:
     set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
         ::memcpy(tx_key_, tx, utils::XX20_KEY_LEN);
         ::memcpy(rx_key_, rx, utils::XX20_KEY_LEN);
+        ikcp_set_registered(kcp_, 1);
     }
-
 
     /**
      * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据。

@@ -254,14 +254,21 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto s = get_session(conv);
+                bool is_new = false;
                 if (s == nullptr) {
                     s = Session::create(conv, this, hdr->msg_name, hdr->msg_namelen);
-                    if (add_session(conv, s) != 0) {
-                        continue;
-                    }
+                    is_new = true;
                 }
 
-                if (s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen) != 0) {
+                res = s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen);
+                if (res != xOK) {
+                    if (is_new) {
+                        remove_session(conv);
+                    }
+                    continue;
+                }
+
+                if (is_new && add_session(conv, s) != 0) {
                     continue;
                 }
 
@@ -621,7 +628,7 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
         // os->second->set_state(off_line);
         users_.erase(olditr);
     }
-    users_.insert(std::make_pair(s->user_id(), s));
+    users_.emplace(s->user_id(), s);
     core::PK<core::Host>::release(out);
     return res;
 }

@@ -334,6 +334,7 @@ struct IKCPCB
 	IUINT32 last_rcv_ms, timeout;
 	IUINT32 last_snd_ms;
 	IUINT32 ping_active, pong;
+	IUINT8 registered, rst;
 	char *mac_buf;
 	IUINT8 siphash[16];
 	struct IQUEUEHEAD snd_queue;
@@ -370,6 +371,9 @@ struct IKCPCB
 #define IKCP_LOG_OUT_PROBE		1024
 #define IKCP_LOG_OUT_WINS		2048
 
+// ikcp_input 返回此码 = 对端未被接纳(查无会话), 上层应回 RST + 摘会话
+#define IKCP_INPUT_RST			(-4)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -401,11 +405,14 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len);
 // 'current' - current timestamp in millisec. 
 int ikcp_update(ikcpcb *kcp, IUINT32 current);
 
-// [typhon] 设置信封 MAC 密钥(16B SipHash-2-4 key); 不设则用全 0 key
+// 设置信封 MAC
 void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 
-// [typhon] 是否主动发 PING: 客户端置 1(空闲时发 PING 保活); 服务端保持 0(只回 PONG)
+// 是否主动发 PING
 void ikcp_set_ping(ikcpcb *kcp, int active);
+
+// 标记是否已接纳对端
+void ikcp_set_registered(ikcpcb *kcp, int v);
 
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call

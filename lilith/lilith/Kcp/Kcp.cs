@@ -20,6 +20,7 @@ namespace lilith
         public const int CMD_WINS = 84;            // cmd: window size (tell/insert)
         public const int CMD_PING = 85;            // [typhon] cmd: keepalive ping
         public const int CMD_PONG = 86;            // [typhon] cmd: keepalive pong
+        public const int CMD_RST  = 87;            // [typhon] cmd: 复位(服务端发, 客户端收到即断线)
         public const int ASK_SEND = 1;             // need to send CMD_WASK
         public const int ASK_TELL = 2;             // need to send CMD_WINS
         public const int WND_SND = 32;             // default send window

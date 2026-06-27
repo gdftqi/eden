@@ -37,6 +37,7 @@ typhon::kcp::Session::Session(
     ::ikcp_setmtu(kcp_, core::KCP_MTU);
     ::ikcp_set_siphash(kcp_, Conf::instance()->siphash());
     kcp_->timeout = 5000;
+    set_output(Server::output);
 }
 
 
