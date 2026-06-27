@@ -12,7 +12,6 @@ import (
 
 	"github.com/ra/mid"
 	"github.com/ra/utils"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -134,10 +133,11 @@ func (this_ *RefreshToken) UpdateToRedis() error {
 func (this_ *RefreshToken) CheckFromRedis() error {
 	uid, err := mid.RedisGet(fmt.Sprintf("REFRESH_TOKEN_%d", this_.UserID))
 	if err != nil {
-		if err == redis.Nil {
-			return errors.New("会话已过期, 请重新登录")
-		}
 		return err
+	}
+
+	if len(uid) == 0 {
+		return errors.New("会话已过期, 请重新登录")
 	}
 
 	data := []byte(uid)
