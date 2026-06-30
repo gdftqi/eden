@@ -1393,12 +1393,12 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current)
 	/* [typhon] 判死: 收到对端 RST(会话已不存在) → 返回 -1。服务端不接收 RST, 此处永不触发;
 	   客户端(C# / Python via ikcp.c)据此和"超时"走同一个 ikcp_update<0 判死出口 */
 	if (kcp->rst) {
-		return -1;
+		return IKCP_DEAD_RST;
 	}
 
 	/* [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */
 	if (kcp->timeout > 0 && _itimediff(kcp->current, kcp->last_rcv_ms) > (IINT32)kcp->timeout) {
-		return -1;
+		return IKCP_DEAD_TIMEOUT;
 	}
 
 	slap = _itimediff(kcp->current, kcp->ts_flush);

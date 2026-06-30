@@ -36,6 +36,9 @@ namespace lilith
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
+        // [typhon] Update 判死返回码(均 <0; 对齐 C++ IKCP_DEAD_*)
+        public const int DEAD_TIMEOUT = -1;        // 超时未收到对端任何包
+        public const int DEAD_RST     = -2;        // 收到对端 RST(会话已不存在)
 
         // kcp members.
         readonly uint conv;          // conversation
@@ -1012,7 +1015,6 @@ namespace lilith
         //
         // time as uint, likely to minimize bandwidth.
         // uint.max = 4294967295 ms = 1193 hours = 49 days
-        // [typhon] 返回 0 存活; -1 判死(超时), 由上层据此摘除/重连
         public int Update(uint currentTimeMilliSeconds)
         {
             current = currentTimeMilliSeconds;
@@ -1026,16 +1028,14 @@ namespace lilith
                 last_snd_ms = current;
             }
 
-            // [typhon] 判死: 收到对端 RST(会话已不存在) → -1(和 C++ ikcp_update 一致)
             if (rst)
             {
-                return -1;
+                return DEAD_RST;
             }
 
-            // [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → -1
             if (timeout > 0 && Utils.TimeDiff(current, last_rcv_ms) > (int)timeout)
             {
-                return -1;
+                return DEAD_TIMEOUT;
             }
 
             // slap is time since last flush in milliseconds

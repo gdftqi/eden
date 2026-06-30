@@ -34,6 +34,13 @@ namespace lilith.Core
         }
     }
 
+    public enum DisconnectReason : byte
+    {// 断线原因(供 OnDisconnected 决策)
+        None,     // 正常 / 主动关闭 / 未知
+        Timeout,  // 超时失联(可重试)
+        Rst       // 服务端 RST: 会话已不存在(直接走 /refresh 重登)
+    }
+
     public class KcpSession
     {// Kcp 会话
         const int UDP_MTU = 1450;   // 必须与服务端 core::typhon.in.hpp 的 UDP_MTU 一致
@@ -69,6 +76,9 @@ namespace lilith.Core
         public byte[] PK { get { return pk; } }
         public byte[] SK { get { return sk; } }
 
+        // [typhon] 最近一次断线原因; OnDisconnected 里读它选重连策略(Rst→/refresh, Timeout→可重试)
+        public DisconnectReason DeadReason { get; private set; }
+
         public void Init(string host, uint conv, uint userId, uint gatewayId, string macKey, string b64Token)
         {
             this.host = host;
@@ -76,6 +86,7 @@ namespace lilith.Core
             this.userId = userId;
             token = Crypto.Base64DecodeToBytes(b64Token);
             authed = false;
+            DeadReason = DisconnectReason.None;
             sndSeq = rcvSeq = 0;
             GatewayID = gatewayId;
             this.macKey = Encoding.ASCII.GetBytes(macKey);
@@ -335,8 +346,10 @@ namespace lilith.Core
                     }
 
                     uint tnow = (uint)Environment.TickCount;
-                    if (safeKcp!.Update(tnow) < 0)
-                    {// [typhon] 超时判死兜底: timeout 内没收到对端任何包(ACK/PONG) → 关闭(RST 丢了也能断)
+                    int dead = safeKcp!.Update(tnow);
+                    if (dead < 0)
+                    {// [typhon] 记下死因(RST=被服务端遗忘→直接 /refresh; 超时=失联→可重试), 供 OnDisconnected 决策
+                        DeadReason = dead == Kcp.DEAD_RST ? DisconnectReason.Rst : DisconnectReason.Timeout;
                         Close();
                         break;
                     }

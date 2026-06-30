@@ -374,6 +374,10 @@ struct IKCPCB
 // ikcp_input 返回此码 = 对端未被接纳(查无会话), 上层应回 RST + 摘会话
 #define IKCP_INPUT_RST			(-4)
 
+// [typhon] ikcp_update 判死返回码(均 <0, 上层 update<0 即摘会话; 客户端可据具体值选重连策略)
+#define IKCP_DEAD_TIMEOUT		(-1)	// 超时未收到对端任何包
+#define IKCP_DEAD_RST			(-2)	// 收到对端 RST(会话已不存在)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
