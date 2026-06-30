@@ -194,7 +194,7 @@
             </Border.Transitions>
             <Border.Styles>
                 <!-- spinner 持续旋转 -->
-                <Style Selector="Canvas.spinner">
+                <Style Selector="Ellipse.spinner">
                     <Style.Animations>
                         <Animation Duration="0:0:0.9" IterationCount="INFINITE">
                             <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
@@ -209,13 +209,10 @@
                 <!-- 断开: 红点 -->
                 <Ellipse x:Name="ConnDot" Grid.Column="1" Width="9" Height="9"
                          Fill="#E53935" VerticalAlignment="Center"/>
-                <!-- 重连: 转圈 (Canvas 固定 16x16, 旋转中心稳在 8,8 = 弧心) -->
-                <Canvas x:Name="ConnSpinner" Grid.Column="1" Classes="spinner"
-                        Width="16" Height="16" RenderTransformOrigin="0.5,0.5"
-                        IsVisible="False" VerticalAlignment="Center">
-                    <Canvas.RenderTransform><RotateTransform/></Canvas.RenderTransform>
-                    <Path Stroke="#888888" StrokeThickness="2" StrokeLineCap="Round" Data="M 8,1 A 7,7 0 1 1 1,8"/>
-                </Canvas>
+                <!-- 重连: 转圈 (Ellipse 填满 16x16, 几何中心=bounds 中心, 绕 0.5,0.5 旋转必原地; 缺口用 dash) -->
+                <Ellipse x:Name="ConnSpinner" Grid.Column="1" Classes="spinner" Width="16" Height="16" Stroke="#888888" StrokeThickness="2" StrokeDashArray="16.5,5.5" StrokeLineCap="Round" RenderTransformOrigin="50%,50%" IsVisible="False" VerticalAlignment="Center">
+                    <Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform>
+                </Ellipse>
             </Grid>
         </Border>
     </Grid>
