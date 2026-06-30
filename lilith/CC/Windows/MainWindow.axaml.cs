@@ -20,6 +20,7 @@ namespace CC
             ChatPanel.ChatSelected += OpenChat;
             ChatView.SendRequested += OnSendText;
             KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
+            this.Opened += (_, __) => DemoConnBanner();   // [DEMO] 看完删这行 + 下面的 DemoConnBanner
         }
 
         // 选中某个会话(由 ChatListPanel.ChatSelected 触发): 顶栏换成该用户, 显示 ChatWindow(隐藏空态)
@@ -121,11 +122,44 @@ namespace CC
         public void OnConnected(EndPoint host)
         {
             Debug.WriteLine("连接 {0} 成功", host);
+            HideConnBanner();
         }
 
         public void OnDisconnected(EndPoint host)
         {
             Debug.WriteLine("连接 {0} 断开", host);
+            ShowConnState(false);
+        }
+
+        // ============ 连接状态提示条 ============
+
+        // 显示提示条并滑出: reconnecting=false → "连接断开"(红点); true → "重新连接"(转圈)
+        public void ShowConnState(bool reconnecting)
+        {
+            ConnText.Text = reconnecting ? "重新连接" : "连接断开";
+            ConnDot.IsVisible = !reconnecting;
+            ConnSpinner.IsVisible = reconnecting;
+            ConnBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(0px)");
+        }
+
+        // 收起提示条(滑回左边藏起来)
+        public void HideConnBanner()
+        {
+            ConnBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(-180px)");
+        }
+
+        // [DEMO] 临时: 启动后循环演示效果, 看完把这个方法 + ctor 里的 Opened 订阅删掉
+        private async void DemoConnBanner()
+        {
+            while (true)
+            {
+                await System.Threading.Tasks.Task.Delay(1500);
+                ShowConnState(false);   // 连接断开 → 红点
+                await System.Threading.Tasks.Task.Delay(2500);
+                ShowConnState(true);    // 重新连接 → 转圈
+                await System.Threading.Tasks.Task.Delay(3000);
+                HideConnBanner();
+            }
         }
 
         // 服务端 echo 回来(主线程回调): 显示成"对方"的消息

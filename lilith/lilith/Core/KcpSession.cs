@@ -19,15 +19,22 @@ namespace lilith.Core
     enum IOEventType : byte
     {// IO 事件 类型
         Connected, // 连接
+        Disconnected, // 连接断开
         RcvData // 接收数据
     }
 
-    struct IOEvent
+    class IOEvent
     {// IO 事件
-        public readonly IOEventType Type;
-        public readonly Package? Pkg;
+        public IOEventType Type;
+        public Package? Pkg = null;
+        public string? Arg = null;
 
-        public IOEvent(IOEventType type, Package? pkg = null)
+        public IOEvent(IOEventType type)
+        {
+            Type = type;
+        }
+
+        public IOEvent(IOEventType type, Package pkg)
         {
             Type = type;
             Pkg = pkg;
@@ -35,7 +42,7 @@ namespace lilith.Core
     }
 
     public enum DisconnectReason : byte
-    {// 断线原因(供 OnDisconnected 决策)
+    {// 断线原因
         None,     // 正常 / 主动关闭 / 未知
         Timeout,  // 超时失联(可重试)
         Rst       // 服务端 RST: 会话已不存在(直接走 /refresh 重登)
@@ -348,7 +355,7 @@ namespace lilith.Core
                     uint tnow = (uint)Environment.TickCount;
                     int dead = safeKcp!.Update(tnow);
                     if (dead < 0)
-                    {// [typhon] 记下死因(RST=被服务端遗忘→直接 /refresh; 超时=失联→可重试), 供 OnDisconnected 决策
+                    {
                         DeadReason = dead == Kcp.DEAD_RST ? DisconnectReason.Rst : DisconnectReason.Timeout;
                         Close();
                         break;

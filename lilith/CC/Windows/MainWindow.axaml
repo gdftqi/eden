@@ -178,6 +178,46 @@
         <Rectangle HorizontalAlignment="Right" VerticalAlignment="Top" Width="10" Height="10" Fill="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="Resize_PointerPressed"/>
         <Rectangle HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="Resize_PointerPressed"/>
         <Rectangle HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="Resize_PointerPressed"/>
+
+        <!-- 连接状态提示条: 左下角浮动, 白底黑字, 从左滑出(translateX -180 → 0) -->
+        <Border x:Name="ConnBanner"
+                HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                Width="180" Height="38" Margin="0,0,0,14"
+                Background="White" CornerRadius="0,8,8,0"
+                BoxShadow="2 2 12 0 #28000000"
+                IsHitTestVisible="False"
+                RenderTransform="translateX(-180px)">
+            <Border.Transitions>
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Border.Transitions>
+            <Border.Styles>
+                <!-- spinner 持续旋转 -->
+                <Style Selector="Canvas.spinner">
+                    <Style.Animations>
+                        <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                            <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                            <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                        </Animation>
+                    </Style.Animations>
+                </Style>
+            </Border.Styles>
+            <Grid Margin="14,0,12,0" ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="ConnText" Grid.Column="0" Text="连接断开"
+                           Foreground="#222222" FontSize="13" VerticalAlignment="Center"/>
+                <!-- 断开: 红点 -->
+                <Ellipse x:Name="ConnDot" Grid.Column="1" Width="9" Height="9"
+                         Fill="#E53935" VerticalAlignment="Center"/>
+                <!-- 重连: 转圈 (Canvas 固定 16x16, 旋转中心稳在 8,8 = 弧心) -->
+                <Canvas x:Name="ConnSpinner" Grid.Column="1" Classes="spinner"
+                        Width="16" Height="16" RenderTransformOrigin="0.5,0.5"
+                        IsVisible="False" VerticalAlignment="Center">
+                    <Canvas.RenderTransform><RotateTransform/></Canvas.RenderTransform>
+                    <Path Stroke="#888888" StrokeThickness="2" StrokeLineCap="Round" Data="M 8,1 A 7,7 0 1 1 1,8"/>
+                </Canvas>
+            </Grid>
+        </Border>
     </Grid>
     </Border>
 </Window>
