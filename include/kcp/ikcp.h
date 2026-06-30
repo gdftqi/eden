@@ -320,7 +320,7 @@ struct IKCPOPS
 //---------------------------------------------------------------------
 struct IKCPCB
 {
-	IUINT32 conv, mtu, mss, state;
+	IUINT32 conv, mtu, mss;
 	IUINT32 snd_una, snd_nxt, rcv_nxt;
 	IUINT32 ts_recent, ts_lastack, ssthresh;
 	IINT32 rx_rttval, rx_srtt, rx_rto, rx_minrto;
@@ -330,7 +330,7 @@ struct IKCPCB
 	IUINT32 nrcv_que, nsnd_que;
 	IUINT32 nodelay, updated;
 	IUINT32 ts_probe, probe_wait;
-	IUINT32 dead_link, incr;
+	IUINT32 incr;
 	IUINT32 last_rcv_ms, timeout;
 	IUINT32 last_snd_ms;
 	IUINT32 ping_active, pong;

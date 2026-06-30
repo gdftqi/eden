@@ -42,7 +42,6 @@ const IUINT32 IKCP_ACK_FAST	= 3;
 const IUINT32 IKCP_INTERVAL	= 100;
 const IUINT32 IKCP_OVERHEAD = 24;
 #define IKCP_ENVELOPE_LEN 8
-const IUINT32 IKCP_DEADLINK = 20;
 const IUINT32 IKCP_THRESH_INIT = 2;
 const IUINT32 IKCP_THRESH_MIN = 2;
 const IUINT32 IKCP_PROBE_INIT = 5000;		// 7 secs to probe window size
@@ -389,7 +388,6 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	kcp->nsnd_buf = 0;
 	kcp->nrcv_que = 0;
 	kcp->nsnd_que = 0;
-	kcp->state = 0;
 	kcp->acklist = NULL;
 	kcp->ackblock = 0;
 	kcp->ackcount = 0;
@@ -409,7 +407,6 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	kcp->fastlimit = IKCP_FASTACK_LIMIT;
 	kcp->nocwnd = 0;
 	kcp->xmit = 0;
-	kcp->dead_link = IKCP_DEADLINK;
 	kcp->last_rcv_ms = 0;
 	kcp->timeout = 0;
 	kcp->output = NULL;
@@ -1330,10 +1327,6 @@ void ikcp_flush(ikcpcb *kcp)
 			if (pacing_budget >= 0) {
 				pacing_budget -= (IINT32)segment->len;
 			}
-
-			if (segment->xmit >= kcp->dead_link) {
-				kcp->state = (IUINT32)-1;
-			}
 		}
 	}
 
@@ -1395,6 +1388,12 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current)
 		kcp->ts_flush = kcp->current;
 		kcp->last_rcv_ms = kcp->current; /* [typhon] 初始化保活时刻, 防首次 update 误判超时 */
 		kcp->last_snd_ms = kcp->current;
+	}
+
+	/* [typhon] 判死: 收到对端 RST(会话已不存在) → 返回 -1。服务端不接收 RST, 此处永不触发;
+	   客户端(C# / Python via ikcp.c)据此和"超时"走同一个 ikcp_update<0 判死出口 */
+	if (kcp->rst) {
+		return -1;
 	}
 
 	/* [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */

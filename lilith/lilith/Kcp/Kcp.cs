@@ -15,12 +15,12 @@ namespace lilith
         public const int RTO_DEF = 200;            // default RTO
         public const int RTO_MAX = 60000;          // maximum RTO
         public const int CMD_PUSH = 81;            // cmd: push data
-        public const int CMD_ACK  = 82;            // cmd: ack
+        public const int CMD_ACK = 82;            // cmd: ack
         public const int CMD_WASK = 83;            // cmd: window probe (ask)
         public const int CMD_WINS = 84;            // cmd: window size (tell/insert)
         public const int CMD_PING = 85;            // [typhon] cmd: keepalive ping
         public const int CMD_PONG = 86;            // [typhon] cmd: keepalive pong
-        public const int CMD_RST  = 87;            // [typhon] cmd: 复位(服务端发, 客户端收到即断线)
+        public const int CMD_RST = 87;            // [typhon] cmd: 复位(服务端发, 客户端收到即断线)
         public const int ASK_SEND = 1;             // need to send CMD_WASK
         public const int ASK_TELL = 2;             // need to send CMD_WINS
         public const int WND_SND = 32;             // default send window
@@ -30,7 +30,6 @@ namespace lilith
         public const int INTERVAL = 100;
         public const int OVERHEAD = 24;
         public const int FRG_MAX = byte.MaxValue;  // kcp encodes 'frg' as byte. so we can only ever send up to 255 fragments.
-        public const int DEADLINK = 20;            // default maximum amount of 'xmit' retransmissions until a segment is considered lost
         public const int THRESH_INIT = 2;
         public const int THRESH_MIN = 2;
         public const int ENVELOPE_LEN = 8;         // [typhon] 出站信封 SipHash MAC 长度(对齐 C++ IKCP_ENVELOPE_LEN)
@@ -39,7 +38,6 @@ namespace lilith
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
 
         // kcp members.
-        internal int state;
         readonly uint conv;          // conversation
         internal uint mtu;
         internal uint mss;           // maximum segment size := MTU - OVERHEAD
@@ -63,7 +61,6 @@ namespace lilith
         internal bool updated;
         internal uint ts_probe;      // probe timestamp
         internal uint probe_wait;
-        internal uint dead_link;     // maximum amount of 'xmit' retransmissions until a segment is considered lost
         internal uint incr;
         internal uint current;       // current time (milliseconds). set by Update.
 
@@ -116,20 +113,19 @@ namespace lilith
         // from the same connection.
         public Kcp(uint conv, Action<byte[], int> output)
         {
-            this.conv   = conv;
+            this.conv = conv;
             this.output = output;
             snd_wnd = WND_SND;
             rcv_wnd = WND_RCV;
             rmt_wnd = WND_RCV;
             mtu = MTU_DEF;
             mss = mtu - OVERHEAD;
-            rx_rto    = RTO_DEF;
+            rx_rto = RTO_DEF;
             rx_minrto = RTO_MIN;
-            interval  = INTERVAL;
-            ts_flush  = INTERVAL;
-            ssthresh  = THRESH_INIT;
+            interval = INTERVAL;
+            ts_flush = INTERVAL;
+            ssthresh = THRESH_INIT;
             fastlimit = FASTACK_LIMIT;
-            dead_link = DEADLINK;
             buffer = new byte[(mtu + OVERHEAD) * 3];
             macBuffer = new byte[mtu + ENVELOPE_LEN];   // [typhon]
         }
@@ -359,7 +355,7 @@ namespace lilith
                 int delta = rtt - rx_srtt;
                 if (delta < 0) delta = -delta;
                 rx_rttval = (3 * rx_rttval + delta) / 4;
-                rx_srtt   = (7 * rx_srtt + rtt) / 8;
+                rx_srtt = (7 * rx_srtt + rtt) / 8;
                 if (rx_srtt < 1) rx_srtt = 1;
             }
             int rto = rx_srtt + Math.Max((int)interval, 4 * rx_rttval);
@@ -466,7 +462,7 @@ namespace lilith
         // appends an ack.
         void AckPush(uint sn, uint ts) // serial number, timestamp
         {
-            acklist.Add(new AckItem{ serialNumber = sn, timestamp = ts });
+            acklist.Add(new AckItem { serialNumber = sn, timestamp = ts });
         }
 
         // ikcp_parse_data
@@ -602,95 +598,91 @@ namespace lilith
                 if (size < len || (int)len < 0) return -2;
 
                 // validate command type
-                if (cmd != CMD_PUSH && cmd != CMD_ACK &&
-                    cmd != CMD_WASK && cmd != CMD_WINS &&
-                    cmd != CMD_PING && cmd != CMD_PONG &&
-                    cmd != CMD_RST)
+                if (cmd < CMD_PUSH && cmd > CMD_RST)
                     return -3;
 
                 rmt_wnd = wnd;
                 ParseUna(una);
                 ShrinkBuf();
 
-                if (cmd == CMD_ACK)
+                switch (cmd)
                 {
-                    if (Utils.TimeDiff(current, ts) >= 0)
-                    {
-                        UpdateAck(Utils.TimeDiff(current, ts));
-                    }
-                    ParseAck(sn);
-                    ShrinkBuf();
-                    if (flag == 0)
-                    {
-                        flag = 1;
-                        maxack = sn;
-                        latest_ts = ts;
-                    }
-                    else
-                    {
-                        if (Utils.TimeDiff(sn, maxack) > 0)
+                    case CMD_ACK:
+                        if (Utils.TimeDiff(current, ts) >= 0)
                         {
+                            UpdateAck(Utils.TimeDiff(current, ts));
+                        }
+                        ParseAck(sn);
+                        ShrinkBuf();
+                        if (flag == 0)
+                        {
+                            flag = 1;
+                            maxack = sn;
+                            latest_ts = ts;
+                        }
+                        else
+                        {
+                            if (Utils.TimeDiff(sn, maxack) > 0)
+                            {
 #if !FASTACK_CONSERVE
                             maxack = sn;
                             latest_ts = ts;
 #else
-                            if (Utils.TimeDiff(ts, latest_ts) > 0)
-                            {
-                                maxack = sn;
-                                latest_ts = ts;
-                            }
+                                if (Utils.TimeDiff(ts, latest_ts) > 0)
+                                {
+                                    maxack = sn;
+                                    latest_ts = ts;
+                                }
 #endif
-                        }
-                    }
-                }
-                else if (cmd == CMD_PUSH)
-                {
-                    if (Utils.TimeDiff(sn, rcv_nxt + rcv_wnd) < 0)
-                    {
-                        AckPush(sn, ts);
-                        if (Utils.TimeDiff(sn, rcv_nxt) >= 0)
-                        {
-                            Segment seg = SegmentNew();
-                            seg.conv = conv_;
-                            seg.cmd = cmd;
-                            seg.frg = frg;
-                            seg.wnd = wnd;
-                            seg.ts  = ts;
-                            seg.sn  = sn;
-                            seg.una = una;
-                            if (len > 0)
-                            {
-                                seg.data.Write(data, offset, (int)len);
                             }
-                            ParseData(seg);
                         }
-                    }
-                }
-                else if (cmd == CMD_WASK)
-                {
-                    // ready to send back CMD_WINS in flush
-                    // tell remote my window size
-                    probe |= ASK_TELL;
-                }
-                else if (cmd == CMD_WINS)
-                {
-                    // do nothing
-                }
-                else if (cmd == CMD_PING)
-                {
-                    pong = true;   // [typhon] 收到 PING → 下次 flush 回 PONG
-                }
-                else if (cmd == CMD_PONG)
-                {
-                    // [typhon] 收到 PONG → 无需动作, last_rcv_ms 已在 Input 开头刷新
-                }
-                else if (cmd == CMD_RST)
-                {
-                    rst = true;   // [typhon] 收到 RST → 标记, rcvLoop 据此 Close + 通知断线
-                }
-                else
-                {
-                    return -3;
+                        break;
+
+                    case CMD_PUSH:
+                        if (Utils.TimeDiff(sn, rcv_nxt + rcv_wnd) < 0)
+                        {
+                            AckPush(sn, ts);
+                            if (Utils.TimeDiff(sn, rcv_nxt) >= 0)
+                            {
+                                Segment seg = SegmentNew();
+                                seg.conv = conv_;
+                                seg.cmd = cmd;
+                                seg.frg = frg;
+                                seg.wnd = wnd;
+                                seg.ts = ts;
+                                seg.sn = sn;
+                                seg.una = una;
+                                if (len > 0)
+                                {
+                                    seg.data.Write(data, offset, (int)len);
+                                }
+                                ParseData(seg);
+                            }
+                        }
+                        break;
+
+                    case CMD_WASK:
+                        probe |= ASK_TELL;
+                        break;
+
+                    case CMD_WINS:
+                        // do nothing
+                        break;
+
+                    case CMD_PING:
+                        pong = true;
+                        break;
+
+                    case CMD_PONG:
+                        // do nothing
+                        break;
+
+                    case CMD_RST:
+                        rst = true;
+                        break;
+
+                    default:
+                        return -3;
                 }
 
                 offset += (int)len;
@@ -771,7 +763,7 @@ namespace lilith
         // with congestion control, the window will be extremely small(!).
         public void Flush()
         {
-            int size  = 0;     // amount of bytes to flush. 'buffer ptr' in C.
+            int size = 0;     // amount of bytes to flush. 'buffer ptr' in C.
             bool lost = false; // lost segments
 
             // update needs to be called before flushing
@@ -969,13 +961,6 @@ namespace lilith
                         Buffer.BlockCopy(segment.data.GetBuffer(), 0, buffer, size, (int)segment.data.Position);
                         size += (int)segment.data.Position;
                     }
-
-                    // dead link happens if a message was resent N times, but an
-                    // ack was still not received.
-                    if (segment.xmit >= dead_link)
-                    {
-                        state = -1;
-                    }
                 }
             }
 
@@ -1039,6 +1024,12 @@ namespace lilith
                 ts_flush = current;
                 last_rcv_ms = current;   // [typhon] 初始化保活时刻, 防首次 update 误判超时
                 last_snd_ms = current;
+            }
+
+            // [typhon] 判死: 收到对端 RST(会话已不存在) → -1(和 C++ ikcp_update 一致)
+            if (rst)
+            {
+                return -1;
             }
 
             // [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → -1
@@ -1148,15 +1139,12 @@ namespace lilith
         // [typhon] 设置超时阈值(ms, 0=禁用)
         public void SetTimeout(uint ms) => timeout = ms;
 
-        // [typhon] 是否收到过对端 RST(会话已不存在); 上层据此 Close + 通知断线
-        public bool Rst => rst;
-
         // ikcp_interval
         public void SetInterval(uint interval)
         {
             // clamp interval between 10 and 5000
-            if      (interval > 5000) interval = 5000;
-            else if (interval < 10)   interval = 10;
+            if (interval > 5000) interval = 5000;
+            else if (interval < 10) interval = 10;
             this.interval = interval;
         }
 

@@ -220,12 +220,6 @@ namespace lilith.Core
                     // [typhon] 信封 MAC 的剥离/长度校验已下沉到 Kcp.Input(和 C++ ikcp_input 一致), 这里直接喂整包
                     safeKcp!.Input(recvBuf, 0, n);
 
-                    if (safeKcp!.Rst)
-                    {// [typhon] 服务端 RST: 会话已不存在 → 关闭, 宿主 OnDisconnected 后可重新登录连接
-                        Close();
-                        break;
-                    }
-
                     while (true)
                     {
                         n = safeKcp!.Receive(rbuf);
