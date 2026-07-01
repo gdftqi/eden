@@ -52,8 +52,11 @@ namespace CC.Proxy
             [JsonProperty("mac_key", NullValueHandling = NullValueHandling.Ignore)]
             public string? MacKey { get; set; }
 
-            [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Token { get; set; }
+            [JsonProperty("access_token", NullValueHandling = NullValueHandling.Ignore)]
+            public string? AccessToken { get; set; }
+
+            [JsonProperty("refresh_token", NullValueHandling = NullValueHandling.Ignore)]
+            public string? RefreshToken { get; set; }
         }
 
         public static async Task<int> POST(string username, string password)
@@ -76,7 +79,7 @@ namespace CC.Proxy
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
 
-            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.Token!);
+            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.AccessToken!);
 
             return 0;
         }

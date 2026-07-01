@@ -20,7 +20,6 @@ namespace CC
             ChatPanel.ChatSelected += OpenChat;
             ChatView.SendRequested += OnSendText;
             KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
-            this.Opened += (_, __) => DemoConnBanner();   // [DEMO] 看完删这行 + 下面的 DemoConnBanner
         }
 
         // 选中某个会话(由 ChatListPanel.ChatSelected 触发): 顶栏换成该用户, 显示 ChatWindow(隐藏空态)
@@ -186,21 +185,6 @@ namespace CC
             if (gen == connStateGen)
             {
                 HideConnBanner();
-            }
-        }
-
-        // [DEMO] 临时: 启动后循环演示效果, 看完把这个方法 + ctor 里的 Opened 订阅删掉
-        private async void DemoConnBanner()
-        {
-            while (true)
-            {
-                await System.Threading.Tasks.Task.Delay(1500);
-                ShowConnState(ConnState.Disconnected);   // 断开 → 红点
-                await System.Threading.Tasks.Task.Delay(2500);
-                ShowConnState(ConnState.Reconnecting);   // 重连 → 转圈
-                await System.Threading.Tasks.Task.Delay(3000);
-                ShowConnState(ConnState.Connected);      // 成功 → 绿点, 1.5s 后自动收起
-                await System.Threading.Tasks.Task.Delay(2500);   // 等它收起 + 停顿再下一轮
             }
         }
 

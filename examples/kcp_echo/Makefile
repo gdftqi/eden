@@ -19,13 +19,15 @@ ENVELOPE_BPF_DST := $(BUILD_DIR)/envelope.bpf.o
 
 SERVER      := $(BUILD_DIR)/server
 LIBKCP_SO   := libkcp.so
+CONFIG_SRC  := config.yml
+CONFIG_DST  := $(BUILD_DIR)/config.yml
 
 SOURCES := $(wildcard *.cpp)
 OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
 
 .PHONY: all clean
 
-all: $(SERVER) $(LIBKCP_SO) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST)
+all: $(SERVER) $(LIBKCP_SO) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST) $(CONFIG_DST)
 	@echo "==> [kcp_echo] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
 # typhon 主库 / BPF 对象:任一过期就回顶层 make 重新构建
@@ -51,6 +53,10 @@ $(KCP_BPF_DST): $(KCP_BPF_SRC) | $(BUILD_DIR)
 	cp $< $@
 
 $(ENVELOPE_BPF_DST): $(ENVELOPE_BPF_SRC) | $(BUILD_DIR)
+	cp $< $@
+
+# 把 config.yml 拷到本地 build, server 用相对路径 build/config.yml 加载
+$(CONFIG_DST): $(CONFIG_SRC) | $(BUILD_DIR)
 	cp $< $@
 
 # C++ object 编译
