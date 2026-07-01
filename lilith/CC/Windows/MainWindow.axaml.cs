@@ -122,24 +122,55 @@ namespace CC
         public void OnConnected(EndPoint host)
         {
             Debug.WriteLine("连接 {0} 成功", host);
-            HideConnBanner();
+            ShowConnState(ConnState.Connected);
         }
 
         public void OnDisconnected(EndPoint host)
         {
             Debug.WriteLine("连接 {0} 断开", host);
-            ShowConnState(false);
+            ShowConnState(ConnState.Disconnected);
         }
 
         // ============ 连接状态提示条 ============
 
-        // 显示提示条并滑出: reconnecting=false → "连接断开"(红点); true → "重新连接"(转圈)
-        public void ShowConnState(bool reconnecting)
+        public enum ConnState { Disconnected, Reconnecting, Connected }
+
+        private static readonly Avalonia.Media.IBrush DotRed = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E53935"));
+        private static readonly Avalonia.Media.IBrush DotGreen = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#43A047"));
+        private int connStateGen;   // 状态代次: Connected 的 1.5s 自动收起用它防"期间又切了别的状态时误收"
+
+        // 显示提示条并滑出
+        public void ShowConnState(ConnState state)
         {
-            ConnText.Text = reconnecting ? "重新连接" : "连接断开";
-            ConnDot.IsVisible = !reconnecting;
-            ConnSpinner.IsVisible = reconnecting;
+            int gen = ++connStateGen;
+
+            switch (state)
+            {
+                case ConnState.Disconnected:
+                    ConnText.Text = "连接断开";
+                    ConnDot.Fill = DotRed;
+                    ConnDot.IsVisible = true;
+                    ConnSpinner.IsVisible = false;
+                    break;
+                case ConnState.Reconnecting:
+                    ConnText.Text = "重新连接";
+                    ConnDot.IsVisible = false;
+                    ConnSpinner.IsVisible = true;
+                    break;
+                case ConnState.Connected:
+                    ConnText.Text = "连接成功";
+                    ConnDot.Fill = DotGreen;
+                    ConnDot.IsVisible = true;
+                    ConnSpinner.IsVisible = false;
+                    break;
+            }
+
             ConnBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(0px)");
+
+            if (state == ConnState.Connected)
+            {
+                AutoHideConnBanner(gen);   // 连接成功: 停留 1.5s 后自动收起
+            }
         }
 
         // 收起提示条(滑回左边藏起来)
@@ -148,17 +179,28 @@ namespace CC
             ConnBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(-180px)");
         }
 
+        // Connected 后停 1.5s 自动收起; 期间若又切了别的状态(gen 变了)则跳过, 不误收
+        private async void AutoHideConnBanner(int gen)
+        {
+            await System.Threading.Tasks.Task.Delay(1500);
+            if (gen == connStateGen)
+            {
+                HideConnBanner();
+            }
+        }
+
         // [DEMO] 临时: 启动后循环演示效果, 看完把这个方法 + ctor 里的 Opened 订阅删掉
         private async void DemoConnBanner()
         {
             while (true)
             {
                 await System.Threading.Tasks.Task.Delay(1500);
-                ShowConnState(false);   // 连接断开 → 红点
+                ShowConnState(ConnState.Disconnected);   // 断开 → 红点
                 await System.Threading.Tasks.Task.Delay(2500);
-                ShowConnState(true);    // 重新连接 → 转圈
+                ShowConnState(ConnState.Reconnecting);   // 重连 → 转圈
                 await System.Threading.Tasks.Task.Delay(3000);
-                HideConnBanner();
+                ShowConnState(ConnState.Connected);      // 成功 → 绿点, 1.5s 后自动收起
+                await System.Threading.Tasks.Task.Delay(2500);   // 等它收起 + 停顿再下一轮
             }
         }
 

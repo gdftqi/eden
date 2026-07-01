@@ -183,7 +183,7 @@
         <Border x:Name="ConnBanner"
                 HorizontalAlignment="Left" VerticalAlignment="Bottom"
                 Width="180" Height="38" Margin="0,0,0,14"
-                Background="White" CornerRadius="0,8,8,0"
+                Background="White" CornerRadius="19"
                 BoxShadow="2 2 12 0 #28000000"
                 IsHitTestVisible="False"
                 RenderTransform="translateX(-180px)">
