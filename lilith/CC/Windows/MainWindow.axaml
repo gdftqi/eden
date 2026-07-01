@@ -180,13 +180,7 @@
         <Rectangle HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="Resize_PointerPressed"/>
 
         <!-- 连接状态提示条: 左下角浮动, 白底黑字, 从左滑出(translateX -180 → 0) -->
-        <Border x:Name="ConnBanner"
-                HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                Width="180" Height="38" Margin="0,0,0,14"
-                Background="White" CornerRadius="19"
-                BoxShadow="2 2 12 0 #28000000"
-                IsHitTestVisible="False"
-                RenderTransform="translateX(-180px)">
+        <Border x:Name="ConnBanner" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="180" Height="38" Margin="0,0,0,14" Background="White" CornerRadius="19" BoxShadow="2 2 12 0 #28000000" IsHitTestVisible="False" RenderTransform="translateX(-180px)">
             <Border.Transitions>
                 <Transitions>
                     <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut"/>
@@ -204,11 +198,9 @@
                 </Style>
             </Border.Styles>
             <Grid Margin="14,0,12,0" ColumnDefinitions="*,Auto">
-                <TextBlock x:Name="ConnText" Grid.Column="0" Text="连接断开"
-                           Foreground="#222222" FontSize="13" VerticalAlignment="Center"/>
+                <TextBlock x:Name="ConnText" Grid.Column="0" Text="连接断开" Foreground="#222222" FontSize="13" VerticalAlignment="Center"/>
                 <!-- 断开: 红点 -->
-                <Ellipse x:Name="ConnDot" Grid.Column="1" Width="9" Height="9"
-                         Fill="#E53935" VerticalAlignment="Center"/>
+                <Ellipse x:Name="ConnDot" Grid.Column="1" Width="9" Height="9" Fill="#E53935" VerticalAlignment="Center"/>
                 <!-- 重连: 转圈 (Ellipse 填满 16x16, 几何中心=bounds 中心, 绕 0.5,0.5 旋转必原地; 缺口用 dash) -->
                 <Ellipse x:Name="ConnSpinner" Grid.Column="1" Classes="spinner" Width="16" Height="16" Stroke="#888888" StrokeThickness="2" StrokeDashArray="16.5,5.5" StrokeLineCap="Round" RenderTransformOrigin="50%,50%" IsVisible="False" VerticalAlignment="Center">
                     <Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform>
