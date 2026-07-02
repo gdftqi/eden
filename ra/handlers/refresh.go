@@ -143,7 +143,7 @@ func Refresh(c *gin.Context) {
 	rsp := refreshRsp{
 		Conv:         conv,
 		UserID:       userID,
-		Host:         "13.214.204.197:5555",
+		Host:         "172.26.29.158:5555",
 		HostID:       1000,
 		MacKey:       conf.Instance.SipHashKey,
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),

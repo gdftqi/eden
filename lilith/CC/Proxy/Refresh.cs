@@ -1,29 +1,17 @@
-﻿using lilith.Core;
+using lilith.Core;
 using lilith.Tools;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace CC.Proxy
 {
-    internal class UserLogin
+    internal class Refresh
     {
-        class LoginInfo
-        {
-            [JsonProperty("username", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Username { get; set; }
+        // 当前会话的 refreshToken: 登录成功后由 UserLogin 设置, 每次 /refresh 成功后滚动更新
+        public static string? RefreshToken;
 
-            [JsonProperty("password", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Password { get; set; }
-
-            [JsonProperty("time", NullValueHandling = NullValueHandling.Ignore)]
-            public Int64? Time { get; set; }
-        }
-
-        class UserLoginReq
+        class RefreshReq
         {
             [JsonProperty("hpk", NullValueHandling = NullValueHandling.Ignore)]
             public string? HttpPk { get; set; }
@@ -31,11 +19,12 @@ namespace CC.Proxy
             [JsonProperty("kpk", NullValueHandling = NullValueHandling.Ignore)]
             public string? KcpPk { get; set; }
 
-            [JsonProperty("info", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Info { get; set; }
+            // refreshToken 本身是 RA 加密过的黑盒, 明文放 token 字段即可
+            [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Token { get; set; }
         }
 
-        class UserLoginRsp
+        class RefreshRsp
         {
             [JsonProperty("conv", NullValueHandling = NullValueHandling.Ignore)]
             public UInt32? Conv { get; set; }
@@ -56,34 +45,29 @@ namespace CC.Proxy
             public string? AccessToken { get; set; }
 
             [JsonProperty("refresh_token", NullValueHandling = NullValueHandling.Ignore)]
-            public string? RefreshToken { get; set; }
+            public string? NewRefreshToken { get; set; }
         }
 
-        public static async Task<int> POST(string username, string password)
+        // 用 refreshToken 换一套新会话: 滚动更新 refreshToken + KcpSession.Init。
+        // 失败抛异常(refreshToken 失效/顶号 → 上层应回登录页)。
+        public static async Task POST()
         {
-            var raPk = Crypto.Base64DecodeToBytes(Config.HTTP_X25519_PK);
-
-            var info = new LoginInfo
+            if (string.IsNullOrEmpty(RefreshToken))
             {
-                Username = username,
-                Password = Crypto.Sha256(password),
-                Time = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            };
+                throw new Exception("no refresh token");
+            }
 
-            var req = new UserLoginReq
+            var req = new RefreshReq
             {
                 HttpPk = Crypto.Base64Encode(HttpSession.Instance.PK),
                 KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK),
-                Info = HttpSession.Instance.Seal(info),
+                Token = RefreshToken,
             };
 
-            var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
+            var rsp = await HttpSession.Instance.PostSecureAsync<RefreshRsp>("/refresh", req);
 
-            Refresh.RefreshToken = rsp.RefreshToken;   // 存下 refreshToken, 断线时用它走 /refresh 重连
-
+            RefreshToken = rsp.NewRefreshToken;
             KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.AccessToken!);
-
-            return 0;
         }
     }
 }

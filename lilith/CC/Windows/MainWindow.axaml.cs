@@ -126,8 +126,72 @@ namespace CC
 
         public void OnDisconnected(EndPoint host)
         {
-            Debug.WriteLine("连接 {0} 断开", host);
-            ShowConnState(ConnState.Disconnected);
+            Debug.WriteLine("连接 {0} 断开, 原因 {1}", host, KcpSession.Instance.DeadReason);
+
+            if (reconnecting)
+            {
+                return;
+            }
+
+            if (KcpSession.Instance.DeadReason == DisconnectReason.None)
+            {
+                HideConnBanner();
+                return;
+            }
+
+            _ = Reconnect();
+        }
+
+        private bool reconnecting;
+
+        const int RECONNECT_DEADLINE_MS = 30000;
+        const int RECONNECT_RETRY_INTERVAL_MS = 2000;
+
+        private async System.Threading.Tasks.Task Reconnect()
+        {
+            reconnecting = true;
+            ShowConnState(ConnState.Reconnecting);
+
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                while (sw.ElapsedMilliseconds < RECONNECT_DEADLINE_MS)
+                {
+                    try
+                    {
+                        await Proxy.Refresh.POST();
+                        if (await KcpSession.Instance.Connect(this, Config.KCP_TIMEOUT))
+                        {
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine("重连尝试失败: " + ex.Message);
+                    }
+
+                    await System.Threading.Tasks.Task.Delay(RECONNECT_RETRY_INTERVAL_MS);
+                }
+
+                BackToLogin();
+            }
+            finally
+            {
+                reconnecting = false;
+            }
+        }
+
+        private void BackToLogin()
+        {
+            KcpSession.Instance.Close();
+
+            var login = new LoginWindow();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.MainWindow = login;
+            }
+            login.Show();
+            Close();
         }
 
         // ============ 连接状态提示条 ============

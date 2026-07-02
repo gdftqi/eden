@@ -47,7 +47,8 @@ namespace lilith.Core
     {// 断线原因
         None,     // 正常 / 主动关闭 / 未知
         Timeout,  // 超时失联(可重试)
-        Rst       // 服务端 RST: 会话已不存在(直接走 /refresh 重登)
+        Rst,      // 服务端 RST: 会话已不存在(直接走 /refresh 重登)
+        Reset     // socket 层强制断开/不可达(如 10054): 服务端崩溃或重启, 需重连
     }
 
     public class KcpSession
@@ -289,10 +290,18 @@ namespace lilith.Core
             catch (SocketException ex)
             {
                 Debug.WriteLine("recvLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
+                if (Running)
+                {// 非主动关闭(Close 会先把 running 置 0)→ 标记异常断线, 触发重连
+                    DeadReason = DisconnectReason.Reset;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("recvLoop error: " + ex);
+                if (Running)
+                {
+                    DeadReason = DisconnectReason.Reset;
+                }
             }
             finally
             {
@@ -391,10 +400,18 @@ namespace lilith.Core
             catch (SocketException ex)
             {
                 Debug.WriteLine("sendLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
+                if (Running)
+                {// 非主动关闭 → 标记异常断线, 触发重连
+                    DeadReason = DisconnectReason.Reset;
+                }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("sendLoop error: " + ex);
+                if (Running)
+                {
+                    DeadReason = DisconnectReason.Reset;
+                }
             }
             finally
             {
