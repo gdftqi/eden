@@ -18,5 +18,10 @@ namespace CC
         /// HTTP 服务地址
         /// </summary>
         public const string HTTP_HOST = "http://172.26.29.158:8080";
+
+        /// <summary>
+        /// KCP 连接超时
+        /// </summary>
+        public const uint KCP_TIMEOUT = 30000;
     }
 }

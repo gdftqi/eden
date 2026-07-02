@@ -7,6 +7,7 @@ using lilith.Core;
 using System;
 using lilith.Tools;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using CC.Proxy;
 
 
@@ -56,8 +57,18 @@ namespace CC
 
             try
             {
-                int res = await UserLogin.POST(username, password);
-                KcpSession.Instance.Connect(main);
+                await UserLogin.POST(username, password);
+
+                // 等 KCP 握手结果; 8s 未连上按失败处理, 不切 MainWindow
+                var connectTask = KcpSession.Instance.Connect(main, Config.KCP_TIMEOUT);
+                var done = await Task.WhenAny(connectTask, Task.Delay(8000));
+                if (done != connectTask || !connectTask.Result)
+                {
+                    KcpSession.Instance.Close();   // 超时/握手失败 → 清理会话
+                    ShowError("连接网关失败, 请重试");
+                    return;
+                }
+
                 if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
                     desktop.MainWindow = main;

@@ -3,8 +3,10 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace lilith.Core
@@ -86,6 +88,9 @@ namespace lilith.Core
         // [typhon] 最近一次断线原因; OnDisconnected 里读它选重连策略(Rst→/refresh, Timeout→可重试)
         public DisconnectReason DeadReason { get; private set; }
 
+        // [typhon] 本次连接的握手结果: Connect 返回它; 首个 Connected → true, 断开 → false
+        private TaskCompletionSource<bool>? connectTsk;
+
         public void Init(string host, uint conv, uint userId, uint gatewayId, string macKey, string b64Token)
         {
             this.host = host;
@@ -99,7 +104,8 @@ namespace lilith.Core
             this.macKey = Encoding.ASCII.GetBytes(macKey);
         }
 
-        public void Connect(ISessionEvent ev)
+
+        public Task<bool> Connect(ISessionEvent ev, uint timeout)
         {// 连接服务
             if (ev == null)
             {// 入参检查
@@ -109,14 +115,17 @@ namespace lilith.Core
             this.ev = ev;
 
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0)
-            {// 是否运行
-                return;
+            {// 已在运行, 返回当前这次连接的结果
+                return connectTsk?.Task ?? Task.FromResult(false);
             }
+
+            connectTsk = new TaskCompletionSource<bool>();
 
             var ipStr = host.Substring(0, host.IndexOf(':'));
             var portStr = host.Substring(host.LastIndexOf(":") + 1);
             if (!int.TryParse(portStr, out int port))
             {
+                running = 0;
                 throw new Exception("host is invalid");
             }
 
@@ -127,11 +136,11 @@ namespace lilith.Core
                 sock.Bind(new IPEndPoint(IPAddress.Any, 0));
 
                 var kcp = new Kcp(conv, output);
-                kcp.SetSipHash(macKey!);   // [typhon] 出站信封 MAC key, 服务端 XDP 据此校验
+                kcp.SetSipHash(macKey!);
                 kcp.SetNoDelay(1, TICK_INTERVAL_MS, 3, true);
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
-                kcp.SetPing(true);          // [typhon] 客户端: 空闲时主动发 PING 保活
-                kcp.SetTimeout(30000);      // [typhon] 30s 超时; PING 间隔 = timeout/3 = 10s
+                kcp.SetPing(true);
+                kcp.SetTimeout(timeout);
                 safeKcp = new SafeKcp(kcp);
 
                 rcvThread = new Thread(rcvLoop) { IsBackground = true };
@@ -145,6 +154,8 @@ namespace lilith.Core
                 sock?.Close();
                 throw;
             }
+
+            return connectTsk.Task;
         }
 
         public void Close()
@@ -168,26 +179,28 @@ namespace lilith.Core
                     sndThread?.Join();
                     rcvThread = null;
                     sndThread = null;
+                    connectTsk?.TrySetResult(false);
                     ev?.OnDisconnected(remotePoint!);
                     remotePoint = null;
                     sock = null;
                     safeKcp = null;
                     authed = false;
                     sendQue.Clear();
-                    recvQue.Clear();
+                    rcvQue.Clear();
                     Package.Pool.Clear();
                 }
                 return;
             }
 
             var evs = new IOEvent[RECV_BATCH];
-            int n = recvQue.Wait(evs);
+            int n = rcvQue.Wait(evs);
 
             for (int i = 0; i < n; i++)
             {
                 switch (evs[i].Type)
                 {
                     case IOEventType.Connected:
+                        connectTsk?.TrySetResult(true);
                         ev?.OnConnected(remotePoint!);
                         break;
 
@@ -235,7 +248,6 @@ namespace lilith.Core
                         continue;
                     }
 
-                    // [typhon] 信封 MAC 的剥离/长度校验已下沉到 Kcp.Input(和 C++ ikcp_input 一致), 这里直接喂整包
                     safeKcp!.Input(recvBuf, 0, n);
 
                     while (true)
@@ -295,14 +307,14 @@ namespace lilith.Core
                 return;
             }
 
-            if (pkg.PayloadLength < 32)
+            if (pkg.PayloadLength != 32)
             {
                 return;
             }
 
             Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
             authed = true;
-            recvQue.Enqueue(new IOEvent(IOEventType.Connected));
+            rcvQue.Enqueue(new IOEvent(IOEventType.Connected));
             Notify();
             Package.Pool.Return(pkg);
         }
@@ -332,7 +344,7 @@ namespace lilith.Core
             }
 
             rcvSeq = pkg.Idempotent;
-            recvQue.Enqueue(new IOEvent(IOEventType.RcvData, pkg));
+            rcvQue.Enqueue(new IOEvent(IOEventType.RcvData, pkg));
             Notify();
         }
 
@@ -481,7 +493,7 @@ namespace lilith.Core
         }
 
         private readonly BlockingQueue<Package> sendQue = new BlockingQueue<Package>();
-        private readonly BlockingQueue<IOEvent> recvQue = new BlockingQueue<IOEvent>();
+        private readonly BlockingQueue<IOEvent> rcvQue = new BlockingQueue<IOEvent>();
 
         // ---- 控制 / 共享 ----
         private int running = 0;
