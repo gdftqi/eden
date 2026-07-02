@@ -46,7 +46,7 @@
             </Grid>
 
             <!-- 主体 -->
-            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260" Margin="0,0,0,8">
+            <StackPanel x:Name="LoginForm" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260" Margin="0,0,0,8">
                 <StackPanel.Styles>
                     <Style Selector="TextBox">
                         <Setter Property="Height" Value="32"/>
@@ -119,6 +119,26 @@
 
                 <!-- 登录 -->
                 <Button Classes="login" Content="登 录" Click="Login_Click" IsDefault="True" HorizontalAlignment="Center" Width="200" Margin="0,12,0,0"/>
+            </StackPanel>
+
+            <!-- 登录中: 默认隐藏, 点登录后显示转圈; 失败再切回 LoginForm -->
+            <StackPanel x:Name="LoadingPanel" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16" IsVisible="False">
+                <StackPanel.Styles>
+                    <Style Selector="Ellipse.spinner">
+                        <Style.Animations>
+                            <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                                <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                                <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+                    </Style>
+                </StackPanel.Styles>
+                <Ellipse Classes="spinner" Width="42" Height="42" Stroke="White" StrokeThickness="3"
+                         StrokeDashArray="30,10" StrokeLineCap="Round"
+                         RenderTransformOrigin="50%,50%" HorizontalAlignment="Center">
+                    <Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform>
+                </Ellipse>
+                <TextBlock Text="登录中..." Foreground="White" FontSize="13" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
     </Border>

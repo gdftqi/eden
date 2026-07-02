@@ -53,18 +53,20 @@ namespace CC
                 return;
             }
 
+            SetLoading(true);   // 隐藏表单, 显示转圈
+
             var main = new MainWindow();
 
             try
             {
                 await UserLogin.POST(username, password);
 
-                // 等 KCP 握手结果; 8s 未连上按失败处理, 不切 MainWindow
                 var connectTask = KcpSession.Instance.Connect(main, Config.KCP_TIMEOUT);
                 var done = await Task.WhenAny(connectTask, Task.Delay(8000));
                 if (done != connectTask || !connectTask.Result)
                 {
                     KcpSession.Instance.Close();   // 超时/握手失败 → 清理会话
+                    SetLoading(false);
                     ShowError("连接网关失败, 请重试");
                     return;
                 }
@@ -80,6 +82,7 @@ namespace CC
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message);
+                SetLoading(false);
                 ShowError("连接服务失败: " + ex.Message);
                 return;
             }
@@ -89,6 +92,17 @@ namespace CC
         {
             ErrorText.Text = msg;
             ErrorText.IsVisible = true;
+        }
+
+        // loading=true: 隐藏登录表单、显示转圈; false: 切回表单
+        private void SetLoading(bool loading)
+        {
+            LoginForm.IsVisible = !loading;
+            LoadingPanel.IsVisible = loading;
+            if (loading)
+            {
+                ErrorText.IsVisible = false;   // 进 loading 时清掉上次的报错
+            }
         }
     }
 }

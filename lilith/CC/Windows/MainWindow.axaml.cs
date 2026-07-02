@@ -22,7 +22,7 @@ namespace CC
             KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
         }
 
-        // 选中某个会话(由 ChatListPanel.ChatSelected 触发): 顶栏换成该用户, 显示 ChatWindow(隐藏空态)
+
         private void OpenChat(ChatItem item)
         {
             ChatView.PeerName = item.Nickname;
@@ -151,11 +151,13 @@ namespace CC
                     ConnDot.IsVisible = true;
                     ConnSpinner.IsVisible = false;
                     break;
+
                 case ConnState.Reconnecting:
                     ConnText.Text = "重新连接";
                     ConnDot.IsVisible = false;
                     ConnSpinner.IsVisible = true;
                     break;
+
                 case ConnState.Connected:
                     ConnText.Text = "连接成功";
                     ConnDot.Fill = DotGreen;
@@ -172,13 +174,13 @@ namespace CC
             }
         }
 
-        // 收起提示条(滑回左边藏起来)
+
         public void HideConnBanner()
         {
             ConnBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(-180px)");
         }
 
-        // Connected 后停 1.5s 自动收起; 期间若又切了别的状态(gen 变了)则跳过, 不误收
+
         private async void AutoHideConnBanner(int gen)
         {
             await System.Threading.Tasks.Task.Delay(1500);
@@ -188,7 +190,7 @@ namespace CC
             }
         }
 
-        // 服务端 echo 回来(主线程回调): 显示成"对方"的消息
+        // 服务端 echo 回来(主线程回调)
         public void OnPackage(Package pkg)
         {
             var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
