@@ -27,7 +27,7 @@ typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
         return xAGAIN;                   // 半包, 等更多数据
     }
 
-    *pke = core::PKx<core::Host>(raw);
+    *pke = core::PKx<core::Host>(raw, raw->len);
     last_recv_ms_ = proc_->tnow();
     return xOK;
 }

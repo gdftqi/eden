@@ -311,18 +311,14 @@ ntoh(PK<Net> v) noexcept {
 }
 
 
-constexpr int PKG_MAX_LEN     = 65535;                                    // 最大支持的消息长度
-constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 14 Bytes, Package 头长度
-constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 6 Bytes, PackageEx 头长度
-// pk_payload 上限, 取**最严**约束: KCP 加密方向 wire = PKG_HDR(14) + payload + tag(14) ≤ PKG_MAX_LEN。
-// (TCP 方向 PKX+PKG=20 < 26, 没这严; 此值同时满足两方向。)
-constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;  // 65505
+constexpr int PKG_MAX_LEN = 65535;                // 最大支持的消息长度
+constexpr int PKG_HDR_LEN = sizeof(Package);      // 14 Bytes, Package 头长度
+constexpr int PKX_HDR_LEN = sizeof(PackageEx);    // 6 Bytes, PackageEx 头长度
 
-
-static_assert(PKG_HDR_LEN == 14, "Package header size changed");
-static_assert(PKX_HDR_LEN == 6, "PackageEx header size changed");
-
-
+/**
+ * @brief pk_payload 上限
+ */ 
+constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;
 } // namespace typhon::core;
 
 

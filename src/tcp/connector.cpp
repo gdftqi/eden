@@ -64,7 +64,7 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept 
         return xAGAIN;               // 半包, 等更多数据
     }
 
-    *pkx = core::PKx<core::Host>(raw);
+    *pkx = core::PKx<core::Host>(raw, raw->len);
     last_recv_ms_ = now;
     return xOK;
 }
@@ -72,23 +72,27 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept 
 
 int
 typhon::tcp::Connector::update(uint64_t now) noexcept {
+    constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
+
     static uint64_t timeout = 0;
+
     if (timeout == 0) {
         timeout = Conf::instance()->timeout() / 3;
     }
 
     if (is_connected()) {
         if (now - last_recv_ms_ > (uint64_t)Conf::instance()->timeout()) {
-            return xERR;             // 接收超时, 判死
+            // 接收超时, 判死
+            return xERR;
         }
 
         // 心跳: 仅注册确认(authed)后才发。
         if (authed_ && now - last_send_ms_ > timeout) {
-            constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(uint64_t);
             uint8_t buf[BUF_SIZE] = {0};
-            core::PKx<core::Host> pkx{ buf };
-            pkx->len        = BUF_SIZE;
-            pkx.pk()->id     = PKID_PING;
+            
+            core::PKx<core::Host> pkx(buf, BUF_SIZE);
+            pkx->len     = BUF_SIZE;
+            pkx.pk()->id = PKID_PING;
             (*(uint64_t*)pkx.pk()->payload) = now;
             if (send(pkx, now) < 0) {
                 return xERR;
@@ -105,7 +109,7 @@ typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
     if (is_connected()) {
         constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
         uint8_t buf[BUF_SIZE] = {0};
-        core::PKx<core::Host> pkx{ buf };
+        core::PKx<core::Host> pkx(buf, BUF_SIZE);
         pkx->len = BUF_SIZE;
         pkx.pk()->id = PKID_REGIST_REQ;
 

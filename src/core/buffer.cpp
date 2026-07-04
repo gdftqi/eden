@@ -48,7 +48,7 @@ typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
         return xAGAIN;
     }
 
-    ntoh(PKx<Net>(p));
+    ntoh(PKx<Net>(p, pkxlen));
     *pkx = p;
     rpos += pkxlen;
     return xOK;

@@ -18,7 +18,7 @@ struct QEvent {
         Stop,       ///< 停止      data => nullptr
         AddServ,    ///< 后端服务  data => AddServArg
         RmvServ,    ///< 移除后端  data => serv_id
-        Recv,       ///< 收到数据  data => RecvArg
+        Recv,       ///< 收到数据  data => RcvArg
         Send,       ///< 发送数据  data => sock fd
         AddSess,    ///< 添加会话  data => sock fd
         RmvSess,    ///< 移除会话  data => sock fd
