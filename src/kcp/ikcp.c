@@ -194,7 +194,7 @@ void ikcp_log(ikcpcb *kcp, int mask, const char *fmt, ...)
 	va_start(argptr, fmt);
 	vsprintf(buffer, fmt, argptr);
 	va_end(argptr);
-	kcp->writelog(buffer, kcp, kcp->user);
+	kcp->writelog(buffer, kcp);
 }
 
 // check log mask
@@ -287,7 +287,7 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 		kcp->mac_buf[i] = (char)(mac >> (8 * i));   /* 小端, 等价 htole64 */
 	}
 	memcpy(kcp->mac_buf + IKCP_ENVELOPE_LEN, data, (size_t)size);
-	return kcp->output(kcp->mac_buf, size + IKCP_ENVELOPE_LEN, kcp, kcp->user);
+	return kcp->output(kcp->mac_buf, size + IKCP_ENVELOPE_LEN, kcp);
 }
 
 //---------------------------------------------------------------------
@@ -475,8 +475,7 @@ void ikcp_release(ikcpcb *kcp)
 //---------------------------------------------------------------------
 // set output callback, which will be invoked by kcp
 //---------------------------------------------------------------------
-void ikcp_setoutput(ikcpcb *kcp, int (*output)(const char *buf, int len,
-	ikcpcb *kcp, void *user))
+void ikcp_setoutput(ikcpcb *kcp, int (*output)(const char *buf, int len, ikcpcb *kcp))
 {
 	kcp->output = output;
 }

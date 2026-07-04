@@ -182,7 +182,7 @@ public:
 
 
     void
-    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user)) noexcept {
+    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp)) noexcept {
         ::ikcp_setoutput(kcp_, output);
     }
 

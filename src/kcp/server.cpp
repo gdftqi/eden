@@ -104,8 +104,8 @@ typhon::kcp::Server::run() noexcept {
 
 
 int
-typhon::kcp::Server::output(const char *buf, int len, IKCPCB*, void *user) noexcept {
-    auto* s  = (Session*)user;
+typhon::kcp::Server::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
+    auto* s  = (Session*)kcpcb->user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
     svr->sque_.emplace_back(sb);

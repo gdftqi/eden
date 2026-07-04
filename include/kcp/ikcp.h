@@ -353,8 +353,8 @@ struct IKCPCB
 	const struct IKCPOPS *ccops;
 	void *congest;
 	int logmask;
-	int (*output)(const char *buf, int len, struct IKCPCB *kcp, void *user);
-	void (*writelog)(const char *log, struct IKCPCB *kcp, void *user);
+	int (*output)(const char *buf, int len, struct IKCPCB *kcp);
+	void (*writelog)(const char *log, struct IKCPCB *kcp);
 };
 
 
@@ -395,8 +395,7 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user);
 void ikcp_release(ikcpcb *kcp);
 
 // set output callback, which will be invoked by kcp
-void ikcp_setoutput(ikcpcb *kcp, int (*output)(const char *buf, int len, 
-	ikcpcb *kcp, void *user));
+void ikcp_setoutput(ikcpcb *kcp, int (*output)(const char *buf, int len, ikcpcb *kcp));
 
 // user/upper level recv: returns size, returns below zero for EAGAIN
 int ikcp_recv(ikcpcb *kcp, char *buffer, int len);

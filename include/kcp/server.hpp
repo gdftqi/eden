@@ -79,7 +79,7 @@ public:
 
 
     static int
-    output(const char *buf, int len, struct IKCPCB*, void *user) noexcept;
+    output(const char *buf, int len, struct IKCPCB* kcpcb) noexcept;
 
 
     explicit
