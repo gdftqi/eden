@@ -46,7 +46,7 @@ struct PackageEx {
 /**
  * @brief 网关鉴权
  */
-struct Token {
+struct AccessToken {
     uint64_t expire;     // 过期时间戳
     uint32_t conv;       // 会话 ID
     uint32_t user_id;    // 用户 ID
@@ -59,6 +59,9 @@ struct Token {
 #pragma pack(pop)
 
 
+/**
+ * @brief 将 Package 的字段从 host 字节序转换为 net 字节序
+ */
 inline void
 pk_hton(Package* p) noexcept {
     p->id     = htons(p->id);
@@ -68,6 +71,9 @@ pk_hton(Package* p) noexcept {
 }
 
 
+/**
+ * @brief 将 Package 的字段从 net 字节序转换为 host 字节序
+ */
 inline void
 pk_ntoh(Package* p) noexcept {
     p->id     = ntohs(p->id);
@@ -91,8 +97,14 @@ class PKx {
 
 public:
     explicit
-    PKx(void* buf = nullptr) noexcept
+    PKx() noexcept
+        : PKx(nullptr, 0)
+    {}
+
+    explicit
+    PKx(void* buf, int size) noexcept
         : p_((PackageEx*)buf)
+        , size_(size)
     {}
 
 
@@ -109,6 +121,13 @@ public:
     }
 
 
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Net>, int> = 0>
+    PackageEx*
+    operator->() const noexcept {
+        return p_;
+    }
+
+
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     Package*
     pk() const noexcept {
@@ -116,36 +135,70 @@ public:
     }
 
 
+    /**
+     * @brief 返回 payload 长度, 不含 tag 长度
+     */
     template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
     int
-    plen() const noexcept {
+    payload_len() const noexcept {
         constexpr int HDR_SIZE = (int)sizeof(PackageEx) + (int)sizeof(Package);
         return (int)p_->len - HDR_SIZE;
     }
 
 
+    /**
+     * @brief 返回总长度, 包含头和 payload
+     */
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Host>, int> = 0>
+    int
+    size() const noexcept {
+        return size_;
+    }
+
+
+    /**
+     * @brief 返回总长度, 包含头和 payload
+     */
+    template<typename U = T, std::enable_if_t<std::is_same_v<U, Net>, int> = 0>
+    int
+    size() const noexcept {
+        return size_;
+    }
+
+
 private:
-    PackageEx* p_ { nullptr };
+    PackageEx* p_    { nullptr };
+    int        size_ { 0 };
 }; // class PKx<T>;
 
 
+/**
+ * @brief 将 PKx<Host> 转为 PKx<Net>
+ * 
+ * @note 入参 v 也会被转换为 net 字节序, 但不会修改 v 的类型
+ */
 inline PKx<Net>
 hton(PKx<Host> v) noexcept {
-    auto* p     = (PackageEx*)v.raw();
+    auto* p     = v.operator->();
     p->len      = htons(p->len);
     p->src_addr = htonl(p->src_addr);
     pk_hton((Package*)p->pk);
-    return PKx<Net>(p);
+    return PKx<Net>(p, v.size());
 }
 
 
+/**
+ * @brief 将 PKx<Net> 转为 PKx<Host>
+ * 
+ * @note 入参 v 也会被转换为 host 字节序, 但不会修改 v 的类型
+ */
 inline PKx<Host>
 ntoh(PKx<Net> v) noexcept {
-    auto* p     = (PackageEx*)v.raw();
+    auto* p     = v.operator->();
     p->len      = ntohs(p->len);
     p->src_addr = ntohl(p->src_addr);
     pk_ntoh((Package*)p->pk);
-    return PKx<Host>(p);
+    return PKx<Host>(p, v.size());
 }
 
 
@@ -155,56 +208,79 @@ class PK {
 
 
 public:
+    /**
+     * 创建 PK 对象, 由调用者负责释放内存, 释放时请调用 release(PK& pk)
+     */
     static PK
-    create(uint16_t id, uint32_t src_id, uint32_t dst_id, const void* payload, int plen) noexcept {
-        // 缓冲多留 XX20_TAG_LEN 给加密时附 tag; 但 len_ 只记逻辑长度(HDR + payload, 不含 tag)
-        auto size = sizeof(Package) + plen + utils::XX20_TAG_LEN;
-        auto buf = ::mi_malloc(size);
+    create(uint16_t id, uint32_t src_id, uint32_t dst_id, const void* payload, int payload_len) noexcept {
+        // 缓冲多留 XX20_TAG_LEN(16字节) 用于 chacha20-poly1305 tag部分.
+        // 但 PK.len_ 字段 只存逻辑长度(HDR + payload, 不含 tag)
+        auto size = sizeof(Package) + payload_len + utils::XX20_TAG_LEN;
+        auto buf  = ::mi_malloc(size);
         ASSERT(buf != nullptr, "分配内存失败");
-        auto* p = (Package*)buf;
-        p->id = id;
+
+        auto* p   = (Package*)buf;
+        p->id     = id;
         p->dst_id = dst_id;
         p->src_id = src_id;
-        ::memcpy(p->payload, payload, plen);
-        return PK(buf, (int)sizeof(Package) + plen);
+        ::memcpy(p->payload, payload, payload_len);
+        return PK(buf, (int)sizeof(Package) + payload_len);
     }
 
 
+    /**
+     * @brief 释放 PK 对象占用的内存
+     */
     static void
     release(PK& pk) noexcept {
         ::mi_free(pk.raw());
     }
 
 
+    /**
+     * @brief 构造函数, 创建一个空的 PK 对象, 仅用于占位, 不可访问其成员
+     */
     explicit
     PK() noexcept
         : PK(nullptr, 0)
     {}
 
 
+    /**
+     * @brief 构造函数
+     */
     explicit
     PK(void* buf, int len) noexcept
         : p_((Package*)buf)
-        , len_(len)
+        , size_(len)
     {}
 
 
+    /**
+     * @brief 返回原始指针, 由调用者负责释放内存, 释放时请调用 release(PK& pk)
+     */
     uint8_t*
     raw() const noexcept {
         return (uint8_t*)p_;
     }
 
 
+    /**
+     * @brief payload 长度, 不含 tag 长度
+     */
     int
-    plen() const noexcept {
+    payload_len() const noexcept {
         // len_ 永不含 tag (tag 只在 wire 传输瞬间存在), 故 payload 长度 = len_ - 头
-        return p_ ? len_ - (int)sizeof(Package) : 0;
+        return p_ ? size_ - (int)sizeof(Package) : 0;
     }
 
 
+    /**
+     * @brief 返回总长度, 包含头和 payload
+     */
     int
-    len() const noexcept {
-        return len_;
+    size() const noexcept {
+        return size_;
     }
 
 
@@ -217,30 +293,30 @@ public:
 
 private:
     Package* p_;
-    int      len_;
+    int      size_;
 }; // class PK<T>;
 
 
 inline PK<Net>
 hton(PK<Host> v) noexcept {
     pk_hton((Package*)v.raw());
-    return PK<Net>(v.raw(), v.len());
+    return PK<Net>(v.raw(), v.size());
 }
 
 
 inline PK<Host>
 ntoh(PK<Net> v) noexcept {
     pk_ntoh((Package*)v.raw());
-    return PK<Host>(v.raw(), v.len());
+    return PK<Host>(v.raw(), v.size());
 }
 
 
-constexpr int PKG_MAX_LEN     = 65535;                                    // wire frame 总长上限 (任意方向)
-constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 10, Package 头长度
-constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 10, PackageEx 头长度 (FAM 不计)
-// pk_payload 上限, 取**最严**约束: KCP 加密方向 wire = PKG_HDR(10) + payload + tag(16) ≤ PKG_MAX_LEN。
+constexpr int PKG_MAX_LEN     = 65535;                                    // 最大支持的消息长度
+constexpr int PKG_HDR_LEN     = sizeof(Package);                          // 14 Bytes, Package 头长度
+constexpr int PKX_HDR_LEN     = sizeof(PackageEx);                        // 6 Bytes, PackageEx 头长度
+// pk_payload 上限, 取**最严**约束: KCP 加密方向 wire = PKG_HDR(14) + payload + tag(14) ≤ PKG_MAX_LEN。
 // (TCP 方向 PKX+PKG=20 < 26, 没这严; 此值同时满足两方向。)
-constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;  // 65509
+constexpr int PKG_MAX_PAYLOAD = PKG_MAX_LEN - PKG_HDR_LEN - (int)utils::XX20_TAG_LEN;  // 65505
 
 
 static_assert(PKG_HDR_LEN == 14, "Package header size changed");

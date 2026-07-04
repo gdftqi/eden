@@ -43,21 +43,25 @@ namespace typhon::core {
 
 
 /**
- * @brief 单个 UDP 数据报 的 payload 上限 (字节).
- *
- * 推算 (仅支持 IPv4):
- *   以太网 MTU             = 1500
- *   - IPv4 头 (无 option)  =   20
- *   - UDP 头               =    8
- *   ─────────────────────────────
- *   纯以太网理论上限         = 1472
- *   再留 ~72B 余量穿 PPPoE(1492)/隧道, 规避公网 IP 分片 → 1400 (亦为 KCP 默认)
- *   注: 纯内网/可控网络可直接取 1472 榨满.
+ * @brief UDP MTU UDP 包的MTU
+ * @note  单个UDP 包不能超过 UDP_MTU, 否则需要分片发送
  */
-constexpr int UDP_MTU          = 1450;
-constexpr int ENVELOPE_MAC_LEN = 8; // Envelope MAC (SipHash-2-4 tag) 长度
-constexpr int KCP_MTU          = UDP_MTU - ENVELOPE_MAC_LEN;
-constexpr int KCP_HDR_LEN      = 24;
+constexpr int UDP_MTU = 1450;
+
+/** 
+ * @brief Envelope MAC (SipHash tag) 长度, 用来过滤消息
+ */
+constexpr int ENVELOPE_MAC_LEN = 8;
+
+/**
+ * @brief KCP MTU, 用于 KCP 分片
+ */
+constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
+
+/**
+ * @brief KCP 协议头长度
+ */
+constexpr int KCP_HDR_LEN = 24;
 
 
 typedef int SOCKET;
@@ -65,13 +69,18 @@ constexpr SOCKET INVALID_SOCKET = -1;
 
 
 enum class State: uint8_t {
-    Stopped,
-    Stopping,
-    Starting,
-    Running,
+    Stopped,    // 已停止
+    Stopping,   // 正在停止
+    Starting,   // 正在启动
+    Running,    // 运行时
 };
 
 
+/**
+ * @brief 为 fd 设置 non_blocking
+ * 
+ * @return 成功返回 0, 否则返回 -1
+ */
 inline int
 set_nonblocking(int fd) noexcept {
     int flags = ::fcntl(fd, F_GETFL, 0);
@@ -87,22 +96,47 @@ set_nonblocking(int fd) noexcept {
 }
 
 
+/**
+ * @brief 创建 UDP fd
+ * 
+ * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
+ */
 SOCKET
 udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept;
 
 
+/**
+ * @brief 创建TCP监听 fd
+ * 
+ * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
+ */
 SOCKET
 tcp_listen(const std::string& host, int sndbuf = 0, int rcvbuf = 0) noexcept;
 
 
+/**
+ * @brief 创建TCP连接 fd
+ * 
+ * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
+ * 
+ * @note 该函数为异步连接.
+ */
 SOCKET
 tcp_connect(const std::string& host, int sndbuf = 0, int rcvbuf = 0) noexcept;
 
 
+/**
+ * @brief 发送 len 长度的字节
+ */
 ssize_t
 writen(SOCKET fd, const void* buf, size_t len) noexcept;
 
 
+/**
+ * @brief sockaddr 转 string 格式
+ * 
+ * @return 成功返回 sockaddr 的 string 格式, 否则返回空字符串
+ */
 inline std::string
 sockaddr_to_string(const sockaddr* addr) noexcept {
     char ip[INET6_ADDRSTRLEN] = {0};
@@ -124,12 +158,18 @@ sockaddr_to_string(const sockaddr* addr) noexcept {
 }
 
 
+/**
+ * @brief 将 IPV4 地址转为 uint32 4 字节
+ */
 inline uint32_t
 sockaddr_to_u32(const sockaddr_in* addr) noexcept {
     return ::ntohl(addr->sin_addr.s_addr);
 }
 
 
+/**
+ * @brief 将 uint32_t 4 字节转为 IPV4 地址
+ */
 inline void
 u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
     addr->sin_family      = AF_INET;

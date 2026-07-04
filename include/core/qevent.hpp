@@ -41,6 +41,7 @@ struct QEvent {
 
     Type qe_type; ///< 事件类型
 
+
     union {
         SOCKET fd;
         void*  ptr;
@@ -58,7 +59,7 @@ private:
 /**
  * @brief QEvent::Type::Recv 协带参数
  */
-struct RecvArg {
+struct RcvArg {
     core::SOCKET fd;
     uint32_t     len;
     uint8_t      data[];

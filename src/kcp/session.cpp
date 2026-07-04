@@ -107,7 +107,7 @@ typhon::kcp::Session::recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noex
 
 int
 typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
-    int plen = pk.len() - core::PKG_HDR_LEN;
+    int plen = pk.size() - core::PKG_HDR_LEN;
     if (plen > core::PKG_MAX_PAYLOAD) {
         // payload 超限: 加密后 wire(HDR + payload + tag) 会超 PKG_MAX_LEN, 对端收不下
         return xERR_PK_LEN;
@@ -135,7 +135,7 @@ typhon::kcp::Session::send(core::PK<core::Host> &pk) noexcept  {
     } else {
         // 未加密(空 payload 或未 authed)
         core::hton(pk);
-        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.len()));
+        res = core::from_ikcp_send(::ikcp_send(kcp_, (char*)pk.raw(), pk.size()));
     }
 
     // if (res >= xOK) {

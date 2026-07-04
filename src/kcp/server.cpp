@@ -498,7 +498,7 @@ typhon::kcp::Server::update() noexcept {
 
 void
 typhon::kcp::Server::on_pong(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.plen() != sizeof(uint64_t)) {
+    if (pkx.payload_len() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
     }
 }
@@ -506,7 +506,7 @@ typhon::kcp::Server::on_pong(tcp::Connector*, core::PKx<core::Host> &pkx) noexce
 
 void
 typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.plen() != sizeof(uint32_t)) {
+    if (pkx.payload_len() != sizeof(uint32_t)) {
         xERROR("错误的 REGIST_RSP 长度");
         return;
     }
@@ -527,7 +527,7 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
     if (user != nullptr) {
         // 直接用 pkx.pk()(指向 Connector rbuf_): Session::send 把密文+tag 加密输出到它
         // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包。
-        core::PK<core::Host> pk(pkx.pk(), pkx.plen() + core::PKG_HDR_LEN);
+        core::PK<core::Host> pk(pkx.pk(), pkx.payload_len() + core::PKG_HDR_LEN);
         if (user->send(pk) < 0) {
             xERROR("{} 发送失败", user->to_string());
         }
@@ -546,7 +546,7 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
         return xERR_PKT_DST;
     }
 
-    auto plen = pk.plen();
+    auto plen = pk.payload_len();
     if (plen != sizeof(uint64_t)) {
         xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), plen);
         return xERR_PK_LEN;
@@ -561,18 +561,18 @@ typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
     // PKG_HDR(10) + sizeof(AuthToken)(116) + crypto_box_SEALBYTES(48) = 170
-    constexpr int REGIST_REQ_LEN = (int)sizeof(core::Token) + 48;
+    constexpr int REGIST_REQ_LEN = (int)sizeof(core::AccessToken) + 48;
 
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
     }
 
-    if (in.plen() != REGIST_REQ_LEN) {
+    if (in.payload_len() != REGIST_REQ_LEN) {
         return xERR_PK_LEN;
     }
 
-    size_t plen = in.plen();
-    core::Token token;
+    size_t plen = in.payload_len();
+    core::AccessToken token;
     size_t tklen = sizeof(token);
     
     // 1. 使用服务端私钥解密 Token
@@ -598,7 +598,7 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     }
 
     // 3. 校验登录服签名
-    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::Token, sign), Conf::instance()->ed25519_pk()) != 0) {
+    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AccessToken, sign), Conf::instance()->ed25519_pk()) != 0) {
         return xERR_TOKEN_VER;
     }
 
@@ -651,8 +651,8 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
         return xOK;
     }
 
-    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN);
-    pkx->len = (uint16_t)(core::PKX_HDR_LEN + pk.len());
+    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN, pk.size() + core::PKX_HDR_LEN);
+    pkx->len = (uint16_t)(core::PKX_HDR_LEN + pk.size());
     pkx->src_addr = s->remote_addr_u32();
 
     if (sv->send(pkx, tnow_) < 0) {
