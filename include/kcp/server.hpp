@@ -5,6 +5,7 @@
 #include "core/buffer.hpp"
 #include "core/package.hpp"
 #include "core/qevent.hpp"
+#include "kcp/event.hpp"
 #include "kcp/session.hpp"
 #include "tcp/connector.hpp"
 #include "utils/obj_pool.hpp"
@@ -30,52 +31,22 @@ class Server {
 
 
 public:
-    typedef utils::SPSC<core::QEvent*>                         EvQue;
-    typedef std::unique_ptr<Server>                            Ptr;
-    typedef utils::ObjPool<core::SndBuf>                       SndBufPool;
-    typedef absl::flat_hash_map<uint32_t, Session::Ptr>        SessMap;
-    typedef absl::flat_hash_map<uint32_t, Session::Ptr>        UserMap;
+    typedef std::unique_ptr<Server> Ptr;
+
+    // 事件队列, 用于跨线程传递事件
+    typedef utils::SPSC<core::QEvent*> EvQue;
+
+    // 发送缓冲区对象池, 用于复用 SndBuf 对象
+    typedef utils::ObjPool<core::SndBuf> SndBufPool;
+
+    // 会话映射表, 用于根据 conv 查找 Session, 存放所有会话(包括未鉴权的)
+    typedef absl::flat_hash_map<uint32_t, Session::Ptr> SessMap;
+
+    // 用户映射表, 用于根据 user_id 查找 Session, 存放已经鉴权的会话.
+    typedef absl::flat_hash_map<uint32_t, Session::Ptr> UserMap;
+
+    // 后端服务映射表, 用于根据 id 查找 tcp::Connector, 存放所有后端服务
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
-
-    
-    /**
-     * @brief KCP 服务事件回调接口.
-     */
-    class IEvent {
-    public:
-        /**
-         * @brief 服务器初始化回调, 在 Server::run() 里 bind() 和 listen() 成功后调用
-         */
-        virtual void
-        on_init(Server*) noexcept
-        {}
-
-
-        /**
-         * @brief 服务器停止回调, 在 Server::run() 退出前调用
-         */
-        virtual void 
-        on_stopped(Server*) noexcept 
-        {}
-
-
-        /**
-         * @brief 会话连接回调, 在 Server::add_session() 成功后调用
-         * @return 返回非 0 表示拒绝连接, Server 会立刻 remove_session()
-         */
-        virtual int 
-        on_connected(Session::Ptr) noexcept {
-            return 0;
-        }
-
-
-        /**
-         * @brief 会话断开回调, 在 Server::remove_session() 里调用
-         */
-        virtual void 
-        on_disconnected(Session::Ptr) noexcept
-        {}
-    }; // class IEvent;
 
 
     static int
@@ -83,7 +54,7 @@ public:
 
 
     explicit
-    Server(const char* host, IEvent* ev, void* onwer ) noexcept;
+    Server(const char* host, IEvent* ev) noexcept;
 
 
     ~Server() noexcept;
@@ -177,7 +148,7 @@ private:
     int
     add_session(uint32_t conv, Session::Ptr s) noexcept {
         auto [_, res] = sesss_.emplace(conv, s);
-        if (res && event_->on_connected(s)) {
+        if (res && event_->on_sess_connected(s)) {
             sesss_.erase(conv);
             return -1;
         }
@@ -187,18 +158,19 @@ private:
 
     void
     remove_session(uint32_t conv) noexcept {
-        auto sitr = sesss_.find(conv);
-        if (sitr != sesss_.end()) {
-            auto sess = sitr->second;
-            sesss_.erase(sitr);
-            event_->on_disconnected(sess);
+        auto sess_itr = sesss_.find(conv);
+        if (sess_itr != sesss_.end()) {
+            auto sess = sess_itr->second;
+            sesss_.erase(sess_itr);
+            event_->on_sess_disconnected(sess);
 
             if (sess->authed()) {
-                auto uitr = users_.find(sess->user_id());
-                if (uitr != users_.end()) {
-                    auto user = uitr->second;
+                auto user_itr = users_.find(sess->user_id());
+                if (user_itr != users_.end()) {
+                    auto user = user_itr->second;
                     if (user->conv() == sess->conv()) {
-                        users_.erase(uitr);
+                        event_->on_user_disconnected(user);
+                        users_.erase(user_itr);
                     }
                 }
             }
@@ -264,10 +236,6 @@ private:
     // --------------------------------- 用户侧 ---------------------------------
 
     int
-    on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
-
-
-    int
     on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
@@ -277,7 +245,6 @@ private:
 
     // --------------------------------- 基础属性 ---------------------------------
 
-    void*                    onwer_ { nullptr };
     core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
     core::SOCKET             epfd_  { core::INVALID_SOCKET };  ///< epoll fd
     core::SOCKET             evfd_  { core::INVALID_SOCKET };  ///< event fd

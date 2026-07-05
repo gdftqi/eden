@@ -341,6 +341,8 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 {
 	ikcpcb *kcp = (ikcpcb*)ikcp_malloc(sizeof(struct IKCPCB));
 	if (kcp == NULL) return NULL;
+
+	kcp->state = IKCP_STATE_NONE;
 	kcp->conv = conv;
 	kcp->user = user;
 	kcp->snd_una = 0;
@@ -377,8 +379,6 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	kcp->last_snd_ms = 0;
 	kcp->ping_active = 0;
 	kcp->pong = 0;
-	kcp->registered = 0;
-	kcp->rst = 0;
 
 	iqueue_init(&kcp->snd_queue);
 	iqueue_init(&kcp->rcv_queue);
@@ -452,7 +452,7 @@ void ikcp_release(ikcpcb *kcp)
 		if (kcp->buffer) {
 			ikcp_free(kcp->buffer);
 		}
-		if (kcp->mac_buf) {   /* [typhon] */
+		if (kcp->mac_buf) {
 			ikcp_free(kcp->mac_buf);
 		}
 		if (kcp->acklist) {
@@ -465,8 +465,9 @@ void ikcp_release(ikcpcb *kcp)
 		kcp->nsnd_que = 0;
 		kcp->ackcount = 0;
 		kcp->buffer = NULL;
-		kcp->mac_buf = NULL;   /* [typhon] */
+		kcp->mac_buf = NULL;
 		kcp->acklist = NULL;
+		kcp->state = IKCP_STATE_NONE;
 		ikcp_free(kcp);
 	}
 }
@@ -918,8 +919,6 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 	data += IKCP_ENVELOPE_LEN;
 	size -= IKCP_ENVELOPE_LEN;
 
-	kcp->last_rcv_ms = kcp->current;
-
 	while (1) {
 		IUINT32 ts, sn, len, una, conv;
 		IUINT16 wnd;
@@ -946,7 +945,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_RST)
 			return -3;
 
-		if (kcp->registered == 0 && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
+		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
 			ikcp_send_rst(kcp);
 			return IKCP_INPUT_RST;
 		}
@@ -1033,7 +1032,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 			// nothing to do
 		}
 		else if (cmd == IKCP_CMD_RST) {
-			kcp->rst = 1;
+			kcp->state = IKCP_STATE_RST;
 		}
 
 		data += len;
@@ -1076,6 +1075,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		}
 	}
 
+	kcp->last_rcv_ms = kcp->current;
 	return 0;
 }
 
@@ -1389,15 +1389,14 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current)
 		kcp->last_snd_ms = kcp->current;
 	}
 
-	/* [typhon] 判死: 收到对端 RST(会话已不存在) → 返回 -1。服务端不接收 RST, 此处永不触发;
-	   客户端(C# / Python via ikcp.c)据此和"超时"走同一个 ikcp_update<0 判死出口 */
-	if (kcp->rst) {
-		return IKCP_DEAD_RST;
+	if (kcp->state < 0) {
+		return kcp->state;
 	}
 
 	/* [typhon] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */
 	if (kcp->timeout > 0 && _itimediff(kcp->current, kcp->last_rcv_ms) > (IINT32)kcp->timeout) {
-		return IKCP_DEAD_TIMEOUT;
+		kcp->state = IKCP_STATE_TIMEOUT;
+		return kcp->state;
 	}
 
 	slap = _itimediff(kcp->current, kcp->ts_flush);
@@ -1504,9 +1503,9 @@ void ikcp_set_ping(ikcpcb *kcp, int active)
 }
 
 
-void ikcp_set_registered(ikcpcb *kcp, int v)
+void ikcp_open(ikcpcb *kcp)
 {
-	kcp->registered = v ? 1 : 0;
+	kcp->state = IKCP_STATE_OPEN;
 }
 
 

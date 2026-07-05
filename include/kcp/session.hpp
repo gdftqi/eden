@@ -147,7 +147,7 @@ public:
     set_key(const uint8_t* tx, const uint8_t* rx) noexcept {
         ::memcpy(tx_key_, tx, utils::XX20_KEY_LEN);
         ::memcpy(rx_key_, rx, utils::XX20_KEY_LEN);
-        ikcp_set_registered(kcp_, 1);
+        ::ikcp_open(kcp_);
     }
 
     /**
@@ -168,7 +168,17 @@ public:
      * @param len     payload 字节数
      * @param addr    对端 sockaddr(从 recvmmsg 拿到的 msg_hdr.msg_name)
      * @param addrlen addr 长度
-     * @return  xOK 成功; xERR_KCP_* 错误(见 core/error.hpp)
+     * @return  ikcp_input 原始返回码经 core::from_ikcp_input 映射:
+     * 
+     *            0  → xOK              成功
+     * 
+     *           -1  → xERR_KCP_CONV    conv 不符 / 包太短
+     * 
+     *           -2  → xERR_KCP_MALFORM len 字段畸形
+     * 
+     *           -3  → xERR_KCP_CMD     未知 cmd
+     * 
+     *           -4  → xERR (IKCP_INPUT_RST: 会话未注册且非握手包, 已回 RST, 上层应摘会话)
      */
     int
     input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
@@ -197,9 +207,13 @@ public:
      * @param      len buf 长度
      *
      * @return  xOK    成功(包长度在 *pk 的 len() 里)
+     * 
      *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
+     * 
      *          xAGAIN rcv_queue 空 / 无完整包, 当前没有更多消息
-     *          xERR_KCP_BUFSMALL          buf 太小, 放大后重试
+     * 
+     *          xERR_KCP_BUFSMALL buf 太小, 放大后重试
+     * 
      *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int

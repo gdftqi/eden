@@ -318,12 +318,20 @@ struct IKCPOPS
 //---------------------------------------------------------------------
 // IKCPCB
 //---------------------------------------------------------------------
+enum IKCP_STATE {
+	IKCP_STATE_NONE = 0,
+	IKCP_STATE_OPEN = 1,		    // 已接纳对端, 可收发数据
+	IKCP_STATE_TIMEOUT = -1,		// 会话超时
+	IKCP_STATE_RST = -2			// 收到对端 RST, 会话已不存在, 上层应摘会话
+};
+
+
 struct IKCPCB
 {
 	IUINT32 conv, mtu, mss;
 	IUINT32 snd_una, snd_nxt, rcv_nxt;
 	IUINT32 ts_recent, ts_lastack, ssthresh;
-	IINT32 rx_rttval, rx_srtt, rx_rto, rx_minrto;
+	IINT32 rx_rttval, rx_srtt, rx_rto, rx_minrto, state;
 	IUINT32 snd_wnd, rcv_wnd, rmt_wnd, cwnd, probe;
 	IUINT32 current, interval, ts_flush, xmit;
 	IUINT32 nrcv_buf, nsnd_buf;
@@ -334,7 +342,6 @@ struct IKCPCB
 	IUINT32 last_rcv_ms, timeout;
 	IUINT32 last_snd_ms;
 	IUINT32 ping_active, pong;
-	IUINT8 registered, rst;
 	char *mac_buf;
 	IUINT8 siphash[16];
 	struct IQUEUEHEAD snd_queue;
@@ -374,10 +381,6 @@ struct IKCPCB
 // ikcp_input 返回此码 = 对端未被接纳(查无会话), 上层应回 RST + 摘会话
 #define IKCP_INPUT_RST			(-4)
 
-// [typhon] ikcp_update 判死返回码(均 <0, 上层 update<0 即摘会话; 客户端可据具体值选重连策略)
-#define IKCP_DEAD_TIMEOUT		(-1)	// 超时未收到对端任何包
-#define IKCP_DEAD_RST			(-2)	// 收到对端 RST(会话已不存在)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -415,7 +418,9 @@ void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 void ikcp_set_ping(ikcpcb *kcp, int active);
 
 // 标记是否已接纳对端
-void ikcp_set_registered(ikcpcb *kcp, int v);
+void ikcp_open(ikcpcb *kcp);
+
+
 
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call

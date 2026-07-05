@@ -1,0 +1,45 @@
+#ifndef __TYPHON_KCP_EVENT_HPP__
+#define __TYPHON_KCP_EVENT_HPP__
+
+
+#include <memory>
+
+
+namespace typhon::tcp {
+    class Connector;
+}
+
+
+namespace typhon::kcp {
+
+
+class Session;
+
+
+class IEvent {
+public:
+    virtual int on_sess_connected(std::shared_ptr<Session>) noexcept {
+        return 0;
+    }
+
+    virtual void on_sess_disconnected(std::shared_ptr<Session>) noexcept {
+    }
+
+    virtual void on_user_connected(std::shared_ptr<Session>) noexcept {
+    }
+
+    virtual void on_user_disconnected(std::shared_ptr<Session>) noexcept {
+    }
+
+    virtual void on_serv_connected(tcp::Connector*) noexcept {
+    }
+
+    virtual void on_serv_disconnected(tcp::Connector*) noexcept {
+    }
+}; // namespace IEvent;
+
+
+} // namespace typhon::kcp;
+
+
+#endif // __TYPHON_KCP_EVENT_HPP__

@@ -1,7 +1,6 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
-#include "typhon.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -9,13 +8,12 @@ static constexpr int INTERVAL_MS   = 10;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
-typhon::kcp::Server::Server(const char* host, IEvent* ev, void* onwer) noexcept
-    : onwer_(onwer)
-    , event_(ev)
+typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
+    : event_(ev)
     , host_(host)
     , desc_(std::format("[{}:{}]", Conf::instance()->id(), host_)) {
 
-    ASSERT(host_.size() > 0 && ev != nullptr, "invalid host or IEvent instance");
+    ASSERT(host_.size() > 0 && event_ != nullptr, "invalid host or IEvent instance");
 
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
@@ -83,13 +81,13 @@ typhon::kcp::Server::run() noexcept {
     }
 
     sesss_.clear();
+    users_.clear();
     servs_.clear();
 
     for (auto* sb: sque_) {
         sb_pool_.release(sb);
     }
     sque_.clear();
-    tnow_ = 0;
 
     evque_.clear([](core::QEvent* qe) {
         if (qe->qe_type == core::QEvent::Type::AddServ) {
@@ -105,7 +103,7 @@ typhon::kcp::Server::run() noexcept {
 
 int
 typhon::kcp::Server::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
-    auto* s  = (Session*)kcpcb->user;
+    auto s   = (Session*)kcpcb->user;
     auto svr = s->server();
     auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
     svr->sque_.emplace_back(sb);
@@ -132,8 +130,6 @@ typhon::kcp::Server::init() noexcept {
     // 所以作法是只能取有限数量的包, 如果还有未读数据则会被再次唤醒.
     ev.events = EPOLLIN;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, ufd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-
-    event_->on_init(this);
 }
 
 
@@ -153,22 +149,21 @@ typhon::kcp::Server::release() noexcept {
         ::close(ufd_);
         ufd_ = core::INVALID_SOCKET;
     }
-
-    event_->on_stopped(this);
 }
 
 
 void
 typhon::kcp::Server::remove_serv(tcp::Connector* c) noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-    typhon::Server* s = (typhon::Server*)onwer_;
-    s->notify_serv_disconnected(c->id());
+    event_->on_serv_disconnected(c);
     servs_.erase(c->id());
 }
 
 
 void
 typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
+    // 目前事件队列只有 发现后端服务事件 , 所以不需要判断 ev.data.ptr
+
     if (ev.events & EPOLLIN) {
         uint64_t event;
         while (1) {
@@ -202,6 +197,14 @@ void
 typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
     thread_local static uint8_t rbuf[core::PKG_MAX_LEN + core::PKX_HDR_LEN];
 
+    // ufd_ 是 EPOLLET, 且和后端 Connector fd / 控制 eventfd 共用同一个 epoll 线程.
+    // MAX_ROUND 只是防洪峰的安全阀(没吃完的包留在内核缓冲区, ET 下一有新包到达即自愈,不会丢),
+    // 不是常规吞吐限流。正常流量下应远打不到这个 cap, 真正起作用的场景是攻击/洪峰.
+    //
+    // 取值公式:
+    //   MAX_ROUND = ceil((总QPS / worker数) * INTERVAL_MS(10ms) * 余量系数(5~10) / MAX_RECV(128))
+    constexpr int MAX_ROUND = 16;
+
     int res = 0;
     if (ev.events & EPOLLERR) {
         socklen_t len = sizeof(res);
@@ -213,9 +216,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
     }
     
     if (ev.events & EPOLLIN) {
-        int i, n;
-        constexpr int MAX_ROUND = 8;
-        int round = 0;
+        int i, n, round = 0;
         while (round++ < MAX_ROUND) {
             for (i = 0; i < MAX_RECV; ++i) {
                 riovecs_[i].iov_len = core::UDP_MTU;
@@ -231,16 +232,18 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
             for (i = 0; i < n; ++i) {
                 if (rmsgs_[i].msg_hdr.msg_flags & MSG_TRUNC) {
-                    // 判断 UDP 包被截断了.
-                    // 内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃.
-                    // 如果出现这种情况, 一定是攻击行为.
+                    // 判断 UDP 包被截断了
+                    // 内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃
+                    // 如果出现这种情况, 一定是攻击行为
+                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
                     xWARN("UDP truncated from {} dropped", core::sockaddr_to_string((sockaddr*)rmsgs_[i].msg_hdr.msg_name));
                     continue;
                 }
 
                 auto& msg = rmsgs_[i];
                 if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
-                    // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法.
+                    // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法
+                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
                     continue;
                 }
 
@@ -250,6 +253,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 auto conv = Session::getconv(raw, msglen);
                 if (conv == 0) {
+                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
                     continue;
                 }
 
@@ -262,9 +266,6 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 res = s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen);
                 if (res != xOK) {
-                    if (is_new) {
-                        remove_session(conv);
-                    }
                     continue;
                 }
 
@@ -284,15 +285,12 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         continue;
                     } else if (res < 0) {
                         // 协议错误
+                        // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
                         remove_session(s->conv());
                         break;
                     }
 
                     switch (pk->id) {
-                    case PKID_PING:
-                        res = on_ping(s, pk);
-                        break;
-
                     case PKID_REGIST_REQ:
                         res = on_regist_req(s, pk);
                         break;
@@ -318,7 +316,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
     auto* conn = (tcp::Connector*)ev.data.ptr;
 
     if (ev.events & (EPOLLERR | EPOLLHUP)) {
-        xERROR("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
+        xWARN("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
         remove_serv(conn);
         return;
     }
@@ -328,7 +326,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
         if (conn->state() == tcp::Connector::State::Connecting) {
             socklen_t len = sizeof(err);
             if (::getsockopt(conn->fd(), SOL_SOCKET, SO_ERROR, &err, &len) != 0 || err != 0) {
-                xERROR("后端连接失败: {}, err = {}, errstr = {}", conn->to_string(), err, ::strerror(err));
+                xWARN("后端连接失败: {}, err = {}, errstr = {}", conn->to_string(), err, ::strerror(err));
                 remove_serv(conn);
                 return;
             }
@@ -487,7 +485,7 @@ typhon::kcp::Server::update() noexcept {
         auto& conn = itr->second;
         if (conn->update(now) < 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            ((typhon::Server*)onwer_)->notify_serv_disconnected(conn->id());
+            event_->on_serv_disconnected(conn.get());
             servs_.erase(itr++);
         } else {
             ++itr;
@@ -511,7 +509,7 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
         return;
     }
     
-    uint32_t res = ntohl(*((uint32_t*)pkx.pk()->payload));
+    uint32_t res = ::ntohl(*((uint32_t*)pkx.pk()->payload));
     if (res == 0) {
         xINFO("注册服务 {} 成功", conn->id());
         conn->set_authed(true);
@@ -532,29 +530,6 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
             xERROR("{} 发送失败", user->to_string());
         }
     }
-}
-
-
-int
-typhon::kcp::Server::on_ping(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
-    if (!s->authed()) {
-        return xERR_NOT_AUTH;
-    }
-
-    if (pk->dst_id != Conf::instance()->id()) {
-        xERROR("{} ping 包: invalid pk_dst_id [{}]", s->to_string(), pk->dst_id);
-        return xERR_PKT_DST;
-    }
-
-    auto plen = pk.payload_len();
-    if (plen != sizeof(uint64_t)) {
-        xERROR("{} ping 包: invalid payload length [{}]", s->to_string(), plen);
-        return xERR_PK_LEN;
-    }
-
-    pk->id = PKID_PONG;
-    pk->dst_id = Conf::instance()->id();
-    return s->send(pk);
 }
 
 
@@ -628,7 +603,9 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
         // os->second->set_state(off_line);
         users_.erase(olditr);
     }
+
     users_.emplace(s->user_id(), s);
+    event_->on_user_connected(s);
     core::PK<core::Host>::release(out);
     return res;
 }
