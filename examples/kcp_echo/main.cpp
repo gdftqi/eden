@@ -15,37 +15,61 @@ on_signal(int) {
 }
 
 
-class EchoService: public typhon::kcp::Server::IEvent {
+class EchoService: public typhon::kcp::IEvent {
 public:
     virtual void 
-    on_init(typhon::kcp::Server* server) noexcept {
-        xINFO("{} running on {}", server->host(), ::pthread_self());
+    on_init(void* arg) noexcept {
+        server_ = (typhon::Server*)arg;
+        xINFO("{} is running...", typhon::Conf::instance()->host());
     }
 
 
     virtual void
-    on_stopped(typhon::kcp::Server* server) noexcept {
-        xINFO("{} stopped on {}", server->host(), ::pthread_self());
+    on_stopped(void*) noexcept {
+        xINFO("{} stopped", typhon::Conf::instance()->host());
     }
 
 
     virtual int
-    on_connected(typhon::kcp::Session::Ptr kcp) noexcept {
+    on_sess_connected(typhon::kcp::Session::Ptr kcp) noexcept {
         xINFO("{} connected on {}", kcp->remote_addr(), ::pthread_self());
         return 0;
     }
 
 
     virtual void
-    on_disconnected(typhon::kcp::Session::Ptr kcp) noexcept {
+    on_sess_disconnected(typhon::kcp::Session::Ptr kcp) noexcept {
         xINFO("{} disconnected on {}", kcp->remote_addr(), ::pthread_self());
     }
 
 
-    virtual int
-    on_data(typhon::kcp::Session::Ptr sess, typhon::core::PK<typhon::core::Host> &pk) noexcept {
-        return sess->send(pk) < 0 ? -1 : 0;
+    virtual void
+    on_user_connected(typhon::kcp::Session::Ptr kcp) noexcept {
+        xINFO("[{}:{}] authed on {}", kcp->user_id(), kcp->remote_addr(), ::pthread_self());
     }
+
+
+    virtual void
+    on_user_disconnected(typhon::kcp::Session::Ptr kcp) noexcept {
+        xINFO("[{}:{}] unauth on {}", kcp->user_id(), kcp->remote_addr(), ::pthread_self());
+    }
+
+
+    virtual void
+    on_serv_connected(typhon::tcp::Connector* conn) noexcept {
+        xINFO("serv {} connected on {}", conn->id(), ::pthread_self());
+    }
+
+
+    virtual void
+    on_serv_disconnected(typhon::tcp::Connector* conn) noexcept {
+        xINFO("serv {} disconnected on {}", conn->id(), ::pthread_self());
+        server_->notify_serv_disconnected(conn->id());
+    }
+
+
+private:
+    typhon::Server* server_ { nullptr };
 };
 
 
@@ -74,8 +98,8 @@ main(int argc, char** argv) {
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
-    xINFO("kcp echo listening on 0.0.0.0:5555 (XDP on {}, kcp bpf = {}, envelope bpf = {})",
-          ifname, kcp_bpf_path, envelope_bpf_path);
+    xINFO("kcp echo listening on 0.0.0.0:5555 (XDP on {}, kcp bpf = {}, envelope bpf = {})", ifname, kcp_bpf_path, envelope_bpf_path);
     server.run();
+
     ::exit(EXIT_SUCCESS);
 }

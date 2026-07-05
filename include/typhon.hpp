@@ -135,7 +135,7 @@ public:
      *                          空串表示不启用 XDP 防御层 (开发 / 调试时可用)
      */
     explicit
-    Server(kcp::Server::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
+    Server(kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
 
 
     bool
@@ -194,7 +194,7 @@ private:
     core::SOCKET                  epfd_              { core::INVALID_SOCKET }; // epoll fd
     core::SOCKET                  evrfd_             { core::INVALID_SOCKET }; // event read fd
     core::SOCKET                  evwfd_             { core::INVALID_SOCKET }; // event read fd
-    kcp::Server::IEvent*          serv_ev_           { nullptr };              // 服务事件
+    kcp::IEvent*                  event_             { nullptr };              // 服务事件
     std::atomic<core::State>      state_             { core::State::Stopped }; // 状态
     std::string                   host_;                                       // 监听 host:port
     std::string                   ifname_;                                     // 网卡名 (XDP attach)

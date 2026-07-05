@@ -7,8 +7,8 @@ static constexpr int MAX_EVENTS  = 1;    // 只有一个 stop evfd
 static constexpr int INTERVAL_MS = 10000;
 
 
-typhon::Server::Server(kcp::Server::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
-    : serv_ev_(ev)
+typhon::Server::Server(kcp::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
+    : event_(ev)
     , host_(host)
     , ifname_(ifname ? ifname : "lo")
     , kcp_bpf_path_(kcp_bpf_path ? kcp_bpf_path : "")
@@ -80,10 +80,10 @@ typhon::Server::run() noexcept {
             return;
         }
     }
-
+    
     // 3. 创建 KcpServer
     for (int i = 0; i < n; ++i) {
-        auto s = std::make_unique<kcp::Server>(host_.c_str(), serv_ev_, this);
+        auto s = std::make_unique<kcp::Server>(host_.c_str(), event_);
         ASSERT(s->fd() != core::INVALID_SOCKET, "创建 kcp server 失败");
 
         if (!kcp_bpf_path_.empty()) {
@@ -104,6 +104,8 @@ typhon::Server::run() noexcept {
     }
 
     init();
+    event_->on_init(this);
+
     int i;
     ::epoll_event evs[MAX_EVENTS];
     state_.store(core::State::Running);
@@ -141,6 +143,7 @@ typhon::Server::run() noexcept {
 
     release();
     state_.store(core::State::Stopped);
+    event_->on_stopped(this);
 }
 
 

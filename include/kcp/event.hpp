@@ -18,6 +18,12 @@ class Session;
 
 class IEvent {
 public:
+    virtual void on_init(void*) noexcept {
+    }
+
+    virtual void on_stopped(void*) noexcept {
+    }
+
     virtual int on_sess_connected(std::shared_ptr<Session>) noexcept {
         return 0;
     }
