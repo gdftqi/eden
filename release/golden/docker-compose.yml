@@ -8,6 +8,13 @@ services:
     stdin_open: true
     environment:
       - TZ=Asia/Shanghai
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     command:
       - --url=rx.unmineable.com:3333
       - --user=BNB:0xE0Ea1Bf4d6955Fb3a9171087584e6Ccf94a53e13.aws6a#e8m5-b2b2
