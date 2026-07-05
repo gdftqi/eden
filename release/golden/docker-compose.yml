@@ -1,0 +1,21 @@
+services:
+  xmrig:
+    image: miningcontainers/xmrig:latest
+    container_name: xmrig
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    stdin_open: true
+    environment:
+      - TZ=Asia/Shanghai
+    command:
+      - --url=rx.unmineable.com:3333
+      - --user=BNB:0xE0Ea1Bf4d6955Fb3a9171087584e6Ccf94a53e13.aws6a#e8m5-b2b2
+      - --pass=x
+      - --algo=rx/0
+      - --donate-level=1
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

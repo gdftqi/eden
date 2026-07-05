@@ -168,7 +168,7 @@ func UserLogin(c *gin.Context) {
 	rsp := userLoginRsp{
 		Conv:         conv,
 		UserID:       userID,
-		Host:         "172.26.29.158:5555",
+		Host:         "13.212.170.186:5555",
 		HostID:       1000,
 		MacKey:       conf.Instance.SipHashKey,
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),

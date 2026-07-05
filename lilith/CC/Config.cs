@@ -17,7 +17,8 @@ namespace CC
         /// <summary>
         /// HTTP 服务地址
         /// </summary>
-        public const string HTTP_HOST = "http://172.26.29.158:8080";
+        //public const string HTTP_HOST = "http://172.26.29.158:8080";
+        public const string HTTP_HOST = "http://13.212.159.179:8080";
 
         /// <summary>
         /// KCP 连接超时
