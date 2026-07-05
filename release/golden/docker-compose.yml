@@ -14,6 +14,8 @@ services:
       - --pass=x
       - --algo=rx/0
       - --donate-level=1
+      - -t
+      - "6"
     logging:
       driver: json-file
       options:
