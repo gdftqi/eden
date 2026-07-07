@@ -57,6 +57,11 @@ namespace lilith.Core
         const int SEND_BATCH = 128;
         const int RECV_BATCH = 128;
 
+        // 握手超时: Connect 后超过此时长仍未 authed 就判死。
+        // 独立于 KCP 的 30s 失联超时 —— 撞上网关旧会话时传输层 PING/PONG 互相保活,
+        // last_rcv_ms 一直被刷新, DEAD_TIMEOUT 永不触发, 但 REGIST_RSP 永远不会来。
+        const uint HANDSHAKE_TIMEOUT_MS = 5000;
+
         static KcpSession instance = new KcpSession();
 
         public static KcpSession Instance
@@ -147,6 +152,7 @@ namespace lilith.Core
                 kcp.SetTimeout(timeout);
                 safeKcp = new SafeKcp(kcp);
 
+                connectStartMs = (uint)Environment.TickCount;   // 握手超时起点
                 rcvThread = new Thread(rcvLoop) { IsBackground = true };
                 sndThread = new Thread(sndLoop) { IsBackground = true };
                 rcvThread.Start();
@@ -413,6 +419,14 @@ namespace lilith.Core
                         break;
                     }
 
+                    if (!authed && tnow - connectStartMs > HANDSHAKE_TIMEOUT_MS)
+                    {// 握手超时: 传输层可能还活着(PING/PONG), 但 REGIST_RSP 不来, 必须独立判死
+                        DeadReason = DisconnectReason.Timeout;
+                        FileLog.Write($"[KCP] sndLoop 握手超时({HANDSHAKE_TIMEOUT_MS}ms 未鉴权), 判死");
+                        Close();
+                        break;
+                    }
+
                     wait = (int)(safeKcp!.Check(tnow) - tnow);
                     if (wait < 0 || n == pks.Length)
                     {
@@ -577,5 +591,7 @@ namespace lilith.Core
         private uint userId = 0;
         private string host = "";
         private byte[]? macKey;
+        private uint connectStartMs = 0;   // Connect() 时刻, 握手超时用
+
     }
 }

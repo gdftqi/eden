@@ -91,8 +91,11 @@ func Refresh(c *gin.Context) {
 		return
 	}
 
-	// Step 4, 分配 conv(占位, 同 login; 真正的 conv 生成待 user-manager)
-	conv := userID
+	// Step 4, 分配【新】conv(占位, 生成规则待 user-manager)。
+	conv := uint32(time.Now().UnixNano())
+	if conv == 0 {
+		conv = 1
+	}
 
 	// Step 5, 会话写入 redis
 	sess := com.UserSession{
