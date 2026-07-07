@@ -24,5 +24,7 @@ namespace CC
         /// KCP 连接超时
         /// </summary>
         public const uint KCP_TIMEOUT = 30000;
+
+        public const uint RECONNECT_MAX_TIME = 300000;
     }
 }

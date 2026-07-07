@@ -1,6 +1,5 @@
 using lilith.Tools;
 using System;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -108,6 +107,8 @@ namespace lilith.Core
 
         public Task<bool> Connect(ISessionEvent ev, uint timeout)
         {// 连接服务
+            FileLog.Write($"[KCP] Connect() 调用, running(调用前)={running}");
+
             if (ev == null)
             {// 入参检查
                 throw new Exception("param is invalid");
@@ -117,9 +118,11 @@ namespace lilith.Core
 
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0)
             {// 已在运行, 返回当前这次连接的结果
+                FileLog.Write($"[KCP] Connect() 命中'已在运行'分支, connectTsk是否为null={connectTsk == null}, 该Task是否已完成={connectTsk?.Task.IsCompleted}");
                 return connectTsk?.Task ?? Task.FromResult(false);
             }
 
+            FileLog.Write($"[KCP] Connect() CAS 成功, 新建 connectTsk, host={host}, conv={conv}");
             connectTsk = new TaskCompletionSource<bool>();
 
             var ipStr = host.Substring(0, host.IndexOf(':'));
@@ -148,9 +151,11 @@ namespace lilith.Core
                 sndThread = new Thread(sndLoop) { IsBackground = true };
                 rcvThread.Start();
                 sndThread.Start();
+                FileLog.Write($"[KCP] Connect() 线程已起, rcvTid={rcvThread.ManagedThreadId}, sndTid={sndThread.ManagedThreadId}");
             }
-            catch
+            catch (Exception ex)
             {
+                FileLog.Write($"[KCP] Connect() 异常: {ex}");
                 running = 0;
                 sock?.Close();
                 throw;
@@ -161,11 +166,17 @@ namespace lilith.Core
 
         public void Close()
         {// 关闭连接
+            FileLog.Write($"[KCP] Close() 调用, running(调用前)={running}, DeadReason={DeadReason}");
             if (Interlocked.CompareExchange(ref running, 0, 1) == 1)
             {
+                FileLog.Write($"[KCP] Close() CAS 成功, 本次由我发起 teardown");
                 sock?.Close();
-                sendQue.Signal();
+                sndQue.Signal();
                 Notify();
+            }
+            else
+            {
+                FileLog.Write($"[KCP] Close() CAS 失败(已经是 0), 跳过");
             }
         }
 
@@ -176,17 +187,21 @@ namespace lilith.Core
             {
                 if (rcvThread != null || sndThread != null)
                 {
+                    FileLog.Write($"[KCP] Update() 进入 teardown 分支, 开始 Join 线程");
                     rcvThread?.Join();
                     sndThread?.Join();
                     rcvThread = null;
                     sndThread = null;
-                    connectTsk?.TrySetResult(false);
+                    FileLog.Write($"[KCP] Update() 线程已 Join 完毕, connectTsk是否为null={connectTsk == null}, TrySetResult(false) 之前是否已完成={connectTsk?.Task.IsCompleted}");
+                    bool won = connectTsk?.TrySetResult(false) ?? false;
+                    FileLog.Write($"[KCP] Update() TrySetResult(false) 结果={won}, 即将调用 ev.OnDisconnected, ev是否为null={ev == null}");
                     ev?.OnDisconnected(remotePoint!);
+                    FileLog.Write($"[KCP] Update() OnDisconnected 返回, 清理状态完毕");
                     remotePoint = null;
                     sock = null;
                     safeKcp = null;
                     authed = false;
-                    sendQue.Clear();
+                    sndQue.Clear();
                     rcvQue.Clear();
                     Package.Pool.Clear();
                 }
@@ -196,12 +211,18 @@ namespace lilith.Core
             var evs = new IOEvent[RECV_BATCH];
             int n = rcvQue.Wait(evs);
 
+            if (n > 0)
+            {
+                FileLog.Write($"[KCP] Update() 本轮取到 {n} 个事件: [{string.Join(",", Array.ConvertAll(evs, e => e?.Type.ToString() ?? "null"), 0, n)}]");
+            }
+
             for (int i = 0; i < n; i++)
             {
                 switch (evs[i].Type)
                 {
                     case IOEventType.Connected:
-                        connectTsk?.TrySetResult(true);
+                        bool tsWon = connectTsk?.TrySetResult(true) ?? false;
+                        FileLog.Write($"[KCP] Update() 收到 Connected 事件, TrySetResult(true) 结果={tsWon}, 即将调用 ev.OnConnected");
                         ev?.OnConnected(remotePoint!);
                         break;
 
@@ -215,7 +236,9 @@ namespace lilith.Core
 
         private void Notify()
         {
-            if (Interlocked.Exchange(ref notifyPending, 1) == 0)
+            bool fired = Interlocked.Exchange(ref notifyPending, 1) == 0;
+            FileLog.Write($"[KCP] Notify() 调用, 是否实际触发 OnWakeup={fired}(false=被合并/丢弃, 说明已有一次唤醒待处理)");
+            if (fired)
             {
                 OnWakeup?.Invoke();
             }
@@ -230,11 +253,12 @@ namespace lilith.Core
 
             var copy = Package.Pool.Take();
             copy.CopyFrom(pkg);
-            sendQue.Enqueue(copy);
+            sndQue.Enqueue(copy);
         }
 
         private void rcvLoop()
         {// 接收线程
+            FileLog.Write($"[KCP] rcvLoop 启动");
             EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
             var recvBuf = new byte[UDP_MTU];
             int n = 0;
@@ -289,7 +313,7 @@ namespace lilith.Core
             }
             catch (SocketException ex)
             {
-                Debug.WriteLine("recvLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
+                FileLog.Write($"[KCP] recvLoop SocketException: {ex.SocketErrorCode} ({ex.ErrorCode}) {ex.Message}");
                 if (Running)
                 {// 非主动关闭(Close 会先把 running 置 0)→ 标记异常断线, 触发重连
                     DeadReason = DisconnectReason.Reset;
@@ -297,7 +321,7 @@ namespace lilith.Core
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("recvLoop error: " + ex);
+                FileLog.Write("[KCP] recvLoop error: " + ex);
                 if (Running)
                 {
                     DeadReason = DisconnectReason.Reset;
@@ -305,12 +329,15 @@ namespace lilith.Core
             }
             finally
             {
+                FileLog.Write($"[KCP] rcvLoop 退出");
                 Close();
             }
         }
 
         private void onRegistRsp(Package pkg)
         {// PKID_REGIST_RSP 句柄
+            FileLog.Write($"[KCP] onRegistRsp 收到, authed(收到前)={authed}, PayloadLength={pkg.PayloadLength}");
+
             if (authed)
             {// 已鉴权
                 return;
@@ -324,6 +351,7 @@ namespace lilith.Core
             Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
             authed = true;
             rcvQue.Enqueue(new IOEvent(IOEventType.Connected));
+            FileLog.Write($"[KCP] onRegistRsp 鉴权成功, 已入队 Connected 事件, 即将 Notify()");
             Notify();
             Package.Pool.Return(pkg);
         }
@@ -359,14 +387,16 @@ namespace lilith.Core
 
         private void sndLoop()
         {// 发送线程
+            FileLog.Write($"[KCP] sndLoop 启动");
             try
             {
                 registReq();
+                FileLog.Write($"[KCP] sndLoop 已发出 REGIST_REQ, GatewayID={GatewayID}");
                 var pks = new Package[SEND_BATCH];
                 int wait = 0;
                 while (Running)
                 {
-                    int n = sendQue.Wait(pks, wait);
+                    int n = sndQue.Wait(pks, wait);
                     for (int i = 0; i < n; i++)
                     {
                         doSend(pks[i]);
@@ -378,6 +408,7 @@ namespace lilith.Core
                     if (dead < 0)
                     {
                         DeadReason = dead == Kcp.DEAD_RST ? DisconnectReason.Rst : DisconnectReason.Timeout;
+                        FileLog.Write($"[KCP] sndLoop 判死, dead={dead}, DeadReason={DeadReason}");
                         Close();
                         break;
                     }
@@ -399,7 +430,7 @@ namespace lilith.Core
             }
             catch (SocketException ex)
             {
-                Debug.WriteLine("sendLoop SocketException: {0} ({1}) {2}", ex.SocketErrorCode, ex.ErrorCode, ex.Message);
+                FileLog.Write($"[KCP] sendLoop SocketException: {ex.SocketErrorCode} ({ex.ErrorCode}) {ex.Message}");
                 if (Running)
                 {// 非主动关闭 → 标记异常断线, 触发重连
                     DeadReason = DisconnectReason.Reset;
@@ -407,7 +438,7 @@ namespace lilith.Core
             }
             catch (Exception ex)
             {
-                Debug.WriteLine("sendLoop error: " + ex);
+                FileLog.Write("[KCP] sendLoop error: " + ex);
                 if (Running)
                 {
                     DeadReason = DisconnectReason.Reset;
@@ -415,6 +446,7 @@ namespace lilith.Core
             }
             finally
             {
+                FileLog.Write($"[KCP] sndLoop 退出");
                 Close();
             }
         }
@@ -509,7 +541,7 @@ namespace lilith.Core
             sock!.SendTo(segment, size, SocketFlags.None, remotePoint!);
         }
 
-        private readonly BlockingQueue<Package> sendQue = new BlockingQueue<Package>();
+        private readonly BlockingQueue<Package> sndQue = new BlockingQueue<Package>();
         private readonly BlockingQueue<IOEvent> rcvQue = new BlockingQueue<IOEvent>();
 
         // ---- 控制 / 共享 ----

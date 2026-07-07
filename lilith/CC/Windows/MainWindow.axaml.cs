@@ -3,9 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using lilith.Core;
+using lilith.Tools;
 using System;
 using System.Diagnostics;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace CC
 {
@@ -120,16 +122,17 @@ namespace CC
 
         public void OnConnected(EndPoint host)
         {
-            Debug.WriteLine("连接 {0} 成功", host);
+            FileLog.Write($"[MW] OnConnected: {host}");
             ShowConnState(ConnState.Connected);
         }
 
         public void OnDisconnected(EndPoint host)
         {
-            Debug.WriteLine("连接 {0} 断开, 原因 {1}", host, KcpSession.Instance.DeadReason);
+            FileLog.Write($"[MW] OnDisconnected: {host}, DeadReason={KcpSession.Instance.DeadReason}, reconnecting(当前)={reconnecting}");
 
             if (reconnecting)
             {
+                FileLog.Write("[MW] OnDisconnected: reconnecting 已为 true, 忽略这次重入");
                 return;
             }
 
@@ -144,45 +147,56 @@ namespace CC
 
         private bool reconnecting;
 
-        const int RECONNECT_DEADLINE_MS = 30000;
         const int RECONNECT_RETRY_INTERVAL_MS = 2000;
 
-        private async System.Threading.Tasks.Task Reconnect()
+        private async Task Reconnect()
         {
+            FileLog.Write($"[MW] Reconnect() 开始");
             reconnecting = true;
             ShowConnState(ConnState.Reconnecting);
 
             var sw = Stopwatch.StartNew();
+            int attempt = 0;
             try
             {
-                while (sw.ElapsedMilliseconds < RECONNECT_DEADLINE_MS)
+                while (sw.ElapsedMilliseconds < Config.RECONNECT_MAX_TIME)
                 {
+                    attempt++;
+                    FileLog.Write($"[MW] Reconnect() 第 {attempt} 次尝试, 已耗时={sw.ElapsedMilliseconds}ms");
                     try
                     {
                         await Proxy.Refresh.POST();
-                        if (await KcpSession.Instance.Connect(this, Config.KCP_TIMEOUT))
+                        FileLog.Write($"[MW] Reconnect() Refresh.POST 返回, 即将 Connect(), 已耗时={sw.ElapsedMilliseconds}ms");
+
+                        bool ok = await KcpSession.Instance.Connect(this, Config.KCP_TIMEOUT);
+                        FileLog.Write($"[MW] Reconnect() Connect() 返回 {ok}, 已耗时={sw.ElapsedMilliseconds}ms");
+
+                        if (ok)
                         {
                             return;
                         }
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine("重连尝试失败: " + ex.Message);
+                        FileLog.Write($"[MW] Reconnect() 第 {attempt} 次尝试失败: {ex}");
                     }
 
-                    await System.Threading.Tasks.Task.Delay(RECONNECT_RETRY_INTERVAL_MS);
+                    await Task.Delay(RECONNECT_RETRY_INTERVAL_MS);
                 }
 
+                FileLog.Write($"[MW] Reconnect() 超过 {Config.RECONNECT_MAX_TIME}ms 仍未连上, 回登录页");
                 BackToLogin();
             }
             finally
             {
+                FileLog.Write($"[MW] Reconnect() 结束, reconnecting 置回 false");
                 reconnecting = false;
             }
         }
 
         private void BackToLogin()
         {
+            FileLog.Write($"[MW] BackToLogin() 调用");
             KcpSession.Instance.Close();
 
             var login = new LoginWindow();
@@ -247,7 +261,7 @@ namespace CC
 
         private async void AutoHideConnBanner(int gen)
         {
-            await System.Threading.Tasks.Task.Delay(1500);
+            await Task.Delay(1500);
             if (gen == connStateGen)
             {
                 HideConnBanner();
