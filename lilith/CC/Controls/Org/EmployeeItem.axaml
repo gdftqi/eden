@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="CC.EmployeeItem"
+             x:Name="Root">
+    <!-- 左缩进 30: 表示挂在部门下 -->
+    <Border x:Name="Body" Classes="item" Height="64" Padding="30,0,14,0" Focusable="True" FocusAdorner="{x:Null}">
+        <Border.Styles>
+            <Style Selector="Border.item">
+                <Setter Property="Background" Value="Transparent"/>
+            </Style>
+            <!-- hover 样式 -->
+            <Style Selector="Border.item:pointerover">
+                <Setter Property="Background" Value="#F2F3F5"/>
+            </Style>
+            <!-- 选中 样式: 由 IsSelected 驱动(不依赖焦点) -->
+            <Style Selector="Border.item.selected">
+                <Setter Property="Background" Value="#D9EDDA"/>
+            </Style>
+            <Style Selector="Border.item.selected:pointerover">
+                <Setter Property="Background" Value="#CFE8D1"/>
+            </Style>
+        </Border.Styles>
+        <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+            <!-- 头像 -->
+            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22" ClipToBounds="True" Margin="0,0,12,0">
+                <Image Source="{Binding #Root.Avatar}" Stretch="UniformToFill"/>
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                <!-- 昵称 -->
+                <TextBlock Text="{Binding #Root.Nickname}" FontSize="14.5" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis"/>
+                <!-- 签名(空则隐藏) -->
+                <TextBlock Text="{Binding #Root.Sign}" FontSize="12" Foreground="#8A8A8A" TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding #Root.Sign, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

@@ -8,7 +8,11 @@
         <!-- 右侧: 未选中时空状态 / 选中后联系人详情 -->
         <Grid Grid.Column="1">
             <Border x:Name="EmptyState" Background="#ECE5DD">
-                <TextBlock Text="选择一个联系人" FontSize="15" Foreground="#8A8A8A" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640" Margin="40">
+                    <TextBlock Text="&#x201C;I came, I saw, I conquered.&#x201D;" FontFamily="Georgia" FontSize="30" FontStyle="Italic" FontWeight="SemiBold" Foreground="#4B4B4B" TextAlignment="Center" TextWrapping="Wrap" LineHeight="44"/>
+                    <Border Height="1" Width="120" Background="#C9C9C9" Margin="0,22,0,14"/>
+                    <TextBlock Text="— Veni, vidi, vici · Julius Caesar, 47 BC" FontFamily="Georgia" FontSize="14" FontStyle="Italic" Foreground="#8A8A8A" TextAlignment="Center"/>
+                </StackPanel>
             </Border>
             <cc:ContactWindow x:Name="ContactView" IsVisible="False"/>
         </Grid>
