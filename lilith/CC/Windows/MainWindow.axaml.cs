@@ -19,22 +19,18 @@ namespace CC
         public MainWindow()
         {
             InitializeComponent();
-            ChatPanel.ChatSelected += OpenChat;
-            ChatView.SendRequested += OnSendText;
+            TabChat.SendRequested += OnSendText;
             KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
         }
 
 
-        private void OpenChat(ChatItem item)
+        // 切换页签: 叠放的四个 Tab 只显示一个
+        private void ShowTab(Control tab)
         {
-            ChatView.PeerName = item.Nickname;
-            ChatView.PeerAvatar = item.Avatar;
-            ChatView.PeerStatus = "最后在线 今天 17:20";
-
-            // 临时: 每个会话都用同一组示例消息(以后换成各自的真实消息)
-            ChatView.ClearMessages();
-            EmptyState.IsVisible = false;
-            ChatView.IsVisible = true;
+            TabChat.IsVisible = tab == TabChat;
+            TabContact.IsVisible = tab == TabContact;
+            TabOrg.IsVisible = tab == TabOrg;
+            TabSettings.IsVisible = tab == TabSettings;
         }
 
         private void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -53,7 +49,7 @@ namespace CC
         private void Settings_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             SetNav(SettingsIcon);
-            // TODO: 打开设置面板
+            ShowTab(TabSettings);
         }
 
         private static readonly Avalonia.Media.IBrush ActiveIcon = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#66BB6A"));
@@ -70,19 +66,19 @@ namespace CC
         private void Chat_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             SetNav(ChatIcon);
-            // TODO: 切换到聊天
+            ShowTab(TabChat);
         }
 
         private void Contacts_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             SetNav(ContactsIcon);
-            // TODO: 切换到联系人列表
+            ShowTab(TabContact);
         }
 
         private void Org_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             SetNav(OrgIcon);
-            // TODO: 切换到组织架构
+            ShowTab(TabOrg);
         }
 
         private void ToggleMaximize()
@@ -272,7 +268,7 @@ namespace CC
         public void OnPackage(Package pkg)
         {
             var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
-            ChatView.AddText(false, text, DateTime.Now.ToString("HH:mm"));
+            TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
         }
 
         // ChatWindow 发送时触发: 把文字打包成业务 echo 包发给服务端

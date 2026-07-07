@@ -34,4 +34,10 @@
   <ItemGroup>
     <ProjectReference Include="..\lilith\lilith.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Controls\Contact\" />
+    <Folder Include="Controls\Org\" />
+    <Folder Include="Controls\Settings\" />
+  </ItemGroup>
 </Project>

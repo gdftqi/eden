@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CC.OrgTab">
+    <!-- TODO: 组织架构页 -->
+    <Border Background="#ECE5DD">
+        <TextBlock Text="组织架构" FontSize="15" Foreground="#8A8A8A" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </Border>
+</UserControl>

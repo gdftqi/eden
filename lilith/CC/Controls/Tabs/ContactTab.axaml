@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:cc="using:CC"
+             x:Class="CC.ContactTab">
+    <Grid ColumnDefinitions="280,*">
+        <!-- 联系人列表 -->
+        <cc:ContactListPanel x:Name="ContactPanel" Grid.Column="0"/>
+        <!-- 右侧: 联系人详情(后期填) -->
+        <Border Grid.Column="1" Background="#ECE5DD">
+            <TextBlock Text="选择一个联系人" FontSize="15" Foreground="#8A8A8A" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Border>
+    </Grid>
+</UserControl>
