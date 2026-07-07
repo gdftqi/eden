@@ -12,6 +12,7 @@ namespace CC
         public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<ChatItem, string?>("Time");
         public static readonly StyledProperty<IImage?> AvatarProperty = AvaloniaProperty.Register<ChatItem, IImage?>("Avatar");
         public static readonly StyledProperty<int> UnreadProperty = AvaloniaProperty.Register<ChatItem, int>("Unread");
+        public static readonly StyledProperty<bool> IsSelectedProperty = AvaloniaProperty.Register<ChatItem, bool>("IsSelected");
 
         public string? Nickname
         {
@@ -43,6 +44,12 @@ namespace CC
             set => SetValue(UnreadProperty, value);
         }
 
+        public bool IsSelected
+        {
+            get => GetValue(IsSelectedProperty);
+            set => SetValue(IsSelectedProperty, value);
+        }
+
         public ChatItem()
         {
             InitializeComponent();
@@ -55,6 +62,10 @@ namespace CC
             if (change.Property == UnreadProperty)
             {
                 ApplyUnread();
+            }
+            else if (change.Property == IsSelectedProperty)
+            {
+                Body.Classes.Set("selected", IsSelected);
             }
         }
 
