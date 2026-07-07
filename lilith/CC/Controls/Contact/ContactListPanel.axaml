@@ -119,17 +119,7 @@
                     </Style>
                 </ControlTheme>
             </ScrollViewer.Resources>
-            <StackPanel x:Name="ContactList">
-                <StackPanel.Styles>
-                    <!-- 联系人行: 悬停变灰 (行由 code-behind 构造, 挂 contact 类) -->
-                    <Style Selector="Border.contact">
-                        <Setter Property="Background" Value="Transparent"/>
-                    </Style>
-                    <Style Selector="Border.contact:pointerover">
-                        <Setter Property="Background" Value="#F0F2F5"/>
-                    </Style>
-                </StackPanel.Styles>
-            </StackPanel>
+            <StackPanel x:Name="ContactList"/>
         </ScrollViewer>
     </Grid>
 </UserControl>

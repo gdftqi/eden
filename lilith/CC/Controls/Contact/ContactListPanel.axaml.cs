@@ -1,7 +1,5 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Media;
 using System;
 
@@ -11,10 +9,13 @@ namespace CC
     public partial class ContactListPanel : UserControl
     {
         // 选中某个联系人时触发(宿主据此打开右侧详情)
-        public event Action<string>? ContactSelected;
+        public event Action<ContactItem>? ContactSelected;
 
         // 点了"添加联系人"时触发(宿主决定弹窗还是切界面)
         public event Action? AddContactRequested;
+
+        // 当前选中的联系人项(高亮由 IsSelected 驱动, 不依赖焦点)
+        private ContactItem? selectedItem;
 
         public ContactListPanel()
         {
@@ -30,8 +31,6 @@ namespace CC
 
             (string nick, string sign)[] data =
             {
-                ("利群", "低调的奢华"),
-                ("xinfeng", "紫色的玫瑰"),
                 ("美女1", "今天也要加油鸭"),
                 ("美女2", ""),
                 ("美女3", "忙, 勿扰"),
@@ -48,38 +47,24 @@ namespace CC
             }
         }
 
-        // 建一行联系人: [头像] 昵称/签名
+        // 建一个联系人项
         private void AddContact(IImage avatar, string nick, string sign)
         {
-            var face = new Border
-            {
-                Width = 44, Height = 44, CornerRadius = new CornerRadius(22), ClipToBounds = true,
-                Child = new Image { Source = avatar, Stretch = Stretch.UniformToFill },
-            };
+            var item = new ContactItem { Avatar = avatar, Nickname = nick, Sign = sign };
+            item.PointerPressed += (_, _) => Select(item);
+            ContactList.Children.Add(item);
+        }
 
-            var lines = new StackPanel
+        // 切换选中项: 旧的熄灭, 新的点亮, 再通知宿主
+        private void Select(ContactItem item)
+        {
+            if (selectedItem != null)
             {
-                VerticalAlignment = VerticalAlignment.Center, Spacing = 3, Margin = new Thickness(12, 0, 0, 0),
-            };
-            lines.Children.Add(new TextBlock { Text = nick, FontSize = 14.5, Foreground = new SolidColorBrush(Color.Parse("#1E1E1E")) });
-            if (!string.IsNullOrEmpty(sign))
-            {
-                lines.Children.Add(new TextBlock { Text = sign, FontSize = 12, Foreground = new SolidColorBrush(Color.Parse("#8A8A8A")) });
+                selectedItem.IsSelected = false;
             }
-
-            var body = new StackPanel { Orientation = Orientation.Horizontal };
-            body.Children.Add(face);
-            body.Children.Add(lines);
-
-            var row = new Border
-            {
-                Classes = { "contact" },
-                Height = 64,
-                Padding = new Thickness(14, 0),
-                Child = body,
-            };
-            row.PointerPressed += (_, _) => ContactSelected?.Invoke(nick);
-            ContactList.Children.Add(row);
+            selectedItem = item;
+            item.IsSelected = true;
+            ContactSelected?.Invoke(item);
         }
 
         private void AddContact_Click(object? sender, RoutedEventArgs e)
