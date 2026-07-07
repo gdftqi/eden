@@ -3,7 +3,7 @@
              xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="CC.ContactItem"
              x:Name="Root">
-    <Border x:Name="Body" Classes="item" Height="64" Padding="14,0" Focusable="True" FocusAdorner="{x:Null}">
+    <Border x:Name="Body" Classes="item" Height="64" Padding="12,0" Focusable="True" FocusAdorner="{x:Null}">
         <Border.Styles>
             <Style Selector="Border.item">
                 <Setter Property="Background" Value="Transparent"/>
@@ -22,15 +22,15 @@
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
             <!-- 头像 -->
-            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22" ClipToBounds="True" Margin="0,0,12,0">
+            <Border Grid.Column="0" Width="46" Height="46" CornerRadius="23" ClipToBounds="True" Margin="0,0,10,0">
                 <Image Source="{Binding #Root.Avatar}" Stretch="UniformToFill"/>
             </Border>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                 <!-- 昵称 -->
-                <TextBlock Text="{Binding #Root.Nickname}" FontSize="14.5" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Text="{Binding #Root.Nickname}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis"/>
                 <!-- 签名(空则隐藏) -->
-                <TextBlock Text="{Binding #Root.Sign}" FontSize="12" Foreground="#8A8A8A" TextTrimming="CharacterEllipsis"
+                <TextBlock Text="{Binding #Root.Sign}" FontSize="12.5" Foreground="#8A9099" TextTrimming="CharacterEllipsis"
                            IsVisible="{Binding #Root.Sign, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
             </StackPanel>
         </Grid>
