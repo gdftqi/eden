@@ -1,5 +1,4 @@
 using Avalonia;
-using lilith.Tools;
 using System;
 using System.Threading;
 
@@ -20,7 +19,7 @@ namespace CC
                 return;
             }
 
-            HttpSession.Instance.Init(Config.HTTP_HOST, Config.HTTP_X25519_PK);
+            // Hydra 的配置 + pump 在 App.OnFrameworkInitializationCompleted(UI 线程就绪)里做
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             mutex.ReleaseMutex();
         }

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace lilith
+namespace Lilith.Core.Arq
 {
     public class Pool<T>
     {

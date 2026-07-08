@@ -3,12 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using lilith.Core;
+using Lilith.Components;
 using System;
-using lilith.Tools;
-using System.Diagnostics;
 using System.Threading.Tasks;
-using CC.Proxy;
 
 
 namespace CC
@@ -18,6 +15,10 @@ namespace CC
         public LoginWindow()
         {
             InitializeComponent();
+            // 登录窗接管 Hydra 的高层回调, 用 no-op 顶掉可能残留的旧 MainWindow 处理器
+            Hydra.Instance
+                .SetOnStateChanged((_, _) => { })
+                .SetOnPackage(_ => { });
         }
 
         private void TopBar_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -55,37 +56,23 @@ namespace CC
 
             SetLoading(true);   // 隐藏表单, 显示转圈
 
-            var main = new MainWindow();
-
-            try
+            // RA 登录 + KCP 握手全由 Hydra 完成(内部已捕获异常, 只返回是否连上)
+            bool ok = await Hydra.Instance.Login(username, password);
+            if (!ok)
             {
-                await UserLogin.POST(username, password);
-
-                var connectTask = KcpSession.Instance.Connect(main, Config.KCP_TIMEOUT);
-                var done = await Task.WhenAny(connectTask, Task.Delay(8000));
-                if (done != connectTask || !connectTask.Result)
-                {
-                    KcpSession.Instance.Close();   // 超时/握手失败 → 清理会话
-                    SetLoading(false);
-                    ShowError("连接网关失败, 请重试");
-                    return;
-                }
-
-                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                {
-                    desktop.MainWindow = main;
-                }
-
-                main.Show();
-                Close();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message);
                 SetLoading(false);
-                ShowError("连接服务失败: " + ex.Message);
+                ShowError("登录失败, 请检查账号密码或网络");
                 return;
             }
+
+            // 连上 → 切主窗
+            var main = new MainWindow();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.MainWindow = main;
+            }
+            main.Show();
+            Close();
         }
 
         private void ShowError(string msg)

@@ -1,8 +1,8 @@
-using lilith.Tools;
+using Lilith.Utils;
 using System;
 
 
-namespace lilith.Core
+namespace Lilith.Core
 {
     // =========================================================================
     //              typhon 消息协议 (v2, 10B 头) —— C# 客户端镜像

@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace lilith
+namespace Lilith.Core.Arq
 {
     public static partial class Utils
     {

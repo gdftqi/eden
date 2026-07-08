@@ -1,13 +1,9 @@
-﻿using lilith.Core;
-using lilith.Tools;
+﻿using Lilith.Utils;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace CC.Proxy
+namespace Lilith.Core.Ra
 {
     internal class UserLogin
     {
@@ -61,8 +57,6 @@ namespace CC.Proxy
 
         public static async Task<int> POST(string username, string password)
         {
-            var raPk = Crypto.Base64DecodeToBytes(Config.HTTP_X25519_PK);
-
             var info = new LoginInfo
             {
                 Username = username,
@@ -78,9 +72,7 @@ namespace CC.Proxy
             };
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
-
-            Refresh.RefreshToken = rsp.RefreshToken;   // 存下 refreshToken, 断线时用它走 /refresh 重连
-
+            Refresh.RefreshToken = rsp.RefreshToken;
             KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.AccessToken!);
 
             return 0;

@@ -1,4 +1,4 @@
-namespace lilith
+namespace Lilith.Core.Arq
 {
     internal struct AckItem
     {

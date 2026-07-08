@@ -1,10 +1,18 @@
 #define FASTACK_CONSERVE
 using System;
 using System.Collections.Generic;
-using lilith.Tools;
+using Lilith.Utils;
 
-namespace lilith
+namespace Lilith.Core.Arq
 {
+    public enum KcpState
+    {
+        None = 0,   // 初始: 未握手完成(只走握手包, 不发业务)
+        Open = 1,   // 握手完成: 可收发加密业务
+        Timeout = -1,  // 超时未收到对端任何包(判死)
+        Rst = -2,  // 收到对端 RST(会话已不存在, 判死)
+    }
+
     public class Kcp
     {
         // original Kcp has a define option, which is not defined by default:
@@ -35,17 +43,6 @@ namespace lilith
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
-
-
-        // [typhon] 会话状态: None(握手中)→ Open(握手完成)→ Timeout/Rst(判死)。
-        // Open 由上层握手成功后调 Open() 置位; 业务发送 / 加解密均以 state==Open 为门限。
-        public enum KcpState
-        {
-            None    = 0,   // 初始: 未握手完成(只走握手包, 不发业务)
-            Open    = 1,   // 握手完成: 可收发加密业务
-            Timeout = -1,  // 超时未收到对端任何包(判死)
-            Rst     = -2,  // 收到对端 RST(会话已不存在, 判死)
-        }
 
         // kcp members.
         readonly uint conv;          // conversation
@@ -1139,12 +1136,12 @@ namespace lilith
             timeout = ms;
         }
 
-        // [typhon] 当前会话状态(volatile 读, 上层用来判就绪/加解密/判死)
-        public KcpState State => state;
+        public KcpState State { get { return state; } }
 
-        // [typhon] 握手完成后置 Open(state=Open): 上层据此放行业务发送、开启加解密。
-        // 必须在设置好会话密钥之后调用 —— 这次 volatile 写会把密钥一并发布给发送线程。
-        public void Open() => state = KcpState.Open;
+        public void Open()
+        {
+            state = KcpState.Open;
+        }
 
         // ikcp_nodelay
         // configuration: https://github.com/skywind3000/kcp/blob/master/README.en.md#protocol-configuration

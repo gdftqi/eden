@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -32,12 +32,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\lilith\lilith.csproj" />
+    <ProjectReference Include="..\lilith\Lilith.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Controls\Contact\" />
     <Folder Include="Controls\Org\" />
     <Folder Include="Controls\Settings\" />
+    <Folder Include="Proxy\" />
   </ItemGroup>
 </Project>

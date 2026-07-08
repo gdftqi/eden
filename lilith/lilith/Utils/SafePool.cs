@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 
-namespace lilith.Tools
+namespace Lilith.Utils
 {
     public class SafePool<T>
     {

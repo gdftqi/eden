@@ -1,11 +1,10 @@
-using lilith.Core;
-using lilith.Tools;
+using Lilith.Utils;
 using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace CC.Proxy
+namespace Lilith.Core.Ra
 {
     internal class Refresh
     {

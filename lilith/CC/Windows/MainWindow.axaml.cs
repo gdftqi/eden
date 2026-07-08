@@ -1,17 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Threading;
-using lilith.Core;
-using lilith.Tools;
+using Lilith.Components;
+using Lilith.Core;
 using System;
-using System.Diagnostics;
-using System.Net;
 using System.Threading.Tasks;
 
 namespace CC
 {
-    public partial class MainWindow : Window, ISessionEvent
+    public partial class MainWindow : Window
     {
         // ---- KCP echo 测试参数 ----
         const ushort ECHO_PKID = 1;
@@ -20,7 +17,10 @@ namespace CC
         {
             InitializeComponent();
             TabChat.SendRequested += OnSendText;
-            KcpSession.Instance.OnWakeup = () => Dispatcher.UIThread.Post(KcpSession.Instance.Update);
+            // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
+            Hydra.Instance
+                .SetOnStateChanged(OnHydraState)
+                .SetOnPackage(OnPackage);
         }
 
 
@@ -116,85 +116,32 @@ namespace CC
             }
         }
 
-        public void OnConnected(EndPoint host)
+        // Hydra 状态变化(主线程回调): 驱动浮窗 / 掉线回登录
+        private void OnHydraState(HydraState prev, HydraState cur)
         {
-            FileLog.Write($"[MW] OnConnected: {host}");
-            ShowConnState(ConnState.Connected);
-        }
-
-        public void OnDisconnected(EndPoint host)
-        {
-            FileLog.Write($"[MW] OnDisconnected: {host}, DeadReason={KcpSession.Instance.DeadReason}, reconnecting(当前)={reconnecting}");
-
-            if (reconnecting)
+            switch (cur)
             {
-                FileLog.Write("[MW] OnDisconnected: reconnecting 已为 true, 忽略这次重入");
-                return;
-            }
+                case HydraState.Reconnecting:
+                    ShowConnState(ConnState.Reconnecting);
+                    break;
 
-            if (KcpSession.Instance.DeadReason == DisconnectReason.None)
-            {
-                HideConnBanner();
-                return;
-            }
-
-            _ = Reconnect();
-        }
-
-        private bool reconnecting;
-
-        const int RECONNECT_RETRY_INTERVAL_MS = 2000;
-
-        private async Task Reconnect()
-        {
-            FileLog.Write($"[MW] Reconnect() 开始");
-            reconnecting = true;
-            ShowConnState(ConnState.Reconnecting);
-
-            var sw = Stopwatch.StartNew();
-            int attempt = 0;
-            try
-            {
-                while (sw.ElapsedMilliseconds < Config.RECONNECT_MAX_TIME)
-                {
-                    attempt++;
-                    FileLog.Write($"[MW] Reconnect() 第 {attempt} 次尝试, 已耗时={sw.ElapsedMilliseconds}ms");
-                    try
+                case HydraState.Connected:
+                    // 只在"重连成功"时弹绿点; 首次登录连上不弹(登录流程已处理)
+                    if (prev == HydraState.Reconnecting)
                     {
-                        await Proxy.Refresh.POST();
-                        FileLog.Write($"[MW] Reconnect() Refresh.POST 返回, 即将 Connect(), 已耗时={sw.ElapsedMilliseconds}ms");
-
-                        bool ok = await KcpSession.Instance.Connect(this, Config.KCP_TIMEOUT);
-                        FileLog.Write($"[MW] Reconnect() Connect() 返回 {ok}, 已耗时={sw.ElapsedMilliseconds}ms");
-
-                        if (ok)
-                        {
-                            return;
-                        }
+                        ShowConnState(ConnState.Connected);
                     }
-                    catch (Exception ex)
-                    {
-                        FileLog.Write($"[MW] Reconnect() 第 {attempt} 次尝试失败: {ex}");
-                    }
+                    break;
 
-                    await Task.Delay(RECONNECT_RETRY_INTERVAL_MS);
-                }
-
-                FileLog.Write($"[MW] Reconnect() 超过 {Config.RECONNECT_MAX_TIME}ms 仍未连上, 回登录页");
-                BackToLogin();
-            }
-            finally
-            {
-                FileLog.Write($"[MW] Reconnect() 结束, reconnecting 置回 false");
-                reconnecting = false;
+                case HydraState.Disconnected:
+                    BackToLogin();   // 重连放弃 / 会话失效 → 回登录页
+                    break;
             }
         }
 
         private void BackToLogin()
         {
-            FileLog.Write($"[MW] BackToLogin() 调用");
-            KcpSession.Instance.Close();
-
+            // 会话已由 Hydra 关闭; 这里只做窗口切换。新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效。
             var login = new LoginWindow();
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -264,8 +211,8 @@ namespace CC
             }
         }
 
-        // 服务端 echo 回来(主线程回调)
-        public void OnPackage(Package pkg)
+        // 服务端 echo 回来(Hydra 主线程回调)
+        private void OnPackage(Package pkg)
         {
             var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
             TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
@@ -274,7 +221,7 @@ namespace CC
         // ChatWindow 发送时触发: 把文字打包成业务 echo 包发给服务端
         private void OnSendText(string text)
         {
-            if (!KcpSession.Instance.Running)
+            if (Hydra.Instance.State != HydraState.Connected)
             {
                 return;
             }
@@ -283,7 +230,7 @@ namespace CC
             pkg.ID = ECHO_PKID;
             pkg.DstID = 10000;
             pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
-            KcpSession.Instance.Send(pkg);
+            Hydra.Instance.Send(pkg);
             Package.Pool.Return(pkg);
         }
     }

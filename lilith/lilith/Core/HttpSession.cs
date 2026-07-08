@@ -4,8 +4,9 @@ using Newtonsoft.Json;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Lilith.Utils;
 
-namespace lilith.Tools
+namespace Lilith.Core
 {
     public class HttpResp
     {
@@ -31,7 +32,7 @@ namespace lilith.Tools
 
         private HttpSession()
         {
-            httpClient = new HttpClient();
+            hc = new HttpClient();
         }
 
         public byte[] PK { get { return pk!; } }
@@ -40,13 +41,19 @@ namespace lilith.Tools
         public byte[] Rx { get { return rx!; } }
 
 
-        public void Init(string baseUrl, string b64SserverPK)
+        public void SetBaseUrl(string baseUrl)
         {
-            this.baseUrl = baseUrl ?? string.Empty;
+            this.baseUrl = baseUrl;
+        }
+
+
+        public void SetHttpX25519PK(string b64HttpX25519PK)
+        {
             Crypto.X25519KeyGen(out pk, out sk);
-            var svrPk = Crypto.Base64DecodeToBytes(b64SserverPK);
+            var svrPk = Crypto.Base64DecodeToBytes(b64HttpX25519PK);
             Crypto.X25519KxClient(sk, pk, svrPk, out rx, out tx);
         }
+
 
         public async Task<HttpResp> PostAynsc(string url, object? payload = null, CancellationToken cancellationToken = default)
         {
@@ -85,7 +92,7 @@ namespace lilith.Tools
 
             using (var sctx = new StringContent(jstr, Encoding.UTF8, "application/json"))
             {
-                HttpResponseMessage response = await httpClient.PostAsync(url, sctx, cancellationToken);
+                HttpResponseMessage response = await hc.PostAsync(url, sctx, cancellationToken);
                 response.EnsureSuccessStatusCode();
                 string responseBody = await response.Content.ReadAsStringAsync();
 
@@ -166,7 +173,7 @@ namespace lilith.Tools
             return Open<TRsp>(rsp.Data);
         }
 
-        private HttpClient httpClient;
+        private HttpClient hc;
         private string baseUrl = "";
         private byte[]? pk;
         private byte[]? sk;

@@ -1,4 +1,4 @@
-namespace lilith.Tools
+namespace Lilith.Core.Arq
 {
     public class SafeKcp
     {// 线程安全的 kcp
@@ -57,7 +57,7 @@ namespace lilith.Tools
         }
 
         // [typhon] state 是 volatile, 读写无需锁(可见性已由 volatile 保证, 同原 authed)
-        public Kcp.KcpState State => kcp.State;
+        public KcpState State => kcp.State;
 
         public void Open() => kcp.Open();
     }

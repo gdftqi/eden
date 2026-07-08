@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 
-namespace lilith.Tools
+namespace Lilith.Utils
 {
     public class BlockingQueue<T>
     {

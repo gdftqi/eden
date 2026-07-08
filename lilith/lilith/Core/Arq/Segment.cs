@@ -1,6 +1,6 @@
 using System.IO;
 
-namespace lilith
+namespace Lilith.Core.Arq
 {
     // KCP Segment Definition
     internal class Segment

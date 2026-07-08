@@ -7,7 +7,7 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace lilith.Tools
+namespace Lilith.Utils
 {
     public static class Crypto
     {

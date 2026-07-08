@@ -1,4 +1,5 @@
-using lilith.Tools;
+using Lilith.Core.Arq;
+using Lilith.Utils;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -8,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 
-namespace lilith.Core
+namespace Lilith.Core
 {
     public interface ISessionEvent
     {// 会话事件
@@ -96,6 +97,11 @@ namespace lilith.Core
         // [typhon] 本次连接的握手结果: Connect 返回它; 首个 Connected → true, 断开 → false
         private TaskCompletionSource<bool>? connectTsk;
 
+        public void SetEvent(ISessionEvent ev)
+        {
+            this.ev = ev;
+        }
+
         public void Init(string host, uint conv, uint userId, uint gatewayId, string macKey, string b64Token)
         {
             this.host = host;
@@ -109,7 +115,7 @@ namespace lilith.Core
         }
 
 
-        public Task<bool> Connect(ISessionEvent ev, uint timeout)
+        public Task<bool> Connect(uint timeout)
         {// 连接服务
             FileLog.Write($"[KCP] Connect() 调用, running(调用前)={running}");
 
@@ -117,8 +123,6 @@ namespace lilith.Core
             {// 入参检查
                 throw new Exception("param is invalid");
             }
-
-            this.ev = ev;
 
             if (Interlocked.CompareExchange(ref running, 1, 0) != 0)
             {// 已在运行, 返回当前这次连接的结果
@@ -255,7 +259,7 @@ namespace lilith.Core
                 throw new Exception("Kcp session is not running");
             }
 
-            if (safeKcp!.State != Kcp.KcpState.Open)
+            if (safeKcp!.State != Arq.KcpState.Open)
             {// [typhon] 握手未完成, 不允许发业务包(握手包走 registReq, 不经这里)
                 return;
             }
@@ -347,7 +351,7 @@ namespace lilith.Core
         {// PKID_REGIST_RSP 句柄
             FileLog.Write($"[KCP] onRegistRsp 收到, state(收到前)={safeKcp!.State}, PayloadLength={pkg.PayloadLength}");
 
-            if (safeKcp!.State == Kcp.KcpState.Open)
+            if (safeKcp!.State == Arq.KcpState.Open)
             {// 已握手完成
                 return;
             }
@@ -367,7 +371,7 @@ namespace lilith.Core
 
         private void onPong(Package pkg)
         {// PKID_PONG 句柄
-            if (safeKcp!.State != Kcp.KcpState.Open)
+            if (safeKcp!.State != Arq.KcpState.Open)
             {
                 return;
             }
@@ -383,7 +387,7 @@ namespace lilith.Core
 
         private void onDefault(Package pkg)
         {// 默认句柄
-            if (safeKcp!.State != Kcp.KcpState.Open || pkg.Idempotent <= rcvSeq)
+            if (safeKcp!.State != Arq.KcpState.Open || pkg.Idempotent <= rcvSeq)
             {
                 Package.Pool.Return(pkg);
                 return;
@@ -416,13 +420,13 @@ namespace lilith.Core
                     int dead = safeKcp!.Update(tnow);
                     if (dead < 0)
                     {
-                        DeadReason = dead == (int)Kcp.KcpState.Rst ? DisconnectReason.Rst : DisconnectReason.Timeout;
+                        DeadReason = dead == (int)Arq.KcpState.Rst ? DisconnectReason.Rst : DisconnectReason.Timeout;
                         FileLog.Write($"[KCP] sndLoop 判死, dead={dead}, DeadReason={DeadReason}");
                         Close();
                         break;
                     }
 
-                    if (safeKcp!.State != Kcp.KcpState.Open && tnow - connectStartMs > HANDSHAKE_TIMEOUT_MS)
+                    if (safeKcp!.State != Arq.KcpState.Open && tnow - connectStartMs > HANDSHAKE_TIMEOUT_MS)
                     {// 握手超时: 传输层可能还活着(PING/PONG), 但 REGIST_RSP 不来, 必须独立判死
                         DeadReason = DisconnectReason.Timeout;
                         FileLog.Write($"[KCP] sndLoop 握手超时({HANDSHAKE_TIMEOUT_MS}ms 未 Open), 判死");
@@ -488,7 +492,7 @@ namespace lilith.Core
             Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
-            if (safeKcp!.State == Kcp.KcpState.Open && plen > 0)
+            if (safeKcp!.State == Arq.KcpState.Open && plen > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_C2S);
                 int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
@@ -520,7 +524,7 @@ namespace lilith.Core
             }
 
             int plen = n - Package.HEADER_SIZE;
-            if (safeKcp!.State == Kcp.KcpState.Open && plen > 0)
+            if (safeKcp!.State == Arq.KcpState.Open && plen > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_S2C);
                 int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
