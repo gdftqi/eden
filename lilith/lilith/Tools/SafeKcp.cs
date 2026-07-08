@@ -55,5 +55,10 @@ namespace lilith.Tools
                 return kcp.Check(currentMs);
             }
         }
+
+        // [typhon] state 是 volatile, 读写无需锁(可见性已由 volatile 保证, 同原 authed)
+        public Kcp.KcpState State => kcp.State;
+
+        public void Open() => kcp.Open();
     }
 }

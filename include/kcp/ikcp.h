@@ -320,9 +320,9 @@ struct IKCPOPS
 //---------------------------------------------------------------------
 enum IKCP_STATE {
 	IKCP_STATE_NONE = 0,
-	IKCP_STATE_OPEN = 1,		    // 已接纳对端, 可收发数据
-	IKCP_STATE_TIMEOUT = -1,		// 会话超时
-	IKCP_STATE_RST = -2			// 收到对端 RST, 会话已不存在, 上层应摘会话
+	IKCP_STATE_OPEN = 1,		// 已接纳对端, 可收发数据
+	IKCP_STATE_TIMEOUT = -1,    // 会话超时
+	IKCP_STATE_RST = -2         // 收到对端 RST, 会话已不存在, 上层应摘会话
 };
 
 

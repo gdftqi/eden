@@ -26,7 +26,6 @@ namespace lilith
         public const int WND_SND = 32;             // default send window
         public const int WND_RCV = 128;            // default receive window. must be >= max fragment size
         public const int MTU_DEF = 1200;           // default MTU (reduced to 1200 to fit all cases: https://en.wikipedia.org/wiki/Maximum_transmission_unit ; steam uses 1200 too!)
-        public const int ACK_FAST = 3;
         public const int INTERVAL = 100;
         public const int OVERHEAD = 24;
         public const int FRG_MAX = byte.MaxValue;  // kcp encodes 'frg' as byte. so we can only ever send up to 255 fragments.
@@ -36,9 +35,17 @@ namespace lilith
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
-        // [typhon] Update 判死返回码(均 <0; 对齐 C++ IKCP_DEAD_*)
-        public const int DEAD_TIMEOUT = -1;        // 超时未收到对端任何包
-        public const int DEAD_RST     = -2;        // 收到对端 RST(会话已不存在)
+
+
+        // [typhon] 会话状态: None(握手中)→ Open(握手完成)→ Timeout/Rst(判死)。
+        // Open 由上层握手成功后调 Open() 置位; 业务发送 / 加解密均以 state==Open 为门限。
+        public enum KcpState
+        {
+            None    = 0,   // 初始: 未握手完成(只走握手包, 不发业务)
+            Open    = 1,   // 握手完成: 可收发加密业务
+            Timeout = -1,  // 超时未收到对端任何包(判死)
+            Rst     = -2,  // 收到对端 RST(会话已不存在, 判死)
+        }
 
         // kcp members.
         readonly uint conv;          // conversation
@@ -74,9 +81,9 @@ namespace lilith
         internal uint last_rcv_ms;   // 最近收到对端数据的时刻
         internal uint last_snd_ms;   // 最近发出数据的时刻(空闲发 PING 用)
         internal uint timeout;       // 超时阈值 ms (0=禁用)
-        internal bool ping_active;   // true=本端主动发 PING(客户端); 服务端保持 false 只回 PONG
-        internal bool pong;          // true=待回 PONG(收到对端 PING)
-        internal bool rst;           // [typhon] true=收到对端 RST(会话已不存在), 上层据此断线
+        internal bool ping_active;   // 客户端主动发 PING 保活(空闲 timeout/3 触发)
+        // volatile: 上层跨线程读它当"就绪/加解密"门限, 需 release/acquire(Open() 前设的密钥随之发布), 同原 authed
+        internal volatile KcpState state;   // 会话状态(见 KcpState); 默认 None
         internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
         internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
         // snd_buffer needs index removals.
@@ -142,9 +149,6 @@ namespace lilith
         // we keep the original function and add our pooling to it.
         // this way we'll never miss it anywhere.
         void SegmentDelete(Segment seg) => SegmentPool.Return(seg);
-
-        // calculate how many packets are waiting to be sent
-        public int WaitSnd => snd_buf.Count + snd_queue.Count;
 
         // ikcp_wnd_unused
         // returns the remaining space in receive window (rcv_wnd - rcv_queue)
@@ -598,10 +602,11 @@ namespace lilith
 
                 // enough remaining to read 'len' bytes of the actual payload?
                 // note: original kcp casts uint len to int for <0 check.
-                if (size < len || (int)len < 0) return -2;
+                if (size < len || (int)len < 0)
+                    return -2;
 
                 // validate command type
-                if (cmd < CMD_PUSH && cmd > CMD_RST)
+                if (cmd < CMD_PUSH || cmd > CMD_RST)
                     return -3;
 
                 rmt_wnd = wnd;
@@ -672,16 +677,12 @@ namespace lilith
                         // do nothing
                         break;
 
-                    case CMD_PING:
-                        pong = true;
-                        break;
-
                     case CMD_PONG:
-                        // do nothing
+                        // 客户端收到自己 PING 的应答, 无需处理(last_rcv_ms 已在 Input 开头刷新)
                         break;
 
                     case CMD_RST:
-                        rst = true;
+                        state = KcpState.Rst;
                         break;
 
                     default:
@@ -844,16 +845,7 @@ namespace lilith
 
             probe = 0;
 
-            // [typhon] 回 PONG(收到对端 PING 后)
-            if (pong)
-            {
-                seg.cmd = CMD_PONG;
-                MakeSpace(ref size, OVERHEAD);
-                size += seg.Encode(buffer, size);
-                pong = false;
-            }
-
-            // [typhon] 主动 PING(仅 ping_active=客户端): 空闲超过 timeout/3 就发, 维持双向保活
+            // [typhon] 主动 PING(客户端): 空闲超过 timeout/3 就发, 维持保活
             if (ping_active && timeout > 0 &&
                 Utils.TimeDiff(current, last_snd_ms) >= (int)(timeout / 3))
             {
@@ -1028,14 +1020,16 @@ namespace lilith
                 last_snd_ms = current;
             }
 
-            if (rst)
+            // [typhon] 判死: state<0(Rst=-2 / Timeout=-1)直接返回该状态码(int 契约: 0=健康)
+            if ((int)state < 0)
             {
-                return DEAD_RST;
+                return (int)state;
             }
 
             if (timeout > 0 && Utils.TimeDiff(current, last_rcv_ms) > (int)timeout)
             {
-                return DEAD_TIMEOUT;
+                state = KcpState.Timeout;
+                return (int)state;
             }
 
             // slap is time since last flush in milliseconds
@@ -1130,23 +1124,27 @@ namespace lilith
             mss = mtu - OVERHEAD;
         }
 
-        // [typhon] 设置出站信封 SipHash key(16B, 对齐 C++ ikcp_set_siphash)
-        public void SetSipHash(byte[] key) => Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
-
-        // [typhon] 是否主动发 PING(客户端 true; 服务端 false 只回 PONG)
-        public void SetPing(bool active) => ping_active = active;
-
-        // [typhon] 设置超时阈值(ms, 0=禁用)
-        public void SetTimeout(uint ms) => timeout = ms;
-
-        // ikcp_interval
-        public void SetInterval(uint interval)
-        {
-            // clamp interval between 10 and 5000
-            if (interval > 5000) interval = 5000;
-            else if (interval < 10) interval = 10;
-            this.interval = interval;
+        public void SetSipHash(byte[] key)
+        {// 设置出站信封 SipHash key(16B, 对齐 C++ ikcp_set_siphash)
+            Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
         }
+
+        public void SetPing(bool active)
+        {// 是否主动发 PING(客户端 true; 服务端 false 只回 PONG)
+            ping_active = active;
+        }
+
+        public void SetTimeout(uint ms)
+        {// 设置超时值
+            timeout = ms;
+        }
+
+        // [typhon] 当前会话状态(volatile 读, 上层用来判就绪/加解密/判死)
+        public KcpState State => state;
+
+        // [typhon] 握手完成后置 Open(state=Open): 上层据此放行业务发送、开启加解密。
+        // 必须在设置好会话密钥之后调用 —— 这次 volatile 写会把密钥一并发布给发送线程。
+        public void Open() => state = KcpState.Open;
 
         // ikcp_nodelay
         // configuration: https://github.com/skywind3000/kcp/blob/master/README.en.md#protocol-configuration
@@ -1182,21 +1180,6 @@ namespace lilith
             }
 
             this.nocwnd = nocwnd;
-        }
-
-        // ikcp_wndsize
-        public void SetWindowSize(uint sendWindow, uint receiveWindow)
-        {
-            if (sendWindow > 0)
-            {
-                snd_wnd = sendWindow;
-            }
-
-            if (receiveWindow > 0)
-            {
-                // must >= max fragment size
-                rcv_wnd = Math.Max(receiveWindow, WND_RCV);
-            }
         }
     }
 }

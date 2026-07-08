@@ -57,9 +57,9 @@ namespace lilith.Core
         const int SEND_BATCH = 128;
         const int RECV_BATCH = 128;
 
-        // 握手超时: Connect 后超过此时长仍未 authed 就判死。
+        // 握手超时: Connect 后超过此时长仍未 Open(握手完成)就判死。
         // 独立于 KCP 的 30s 失联超时 —— 撞上网关旧会话时传输层 PING/PONG 互相保活,
-        // last_rcv_ms 一直被刷新, DEAD_TIMEOUT 永不触发, 但 REGIST_RSP 永远不会来。
+        // last_rcv_ms 一直被刷新, KCP 的超时判死永不触发, 但 REGIST_RSP 永远不会来。
         const uint HANDSHAKE_TIMEOUT_MS = 5000;
 
         static KcpSession instance = new KcpSession();
@@ -102,7 +102,6 @@ namespace lilith.Core
             this.conv = conv;
             this.userId = userId;
             token = Crypto.Base64DecodeToBytes(b64Token);
-            authed = false;
             DeadReason = DisconnectReason.None;
             sndSeq = rcvSeq = 0;
             GatewayID = gatewayId;
@@ -206,7 +205,6 @@ namespace lilith.Core
                     remotePoint = null;
                     sock = null;
                     safeKcp = null;
-                    authed = false;
                     sndQue.Clear();
                     rcvQue.Clear();
                     Package.Pool.Clear();
@@ -255,6 +253,11 @@ namespace lilith.Core
             if (!Running)
             {
                 throw new Exception("Kcp session is not running");
+            }
+
+            if (safeKcp!.State != Kcp.KcpState.Open)
+            {// [typhon] 握手未完成, 不允许发业务包(握手包走 registReq, 不经这里)
+                return;
             }
 
             var copy = Package.Pool.Take();
@@ -342,10 +345,10 @@ namespace lilith.Core
 
         private void onRegistRsp(Package pkg)
         {// PKID_REGIST_RSP 句柄
-            FileLog.Write($"[KCP] onRegistRsp 收到, authed(收到前)={authed}, PayloadLength={pkg.PayloadLength}");
+            FileLog.Write($"[KCP] onRegistRsp 收到, state(收到前)={safeKcp!.State}, PayloadLength={pkg.PayloadLength}");
 
-            if (authed)
-            {// 已鉴权
+            if (safeKcp!.State == Kcp.KcpState.Open)
+            {// 已握手完成
                 return;
             }
 
@@ -355,7 +358,7 @@ namespace lilith.Core
             }
 
             Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
-            authed = true;
+            safeKcp!.Open();   // 密钥已就绪, 置 Open(volatile 写把 rxKey/txKey 一并发布给发送线程)
             rcvQue.Enqueue(new IOEvent(IOEventType.Connected));
             FileLog.Write($"[KCP] onRegistRsp 鉴权成功, 已入队 Connected 事件, 即将 Notify()");
             Notify();
@@ -364,7 +367,7 @@ namespace lilith.Core
 
         private void onPong(Package pkg)
         {// PKID_PONG 句柄
-            if (!authed)
+            if (safeKcp!.State != Kcp.KcpState.Open)
             {
                 return;
             }
@@ -380,7 +383,7 @@ namespace lilith.Core
 
         private void onDefault(Package pkg)
         {// 默认句柄
-            if (!authed || pkg.Idempotent <= rcvSeq)
+            if (safeKcp!.State != Kcp.KcpState.Open || pkg.Idempotent <= rcvSeq)
             {
                 Package.Pool.Return(pkg);
                 return;
@@ -413,16 +416,16 @@ namespace lilith.Core
                     int dead = safeKcp!.Update(tnow);
                     if (dead < 0)
                     {
-                        DeadReason = dead == Kcp.DEAD_RST ? DisconnectReason.Rst : DisconnectReason.Timeout;
+                        DeadReason = dead == (int)Kcp.KcpState.Rst ? DisconnectReason.Rst : DisconnectReason.Timeout;
                         FileLog.Write($"[KCP] sndLoop 判死, dead={dead}, DeadReason={DeadReason}");
                         Close();
                         break;
                     }
 
-                    if (!authed && tnow - connectStartMs > HANDSHAKE_TIMEOUT_MS)
+                    if (safeKcp!.State != Kcp.KcpState.Open && tnow - connectStartMs > HANDSHAKE_TIMEOUT_MS)
                     {// 握手超时: 传输层可能还活着(PING/PONG), 但 REGIST_RSP 不来, 必须独立判死
                         DeadReason = DisconnectReason.Timeout;
-                        FileLog.Write($"[KCP] sndLoop 握手超时({HANDSHAKE_TIMEOUT_MS}ms 未鉴权), 判死");
+                        FileLog.Write($"[KCP] sndLoop 握手超时({HANDSHAKE_TIMEOUT_MS}ms 未 Open), 判死");
                         Close();
                         break;
                     }
@@ -485,7 +488,7 @@ namespace lilith.Core
             Package.Encode32BE(outBuf, Package.OFFSET_SEQ,    pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
-            if (authed && plen > 0)
+            if (safeKcp!.State == Kcp.KcpState.Open && plen > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_C2S);
                 int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
@@ -517,7 +520,7 @@ namespace lilith.Core
             }
 
             int plen = n - Package.HEADER_SIZE;
-            if (authed && plen > 0)
+            if (safeKcp!.State == Kcp.KcpState.Open && plen > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_S2C);
                 int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
@@ -566,7 +569,6 @@ namespace lilith.Core
         private EndPoint? remotePoint = null;
         private Socket? sock = null;
         private SafeKcp? safeKcp = null;
-        private volatile bool authed = false;
 
         // 事件驱动: IO 线程入队/关闭时通知宿主跑一次 Update
         public Action? OnWakeup;
