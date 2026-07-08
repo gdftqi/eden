@@ -32,8 +32,6 @@ namespace CC
 
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                // 配置 Hydra(RA 地址/公钥、超时、重连预算由宿主注入)+ 接上 pump:
-                // KCP IO 线程唤醒 → 这里 marshal 到 UI 线程后调 Hydra.Update, 让所有回调落在 UI 线程。
                 Hydra.Instance
                     .SetHttpBaseUrl(HTTP_HOST)
                     .SetHttpX25519PK(HTTP_X25519_PK)
