@@ -14,33 +14,25 @@ namespace CC
         }
 
 
-
         public override void OnFrameworkInitializationCompleted()
         {
-            /// HTTP 服务的 X25519 公钥
-            const string HTTP_X25519_PK = "LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M=";
-
-            /// HTTP 服务地址
-            //public const string HTTP_HOST = "http://172.26.29.158:8080";
-            const string HTTP_HOST = "http://13.212.159.179:8080";
-
-            /// KCP 连接超时
-            const uint KCP_TIMEOUT = 30000;
-
-            /// 重连的最大时间
-            const uint RECONNECT_MAX_TIME = 300000;
-
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 Hydra.Instance
-                    .SetHttpBaseUrl(HTTP_HOST)
-                    .SetHttpX25519PK(HTTP_X25519_PK)
-                    .SetKcpTimeoutMs(KCP_TIMEOUT)
-                    .SetReconnectMaxMs(RECONNECT_MAX_TIME)
-                    .SetonWakeup(() => Dispatcher.UIThread.Post(Hydra.Instance.Update));
+                    // HTTP 服务地址
+                    .SetHttpBaseUrl("http://13.212.159.179:8080")
+                    // HTTP 服务的 X25519 公钥
+                    .SetHttpX25519PK("LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M=")
+                    // KCP 连接超时
+                    .SetKcpTimeout(30)
+                    // 重连的最大时间
+                    .SetReconnectMax(300)
+                    // 设置 Update 回调
+                    .SetOnWakeup(() => Dispatcher.UIThread.Post(Hydra.Instance.Update));
 
                 desktop.MainWindow = new LoginWindow();
             }
+
 
             base.OnFrameworkInitializationCompleted();
         }

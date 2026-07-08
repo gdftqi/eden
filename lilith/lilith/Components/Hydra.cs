@@ -44,16 +44,16 @@ namespace Lilith.Components
         }
 
 
-        public Hydra SetKcpTimeoutMs(uint timeoutMs)
+        public Hydra SetKcpTimeout(uint timeout)
         {
-            kcpTimeoutMs = timeoutMs;
+            kcpTimeoutMs = timeout * 1000;
             return this;
         }
 
 
-        public Hydra SetReconnectMaxMs(uint maxMs)
+        public Hydra SetReconnectMax(uint max)
         {
-            reconnectMaxMs = maxMs;
+            reconnectMaxMs = max * 1000;
             return this;
         }
 
@@ -79,7 +79,7 @@ namespace Lilith.Components
         }
 
 
-        public Hydra SetonWakeup(Action handler)
+        public Hydra SetOnWakeup(Action handler)
         {
             OnWakeup = handler;
             return this;
