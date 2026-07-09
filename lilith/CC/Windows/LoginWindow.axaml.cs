@@ -4,8 +4,6 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Lilith.Components;
-using System;
-using System.Threading.Tasks;
 
 
 namespace CC
