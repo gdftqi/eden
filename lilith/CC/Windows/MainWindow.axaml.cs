@@ -230,8 +230,7 @@ namespace CC
             pkg.ID = ECHO_PKID;
             pkg.DstID = 10000;
             pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
-            Hydra.Instance.Send(pkg);
-            Package.Pool.Return(pkg);
+            Hydra.Instance.Send(pkg);   // 所有权移交 Hydra: ioSend 线程发完负责还池, 这里不能再碰 pkg
         }
     }
 }

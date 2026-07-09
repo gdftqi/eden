@@ -195,9 +195,11 @@ namespace Lilith.Core
 
         /// <summary>
         /// 打开会话, 成功返回时 State 已为 Open, 可直接收发业务.
+        /// 注意: 本方法不会替调用方收尾 —— 会话判死(Update 返回负值)后必须先 Close() 再 Open(),
+        /// 否则 activated 仍为 1, 这里会一直返回 1 而不会重建会话。
         /// </summary>
         /// <returns>
-        ///     1: 已有并发 Open 在进行, 本次未执行(结果以那次为准)<br/>
+        ///     1: 已开着(或已有并发 Open 在进行), 本次未执行 —— 判死后未 Close 就重开也会走到这里<br/>
         ///     0: 成功 —— 握手完成, State=Open<br/>
         ///    -1: 失败 —— host 非法(端口解析失败)或过程中抛异常(IP 解析/绑定/IO 等), 已 Close<br/>
         /// -1000: 失败 —— REGIST_REQ 发送失败, 已 Close<br/>
@@ -291,7 +293,8 @@ namespace Lilith.Core
         ///     0: 存活 —— KCP 正常推进, 未判死<br/>
         ///    -1: 超时判死 —— 超过 timeout 未收到对端任何包(KcpState.Timeout)<br/>
         ///    -2: RST 判死 —— 收到对端 RST, 会话已不存在(KcpState.Rst)<br/>
-        /// -1000: 会话未打开(未 Running)就调用了 Update
+        ///    -3: IO 判死 —— socket 层网络异常, 由 Recv/output 置入(KcpState.Shutdown)<br/>
+        /// -1000: 会话未打开(未 Activated)就调用了 Update
         /// </returns>
         public int Update(uint currentMs)
         {
@@ -417,7 +420,7 @@ namespace Lilith.Core
                     }
 
                     rcvSeq = pk.Idempotent;
-                    pkList.Add(pk);
+                    pkList.AddLast(pk);
                 } while (true);
 
                 return 0;
@@ -435,7 +438,7 @@ namespace Lilith.Core
                     return -1000;
 
                 Log.Write($"[KCP] recvLoop SocketException: {ex.SocketErrorCode} ({ex.ErrorCode}) {ex.Message}");
-                var k = sKcp;
+                k = sKcp;
                 if (k != null)
                     k.State = KcpState.Shutdown;
                 return -ex.ErrorCode;
@@ -457,7 +460,14 @@ namespace Lilith.Core
             Package.Encode32BE(outBuf, Package.OFFSET_IDEM, pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
-            if (sKcp!.State == KcpState.Open && plen > 0)
+            var k = sKcp;
+            if (k == null)
+            {
+                Log.Write("会话未打开时调用 Encode");
+                return -1000;
+            }
+
+            if (k.State == KcpState.Open && plen > 0)
             {// 加密
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_C2S);
                 int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
@@ -497,7 +507,14 @@ namespace Lilith.Core
             }
 
             int plen = n - Package.HEADER_SIZE;
-            if (sKcp!.State == KcpState.Open && plen > 0)
+            var k = sKcp;
+            if (k == null)
+            {
+                Log.Write("会话未打开时调用 Decode");
+                return false;
+            }
+
+            if (k.State == KcpState.Open && plen > 0)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_S2C);
                 // 解密

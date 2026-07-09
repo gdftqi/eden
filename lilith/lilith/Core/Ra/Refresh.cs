@@ -52,7 +52,7 @@ namespace Lilith.Core.Ra
         // 失败抛异常(refreshToken 失效/顶号 → 上层应回登录页)。
         public static async Task POST()
         {
-            FileLog.Write($"[Refresh] POST() 开始, RefreshToken是否为空={string.IsNullOrEmpty(RefreshToken)}");
+            Log.Write($"[Refresh] POST() 开始, RefreshToken是否为空={string.IsNullOrEmpty(RefreshToken)}");
 
             if (string.IsNullOrEmpty(RefreshToken))
             {
@@ -68,11 +68,17 @@ namespace Lilith.Core.Ra
 
             var sw = Stopwatch.StartNew();
             var rsp = await HttpSession.Instance.PostSecureAsync<RefreshRsp>("/refresh", req);
-            FileLog.Write($"[Refresh] POST() HTTP 完成, 耗时={sw.ElapsedMilliseconds}ms, host={rsp.Host}, conv={rsp.Conv}");
+            Log.Write($"[Refresh] POST() HTTP 完成, 耗时={sw.ElapsedMilliseconds}ms, host={rsp.Host}, conv={rsp.Conv}");
 
             RefreshToken = rsp.NewRefreshToken;
-            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.AccessToken!);
-            FileLog.Write($"[Refresh] POST() 完成, KcpSession.Init 已调用");
+            KcpSession.Instance
+                .SetHost(rsp.Host!)
+                .SetConv(rsp.Conv!.Value)
+                .SetUserID(rsp.UserID!.Value)
+                .SetGatewayID(rsp.HostID!.Value)
+                .SetMacKey(rsp.MacKey!)
+                .SetAccessToken(rsp.AccessToken!);
+            Log.Write($"[Refresh] POST() 完成, KcpSession 配置已更新");
         }
     }
 }

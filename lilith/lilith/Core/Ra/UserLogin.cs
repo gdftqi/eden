@@ -73,7 +73,13 @@ namespace Lilith.Core.Ra
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
             Refresh.RefreshToken = rsp.RefreshToken;
-            KcpSession.Instance.Init(rsp.Host!, rsp.Conv!.Value, rsp.UserID!.Value, rsp.HostID!.Value, rsp.MacKey!, rsp.AccessToken!);
+            KcpSession.Instance
+                .SetHost(rsp.Host!)
+                .SetConv(rsp.Conv!.Value)
+                .SetUserID(rsp.UserID!.Value)
+                .SetGatewayID(rsp.HostID!.Value)
+                .SetMacKey(rsp.MacKey!)
+                .SetAccessToken(rsp.AccessToken!);
 
             return 0;
         }
