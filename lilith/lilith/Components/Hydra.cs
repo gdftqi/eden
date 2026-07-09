@@ -280,6 +280,8 @@ namespace Lilith.Components
                 {
                     var pk = rcvBatch[i];
                     OnPackage?.Invoke(pk);
+                    // 包归 Hydra 还池: pk 只在回调执行期间有效,
+                    // 上层不得留引用、不得自行 Pool.Return(会导致双还池/串包)
                     Package.Pool.Return(pk);
                 }
             } while (n > 0);
