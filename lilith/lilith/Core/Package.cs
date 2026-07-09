@@ -1,4 +1,5 @@
 using Lilith.Utils;
+using Newtonsoft.Json;
 using System;
 
 
@@ -32,67 +33,43 @@ namespace Lilith.Core
     // =========================================================================
     public class Package
     {
-        // ---- 字段偏移 / 大小 ----
-        public const int OFFSET_ID = 0;
-        public const int OFFSET_SRC_ID = 2;
-        public const int OFFSET_DST_ID = 6;
-        public const int OFFSET_SEQ = 10;
-        public const int HEADER_SIZE = 14;     // sizeof(Package): id(2)+src_id(4)+dst_id(4)+seq(4)
-        public const int TAG_LEN = 16;     // ChaCha20-Poly1305 tag, 加密后附在 payload 尾
-        public const int PACK_MAX_LEN = 65535;  // wire frame 上限 (任意方向)
-        public const int PAYLOAD_MAX = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
 
-        public const ushort PKID_PING = 100;  // PING
-        public const ushort PKID_PONG = 101;  // PONG
-        public const ushort PKID_REGIST_REQ = 102;  // 鉴权注册请求
-        public const ushort PKID_REGIST_RSP = 103;  // 鉴权注册应答
-
-        // ---- 字段 (host order) ----
-        public ushort ID;
-        public uint SrcID;   // 源 id (= user_id); 网关据此校验 token.user_id
-        public uint DstID;
-        public uint Idempotent;
-
-        // ---- payload 缓冲: owned, 固定 PAYLOAD_MAX 长, 跨池化周期复用 ----
-        public readonly byte[] Payload = new byte[PAYLOAD_MAX];
-        public int PayloadLength;
-
-        // ---- 派生 ----
-        public int PkLen => HEADER_SIZE + PayloadLength;
-
-        public void Reset()
-        {
-            ID = 0;
-            SrcID = DstID = Idempotent = 0;
-            PayloadLength = 0;
-        }
-
-        public void CopyFrom(Package src)
-        {
-            ID = src.ID;
-            SrcID = src.SrcID;
-            DstID = src.DstID;
-            Idempotent = src.Idempotent;
-            PayloadLength = src.PayloadLength;
-            if (src.PayloadLength > 0)
-            {
-                Buffer.BlockCopy(src.Payload, 0, Payload, 0, src.PayloadLength);
-            }
-        }
-
+        /// <summary>
+        /// 16 位大端序编码
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="offset"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static int Encode16BE(byte[] p, int offset, ushort value)
-        {// 16 大端编码
+        {
             p[offset + 0] = (byte)(value >> 8);
             p[offset + 1] = (byte)(value >> 0);
             return 2;
         }
 
+
+        /// <summary>
+        /// 16 位大端序解码
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="offset"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static int Decode16BE(byte[] p, int offset, out ushort value)
         {// 16 大端解码
             value = (ushort)((p[offset + 0] << 8) | p[offset + 1]);
             return 2;
         }
 
+
+        /// <summary>
+        /// 32 位大端序编码
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="offset"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static int Encode32BE(byte[] p, int offset, uint value)
         {// 32 大端编码
             p[offset + 0] = (byte)(value >> 24);
@@ -102,6 +79,14 @@ namespace Lilith.Core
             return 4;
         }
 
+
+        /// <summary>
+        /// 32位大端序解码
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="offset"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public static int Decode32BE(byte[] p, int offset, out uint value)
         {// 32 大端解码
             value = ((uint)p[offset + 0] << 24)
@@ -111,69 +96,181 @@ namespace Lilith.Core
             return 4;
         }
 
-        public static int Pack(Package pkg, byte[] wireBuf)
-        {// 装包
-            if (pkg.Idempotent == 0)
-            {
-                throw new ArgumentException("PkSeq must be != 0");
-            }
+        #region /// 字段偏移
 
-            if (pkg.PayloadLength > PAYLOAD_MAX)
-            {
-                throw new ArgumentException("payload too large: " + pkg.PayloadLength);
-            }
+        /// <summary>
+        /// Package.ID 偏移量 16 bits
+        /// </summary>
+        public const int OFFSET_ID = 0;
 
-            int total = HEADER_SIZE + pkg.PayloadLength;
-            if (wireBuf.Length < total)
-            {
-                throw new ArgumentException("wireBuf too small");
-            }
+        /// <summary>
+        /// Package.SrcID 偏移量 32 bits
+        /// </summary>
+        public const int OFFSET_SRC_ID = 2;
 
-            Encode16BE(wireBuf, OFFSET_ID, pkg.ID);
-            Encode32BE(wireBuf, OFFSET_SRC_ID, pkg.SrcID);
-            Encode32BE(wireBuf, OFFSET_DST_ID, pkg.DstID);
-            Encode32BE(wireBuf, OFFSET_SEQ, pkg.Idempotent);
+        /// <summary>
+        /// Package.Idempotent 偏移量 32 bits
+        /// </summary>
+        public const int OFFSET_DST_ID = 6;
 
-            if (pkg.PayloadLength > 0)
-            {
-                Buffer.BlockCopy(pkg.Payload, 0, wireBuf, HEADER_SIZE, pkg.PayloadLength);
-            }
+        /// <summary>
+        /// Package.Idempotent 偏移量 32 bits
+        /// </summary>
+        public const int OFFSET_IDEM = 10;
 
-            return total;
-        }
+        #endregion /// 字段偏移
 
-        public static bool Unpack(byte[] wireBuf, int len, Package pkg)
-        {// 解包
-            if (len < HEADER_SIZE)
-            {
-                return false;
-            }
 
-            Decode16BE(wireBuf, OFFSET_ID, out pkg.ID);
-            Decode32BE(wireBuf, OFFSET_SRC_ID, out pkg.SrcID);
-            Decode32BE(wireBuf, OFFSET_DST_ID, out pkg.DstID);
-            Decode32BE(wireBuf, OFFSET_SEQ, out pkg.Idempotent);
-            if (pkg.Idempotent == 0)
-            {
-                return false;
-            }
+        #region /// 常量与限制
 
-            pkg.PayloadLength = len - HEADER_SIZE;
-            if (pkg.PayloadLength > 0)
-            {
-                Buffer.BlockCopy(wireBuf, HEADER_SIZE, pkg.Payload, 0, pkg.PayloadLength);
-            }
+        /// <summary>
+        /// Package 消息头长度. 共 id(16) + src_id(32) + dst_id(32) + seq(32) 128 bits / 14 Bytes
+        /// </summary>
+        public const int HEADER_SIZE = 14;
 
-            return true;
-        }
+        /// <summary>
+        /// ChaCha20-Poly1305 Tag 长度, 加密后附在 payload 尾部
+        /// </summary>
+        public const int TAG_LEN = 16;
+
+        /// <summary>
+        /// 最大的 KCP 消息长度
+        /// </summary>
+        public const int PACK_MAX_LEN = 65535;
+
+        /// <summary>
+        /// 最大的 Payload 长度
+        /// </summary>
+        public const int PAYLOAD_MAX = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
+
+        #endregion /// 常量与限制
+
 
         private static SafePool<Package> pool = new SafePool<Package>(() => new Package(), pkg => pkg.Reset());
+
+        /// <summary>
+        /// 对象池, 线程安全
+        /// </summary>
         public static SafePool<Package> Pool
         {
             get
             {
                 return pool;
             }
+        }
+
+
+        #region /// 消息ID
+
+        /// <summary>
+        /// PING 客户端主动发起
+        /// </summary>
+        public const ushort PKID_PING = 100;
+
+        /// <summary>
+        /// PONG 服务端响应
+        /// </summary>
+        public const ushort PKID_PONG = 101;
+
+        /// <summary>
+        /// 鉴权注册请求 客户端主动发起
+        /// </summary>
+        public const ushort PKID_REGIST_REQ = 102;
+
+        /// <summary>
+        /// 鉴权注册应答 服务端响应
+        /// </summary>
+        public const ushort PKID_REGIST_RSP = 103;
+
+        #endregion /// 消息ID
+
+
+        #region /// 消息字段
+
+        /// <summary>
+        /// 消息头: 消息ID
+        /// </summary>
+        [JsonProperty("id")]
+        public ushort ID;
+
+        /// <summary>
+        /// 消息头: 源ID
+        /// </summary>
+        [JsonProperty("src_id")]
+        public uint SrcID;
+
+        /// <summary>
+        /// 消息头: 目标ID
+        /// </summary>
+        [JsonProperty("dst_id")]
+        public uint DstID;
+
+        /// <summary>
+        /// 消息头: 幂等
+        /// </summary>
+        [JsonProperty("idempotent")]
+        public uint Idempotent;
+
+        /// <summary>
+        /// 消息体
+        /// </summary>
+        [JsonIgnore]
+        public readonly byte[] Payload = new byte[PAYLOAD_MAX];
+
+        /// <summary>
+        /// 消息体的 hex 形式, 只截有效长度(PayloadLength), 仅供 ToString/日志用
+        /// </summary>
+        [JsonProperty("payload")]
+        private string PayloadHex
+        {
+            get { return BitConverter.ToString(Payload, 0, PayloadLength).Replace("-", ""); }
+        }
+
+        #endregion /// 消息字段
+
+
+        #region /// 附加字段
+
+        /// <summary>
+        /// Payload 长度
+        /// </summary>
+        [JsonIgnore]
+        public int PayloadLength;
+
+
+        /// <summary>
+        /// Package总长度
+        /// </summary>
+        [JsonIgnore]
+        public int PkLen
+        {
+            get
+            {
+                return HEADER_SIZE + PayloadLength;
+            }
+        }
+
+        #endregion /// 附加字段
+
+
+        /// <summary>
+        /// JSON 格式化
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+
+
+        /// <summary>
+        /// 重置
+        /// </summary>
+        public void Reset()
+        {
+            ID = 0;
+            SrcID = DstID = Idempotent = 0;
+            PayloadLength = 0;
         }
     }
 }

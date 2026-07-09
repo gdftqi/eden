@@ -5,12 +5,35 @@ using Lilith.Utils;
 
 namespace Lilith.Core.Arq
 {
+    /// <summary>
+    /// Kcp 状态
+    /// </summary>
     public enum KcpState
     {
-        None = 0,   // 初始: 未握手完成(只走握手包, 不发业务)
-        Open = 1,   // 握手完成: 可收发加密业务
-        Timeout = -1,  // 超时未收到对端任何包(判死)
-        Rst = -2,  // 收到对端 RST(会话已不存在, 判死)
+        /// <summary>
+        /// 初始: 未握手完成(只走握手包, 不发业务)
+        /// </summary>
+        None = 0,
+
+        /// <summary>
+        /// 握手完成: 可收发加密业务
+        /// </summary>
+        Open = 1,
+
+        /// <summary>
+        /// 超时未收到对端任何包(判死)
+        /// </summary>
+        Timeout = -1,
+
+        /// <summary>
+        /// 收到对端 RST(会话已不存在, 判死)
+        /// </summary>
+        Rst = -2,
+
+        /// <summary>
+        /// 网络断开, 由于Kcp 默认是没有集成IO的，所以该状态不可能由 Kcp 设置
+        /// </summary>
+        Shutdown = -3,
     }
 
     public class Kcp

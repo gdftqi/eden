@@ -1,15 +1,55 @@
 namespace Lilith.Core.Arq
 {
+    /// <summary>
+    /// 线程安全的 KCP
+    /// </summary>
     public class SafeKcp
-    {// 线程安全的 kcp
-        readonly Kcp kcp;
-        readonly object locker = new object();
-
+    {
+        /// <summary>
+        /// 构造函数
+        /// </summary>
+        /// <param name="kcp"></param>
         public SafeKcp(Kcp kcp)
         {
             this.kcp = kcp;
         }
 
+
+        /// <summary>
+        /// 状态
+        /// </summary>
+        public KcpState State
+        {
+            get
+            {
+                return kcp.State;
+            }
+
+            set
+            {
+                kcp.state = value;
+            }
+        }
+
+
+        /// <summary>
+        /// KCP 状态 鉴权成功变为 OPEN
+        /// </summary>
+        public void Open()
+        {
+            lock (locker)
+            {
+                kcp.Open();
+            }
+        }
+
+
+        /// <summary>
+        /// Kcp Input
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="len"></param>
         public void Input(byte[] data, int offset, int len)
         {
             lock (locker)
@@ -18,6 +58,12 @@ namespace Lilith.Core.Arq
             }
         }
 
+
+        /// <summary>
+        /// Kcp Recv
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <returns></returns>
         public int Receive(byte[] buffer)
         {
             lock (locker)
@@ -26,6 +72,14 @@ namespace Lilith.Core.Arq
             }
         }
 
+
+        /// <summary>
+        /// Kcp Send + Kcp Flush
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="len"></param>
+        /// <returns></returns>
         public int SendFlush(byte[] buffer, int offset, int len)
         {
             lock (locker)
@@ -39,7 +93,12 @@ namespace Lilith.Core.Arq
             }
         }
 
-        // [typhon] 透传 KCP 判死信号: 0 存活 / -1 超时
+
+        /// <summary>
+        /// Kcp Update
+        /// </summary>
+        /// <param name="currentMs"></param>
+        /// <returns></returns>
         public int Update(uint currentMs)
         {
             lock (locker)
@@ -48,6 +107,12 @@ namespace Lilith.Core.Arq
             }
         }
 
+
+        /// <summary>
+        /// 获取 KCP 下一次的 Update 时间
+        /// </summary>
+        /// <param name="currentMs"></param>
+        /// <returns></returns>
         public uint Check(uint currentMs)
         {
             lock (locker)
@@ -56,9 +121,11 @@ namespace Lilith.Core.Arq
             }
         }
 
-        // [typhon] state 是 volatile, 读写无需锁(可见性已由 volatile 保证, 同原 authed)
-        public KcpState State => kcp.State;
 
-        public void Open() => kcp.Open();
+        // kcp 对象
+        readonly Kcp kcp;
+
+        // 锁
+        readonly object locker = new object();
     }
 }
