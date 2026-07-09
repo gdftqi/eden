@@ -109,7 +109,7 @@ namespace Lilith.Core
         public const int OFFSET_SRC_ID = 2;
 
         /// <summary>
-        /// Package.Idempotent 偏移量 32 bits
+        /// Package.DstID 偏移量 32 bits
         /// </summary>
         public const int OFFSET_DST_ID = 6;
 
@@ -124,7 +124,7 @@ namespace Lilith.Core
         #region /// 常量与限制
 
         /// <summary>
-        /// Package 消息头长度. 共 id(16) + src_id(32) + dst_id(32) + seq(32) 128 bits / 14 Bytes
+        /// Package 消息头长度. 共 id(16) + src_id(32) + dst_id(32) + seq(32) 112  bits / 14 Bytes
         /// </summary>
         public const int HEADER_SIZE = 14;
 

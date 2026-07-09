@@ -301,7 +301,14 @@ namespace Lilith.Core
                 return -1000;
             }
 
-            return sKcp!.Update(currentMs);
+            var k = sKcp;
+            if (k == null)
+            {
+                Log.Write("会话未打开时调用 Update");
+                return -1000;
+            }
+
+            return k.Update(currentMs);
         }
 
 
@@ -324,7 +331,14 @@ namespace Lilith.Core
                 return -1000;
             }
 
-            if (sKcp!.State != KcpState.Open && pkg.ID != Package.PKID_REGIST_REQ)
+            var k = sKcp;
+            if (k == null)
+            {
+                Log.Write("会话未打开时调用 Send");
+                return -1000;
+            }
+
+            if (k.State != KcpState.Open && pkg.ID != Package.PKID_REGIST_REQ)
             {
                 Log.Write("会话未鉴权时调用 Send");
                 return -1001;
@@ -334,7 +348,7 @@ namespace Lilith.Core
             pkg.SrcID = userId;
 
             int n = Encode(pkg, sbuf);
-            return sKcp.SendFlush(sbuf, 0, n);
+            return k.SendFlush(sbuf, 0, n);
         }
 
 
@@ -357,21 +371,35 @@ namespace Lilith.Core
                 return -1000;
             }
 
+            var s = sock;
+            if (s == null)
+            {
+                Log.Write("会话未激活时调用 Recv");
+                return -1000;
+            }
+
+            var k = sKcp;
+            if (k == null)
+            {
+                Log.Write("会话未激活时调用 Recv");
+                return -1000;
+            }
+
             try
             {
                 EndPoint remote = new IPEndPoint(IPAddress.Any, 0);
-                int n = sock!.ReceiveFrom(ibuf, ref remote);
+                int n = s.ReceiveFrom(ibuf, ref remote);
                 if (!remote.Equals(remotePoint))
                     return 0;
 
                 if (n <= 0)
                     return 0;
 
-                sKcp!.Input(ibuf, 0, n);
+                k.Input(ibuf, 0, n);
 
                 do
                 {
-                    n = sKcp!.Receive(rbuf);
+                    n = k.Receive(rbuf);
                     if (n <= 0)
                         break;
 
@@ -569,6 +597,7 @@ namespace Lilith.Core
                     }
                     catch (ObjectDisposedException)
                     {
+                        // 有意吞掉, Close() 可能在并发线程中调用, 这里不想抛异常
                     }
                 }
             }
@@ -587,7 +616,7 @@ namespace Lilith.Core
             }
             catch (ObjectDisposedException)
             {
-                // TODO
+                // 有意吞掉, Close() 可能在并发线程中调用, 这里不想抛异常
             }
             catch (SocketException)
             {
