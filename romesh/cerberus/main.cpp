@@ -1,32 +1,32 @@
 #include <csignal>
 #include <iostream>
 
-#include "typhon.hpp"
+#include "cerberus.hpp"
 
 
-static typhon::Server* g_server = nullptr;
+static cerberus::Server* server = nullptr;
 
 
 static void
 on_signal(int) {
-    if (g_server) {
-        g_server->stop();
+    if (server) {
+        server->stop();
     }
 }
 
 
-class EchoService: public typhon::kcp::IEvent {
+class ServiceEvent: public typhon::kcp::IEvent {
 public:
     virtual void 
     on_init(void* arg) noexcept {
-        server_ = (typhon::Server*)arg;
-        xINFO("{} is running...", typhon::Conf::instance()->host());
+        server_ = (cerberus::Server*)arg;
+        xINFO("{} is running...", cerberus::Conf::instance()->host());
     }
 
 
     virtual void
     on_stopped(void*) noexcept {
-        xINFO("{} stopped", typhon::Conf::instance()->host());
+        xINFO("{} stopped", cerberus::Conf::instance()->host());
     }
 
 
@@ -69,37 +69,28 @@ public:
 
 
 private:
-    typhon::Server* server_ { nullptr };
-};
+    cerberus::Server* server_ { nullptr };
+}; // class ServiceEvent;
 
 
 int
-main(int argc, char** argv) {
-    // 位置参数:
-    //   argv[1] : ifname              (默认 "lo", 开发用; 生产传真实网卡)
-    //   argv[2] : kcp_bpf_path        (默认 "build/kcp.bpf.o")
-    //   argv[3] : envelope_bpf_path   (默认 "build/envelope.bpf.o")
-    const char* config            = "config.yml";
-    const char* ifname            = (argc > 1) ? argv[1] : "lo";
-    const char* kcp_bpf_path      = (argc > 2) ? argv[2] : "build/kcp.bpf.o";
-    const char* envelope_bpf_path = (argc > 3) ? argv[3] : "build/envelope.bpf.o";
-
+main(int, char**) {
     if (!typhon::utils::lock_pid("server.pid")) {
         xERROR("程序已启动");
         ::exit(EXIT_FAILURE);
     }
 
-    typhon::Conf::instance()->load(config);
+    cerberus::Conf::instance()->load("config.yml");
 
-    EchoService echo;
-    typhon::Server server(&echo);
-    g_server = &server;
+    ServiceEvent se;
+    server = new cerberus::Server(&se);
 
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
-    xINFO("kcp echo listening on 0.0.0.0:5555 (XDP on {}, kcp bpf = {}, envelope bpf = {})", ifname, kcp_bpf_path, envelope_bpf_path);
-    server.run();
+    xINFO("kcp echo listening on 0.0.0.0:5555");
+    server->run();
 
+    delete server;
     ::exit(EXIT_SUCCESS);
 }

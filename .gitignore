@@ -4,6 +4,10 @@ build
 *.so
 .venv
 
+# cerberus 的部署包输出目录(注意锚定全路径, 别误伤源码目录 romesh/cerberus)
+/romesh/cerberus/cerberus/
+/romesh/cerberus/obj/
+
 # --- Unity (echidna/) ---
 # Unity 自动生成的缓存 / 中间产物，重新打开工程会重建
 [Ll]ibrary/

@@ -1,5 +1,5 @@
-#ifndef __TYPHON_HPP__
-#define __TYPHON_HPP__
+#ifndef __CERBERUS_HPP__
+#define __CERBERUS_HPP__
 
 
 #include <yaml-cpp/yaml.h>
@@ -10,7 +10,7 @@
 #include "tcp/server.hpp"
 
 
-namespace typhon {
+namespace cerberus {
 
 
 class Conf {
@@ -135,12 +135,12 @@ public:
      *                          空串表示不启用 XDP 防御层 (开发 / 调试时可用)
      */
     explicit
-    Server(kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
+    Server(typhon::kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
 
 
     bool
     running() const noexcept {
-        return state_.load(std::memory_order_relaxed) == core::State::Running;
+        return state_.load(std::memory_order_relaxed) == typhon::core::State::Running;
     }
 
 
@@ -156,8 +156,8 @@ public:
      */
     void
     stop() noexcept {
-        auto running = core::State::Running;
-        if (state_.compare_exchange_strong(running, core::State::Stopping)) {
+        auto running = typhon::core::State::Running;
+        if (state_.compare_exchange_strong(running, typhon::core::State::Stopping)) {
             notify_serv_disconnected(0);
         }
     }
@@ -191,24 +191,24 @@ private:
     on_event_handle(const ::epoll_event& ev) noexcept;
 
 
-    core::SOCKET                  epfd_              { core::INVALID_SOCKET }; // epoll fd
-    core::SOCKET                  evrfd_             { core::INVALID_SOCKET }; // event read fd
-    core::SOCKET                  evwfd_             { core::INVALID_SOCKET }; // event read fd
-    kcp::IEvent*                  event_             { nullptr };              // 服务事件
-    std::atomic<core::State>      state_             { core::State::Stopped }; // 状态
-    std::string                   host_;                                       // 监听 host:port
-    std::string                   ifname_;                                     // 网卡名 (XDP attach)
-    std::string                   kcp_bpf_path_;                               // kcp.bpf.o 路径
-    std::string                   envelope_bpf_path_;                          // envelope.bpf.o 路径
-    bpf::EnvelopeFilter           envelope_;                                   // XDP MAC 过滤
-    bpf::Router                   router_;                                     // SO_REUSEPORT 路由
-    std::vector<kcp::Server::Ptr> ks_pool_;                                    // kcp server pool
-    std::vector<std::thread>      threads_;                                    // 线程池
-    ServSet                       servs_;                                      // 服务集合
+    typhon::core::SOCKET                  epfd_              { typhon::core::INVALID_SOCKET }; // epoll fd
+    typhon::core::SOCKET                  evrfd_             { typhon::core::INVALID_SOCKET }; // event read fd
+    typhon::core::SOCKET                  evwfd_             { typhon::core::INVALID_SOCKET }; // event read fd
+    typhon::kcp::IEvent*                  event_             { nullptr };                      // 服务事件
+    std::atomic<typhon::core::State>      state_             { typhon::core::State::Stopped }; // 状态
+    std::string                           host_;                                               // 监听 host:port
+    std::string                           ifname_;                                             // 网卡名 (XDP attach)
+    std::string                           kcp_bpf_path_;                                       // kcp.bpf.o 路径
+    std::string                           envelope_bpf_path_;                                  // envelope.bpf.o 路径
+    typhon::bpf::EnvelopeFilter           envelope_;                                           // XDP MAC 过滤
+    typhon::bpf::Router                   router_;                                             // SO_REUSEPORT 路由
+    std::vector<typhon::kcp::Server::Ptr> ks_pool_;                                            // kcp server pool
+    std::vector<std::thread>              threads_;                                            // 线程池
+    ServSet                               servs_;                                              // 服务集合
 }; // class Server;
 
 
-} // namespace typhon;
+} // namespace cerberus;
 
 
-#endif // __TYPHON_HPP__
+#endif // __CERBERUS_HPP__

@@ -5,7 +5,10 @@ CXXFLAGS    := -O2 -g -Wall -Wextra -I../../include -MMD -MP -std=c++20
 CFLAGS      := -O2 -fPIC -Wall -Wextra -I../../include
 WIN_CFLAGS  := -O2 -Wall -Wextra -I../../include
 
-BUILD_DIR   := build
+# cerberus/ 是干净的部署包: 二进制 + config + bpf 对象 + docker-compose;
+# 编译中间产物(.o/.d)全部放 obj/, 不进部署包
+BUILD_DIR   := cerberus
+OBJ_DIR     := obj
 LIB         := ../../build/libtyphon.a
 BUILD_START := $(shell date +%s)
 
@@ -17,18 +20,18 @@ KCP_BPF_DST      := $(BUILD_DIR)/kcp.bpf.o
 ENVELOPE_BPF_SRC := ../../build/bpf/envelope.bpf.o
 ENVELOPE_BPF_DST := $(BUILD_DIR)/envelope.bpf.o
 
-SERVER      := $(BUILD_DIR)/server
+SERVER      := $(BUILD_DIR)/cerberus
 LIBKCP_SO   := libkcp.so
-CONFIG_SRC  := config.yml
 CONFIG_DST  := $(BUILD_DIR)/config.yml
+COMPOSE_DST := $(BUILD_DIR)/docker-compose.yml
 
 SOURCES := $(wildcard *.cpp)
-OBJECTS := $(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
+OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o)
 
 .PHONY: all clean
 
-all: $(SERVER) $(LIBKCP_SO) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST) $(CONFIG_DST)
-	@echo "==> [kcp_echo] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
+all: $(SERVER) $(LIBKCP_SO) $(KCP_BPF_DST) $(ENVELOPE_BPF_DST) $(CONFIG_DST) $(COMPOSE_DST)
+	@echo "==> [cerberus] build done at $$(date '+%F %T'), elapsed $$(($$(date +%s) - $(BUILD_START)))s"
 
 # typhon 主库 / BPF 对象:任一过期就回顶层 make 重新构建
 $(LIB):
@@ -40,7 +43,7 @@ $(KCP_BPF_SRC):
 $(ENVELOPE_BPF_SRC):
 	@$(MAKE) -C ../..
 
-# C++ echo server
+# C++ cerberus
 $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -o $@
 
@@ -48,25 +51,31 @@ $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
 $(LIBKCP_SO): ../../src/kcp/ikcp.c
 	$(CC) $(CFLAGS) -shared -o $@ $<
 
-# 把 BPF 对象拷到本地 build,server 启动时方便用相对路径加载 (build/kcp.bpf.o 等)
+# 部署包内容: bpf 对象 / config / docker-compose 全拷进 $(BUILD_DIR),
+# cerberus 运行时 cwd 即部署目录, 全部用相对路径加载
 $(KCP_BPF_DST): $(KCP_BPF_SRC) | $(BUILD_DIR)
 	cp $< $@
 
 $(ENVELOPE_BPF_DST): $(ENVELOPE_BPF_SRC) | $(BUILD_DIR)
 	cp $< $@
 
-# 把 config.yml 拷到本地 build, server 用相对路径 build/config.yml 加载
-$(CONFIG_DST): $(CONFIG_SRC) | $(BUILD_DIR)
+$(CONFIG_DST): config.yml | $(BUILD_DIR)
 	cp $< $@
 
-# C++ object 编译
-$(BUILD_DIR)/%.o: %.cpp | $(BUILD_DIR)
+$(COMPOSE_DST): docker-compose.yml | $(BUILD_DIR)
+	cp $< $@
+
+# C++ object 编译(中间产物进 obj/)
+$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR):
 	@mkdir -p $@
 
+$(OBJ_DIR):
+	@mkdir -p $@
+
 -include $(OBJECTS:.o=.d)
 
 clean:
-	rm -rf $(BUILD_DIR) $(LIBKCP_SO)
+	rm -rf $(BUILD_DIR) $(OBJ_DIR) $(LIBKCP_SO)

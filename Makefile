@@ -17,10 +17,17 @@ Z_LIB             := /usr/lib/x86_64-linux-gnu/libz.a
 ZSTD_LIB          := /usr/lib/x86_64-linux-gnu/libzstd.a
 YAMLCPP_LIB       := /usr/local/lib/libyaml-cpp.a
 LIBSODIUM_LIB     := /usr/local/lib/libsodium.a
+LIBCURL_LIB       := /usr/local/lib/libcurl.a
+SSL_LIB           := /usr/lib/x86_64-linux-gnu/libssl.a
+CRYPTO_LIB        := /usr/lib/x86_64-linux-gnu/libcrypto.a
+JITTER_LIB        := /usr/lib/x86_64-linux-gnu/libjitterentropy.a
+SIMDJSON_LIB      := /usr/local/lib/libsimdjson.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
 ABSL_LIBS         := $(patsubst -l%,/usr/local/lib/lib%.a,$(filter -labsl_%,$(shell pkg-config --libs --static absl_flat_hash_map)))
 
-BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(ELF_LIB) $(Z_LIB) $(ZSTD_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS)
+
+BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(ELF_LIB) $(Z_LIB) $(ZSTD_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS) \
+                     $(LIBCURL_LIB) $(SSL_LIB) $(CRYPTO_LIB) $(JITTER_LIB) $(SIMDJSON_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 
