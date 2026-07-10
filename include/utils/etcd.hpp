@@ -7,8 +7,7 @@
 #include <string>
 #include <string_view>
 
-// ikcp.h 定义了 INLINE 宏, 会撞烂 simdjson 里的枚举成员 INLINE(layout_mode);
-// 此处临时摘掉宏再包含, 完了恢复, 与包含顺序无关
+// ikcp.h 定义了 INLINE 宏
 #pragma push_macro("INLINE")
 #undef INLINE
 #include "simdjson.h"
