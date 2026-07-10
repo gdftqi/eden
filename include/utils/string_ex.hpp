@@ -38,6 +38,19 @@ base64_decode(const std::string& s, uint8_t* data, size_t* len) noexcept {
 }
 
 
+inline std::string
+base64_decode(const std::string& s) noexcept {
+    std::string out(base64_decode_len(s.length()), '\0');
+    size_t len = out.size();
+    if (::sodium_base642bin((uint8_t*)out.data(), len, s.data(), s.length(), nullptr, &len, nullptr, sodium_base64_VARIANT_ORIGINAL) != 0) {
+        return "";
+    }
+
+    out.resize(len);
+    return out;
+}
+
+
 } // namespace typhon::utils;
 
 

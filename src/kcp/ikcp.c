@@ -1601,6 +1601,3 @@ int ikcp_setcc(ikcpcb *kcp, const struct IKCPOPS *ops)
 	}
 	return 0;
 }
-
-
-

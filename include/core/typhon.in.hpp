@@ -25,7 +25,9 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <mimalloc-3.2/mimalloc.h>
+#include <simdjson.h>
 #include <sodium.h>
+#include <yaml-cpp/yaml.h>
 
 #include "core/error.hpp"
 #include "utils/cryptor.hpp"
@@ -178,7 +180,55 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
 }
 
 
-} // namespace typhon::core;
+struct ServerInfo {
+    uint32_t    id    { 0 };
+    std::string host;
+    std::string desc;
+
+    std::string
+    to_string() noexcept {
+        return std::format("{{\"id\":{},\"host\":\"{}\",\"desc\":\"{}\"}}", id, host, desc);
+    }
+
+
+    int
+    from_yaml(const YAML::Node& root) noexcept {
+        if (!root["id"] || !root["host"] || !root["desc"]) {
+            return -1;
+        }
+
+        id   = root["id"].as<uint32_t>();
+        host = root["host"].as<std::string>();
+        desc = root["desc"].as<std::string>();
+
+        return 0;
+    }
+
+
+    static int
+    from_json(ServerInfo* si, const std::string& json) noexcept {
+        simdjson::ondemand::parser parser;
+        auto j = simdjson::padded_string(json);
+        auto doc = parser.iterate(j);
+
+        if (doc["id"].has_value()) {
+            si->id = doc["id"].get_uint32().value_unsafe();
+        }
+
+        if (doc["host"].has_value()) {
+            si->host = std::string(doc["host"].get_string().value_unsafe());
+        }
+
+        if (doc["desc"].has_value()) {
+            si->desc = std::string(doc["desc"].get_string().value_unsafe());
+        }
+
+        return 0;
+    }
+}; // class ServerInfo;
+
+
+} // namespace typhon::core
 
 
 #endif // __TYPHON_IN_HPP__

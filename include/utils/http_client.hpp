@@ -37,8 +37,9 @@ http_wr(char* p, size_t s, size_t n, void* u) {
 
 template <typename T> int
 http_post(T* out, const char* url, const char* body, const char** keys, const char** values, size_t hd_num) noexcept {
+    ASSERT(out != nullptr, "out 不能为null");
+    
     init_http();
-
     ::CURL* c = ::curl_easy_init();
     ASSERT(c != nullptr, "Failed to initialize CURL");
 

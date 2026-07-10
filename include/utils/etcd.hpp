@@ -2,10 +2,12 @@
 #define __TYPHON_UTILS_ETCD_HPP__
 
 
-#include <curl/curl.h>
 #include <format>
 #include <string>
 #include <string_view>
+
+#include <curl/curl.h>
+#include <yaml-cpp/yaml.h>
 
 // ikcp.h 定义了 INLINE 宏
 #pragma push_macro("INLINE")
@@ -19,12 +21,34 @@
 namespace typhon::utils {
 
 
+struct EtcdConfig {
+    std::string url;
+    std::string user;
+    std::string pass;
+
+    
+    int
+    from_yaml(const YAML::Node& root) noexcept {
+        if (!root["url"] || !root["user"] || !root["pass"]) {
+            return -1;
+        }
+
+        url = root["url"].as<std::string>();
+        user = root["user"].as<std::string>();
+        pass = root["pass"].as<std::string>();
+
+        return 0;
+    }
+}; // struct EtcdConfig;
+
+
 struct EtcdRsp {
     int code { 0 };
     std::string message;
     std::string token;
     std::string id;
     std::string ttl;
+    std::list<std::pair<std::string, std::string>> kvs;
 
     struct {
         std::string cluster_id;
@@ -35,51 +59,12 @@ struct EtcdRsp {
 
 
     static int
-    deserialize(EtcdRsp* out, const std::string& json) noexcept {
-        simdjson::ondemand::parser parser;
-        auto j = simdjson::padded_string(json);
-        auto root = parser.iterate(j);
+    deserialize(EtcdRsp* out, const std::string& json) noexcept;
 
-        if (root["code"].has_value()) {
-            out->code = root["code"].get_int32().value_unsafe();
-        }
 
-        if (root["message"].has_value()) {
-            out->message = std::string(root["message"].get_string().value_unsafe());
-        }
-
-        if (root["token"].has_value()) {
-            out->token = std::string(root["token"].get_string().value_unsafe());
-        }
-
-        if (root["ID"].has_value()) {
-            out->id = std::string(root["ID"].get_string().value_unsafe());
-        }
-
-        if (root["TTL"].has_value()) {
-            out->ttl = std::string(root["TTL"].get_string().value_unsafe());
-        }
-
-        if (root["header"].has_value()) {
-            auto h = root["header"];
-            if (h["cluster_id"].has_value()) {
-                out->header.cluster_id = std::string(h["cluster_id"].get_string().value_unsafe());
-            }
-
-            if (h["member_id"].has_value()) {
-                out->header.member_id = std::string(h["member_id"].get_string().value_unsafe());
-            }
-
-            if (h["revision"].has_value()) {
-                out->header.revision = std::string(h["revision"].get_string().value_unsafe());
-            }
-
-            if (h["raft_term"].has_value()) {
-                out->header.raft_term = std::string(h["raft_term"].get_string().value_unsafe());
-            }
-        }
-
-        return 0;
+    void
+    reset() noexcept {
+        *this = EtcdRsp{};
     }
 }; // struct EtcdRsp;
 

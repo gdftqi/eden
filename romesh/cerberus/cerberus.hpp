@@ -2,12 +2,11 @@
 #define __CERBERUS_HPP__
 
 
-#include <yaml-cpp/yaml.h>
-
 #include "bpf/router.hpp"
 #include "bpf/envelope_filter.hpp"
 #include "kcp/server.hpp"
 #include "tcp/server.hpp"
+#include "utils/etcd.hpp"
 
 
 namespace cerberus {
@@ -28,15 +27,15 @@ public:
     }
 
 
-    YAML::Node&
-    root() noexcept {
-        return root_;
+    const typhon::core::ServerInfo*
+    host() const noexcept {
+        return &server_;
     }
 
 
-    std::string
-    host() const noexcept {
-        return host_;
+    const typhon::utils::EtcdConfig*
+    etcd() const noexcept {
+        return &etcd_;
     }
 
 
@@ -60,23 +59,25 @@ public:
 
     void
     load(const char* cfname) {
-        root_ = YAML::LoadFile(cfname);
-        if (!root_["host"]) {
-            xFATAL("host is invalid");
+        auto root = YAML::LoadFile(cfname);
+        if (!root["server"] || server_.from_yaml(root["server"]) < 0) {
+            xFATAL("server is invalid");
         }
 
-        host_ = root_["host"].as<std::string>();
-
-        if (root_["ifname"]) {
-            ifname_ = root_["ifname"].as<std::string>();
+        if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
+            xFATAL("etcd is invalid");
         }
 
-        if (root_["kcp_bpf_path"]) {
-            kcp_bpf_path_ = root_["kcp_bpf_path"].as<std::string>();
+        if (root["ifname"]) {
+            ifname_ = root["ifname"].as<std::string>();
         }
 
-        if (root_["envelope_bpf_path"]) {
-            envelope_bpf_path_ = root_["envelope_bpf_path"].as<std::string>();
+        if (root["kcp_bpf_path"]) {
+            kcp_bpf_path_ = root["kcp_bpf_path"].as<std::string>();
+        }
+
+        if (root["envelope_bpf_path"]) {
+            envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
         }
     }
 
@@ -87,13 +88,11 @@ private:
     {}
 
 
-    std::string host_;
-    std::string ifname_;
-    std::string kcp_bpf_path_;
-    std::string envelope_bpf_path_;
-
-
-    YAML::Node root_;
+    typhon::core::ServerInfo  server_;
+    typhon::utils::EtcdConfig etcd_;
+    std::string               ifname_;
+    std::string               kcp_bpf_path_;
+    std::string               envelope_bpf_path_;
 }; // class Conf;
 
 
