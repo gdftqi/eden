@@ -207,7 +207,7 @@ Cerberus::update_serv() noexcept {
     typhon::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
-    if (token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
+    if (!put_flag || token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
         if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
             return;
         }
@@ -241,6 +241,7 @@ Cerberus::update_serv() noexcept {
         }
 
         put_flag = true;
+        xINFO("{} 注册 etcd 成功", k);
     } else {
         if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
             xERROR("etcd_keepalive failed");
