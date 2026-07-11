@@ -2,6 +2,10 @@
 #define __TYPHON_TCP_CONFIG_HPP__
 
 
+#include "core/typhon.in.hpp"
+#include "utils/etcd.hpp"
+
+
 namespace typhon::tcp {
 
 
@@ -20,9 +24,28 @@ public:
     }
 
 
-    int
-    timeout() const noexcept {
-        return timeout_;
+    void
+    load(const char* cfname) noexcept {
+        auto root = YAML::LoadFile(cfname);
+        if (!root["server"] || server_.from_yaml(root["server"]) < 0) {
+            xFATAL("server is invalid");
+        }
+
+        if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
+            xFATAL("etcd is invalid");
+        }
+    }
+
+
+    const core::ServerInfo*
+    server() const noexcept {
+        return &server_;
+    }
+
+
+    const utils::EtcdConfig*
+    etcd() const noexcept {
+        return &etcd_;
     }
 
 
@@ -31,7 +54,8 @@ private:
     {}
 
 
-    int timeout_ { 30000 };
+    core::ServerInfo  server_;
+    utils::EtcdConfig etcd_;
 }; // class Conf;
 
     

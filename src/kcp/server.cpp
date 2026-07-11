@@ -404,17 +404,14 @@ void
 typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
     auto* arg = (core::AddServArg*)qe->qe_data.ptr;
 
-    if (servs_.find(arg->id) != servs_.end()) {
-        // 如果存在, 直接返回
-        ::mi_free(arg);
-        return;
+    if (servs_.find(arg->id) == servs_.end()) {
+        auto conn = tcp::Connector::create(arg->id, arg->host);
+        if (conn) {
+            add_serv(conn);
+        }
     }
 
-    auto conn = tcp::Connector::create(arg->id, arg->host);
-    if (conn) {
-        add_serv(conn);
-    }
-    ::mi_free(arg);
+    delete arg;
 }
 
 

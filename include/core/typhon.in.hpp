@@ -181,7 +181,8 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
 
 
 struct ServerInfo {
-    uint32_t    id    { 0 };
+    uint32_t    id      { 0 };
+    uint32_t    timeout { 0 };
     std::string protocol;
     std::string name;
     std::string host;
@@ -203,22 +204,18 @@ struct ServerInfo {
     from_yaml(const YAML::Node& root) noexcept;
 
 
-    static int
-    from_json(ServerInfo* si, const std::string& json) noexcept {
+    int
+    from_json(const std::string& json) noexcept {
         simdjson::ondemand::parser parser;
         auto j = simdjson::padded_string(json);
         auto doc = parser.iterate(j);
 
         if (doc["id"].has_value()) {
-            si->id = doc["id"].get_uint32().value_unsafe();
+            id = doc["id"].get_uint32().value_unsafe();
         }
 
         if (doc["host"].has_value()) {
-            si->host = std::string(doc["host"].get_string().value_unsafe());
-        }
-
-        if (doc["desc"].has_value()) {
-            si->desc = std::string(doc["desc"].get_string().value_unsafe());
+            host = std::string(doc["host"].get_string().value_unsafe());
         }
 
         return 0;

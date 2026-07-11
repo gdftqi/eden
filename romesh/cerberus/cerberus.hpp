@@ -64,11 +64,11 @@ public:
     load(const char* cfname) {
         auto root = YAML::LoadFile(cfname);
         if (!root["server"] || server_.from_yaml(root["server"]) < 0) {
-            xFATAL("server is invalid");
+            xFATAL("config.server is invalid");
         }
 
         if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
-            xFATAL("etcd is invalid");
+            xFATAL("config.etcd is invalid");
         }
 
         if (root["ifname"]) {
@@ -83,6 +83,11 @@ public:
             envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
         }
 
+        if (!root["kcp"]) {
+            xFATAL("config.kcp is invalid");
+        }
+
+        root["kcp"]["timeout"] = server_.timeout;
         root_ = root;
     }
 

@@ -216,7 +216,7 @@ typhon::tcp::Proc::on_rmv_sess_handle(core::QEvent* qe) noexcept {
 void
 typhon::tcp::Proc::check_timeout() noexcept {
     const auto tn = tnow_;
-    const auto timeout = Conf::instance()->timeout();
+    const auto to = Conf::instance()->server()->timeout;
     const int  n  = Server::MAX_CONN;
     const int  ws = server_->worker_size();
 
@@ -227,7 +227,7 @@ typhon::tcp::Proc::check_timeout() noexcept {
             continue;
         }
 
-        if (s->last_recv_ms() + (uint64_t)timeout < tn) {
+        if (s->last_recv_ms() + (uint64_t)to < tn) {
             server_->remove_session(s->sockfd());
         }
     }

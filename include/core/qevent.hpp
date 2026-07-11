@@ -70,8 +70,8 @@ struct RcvArg {
  * @brief QEvent::Type::NewServArg 协带参数
  */
 struct AddServArg {
-    uint32_t id;
-    char     host[32];
+    uint32_t id       { 0 };
+    char     host[32] { 0 };
 };
 
 

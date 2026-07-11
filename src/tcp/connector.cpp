@@ -34,8 +34,9 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
     uint8_t* p     = net.raw();
 
     if (sbuf_.size() > 0) {
+        // 排队保序, 等 EPOLLOUT 续发
         sbuf_.insert(sbuf_.end(), p, p + total);
-        return xOK;                  // 排队保序, 等 EPOLLOUT 续发
+        return xOK;
     }
 
     n = core::writen(fd_, p, total);
@@ -45,8 +46,9 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
 
     last_send_ms_ = now;
     if (n < total) {
+        // 部分写, 余下存 sbuf_
         sbuf_.insert(sbuf_.end(), p + n, p + total);
-        return xOK;                  // 部分写, 余下存 sbuf_
+        return xOK;
     }
 
     return xOK;
@@ -77,11 +79,11 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
     static uint64_t timeout = 0;
 
     if (timeout == 0) {
-        timeout = Conf::instance()->timeout() / 3;
+        timeout = Conf::instance()->server()->timeout / 3;
     }
 
     if (is_connected()) {
-        if (now - last_recv_ms_ > (uint64_t)Conf::instance()->timeout()) {
+        if (now - last_recv_ms_ > (uint64_t)Conf::instance()->server()->timeout) {
             // 接收超时, 判死
             return xERR;
         }

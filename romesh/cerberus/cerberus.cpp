@@ -207,8 +207,9 @@ Cerberus::update_serv() noexcept {
     typhon::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
-    if (!put_flag || token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
+    if (token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
         if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+            token.clear();
             return;
         }
 
@@ -218,6 +219,7 @@ Cerberus::update_serv() noexcept {
     auto state = state_.load(std::memory_order_relaxed);
     if (state != typhon::core::State::Starting && state != typhon::core::State::Running) {
         typhon::utils::etcd_delete(&rsp, url, token.c_str(), server->key.c_str());
+        token.clear();
         return;
     }
 
@@ -227,6 +229,7 @@ Cerberus::update_serv() noexcept {
 
     if (!put_flag) {
         if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
+            token.clear();
             return;
         }
 
@@ -235,6 +238,7 @@ Cerberus::update_serv() noexcept {
         auto v = server->val.c_str();
 
         if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k, v, lease.c_str()) != 0) {
+            token.clear();
             return;
         }
 
@@ -243,11 +247,47 @@ Cerberus::update_serv() noexcept {
     } else {
         if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
             put_flag = false;
+            token.clear();
             return;
         }
     }
 
-    // TODO: 获取服务列表
+    if (typhon::utils::etcd_get_prefix(&rsp, url, token.c_str(), "/public") != 0) {
+        token.clear();
+        return;
+    }
+
+    auto& kvs = rsp.kvs;
+    for (auto& kv: kvs) {
+        typhon::core::ServerInfo s;
+        if (s.from_json(kv.second) != 0) {
+            continue;
+        }
+
+        if (s.id == 0) {
+            xWARN("{} 服务 ID {} 无效", kv.first, s.id);
+            continue;
+        }
+
+        if (s.host.length() == 0 || s.host.length() > sizeof(typhon::core::AddServArg::host)) {
+            xWARN("{} 服务 Host {} 无效", kv.first, s.host);
+            continue;
+        }
+
+        if (servs_.count(s.id) > 0) {
+            continue;
+        }
+
+        for (auto& ks: ks_pool_) {
+            auto* arg = new typhon::core::AddServArg;
+            arg->id = s.id;
+            ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
+            ks->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
+        }
+
+        servs_.insert(s.id);
+    }
+
     last_update = tnow_;
 }
 
