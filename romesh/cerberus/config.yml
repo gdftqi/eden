@@ -1,5 +1,6 @@
 server:
   id: 1000
+  protocol: "kcp"
   host: "0.0.0.0:5555"
   desc: "网关"
 

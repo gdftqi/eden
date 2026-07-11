@@ -123,15 +123,12 @@ Cerberus::run() noexcept {
             break;
         }
 
-        if (n == 0) {
-            update_serv();
-            continue;
-        }
-
         tnow_ = typhon::utils::systime_ms();
         for (i = 0; i < n; ++i) {
             on_event_handle(evs[i]);
         }
+
+        update_serv();
     }
 
     for (auto& s : ks_pool_) {
@@ -198,6 +195,8 @@ Cerberus::update_serv() noexcept {
     static bool        put_flag = false;
     static uint64_t    last_update = 0;
     static std::string lease;
+    static std::string key;
+    static std::string val;
     
     if (tnow_ == 0) {
         tnow_ = typhon::utils::systime_ms();
@@ -226,8 +225,13 @@ Cerberus::update_serv() noexcept {
     auto token = rsp.token;
 
     if (!put_flag) {
-        auto k = std::format("/cerberus/{}", server->id);
-        auto v = server->to_string();
+        if (key.empty()) {
+            key = std::format("/cerberus/{}", server->id);
+        }
+
+        if (val.empty()) {
+            val = server->to_string();
+        }
 
         if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
             xERROR("etcd_grant failed");
@@ -236,7 +240,7 @@ Cerberus::update_serv() noexcept {
 
         lease = rsp.id;
 
-        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k.c_str(), v.c_str(), lease.c_str()) != 0) {
+        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), key.c_str(), val.c_str(), lease.c_str()) != 0) {
             xERROR("etcd_put failed");
             return;
         }

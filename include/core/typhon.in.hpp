@@ -182,25 +182,28 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
 
 struct ServerInfo {
     uint32_t    id    { 0 };
+    std::string protocol;
     std::string host;
     std::string desc;
     ::time_t    start_time;
 
     std::string
     to_string() const noexcept {
-        return std::format("{{\"id\":{},\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{}}}", id, host, desc, start_time);
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{}}}", 
+            id, protocol, host, desc, start_time);
     }
 
 
     int
     from_yaml(const YAML::Node& root) noexcept {
-        if (!root["id"] || !root["host"] || !root["desc"]) {
+        if (!root["id"] || !root["host"] || !root["desc"] || !root["protocol"]) {
             return -1;
         }
 
-        id   = root["id"].as<uint32_t>();
-        host = root["host"].as<std::string>();
-        desc = root["desc"].as<std::string>();
+        id         = root["id"].as<uint32_t>();
+        protocol   = root["protocol"].as<std::string>();
+        host       = root["host"].as<std::string>();
+        desc       = root["desc"].as<std::string>();
         start_time = ::time(nullptr);
         return 0;
     }
