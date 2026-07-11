@@ -5,7 +5,7 @@
 
 
 static constexpr int MAX_EVENTS  = 1;
-static constexpr int INTERVAL_MS = 10000;
+static constexpr int INTERVAL_MS = 5000;
 
 
 Cerberus::Cerberus(typhon::kcp::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
@@ -128,6 +128,7 @@ Cerberus::run() noexcept {
             continue;
         }
 
+        tnow_ = typhon::utils::systime_ms();
         for (i = 0; i < n; ++i) {
             on_event_handle(evs[i]);
         }
@@ -189,11 +190,22 @@ Cerberus::release() noexcept {
 
 void
 Cerberus::update_serv() noexcept {
-    typhon::utils::EtcdRsp rsp;
+    constexpr uint64_t AUTH_INTERVAL = 120000;
+
     static const typhon::utils::EtcdConfig* etcd   = nullptr;
     static const typhon::core::ServerInfo*  server = nullptr;
-    static bool put_flag = false;
+
+    static bool        put_flag = false;
+    static uint64_t    last_update = 0;
     static std::string lease;
+    
+    if (tnow_ == 0) {
+        tnow_ = typhon::utils::systime_ms();
+    }
+
+    if (tnow_ - last_update < INTERVAL_MS) {
+        return;
+    }
 
     if (etcd == nullptr) {
         etcd = Conf::instance()->etcd();
@@ -203,9 +215,10 @@ Cerberus::update_serv() noexcept {
         server = Conf::instance()->server();
     }
 
+    typhon::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
-    if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+    if (tnow_ - last_update > AUTH_INTERVAL && typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
         xERROR("etcd_auth failed");
         return;
     }
@@ -232,27 +245,13 @@ Cerberus::update_serv() noexcept {
     } else {
         if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
             xERROR("etcd_keepalive failed");
+            put_flag = false;
             return;
         }
     }
 
-    // const uint32_t serv_id     = 10000;
-    // const char     serv_host[] = "172.31.6.248:6688";
-    // // const char     serv_host[] = "127.0.0.1:6688";
-
-    // if (servs_.count(serv_id)) {
-    //     return;    
-    // }
-
-    // for (auto& s : ks_pool_) {
-    //     auto* arg = (typhon::core::AddServArg*)::mi_malloc(sizeof(typhon::core::AddServArg));
-    //     ::memset(arg, 0, sizeof(typhon::core::AddServArg));
-    //     arg->id = serv_id;
-    //     ::strcpy(arg->host, serv_host);
-    //     s->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
-    // }
-
-    // servs_.insert(serv_id);
+    // TODO: 获取服务列表
+    last_update = tnow_;
 }
 
 

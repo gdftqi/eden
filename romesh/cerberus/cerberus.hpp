@@ -199,8 +199,9 @@ private:
     typhon::core::SOCKET                  epfd_              { typhon::core::INVALID_SOCKET }; // epoll fd
     typhon::core::SOCKET                  evrfd_             { typhon::core::INVALID_SOCKET }; // event read fd
     typhon::core::SOCKET                  evwfd_             { typhon::core::INVALID_SOCKET }; // event read fd
-    typhon::kcp::IEvent*                  event_             { nullptr };                      // 服务事件
+    uint64_t                              tnow_              { 0 };                            // 当前时间
     std::atomic<typhon::core::State>      state_             { typhon::core::State::Stopped }; // 状态
+    typhon::kcp::IEvent*                  event_             { nullptr };                      // 服务事件
     std::string                           host_;                                               // 监听 host:port
     std::string                           ifname_;                                             // 网卡名 (XDP attach)
     std::string                           kcp_bpf_path_;                                       // kcp.bpf.o 路径

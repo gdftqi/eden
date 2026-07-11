@@ -83,18 +83,6 @@ int
 typhon::utils::etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, const char* pwd) noexcept {
     ASSERT(rsp != nullptr && base_url != nullptr && user != nullptr && pwd != nullptr, "入参错误");
     rsp->reset();
-
-    if (::strlen(base_url) == 0) {
-        return -1;
-    }
-
-    if (::strlen(user) == 0) {
-        return -1;
-    }
-
-    if (::strlen(pwd) == 0) {
-        return -1;
-    }
     
     int res = http_post(
         rsp, 
