@@ -51,6 +51,10 @@ http_post(T* out, const char* url, const char* body, const char** keys, const ch
         hdrs = ::curl_slist_append(hdrs, std::format("{}: {}", keys[i], values[i]).c_str());
     }
 
+    if (hdrs) {
+        ::curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
+    }
+
     ::curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, http_wr);
 
     std::string rsp;

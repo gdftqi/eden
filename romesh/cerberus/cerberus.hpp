@@ -9,9 +9,6 @@
 #include "utils/etcd.hpp"
 
 
-namespace cerberus {
-
-
 class Conf {
     Conf(const Conf&) = delete;
     Conf& operator=(const Conf&) = delete;
@@ -27,8 +24,14 @@ public:
     }
 
 
+    const YAML::Node&
+    root() const noexcept {
+        return root_;
+    }
+
+
     const typhon::core::ServerInfo*
-    host() const noexcept {
+    server() const noexcept {
         return &server_;
     }
 
@@ -79,6 +82,8 @@ public:
         if (root["envelope_bpf_path"]) {
             envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
         }
+
+        root_ = root;
     }
 
 
@@ -93,6 +98,7 @@ private:
     std::string               ifname_;
     std::string               kcp_bpf_path_;
     std::string               envelope_bpf_path_;
+    YAML::Node                root_;
 }; // class Conf;
 
 
@@ -109,11 +115,11 @@ private:
  *
  * 析构顺序刚好相反, 析构链各自处理资源回收。
  */
-class Server {
-    Server(const Server&) = delete;
-    Server& operator=(const Server&) = delete;
-    Server(Server&&) = delete;
-    Server& operator=(Server&&) = delete;
+class Cerberus {
+    Cerberus(const Cerberus&) = delete;
+    Cerberus& operator=(const Cerberus&) = delete;
+    Cerberus(Cerberus&&) = delete;
+    Cerberus& operator=(Cerberus&&) = delete;
 
 
 public:
@@ -134,7 +140,7 @@ public:
      *                          空串表示不启用 XDP 防御层 (开发 / 调试时可用)
      */
     explicit
-    Server(typhon::kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
+    Cerberus(typhon::kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
 
 
     bool
@@ -204,10 +210,7 @@ private:
     std::vector<typhon::kcp::Server::Ptr> ks_pool_;                                            // kcp server pool
     std::vector<std::thread>              threads_;                                            // 线程池
     ServSet                               servs_;                                              // 服务集合
-}; // class Server;
-
-
-} // namespace cerberus;
+}; // class Cerberus;
 
 
 #endif // __CERBERUS_HPP__

@@ -4,7 +4,7 @@
 #include "cerberus.hpp"
 
 
-static cerberus::Server* server = nullptr;
+static Cerberus* server = nullptr;
 
 
 static void
@@ -19,14 +19,14 @@ class ServiceEvent: public typhon::kcp::IEvent {
 public:
     virtual void 
     on_init(void* arg) noexcept {
-        server_ = (cerberus::Server*)arg;
-        xINFO("{} is running...", cerberus::Conf::instance()->host());
+        server_ = (Cerberus*)arg;
+        xINFO("{} is running...", Conf::instance()->server()->host);
     }
 
 
     virtual void
     on_stopped(void*) noexcept {
-        xINFO("{} stopped", cerberus::Conf::instance()->host());
+        xINFO("{} stopped", Conf::instance()->server()->host);
     }
 
 
@@ -69,7 +69,7 @@ public:
 
 
 private:
-    cerberus::Server* server_ { nullptr };
+    Cerberus* server_ { nullptr };
 }; // class ServiceEvent;
 
 
@@ -80,10 +80,10 @@ main(int, char**) {
         ::exit(EXIT_FAILURE);
     }
 
-    cerberus::Conf::instance()->load("config.yml");
+    Conf::instance()->load("config.yml");
 
     ServiceEvent se;
-    server = new cerberus::Server(&se);
+    server = new Cerberus(&se);
 
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);

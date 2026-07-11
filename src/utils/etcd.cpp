@@ -81,13 +81,25 @@ typhon::utils::EtcdRsp::deserialize(EtcdRsp* out, const std::string& json) noexc
 
 int
 typhon::utils::etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, const char* pwd) noexcept {
-    ASSERT(rsp != nullptr, "rsp 不能为 null");
+    ASSERT(rsp != nullptr && base_url != nullptr && user != nullptr && pwd != nullptr, "入参错误");
     rsp->reset();
+
+    if (::strlen(base_url) == 0) {
+        return -1;
+    }
+
+    if (::strlen(user) == 0) {
+        return -1;
+    }
+
+    if (::strlen(pwd) == 0) {
+        return -1;
+    }
     
     int res = http_post(
         rsp, 
         std::format("{}{}", base_url, "/v3/auth/authenticate").c_str(), 
-        std::format("{{\"name\":\"{}\",\"password\":\"{}\"}}", user, pwd).c_str(), 
+        std::format("{{\"name\":\"{}\",\"password\":\"{}\"}}", user, pwd).c_str(),
         nullptr, nullptr, 0
     );
 
@@ -95,22 +107,57 @@ typhon::utils::etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, c
         return res;
     }
 
-    return -rsp->code;
+    if (rsp->code != 0) {
+        xERROR("etcd_auth failed: {}", rsp->message);
+        return -rsp->code;
+    }
+
+    return 0;
 }
 
 
 int
-typhon::utils::etcd_grant_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, int ttl) noexcept {
+typhon::utils::etcd_grant(EtcdRsp* rsp, const char* base_url, int ttl) noexcept {
     ASSERT(rsp != nullptr, "rsp 不能为 null");
     rsp->reset();
-
-    const char* hk[] = {"Authorization"};
-    const char* hv[] = { token };
 
     int res = http_post(
         rsp,
         std::format("{}{}", base_url, "/v3/lease/grant").c_str(),
         std::format("{{\"TTL\":\"{}\"}}", ttl).c_str(),
+        nullptr, nullptr, 0
+    );
+
+    if (res != 0) {
+        return res;
+    }
+
+    if (rsp->code != 0) {
+        xERROR("etcd_grant failed: {}", rsp->message);
+        return -rsp->code;
+    }
+
+    if (rsp->id.empty()) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+int
+typhon::utils::etcd_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, const char* lease) noexcept {
+    const char* hk[] = {"Authorization"};
+    const char* hv[] = { token };
+
+    std::string sk, sv;
+    utils::base64_encode(sk, (const uint8_t*)key, ::strlen(key));
+    utils::base64_encode(sv, (const uint8_t*)val, ::strlen(val));
+
+    int res = http_post(
+        rsp,
+        std::format("{}{}", base_url, "/v3/kv/put").c_str(),
+        std::format("{{\"key\":\"{}\",\"value\":\"{}\",\"lease\":\"{}\"}}", sk, sv, lease).c_str(),
         hk, hv, 1
     );
 
@@ -119,29 +166,11 @@ typhon::utils::etcd_grant_put(EtcdRsp* rsp, const char* base_url, const char* to
     }
 
     if (rsp->code != 0) {
+        xERROR("etcd_put failed: {}", rsp->message);
         return -rsp->code;
     }
 
-    if (rsp->id.empty()) {
-        return -1;
-    }
-
-    std::string sk, sv, leaseID = rsp->id;
-    utils::base64_encode(sk, (const uint8_t*)key, ::strlen(key));
-    utils::base64_encode(sv, (const uint8_t*)val, ::strlen(val));
-
-    res = http_post(
-        rsp,
-        std::format("{}{}", base_url, "/v3/kv/put").c_str(),
-        std::format("{{\"key\":\"{}\",\"value\":\"{}\",\"lease\":\"{}\"}}", sk, sv, leaseID).c_str(),
-        hk, hv, 1
-    );
-
-    if (res != 0) {
-        return res;
-    }
-
-    return -rsp->code;
+    return 0;
 }
 
 
@@ -168,7 +197,12 @@ typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* base_url, const char* to
         return -1;
     }
 
-    return -rsp->code;
+    if (rsp->code != 0) {
+        xERROR("etcd_keepalive failed: {}", rsp->message);
+        return -rsp->code;
+    }
+
+    return 0;
 }
 
 

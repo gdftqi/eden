@@ -186,7 +186,7 @@ struct ServerInfo {
     std::string desc;
 
     std::string
-    to_string() noexcept {
+    to_string() const noexcept {
         return std::format("{{\"id\":{},\"host\":\"{}\",\"desc\":\"{}\"}}", id, host, desc);
     }
 

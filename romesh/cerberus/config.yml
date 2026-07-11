@@ -1,11 +1,21 @@
-id: 1000
-host: "0.0.0.0:5555"
+server:
+  id: 1000
+  host: "0.0.0.0:5555"
+  desc: "网关"
+
 ifname: "lo"
 kcp_bpf_path: "kcp.bpf.o"
 envelope_bpf_path: "envelope.bpf.o"
 
+etcd:
+  url: "http://13.212.159.179:2379"
+  user: "root"
+  pass: "123456"
+  ttl: 30
+
+
 kcp:
-  id: 1000
+  id: 100
   rcvbuf: 33554432
   sndbuf: 16777216
 

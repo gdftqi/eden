@@ -25,6 +25,7 @@ struct EtcdConfig {
     std::string url;
     std::string user;
     std::string pass;
+    int         ttl;
 
     
     int
@@ -33,9 +34,10 @@ struct EtcdConfig {
             return -1;
         }
 
-        url = root["url"].as<std::string>();
+        url  = root["url"].as<std::string>();
         user = root["user"].as<std::string>();
         pass = root["pass"].as<std::string>();
+        ttl  = root["ttl"].as<int>();
 
         return 0;
     }
@@ -74,7 +76,11 @@ etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, const char* pwd)
 
 
 int
-etcd_grant_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, int ttl) noexcept;
+etcd_grant(EtcdRsp* rsp, const char* base_url, int ttl) noexcept;
+
+
+int
+etcd_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, const char* lease) noexcept;
 
 
 int

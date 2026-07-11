@@ -8,7 +8,7 @@ static constexpr int MAX_EVENTS  = 1;
 static constexpr int INTERVAL_MS = 10000;
 
 
-cerberus::Server::Server(typhon::kcp::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
+Cerberus::Cerberus(typhon::kcp::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
     : event_(ev)
     , host_(host)
     , ifname_(ifname ? ifname : "lo")
@@ -18,7 +18,7 @@ cerberus::Server::Server(typhon::kcp::IEvent* ev, const char* host, const char* 
     ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
 
     if (host_.empty()) {
-        host_ = Conf::instance()->host();
+        host_ = Conf::instance()->server()->host;
     }
 
     if (ifname_.empty()) {
@@ -40,7 +40,7 @@ cerberus::Server::Server(typhon::kcp::IEvent* ev, const char* host, const char* 
 
 
 void
-cerberus::Server::run() noexcept {
+Cerberus::run() noexcept {
     auto stopped = typhon::core::State::Stopped;
     if (!state_.compare_exchange_strong(stopped, typhon::core::State::Starting)) {
         return;
@@ -110,6 +110,8 @@ cerberus::Server::run() noexcept {
     int i;
     ::epoll_event evs[MAX_EVENTS];
     state_.store(typhon::core::State::Running);
+
+    update_serv();
     
     while (running()) {
         n = ::epoll_wait(epfd_, evs, MAX_EVENTS, INTERVAL_MS);
@@ -149,7 +151,7 @@ cerberus::Server::run() noexcept {
 
 
 void
-cerberus::Server::init() noexcept {
+Cerberus::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != typhon::core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
@@ -167,7 +169,7 @@ cerberus::Server::init() noexcept {
 
 
 void
-cerberus::Server::release() noexcept {
+Cerberus::release() noexcept {
     if (epfd_ != typhon::core::INVALID_SOCKET) {
         ::close(epfd_);
         epfd_ = typhon::core::INVALID_SOCKET;
@@ -186,33 +188,76 @@ cerberus::Server::release() noexcept {
 
 
 void
-cerberus::Server::update_serv() noexcept {
-    // TODO: 
+Cerberus::update_serv() noexcept {
     typhon::utils::EtcdRsp rsp;
-    typhon::utils::etcd_auth(&rsp, "http://13.212.159.179:2379", "root", "123456");
+    static const typhon::utils::EtcdConfig* etcd   = nullptr;
+    static const typhon::core::ServerInfo*  server = nullptr;
+    static bool put_flag = false;
+    static std::string lease;
 
-    const uint32_t serv_id     = 10000;
-    const char     serv_host[] = "172.31.6.248:6688";
-    // const char     serv_host[] = "127.0.0.1:6688";
-
-    if (servs_.count(serv_id)) {
-        return;    
+    if (etcd == nullptr) {
+        etcd = Conf::instance()->etcd();
     }
 
-    for (auto& s : ks_pool_) {
-        auto* arg = (typhon::core::AddServArg*)::mi_malloc(sizeof(typhon::core::AddServArg));
-        ::memset(arg, 0, sizeof(typhon::core::AddServArg));
-        arg->id = serv_id;
-        ::strcpy(arg->host, serv_host);
-        s->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
+    if (server == nullptr) {
+        server = Conf::instance()->server();
     }
 
-    servs_.insert(serv_id);
+    auto* url = etcd->url.c_str();
+
+    if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+        xERROR("etcd_auth failed");
+        return;
+    }
+
+    auto token = rsp.token;
+
+    if (!put_flag) {
+        auto k = std::format("/cerberus/{}", server->id);
+        auto v = server->to_string();
+
+        if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
+            xERROR("etcd_grant failed");
+            return;
+        }
+
+        lease = rsp.id;
+
+        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k.c_str(), v.c_str(), lease.c_str()) != 0) {
+            xERROR("etcd_put failed");
+            return;
+        }
+
+        put_flag = true;
+    } else {
+        if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
+            xERROR("etcd_keepalive failed");
+            return;
+        }
+    }
+
+    // const uint32_t serv_id     = 10000;
+    // const char     serv_host[] = "172.31.6.248:6688";
+    // // const char     serv_host[] = "127.0.0.1:6688";
+
+    // if (servs_.count(serv_id)) {
+    //     return;    
+    // }
+
+    // for (auto& s : ks_pool_) {
+    //     auto* arg = (typhon::core::AddServArg*)::mi_malloc(sizeof(typhon::core::AddServArg));
+    //     ::memset(arg, 0, sizeof(typhon::core::AddServArg));
+    //     arg->id = serv_id;
+    //     ::strcpy(arg->host, serv_host);
+    //     s->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
+    // }
+
+    // servs_.insert(serv_id);
 }
 
 
 void
-cerberus::Server::on_event_handle(const ::epoll_event& ev) noexcept {
+Cerberus::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         uint8_t data[1400];
         static_assert(sizeof(data) % sizeof(uint32_t) == 0);
