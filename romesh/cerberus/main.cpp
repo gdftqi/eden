@@ -20,7 +20,7 @@ public:
     virtual void 
     on_init(void* arg) noexcept {
         server_ = (Cerberus*)arg;
-        xINFO("{} is running...", Conf::instance()->server()->host);
+        xINFO("kcp echo listening on {}", Conf::instance()->server()->host);
     }
 
 
@@ -88,7 +88,6 @@ main(int, char**) {
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
-    xINFO("kcp echo listening on 0.0.0.0:5555");
     server->run();
 
     xINFO("服务关闭");
