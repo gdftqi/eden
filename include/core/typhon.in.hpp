@@ -184,10 +184,11 @@ struct ServerInfo {
     uint32_t    id    { 0 };
     std::string host;
     std::string desc;
+    ::time_t    start_time;
 
     std::string
     to_string() const noexcept {
-        return std::format("{{\"id\":{},\"host\":\"{}\",\"desc\":\"{}\"}}", id, host, desc);
+        return std::format("{{\"id\":{},\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{}}}", id, host, desc, start_time);
     }
 
 
@@ -200,7 +201,7 @@ struct ServerInfo {
         id   = root["id"].as<uint32_t>();
         host = root["host"].as<std::string>();
         desc = root["desc"].as<std::string>();
-
+        start_time = ::time(nullptr);
         return 0;
     }
 
