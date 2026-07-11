@@ -111,8 +111,6 @@ Cerberus::run() noexcept {
     ::epoll_event evs[MAX_EVENTS];
     state_.store(typhon::core::State::Running);
 
-    update_serv();
-    
     while (running()) {
         n = ::epoll_wait(epfd_, evs, MAX_EVENTS, INTERVAL_MS);
         if (n < 0) {
@@ -142,6 +140,7 @@ Cerberus::run() noexcept {
     ks_pool_.clear();
     threads_.clear();
 
+    update_serv();
     release();
     state_.store(typhon::core::State::Stopped);
     event_->on_stopped(this);
@@ -195,16 +194,7 @@ Cerberus::update_serv() noexcept {
     static bool        put_flag = false;
     static uint64_t    last_update = 0;
     static std::string lease;
-    static std::string key;
-    static std::string val;
-    
-    if (tnow_ == 0) {
-        tnow_ = typhon::utils::systime_ms();
-    }
-
-    if (tnow_ - last_update < INTERVAL_MS) {
-        return;
-    }
+    static std::string token;
 
     if (etcd == nullptr) {
         etcd = Conf::instance()->etcd();
@@ -213,34 +203,39 @@ Cerberus::update_serv() noexcept {
     if (server == nullptr) {
         server = Conf::instance()->server();
     }
-
+    
     typhon::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
-    if (tnow_ - last_update > AUTH_INTERVAL && typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
-        xERROR("etcd_auth failed");
+    if (token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
+        if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+            return;
+        }
+
+        token = rsp.token;
+    }
+
+    auto state = state_.load(std::memory_order_relaxed);
+    if (state != typhon::core::State::Starting && state != typhon::core::State::Running) {
+        typhon::utils::etcd_delete(&rsp, url, token.c_str(), server->key.c_str());
         return;
     }
 
-    auto token = rsp.token;
+    if (tnow_ - last_update < INTERVAL_MS) {
+        return;
+    }
 
     if (!put_flag) {
-        if (key.empty()) {
-            key = std::format("/cerberus/{}", server->id);
-        }
-
-        if (val.empty()) {
-            val = server->to_string();
-        }
-
         if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
             xERROR("etcd_grant failed");
             return;
         }
 
         lease = rsp.id;
+        auto k = server->key.c_str();
+        auto v = server->val.c_str();
 
-        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), key.c_str(), val.c_str(), lease.c_str()) != 0) {
+        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k, v, lease.c_str()) != 0) {
             xERROR("etcd_put failed");
             return;
         }

@@ -1,4 +1,5 @@
 #include "core/typhon.in.hpp"
+#include "utils/string_ex.hpp"
 
 
 typhon::core::SOCKET
@@ -240,4 +241,24 @@ typhon::core::writen(SOCKET fd, const void* buf, size_t len) noexcept {
     }
 
     return len - nleft;
+}
+
+
+int
+typhon::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
+    if (!root["id"] || !root["name"] || !root["host"] || !root["desc"] || !root["protocol"]) {
+        return -1;
+    }
+
+    id         = root["id"].as<uint32_t>();
+    protocol   = root["protocol"].as<std::string>();
+    name       = root["name"].as<std::string>();
+    host       = root["host"].as<std::string>();
+    desc       = root["desc"].as<std::string>();
+    start_time = ::time(nullptr);
+
+    key = std::format("/{}/{}", name, id);
+    val = to_string();
+
+    return 0;
 }

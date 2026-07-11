@@ -1,6 +1,7 @@
 server:
   id: 1000
   protocol: "kcp"
+  name: "cerberus"
   host: "0.0.0.0:5555"
   desc: "网关"
 

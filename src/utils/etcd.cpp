@@ -80,13 +80,13 @@ typhon::utils::EtcdRsp::deserialize(EtcdRsp* out, const std::string& json) noexc
 
 
 int
-typhon::utils::etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, const char* pwd) noexcept {
-    ASSERT(rsp != nullptr && base_url != nullptr && user != nullptr && pwd != nullptr, "入参错误");
+typhon::utils::etcd_auth(EtcdRsp* rsp, const char* url, const char* user, const char* pwd) noexcept {
+    ASSERT(rsp != nullptr && url != nullptr && user != nullptr && pwd != nullptr, "入参错误");
     rsp->reset();
     
     int res = http_post(
         rsp, 
-        std::format("{}{}", base_url, "/v3/auth/authenticate").c_str(), 
+        std::format("{}{}", url, "/v3/auth/authenticate").c_str(), 
         std::format("{{\"name\":\"{}\",\"password\":\"{}\"}}", user, pwd).c_str(),
         nullptr, nullptr, 0
     );
@@ -105,13 +105,13 @@ typhon::utils::etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, c
 
 
 int
-typhon::utils::etcd_grant(EtcdRsp* rsp, const char* base_url, int ttl) noexcept {
+typhon::utils::etcd_grant(EtcdRsp* rsp, const char* url, int ttl) noexcept {
     ASSERT(rsp != nullptr, "rsp 不能为 null");
     rsp->reset();
 
     int res = http_post(
         rsp,
-        std::format("{}{}", base_url, "/v3/lease/grant").c_str(),
+        std::format("{}{}", url, "/v3/lease/grant").c_str(),
         std::format("{{\"TTL\":\"{}\"}}", ttl).c_str(),
         nullptr, nullptr, 0
     );
@@ -134,18 +134,17 @@ typhon::utils::etcd_grant(EtcdRsp* rsp, const char* base_url, int ttl) noexcept 
 
 
 int
-typhon::utils::etcd_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, const char* lease) noexcept {
+typhon::utils::etcd_put(EtcdRsp* rsp, const char* url, const char* token, const char* key, const char* val, const char* lease) noexcept {
     const char* hk[] = {"Authorization"};
     const char* hv[] = { token };
 
-    std::string sk, sv;
-    utils::base64_encode(sk, (const uint8_t*)key, ::strlen(key));
-    utils::base64_encode(sv, (const uint8_t*)val, ::strlen(val));
+    auto k = utils::base64_encode(key);
+    auto v = utils::base64_encode(val);
 
     int res = http_post(
         rsp,
-        std::format("{}{}", base_url, "/v3/kv/put").c_str(),
-        std::format("{{\"key\":\"{}\",\"value\":\"{}\",\"lease\":\"{}\"}}", sk, sv, lease).c_str(),
+        std::format("{}{}", url, "/v3/kv/put").c_str(),
+        std::format("{{\"key\":\"{}\",\"value\":\"{}\",\"lease\":\"{}\"}}", k, v, lease).c_str(),
         hk, hv, 1
     );
 
@@ -163,7 +162,7 @@ typhon::utils::etcd_put(EtcdRsp* rsp, const char* base_url, const char* token, c
 
 
 int
-typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* base_url, const char* token, const char* lease_id) noexcept {
+typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* url, const char* token, const char* lease_id) noexcept {
     ASSERT(rsp != nullptr, "rsp 不能为 null");
     rsp->reset();
 
@@ -172,7 +171,7 @@ typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* base_url, const char* to
 
     int res = http_post(
         rsp,
-        std::format("{}{}", base_url, "/v3/lease/keepalive").c_str(),
+        std::format("{}{}", url, "/v3/lease/keepalive").c_str(),
         std::format("{{\"ID\":\"{}\"}}", lease_id).c_str(),
         hk, hv, 1
     );
@@ -195,7 +194,38 @@ typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* base_url, const char* to
 
 
 int
-typhon::utils::etcd_get_prefix(EtcdRsp* rsp, const char* base_url, const char* token, const char* prefix) noexcept {
+typhon::utils::etcd_delete(EtcdRsp* rsp, const char* url, const char* token, const char* key) noexcept {
+    ASSERT(rsp != nullptr && url != nullptr && token != nullptr && key != nullptr, "入参错误");
+    rsp->reset();
+
+    const char* hk[] = {"Authorization"};
+    const char* hv[] = { token };
+
+    std::string sk;
+    utils::base64_encode(sk, (const uint8_t*)key, ::strlen(key));
+
+    int res = http_post(
+        rsp,
+        std::format("{}{}", url, "/v3/kv/deleterange").c_str(),
+        std::format("{{\"key\":\"{}\"}}", sk).c_str(),
+        hk, hv, 1
+    );
+
+    if (res != 0) {
+        return res;
+    }
+
+    if (rsp->code != 0) {
+        xERROR("etcd_delete failed: {}", rsp->message);
+        return -rsp->code;
+    }
+
+    return 0;
+}
+
+
+int
+typhon::utils::etcd_get_prefix(EtcdRsp* rsp, const char* url, const char* token, const char* prefix) noexcept {
     ASSERT(rsp != nullptr, "rsp 不能为 null");
     rsp->reset();
 
@@ -215,7 +245,7 @@ typhon::utils::etcd_get_prefix(EtcdRsp* rsp, const char* base_url, const char* t
 
     int res = http_post(
         rsp,
-        std::format("{}{}", base_url, "/v3/kv/range").c_str(),
+        std::format("{}{}", url, "/v3/kv/range").c_str(),
         std::format("{{\"key\":\"{}\",\"range_end\":\"{}\"}}", sk, sre).c_str(),
         hk, hv, 1
     );

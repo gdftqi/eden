@@ -26,6 +26,14 @@ base64_encode(std::string& s, const uint8_t* data, size_t len) noexcept {
 }
 
 
+inline std::string
+base64_encode(const std::string& v) noexcept {
+    std::string s;
+    base64_encode(s, (const uint8_t*)v.data(), v.length());
+    return s;
+}
+
+
 inline size_t
 base64_decode_len(size_t b64_len) noexcept {
     return b64_len / 4 * 3;

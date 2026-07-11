@@ -4,7 +4,7 @@
 #include "cerberus.hpp"
 
 
-static Cerberus* server = nullptr;
+static std::unique_ptr<Cerberus> server;
 
 
 static void
@@ -83,7 +83,7 @@ main(int, char**) {
     Conf::instance()->load("config.yml");
 
     ServiceEvent se;
-    server = new Cerberus(&se);
+    server = std::make_unique<Cerberus>(&se);
 
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
@@ -91,6 +91,6 @@ main(int, char**) {
     xINFO("kcp echo listening on 0.0.0.0:5555");
     server->run();
 
-    delete server;
+    xINFO("服务关闭");
     ::exit(EXIT_SUCCESS);
 }

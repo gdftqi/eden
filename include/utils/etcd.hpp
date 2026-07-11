@@ -72,23 +72,27 @@ struct EtcdRsp {
 
 
 int
-etcd_auth(EtcdRsp* rsp, const char* base_url, const char* user, const char* pwd) noexcept;
+etcd_auth(EtcdRsp* rsp, const char* url, const char* user, const char* pwd) noexcept;
 
 
 int
-etcd_grant(EtcdRsp* rsp, const char* base_url, int ttl) noexcept;
+etcd_grant(EtcdRsp* rsp, const char* url, int ttl) noexcept;
 
 
 int
-etcd_put(EtcdRsp* rsp, const char* base_url, const char* token, const char* key, const char* val, const char* lease) noexcept;
+etcd_put(EtcdRsp* rsp, const char* url, const char* token, const char* key, const char* val, const char* lease) noexcept;
 
 
 int
-etcd_keepalive(EtcdRsp* rsp, const char* base_url, const char* token, const char* lease_id) noexcept;
+etcd_keepalive(EtcdRsp* rsp, const char* url, const char* token, const char* lease_id) noexcept;
 
 
 int
-etcd_get_prefix(EtcdRsp* rsp, const char* base_url, const char* token, const char* prefix) noexcept;
+etcd_delete(EtcdRsp* rsp, const char* url, const char* token, const char* key) noexcept;
+
+
+int
+etcd_get_prefix(EtcdRsp* rsp, const char* url, const char* token, const char* prefix) noexcept;
 
 
 } // namespace typhon::utils
