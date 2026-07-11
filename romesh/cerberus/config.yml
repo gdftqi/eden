@@ -3,7 +3,7 @@ server:
   timeout: 45
   protocol: "kcp"
   name: "cerberus"
-  host: "0.0.0.0:5555"
+  host: "13.212.170.186:5555"
   desc: "网关"
 
 ifname: "lo"

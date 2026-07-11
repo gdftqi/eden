@@ -27,6 +27,8 @@ typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
         ASSERT(riovecs_[i].iov_base != nullptr, "failed to allocate memory for riovec"); 
     }
 
+    // 这里只绑定 0.0.0.0 地址, 全地址只是用来写入 etcd 
+    host_ = host_.substr(host_.find(':'));
     ufd_ = core::udp_bind(host_, Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
     ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     ::ikcp_allocator(::mi_malloc, ::mi_free);
