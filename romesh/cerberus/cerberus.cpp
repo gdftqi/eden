@@ -227,7 +227,6 @@ Cerberus::update_serv() noexcept {
 
     if (!put_flag) {
         if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
-            xERROR("etcd_grant failed");
             return;
         }
 
@@ -236,7 +235,6 @@ Cerberus::update_serv() noexcept {
         auto v = server->val.c_str();
 
         if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k, v, lease.c_str()) != 0) {
-            xERROR("etcd_put failed");
             return;
         }
 
@@ -244,7 +242,6 @@ Cerberus::update_serv() noexcept {
         xINFO("{} 注册 etcd 成功", k);
     } else {
         if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
-            xERROR("etcd_keepalive failed");
             put_flag = false;
             return;
         }
