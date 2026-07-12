@@ -24,12 +24,6 @@ public:
     }
 
 
-    const YAML::Node&
-    root() const noexcept {
-        return root_;
-    }
-
-
     const typhon::core::ServerInfo*
     server() const noexcept {
         return &server_;
@@ -87,9 +81,56 @@ public:
             xFATAL("config.kcp is invalid");
         }
 
-        root["kcp"]["timeout"] = server_.timeout;
-        root["kcp"]["id"] = server_.id;
-        root_ = root;
+        auto k = root["kcp"];
+        typhon::kcp::Conf::instance()->set_id(server_.id);
+        
+        if (k["sndbuf"]) {
+            typhon::kcp::Conf::instance()->set_sndbuf(k["sndbuf"].as<int>());
+        }
+
+        if (k["rcvbuf"]) {
+            typhon::kcp::Conf::instance()->set_rcvbuf(k["rcvbuf"].as<int>());
+        }
+        
+        if (k["sndwnd"]) {
+            typhon::kcp::Conf::instance()->set_sndwnd(k["sndwnd"].as<int>());
+        }
+
+        if (k["rcvwnd"]) {
+            typhon::kcp::Conf::instance()->set_rcvwnd(k["rcvwnd"].as<int>());
+        }
+
+        if (k["nodelay"]) {
+            typhon::kcp::Conf::instance()->set_nodelay(k["nodelay"].as<int>());
+        }
+
+        if (k["interval"]) {
+            typhon::kcp::Conf::instance()->set_interval(k["interval"].as<int>());
+        }
+
+        if (k["resend"]) {
+            typhon::kcp::Conf::instance()->set_resend(k["resend"].as<int>());
+        }
+
+        if (k["nc"]) {
+            typhon::kcp::Conf::instance()->set_nc(k["nc"].as<int>());
+        }
+
+        if (k["siphash"]) {
+            typhon::kcp::Conf::instance()->set_siphash(k["siphash"].as<std::string>());
+        }
+
+        if (k["x25519_pk"]) {
+            typhon::kcp::Conf::instance()->set_x25519_pk(k["x25519_pk"].as<std::string>());
+        }
+
+        if (k["x25519_sk"]) {
+            typhon::kcp::Conf::instance()->set_x25519_sk(k["x25519_sk"].as<std::string>());
+        }
+
+        if (k["ed25519_pk"]) {
+            typhon::kcp::Conf::instance()->set_ed25519_pk(k["ed25519_pk"].as<std::string>());
+        }
     }
 
 
@@ -104,12 +145,11 @@ private:
     std::string               ifname_;
     std::string               kcp_bpf_path_;
     std::string               envelope_bpf_path_;
-    YAML::Node                root_;
 }; // class Conf;
 
 
 /**
- * @brief Typhon 服务
+ * @brief cerberus 服务
  *
  * 启动流程 (顺序敏感):
  *   1. EnvelopeFilter init + attach 网卡       — XDP MAC 校验先生效, 即使后续步骤
@@ -136,17 +176,9 @@ public:
      * @brief 构造函数
      *
      * @param ev                KcpServer 事件接口 (业务回调)
-     * @param host              监听 host:port, 例如 "0.0.0.0:5555"
-     * @param ifname            attach XDP 的网卡名 (例如 "eth0" / "ens3" / "lo");
-     *                          默认 "lo" 适合开发调试, 生产部署请传真实网卡
-     * @param kcp_bpf_path      sk_reuseport BPF 程序 ELF 路径 (kcp.bpf.o);
-     *                          空串表示不启用 BPF 路由 (落到 kernel 默认 hash, 不保证
-     *                          同 conv 落同 worker, 见 PLAN.md)
-     * @param envelope_bpf_path XDP envelope MAC 过滤 BPF 程序 ELF 路径 (envelope.bpf.o);
-     *                          空串表示不启用 XDP 防御层 (开发 / 调试时可用)
      */
     explicit
-    Cerberus(typhon::kcp::IEvent* ev, const char* host = "", const char* ifname = "", const char* kcp_bpf_path = "", const char* envelope_bpf_path = "") noexcept;
+    Cerberus(typhon::kcp::IEvent* ev) noexcept;
 
 
     bool

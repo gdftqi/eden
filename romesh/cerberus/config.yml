@@ -18,8 +18,8 @@ etcd:
 
 
 kcp:
-  rcvbuf: 33554432
   sndbuf: 16777216
+  rcvbuf: 33554432
 
   sndwnd: 128
   rcvwnd: 128

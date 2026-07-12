@@ -8,13 +8,8 @@ static constexpr int MAX_EVENTS  = 1;
 static constexpr int INTERVAL_MS = 5000;
 
 
-Cerberus::Cerberus(typhon::kcp::IEvent* ev, const char* host, const char* ifname, const char* kcp_bpf_path, const char* envelope_bpf_path) noexcept  
-    : event_(ev)
-    , host_(host)
-    , ifname_(ifname ? ifname : "lo")
-    , kcp_bpf_path_(kcp_bpf_path ? kcp_bpf_path : "")
-    , envelope_bpf_path_(envelope_bpf_path ? envelope_bpf_path : "") {
-
+Cerberus::Cerberus(typhon::kcp::IEvent* ev) noexcept  
+    : event_(ev) {
     ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
 
     if (host_.empty()) {
@@ -33,9 +28,9 @@ Cerberus::Cerberus(typhon::kcp::IEvent* ev, const char* host, const char* ifname
         envelope_bpf_path_ = Conf::instance()->envelope_bpf_path();
     }
 
-    typhon::kcp::Conf::instance()->load(Conf::instance()->root()["kcp"]);
-
     ASSERT(host_.find(':') != std::string::npos, "invalid host: {}", host_);
+    // 这里只绑定 0.0.0.0 地址, 全地址只是用来写入 etcd
+    host_ = host_.substr(host_.find(':'));
 }
 
 
