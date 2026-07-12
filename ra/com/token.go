@@ -84,9 +84,9 @@ func (this_ *RefreshToken) String() string {
 	return utils.ToJSON(this_)
 }
 
-// Encrypt 序列化 + 用 key(RA 专用对称密钥)ChaCha20-Poly1305 加密。
-// 返回 nonce(12) || 密文+tag; 调用方再 base64 放进应答。每次随机 nonce, 不复用。
-func (this_ *RefreshToken) Encrypt(key []byte) (string, error) {
+// XX20Encrypt ChaCha20-Poly1305 加密
+// 返回 nonce(12) || 密文 || tag; 调用方再 base64 放进应答
+func (this_ *RefreshToken) XX20Encrypt(key []byte) (string, error) {
 	plain, err := json.Marshal(this_)
 	if err != nil {
 		return "", err
@@ -106,9 +106,9 @@ func (this_ *RefreshToken) Encrypt(key []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-// Decrypt 用同一把 key 解 nonce(12) || 密文+tag, 反序列化回 this_。
+// XX20Decrypt ChaCha20-Poly1305 解密
 // tag 校验失败(被篡改 / 错误 key)会返回 error。
-func (this_ *RefreshToken) Decrypt(key []byte, b64Data string) error {
+func (this_ *RefreshToken) XX20Decrypt(key []byte, b64Data string) error {
 	data, err := base64.StdEncoding.DecodeString(b64Data)
 	if err != nil {
 		return err

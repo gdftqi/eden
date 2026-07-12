@@ -3,6 +3,12 @@ redis:
   user: "root"
   password: "1111"
 
+etcd:
+  hosts: 
+    - "13.212.159.179:2379"
+  user: "root"
+  pass: "123456"
+
 host: "0.0.0.0:8080"
 ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
 x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="

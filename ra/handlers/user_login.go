@@ -157,7 +157,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	refreshData, err := refreshToken.Encrypt([]byte(conf.Instance.RefreshKey))
+	refreshData, err := refreshToken.XX20Encrypt([]byte(conf.Instance.RefreshKey))
 	if err != nil {
 		log.Error("refreshToken 加密失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误5")

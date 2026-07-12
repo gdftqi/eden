@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/ra/mid"
@@ -19,10 +20,12 @@ type config struct {
 	RefreshKey   string           `yaml:"refresh_key"` // refresh token key
 	SipHashKey   string           `yaml:"siphash_key"` // siphash mac key
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
-	Ed25519Sk    []byte           `yaml:"-"`           // ed25519 签名私钥, 网关会用公钥验签
-	X25519Pk     []byte           `yaml:"-"`           // 网关的 sealedbox 加密公钥
-	SelfSk       []byte           `yaml:"-"`           // 自己的X25519私钥
-	SelfPk       []byte           `yaml:"-"`           // 自己的X25519公钥
+	Etcd         *mid.EtcdConfig  `yaml:"etcd"`        // etcd 配置
+
+	Ed25519Sk []byte `yaml:"-"` // ed25519 签名私钥, 网关会用公钥验签
+	X25519Pk  []byte `yaml:"-"` // 网关的 sealedbox 加密公钥
+	SelfSk    []byte `yaml:"-"` // 自己的X25519私钥
+	SelfPk    []byte `yaml:"-"` // 自己的X25519公钥
 }
 
 var Instance *config
@@ -85,6 +88,36 @@ func Init(fname string) error {
 
 	if len(tmp.RefreshKey) != utils.XX20KeyLen {
 		return errors.New("refresh_key is invalid")
+	}
+
+	if tmp.Redis == nil {
+		return errors.New("redis is invalid")
+	}
+
+	if len(tmp.Redis.Addr) == 0 {
+		return errors.New("redis.addr is invalid")
+	}
+
+	if tmp.Etcd == nil {
+		return errors.New("etcd is invalid")
+	}
+
+	if len(tmp.Etcd.Hosts) == 0 {
+		return errors.New("etcd.hosts is invalid")
+	}
+
+	for i, host := range tmp.Etcd.Hosts {
+		if len(host) == 0 {
+			return fmt.Errorf("etcd.hosts[%v] is invalid", i)
+		}
+	}
+
+	if len(tmp.Etcd.User) == 0 {
+		return errors.New("etcd.user is invalid")
+	}
+
+	if len(tmp.Etcd.Pass) == 0 {
+		return errors.New("etcd.pass is invalid")
 	}
 
 	Instance = &tmp

@@ -61,7 +61,7 @@ func TestTokenCrossCheck(t *testing.T) {
 
 	signed := make([]byte, 52) // expire(8) conv(4) user_id(4) ip(4) cli_pk(32)
 	binary.LittleEndian.PutUint64(signed[0:], uint64(time.Now().Unix())+10*365*86400)
-	binary.LittleEndian.PutUint32(signed[8:], 2000)  // conv
+	binary.LittleEndian.PutUint32(signed[8:], 2000)   // conv
 	binary.LittleEndian.PutUint32(signed[12:], 90000) // user_id
 	binary.LittleEndian.PutUint32(signed[16:], 0)     // ip
 	copy(signed[20:], cliPk)

@@ -68,7 +68,7 @@ func Refresh(c *gin.Context) {
 
 	// Step 2, 解密 + 校验 refreshToken(失败即要求重新登录)
 	refreshToken := com.RefreshToken{}
-	err = refreshToken.Decrypt([]byte(conf.Instance.RefreshKey), req.RefreshToken)
+	err = refreshToken.XX20Decrypt([]byte(conf.Instance.RefreshKey), req.RefreshToken)
 	if err != nil {
 		utils.WebResponse(c, -1, "无效的Token")
 		return
@@ -135,7 +135,7 @@ func Refresh(c *gin.Context) {
 		return
 	}
 
-	refreshData, err := refreshToken.Encrypt([]byte(conf.Instance.RefreshKey))
+	refreshData, err := refreshToken.XX20Encrypt([]byte(conf.Instance.RefreshKey))
 	if err != nil {
 		log.Error("refreshToken 加密失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误5")
