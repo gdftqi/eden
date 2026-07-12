@@ -6,9 +6,9 @@ services:
     privileged: true
     tty: true
     stdin_open: true
-    working_dir: /home/cerberus
+    working_dir: /home/bin/
     command: ./cerberus
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
-      - ./:/home/cerberus
+      - ./:/home/bin/

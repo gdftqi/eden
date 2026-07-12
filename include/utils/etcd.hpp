@@ -39,6 +39,22 @@ struct EtcdConfig {
         pass = root["pass"].as<std::string>();
         ttl  = root["ttl"].as<int>();
 
+        if (url.empty()) {
+            return -1;
+        }
+
+        if (user.empty()) {
+            return -1;
+        }
+
+        if (pass.empty()) {
+            return -1;
+        }
+
+        if (ttl <= 0) {
+            return -1;
+        }
+
         return 0;
     }
 }; // struct EtcdConfig;

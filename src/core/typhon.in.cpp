@@ -258,6 +258,30 @@ typhon::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
     desc       = root["desc"].as<std::string>();
     start_time = ::time(nullptr);
 
+    if (id == 0) {
+        return -1;
+    }
+
+    if (timeout == 0) {
+        return -1;
+    }
+
+    if (protocol != "kcp" && protocol != "tcp" && protocol != "udp" && protocol != "ws") {
+        return -1;
+    }
+
+    if (name.empty()) {
+        return -1;
+    }
+
+    if (host.empty()) {
+        return -1;
+    }
+
+    if (desc.empty()) {
+        return -1;
+    }
+
     key = std::format("/{}/{}", name, id);
     val = to_string();
 

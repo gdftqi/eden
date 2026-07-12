@@ -10,9 +10,9 @@ static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
     : event_(ev)
-    , host_(host)
-    , desc_(std::format("[{}:{}]", Conf::instance()->id(), host_)) {
+    , host_(host) {
 
+    Conf::instance()->check();
     ASSERT(host_.size() > 0 && event_ != nullptr, "invalid host or IEvent instance");
 
     for (int i = 0; i < MAX_RECV; ++i) {

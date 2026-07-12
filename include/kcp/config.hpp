@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include "utils/cryptor.hpp"
 #include "utils/string_ex.hpp"
+#include "utils/log.hpp"
 
 
 namespace typhon::kcp {
@@ -35,6 +36,57 @@ public:
 
     ~Conf() noexcept
     {}
+
+
+    void
+    check() const noexcept {
+        ASSERT(id_ > 0, "id is invalid");
+        ASSERT(sndbuf_ > 0, "sndbuf is invalid");
+        ASSERT(rcvbuf_ > 0, "rcvbuf is invalid");
+        ASSERT(sndwnd_ > 0 && sndwnd_ <= 128, "sndwnd is invalid"); 
+        ASSERT(rcvwnd_ > 0 && rcvwnd_ <= 128, "rcvwnd is invalid");
+        ASSERT(nodelay_ == 0 || nodelay_ == 1, "nodelay is invalid");
+        ASSERT(interval_ >= 10, "interval is invalid");
+        ASSERT(resend_ > 0, "resend is invalid");
+        ASSERT(nc_ == 0 || nc_ == 1, "nc is invalid");
+        ASSERT(timeout_ > 0, "timeout is invalid");
+
+        bool invalid = true;
+        for (auto i = 0; i < sizeof(siphash_); ++i) {
+            if (siphash_[i] != 0) {
+                invalid = false;
+                break;
+            }
+        }
+        ASSERT(!invalid, "siphash is invalid");
+
+        invalid = true;
+        for (auto i = 0; i < sizeof(x25519_pk_); ++i) {
+            if (x25519_pk_[i] != 0) {
+                invalid = false;
+                break;
+            }
+        }
+        ASSERT(!invalid, "x25519_pk is invalid");
+
+        invalid = true;
+        for (auto i = 0; i < sizeof(x25519_sk_); ++i) {
+            if (x25519_sk_[i] != 0) {
+                invalid = false;
+                break;
+            }
+        }
+        ASSERT(!invalid, "x25519_sk is invalid");
+
+        invalid = true;
+        for (auto i = 0; i < sizeof(ed25519_pk_); ++i) {
+            if (ed25519_pk_[i] != 0) {
+                invalid = false;
+                break;
+            }
+        }
+        ASSERT(!invalid, "ed25519_pk is invalid");
+    }
 
 
     uint32_t

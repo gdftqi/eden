@@ -78,12 +78,6 @@ public:
     }
 
 
-    std::string
-    to_string() const noexcept {
-        return desc_;
-    }
-
-
     bool
     running() const noexcept {
         return state_.load(std::memory_order_relaxed) == core::State::Running;
@@ -252,7 +246,6 @@ private:
     IEvent*                  event_ { nullptr };               ///< 服务事件
     std::atomic<core::State> state_ { core::State::Stopped };  ///< 状态
     std::string              host_;
-    std::string              desc_;
 
     // --------------------------------- recvmmsg 接收属性 ---------------------------------
 
