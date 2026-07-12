@@ -88,6 +88,7 @@ public:
         }
 
         root["kcp"]["timeout"] = server_.timeout;
+        root["kcp"]["id"] = server_.id;
         root_ = root;
     }
 

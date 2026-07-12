@@ -2,7 +2,7 @@ server:
   id: 10000
   timeout: 45
   protocol: "tcp"
-  name: "chat"
+  name: "public/chat"
   host: "127.0.0.1:5555"
   desc: "echo chat"
 

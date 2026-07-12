@@ -18,7 +18,6 @@ etcd:
 
 
 kcp:
-  id: 100
   rcvbuf: 33554432
   sndbuf: 16777216
 

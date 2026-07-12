@@ -1,5 +1,6 @@
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
+#include "kcp/config.hpp"
 
 
 ssize_t
@@ -79,11 +80,11 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
     static uint64_t timeout = 0;
 
     if (timeout == 0) {
-        timeout = Conf::instance()->server()->timeout / 3;
+        timeout = kcp::Conf::instance()->timeout() / 3;
     }
 
     if (is_connected()) {
-        if (now - last_recv_ms_ > (uint64_t)Conf::instance()->server()->timeout) {
+        if (now - last_recv_ms_ > (uint64_t)kcp::Conf::instance()->timeout()) {
             // 接收超时, 判死
             return xERR;
         }
@@ -108,8 +109,9 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
 
 int
 typhon::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
+    constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
+
     if (is_connected()) {
-        constexpr int BUF_SIZE = core::PKX_HDR_LEN + core::PKG_HDR_LEN + sizeof(id);
         uint8_t buf[BUF_SIZE] = {0};
         core::PKx<core::Host> pkx(buf, BUF_SIZE);
         pkx->len = BUF_SIZE;
