@@ -52,7 +52,7 @@ public:
         ASSERT(timeout_ > 0, "timeout is invalid");
 
         bool invalid = true;
-        for (auto i = 0; i < sizeof(siphash_); ++i) {
+        for (size_t i = 0; i < sizeof(siphash_); ++i) {
             if (siphash_[i] != 0) {
                 invalid = false;
                 break;
@@ -61,7 +61,7 @@ public:
         ASSERT(!invalid, "siphash is invalid");
 
         invalid = true;
-        for (auto i = 0; i < sizeof(x25519_pk_); ++i) {
+        for (size_t i = 0; i < sizeof(x25519_pk_); ++i) {
             if (x25519_pk_[i] != 0) {
                 invalid = false;
                 break;
@@ -70,7 +70,7 @@ public:
         ASSERT(!invalid, "x25519_pk is invalid");
 
         invalid = true;
-        for (auto i = 0; i < sizeof(x25519_sk_); ++i) {
+        for (size_t i = 0; i < sizeof(x25519_sk_); ++i) {
             if (x25519_sk_[i] != 0) {
                 invalid = false;
                 break;
@@ -79,7 +79,7 @@ public:
         ASSERT(!invalid, "x25519_sk is invalid");
 
         invalid = true;
-        for (auto i = 0; i < sizeof(ed25519_pk_); ++i) {
+        for (size_t i = 0; i < sizeof(ed25519_pk_); ++i) {
             if (ed25519_pk_[i] != 0) {
                 invalid = false;
                 break;
