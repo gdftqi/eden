@@ -290,14 +290,10 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         break;
                     }
 
-                    switch (pk->id) {
-                    case PKID_REGIST_REQ:
+                    if (pk->id == PKID_REGIST_REQ) {
                         res = on_regist_req(s, pk);
-                        break;
-                    
-                    default:
+                    } else {
                         res = on_c2s(s, pk);
-                        break;
                     }
 
                     if (res < 0) {
