@@ -171,6 +171,7 @@ typhon::utils::etcd_keepalive(EtcdRsp* rsp, const char* url, const char* token, 
     );
 
     if (res != 0) {
+        xERROR("续租失败: {}", res);
         return res;
     }
 

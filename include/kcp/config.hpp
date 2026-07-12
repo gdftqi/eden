@@ -212,6 +212,7 @@ public:
 
     Conf*
     set_siphash(const std::string& s) noexcept {
+        ASSERT(s.length() == sizeof(SipKey), "无效的 siphash");
         ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(SipKey));
         return this;
     }
@@ -225,6 +226,7 @@ public:
 
     Conf*
     set_x25519_pk(const std::string& s) noexcept {
+        ASSERT(s.length() > sizeof(x25519_pk_), "无效的 x25519 公钥");
         size_t len = sizeof(x25519_pk_);
         ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0, "无效的 x25519 公钥");
         return this;
@@ -239,6 +241,7 @@ public:
 
     Conf*
     set_x25519_sk(const std::string& s) noexcept {
+        ASSERT(s.length() > sizeof(x25519_sk_), "无效的 x25519 私钥");
         size_t len = sizeof(x25519_sk_);
         ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0, "无效的 x25519 私钥");
         return this;
@@ -253,6 +256,7 @@ public:
 
     Conf*
     set_ed25519_pk(const std::string& s) noexcept {
+        ASSERT(s.length() > sizeof(ed25519_pk_), "无效的 ed25519 公钥");
         size_t len = sizeof(ed25519_pk_);
         ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0, "无效的 ed25519 公钥");
         return this;
