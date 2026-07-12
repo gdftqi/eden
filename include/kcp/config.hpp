@@ -50,42 +50,10 @@ public:
         ASSERT(resend_ > 0, "resend is invalid");
         ASSERT(nc_ == 0 || nc_ == 1, "nc is invalid");
         ASSERT(timeout_ > 0, "timeout is invalid");
-
-        bool invalid = true;
-        for (size_t i = 0; i < sizeof(siphash_); ++i) {
-            if (siphash_[i] != 0) {
-                invalid = false;
-                break;
-            }
-        }
-        ASSERT(!invalid, "siphash is invalid");
-
-        invalid = true;
-        for (size_t i = 0; i < sizeof(x25519_pk_); ++i) {
-            if (x25519_pk_[i] != 0) {
-                invalid = false;
-                break;
-            }
-        }
-        ASSERT(!invalid, "x25519_pk is invalid");
-
-        invalid = true;
-        for (size_t i = 0; i < sizeof(x25519_sk_); ++i) {
-            if (x25519_sk_[i] != 0) {
-                invalid = false;
-                break;
-            }
-        }
-        ASSERT(!invalid, "x25519_sk is invalid");
-
-        invalid = true;
-        for (size_t i = 0; i < sizeof(ed25519_pk_); ++i) {
-            if (ed25519_pk_[i] != 0) {
-                invalid = false;
-                break;
-            }
-        }
-        ASSERT(!invalid, "ed25519_pk is invalid");
+        ASSERT(!::sodium_is_zero(siphash_, sizeof(siphash_)), "siphash is invalid");
+        ASSERT(!::sodium_is_zero(x25519_pk_, sizeof(x25519_pk_)), "x25519_pk is invalid");
+        ASSERT(!::sodium_is_zero(x25519_sk_, sizeof(x25519_sk_)), "x25519_sk is invalid");
+        ASSERT(!::sodium_is_zero(ed25519_pk_, sizeof(ed25519_pk_)), "ed25519_pk is invalid");
     }
 
 

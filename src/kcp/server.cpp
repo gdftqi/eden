@@ -590,12 +590,9 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, Conf::instance()->id(), token.user_id, tmppk, utils::X25519_KEY_LEN);
     int res = s->send(out);
     s->set_user_id(token.user_id);
-    auto olditr = users_.find(s->user_id());
-    if (olditr != users_.end()) {
-        // TODO: 踢人
-        // os->second->send()
-        // os->second->set_state(off_line);
-        users_.erase(olditr);
+    auto oitr = users_.find(s->user_id());
+    if (oitr != users_.end() && oitr->second->conv() != s->conv()) {
+        remove_session(oitr->second->conv());
     }
 
     users_.emplace(s->user_id(), s);
