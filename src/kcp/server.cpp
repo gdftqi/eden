@@ -529,15 +529,18 @@ typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcep
 
 int
 typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
-    // PKG_HDR(10) + sizeof(AuthToken)(116) + crypto_box_SEALBYTES(48) = 170
-    constexpr int REGIST_REQ_LEN = (int)sizeof(core::AccessToken) + 48;
+    constexpr int REGIST_PKG_LEN = core::PKG_HDR_LEN + (int)sizeof(core::AccessToken) + 48;
+
+    if (s->authed()) {
+        return xDUP;
+    }
+
+    if (in.size() != REGIST_PKG_LEN) {
+        return xERR_PK_LEN;
+    }
 
     if (in->dst_id != Conf::instance()->id()) {
         return xERR_PKT_DST;
-    }
-
-    if (in.payload_len() != REGIST_REQ_LEN) {
-        return xERR_PK_LEN;
     }
 
     size_t plen = in.payload_len();
@@ -590,11 +593,14 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, Conf::instance()->id(), token.user_id, tmppk, utils::X25519_KEY_LEN);
     int res = s->send(out);
     s->set_user_id(token.user_id);
+
+    // 7. 踢除已在线的用户
     auto oitr = users_.find(s->user_id());
-    if (oitr != users_.end() && oitr->second->conv() != s->conv()) {
+    if (oitr != users_.end()) {
         remove_session(oitr->second->conv());
     }
 
+    // 8. 添加新用户
     users_.emplace(s->user_id(), s);
     event_->on_user_connected(s);
     core::PK<core::Host>::release(out);
