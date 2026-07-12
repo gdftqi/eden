@@ -52,7 +52,7 @@ constexpr uint32_t RCVBUF_MAX  = PKG_MAX_LEN + 8 * 1024;
 /**
  * @brief 接收缓冲, 用于 TCP 读缓冲区(动态扩容 linear buffer)
  */
-struct RcvBuf {
+struct Buffer {
     uint32_t rpos { 0 };       ///< 读游标
     uint32_t wpos { 0 };       ///< 写游标
     uint32_t cap  { 0 };       ///< 当前已分配容量(0 = 未分配)
@@ -60,11 +60,11 @@ struct RcvBuf {
 
 
     explicit
-    RcvBuf() noexcept
+    Buffer() noexcept
     {}
 
 
-    ~RcvBuf() noexcept {
+    ~Buffer() noexcept {
         if (buf) {
             ::mi_free(buf);
         }
@@ -86,6 +86,27 @@ struct RcvBuf {
     size_t
     writable() const noexcept {
         return cap - wpos;
+    }
+
+
+    /**
+     * @brief 可读区起始指针(配合 readable() 长度使用); 无可读数据时返回 nullptr
+     */
+    const uint8_t*
+    peek() const noexcept {
+        return readable() > 0 ? buf + rpos : nullptr;
+    }
+
+
+    /**
+     * @brief 消费掉已读的 n 字节(推进读游标); 全部读完后游标归零, 回收前缀死区
+     */
+    void
+    consume(uint32_t n) noexcept {
+        rpos += n;
+        if (rpos >= wpos) {
+            rpos = wpos = 0;
+        }
     }
 
 
@@ -123,10 +144,10 @@ struct RcvBuf {
     }
 
 
-    RcvBuf(const RcvBuf&) = delete;
-    RcvBuf& operator=(const RcvBuf&) = delete;
-    RcvBuf(RcvBuf&&) = delete;
-    RcvBuf& operator=(RcvBuf&&) = delete;
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+    Buffer(Buffer&&) = delete;
+    Buffer& operator=(Buffer&&) = delete;
 }; // struct RcvBuf;
 
 

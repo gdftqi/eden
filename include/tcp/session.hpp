@@ -135,7 +135,7 @@ private:
     void*                user_data_    { nullptr };
     Proc*                proc_         { nullptr };
     std::vector<uint8_t> sbuf_         {};
-    core::RcvBuf         rbuf_         {};
+    core::Buffer         rbuf_         {};
 }; // class TcpSession;
 
     

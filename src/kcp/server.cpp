@@ -433,7 +433,7 @@ typhon::kcp::Server::update() noexcept {
     // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次.
     // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动. b
     size_t exp = 0;
-    auto timeout = (uint64_t)Conf::instance()->timeout() / 2;
+    auto timeout = Conf::instance()->timeout() / 2;
     while (exp < sque_.size() && sque_[exp]->time + timeout < now) {
         sb_pool_.release(sque_[exp]);
         ++exp;
@@ -480,12 +480,9 @@ typhon::kcp::Server::update() noexcept {
 
     for (auto itr = servs_.begin(); itr != servs_.end();) {
         auto& conn = itr->second;
+        ++itr;
         if (conn->update(now) < 0) {
-            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, conn->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            event_->on_serv_disconnected(conn.get());
-            servs_.erase(itr++);
-        } else {
-            ++itr;
+            remove_serv(conn.get());
         }
     }
 }

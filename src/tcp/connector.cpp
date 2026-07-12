@@ -5,18 +5,19 @@
 
 ssize_t
 typhon::tcp::Connector::send(uint64_t now) noexcept {
-    if (sbuf_.empty()) {
+    size_t pending = sbuf_.readable();
+    if (pending == 0) {
         return xOK;
     }
 
-    ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
+    ssize_t n = core::writen(fd_, sbuf_.peek(), pending);
     if (n < 0) {
         return n;
     }
 
     if (n > 0) {
         last_send_ms_ = now;
-        sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
+        sbuf_.consume((uint32_t)n);
     }
 
     return xOK;
@@ -34,10 +35,10 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
     auto     net   = core::hton(pkx);
     uint8_t* p     = net.raw();
 
-    if (sbuf_.size() > 0) {
-        // 排队保序, 等 EPOLLOUT 续发
-        sbuf_.insert(sbuf_.end(), p, p + total);
-        return xOK;
+    if (sbuf_.readable() > 0) {
+        // 前面还有排队中的残留 → 保序追加, 等 EPOLLOUT 续发。
+        // append 满 RCVBUF_MAX 返回 xERR: 积压到硬顶即背压, 上抛判死重连。
+        return sbuf_.append(p, (uint32_t)total);
     }
 
     n = core::writen(fd_, p, total);
@@ -47,9 +48,8 @@ typhon::tcp::Connector::send(core::PKx<core::Host> pkx, uint64_t now) noexcept {
 
     last_send_ms_ = now;
     if (n < total) {
-        // 部分写, 余下存 sbuf_
-        sbuf_.insert(sbuf_.end(), p + n, p + total);
-        return xOK;
+        // 部分写, 余下存 sbuf_(同样可能撞 RCVBUF_MAX → 判死)
+        return sbuf_.append(p + n, (uint32_t)(total - n));
     }
 
     return xOK;

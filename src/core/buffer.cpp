@@ -2,7 +2,7 @@
 
 
 int
-typhon::core::RcvBuf::append(const uint8_t* data, uint32_t len) noexcept {
+typhon::core::Buffer::append(const uint8_t* data, uint32_t len) noexcept {
     if (writable() < len) {
         compact();
 
@@ -34,7 +34,7 @@ typhon::core::RcvBuf::append(const uint8_t* data, uint32_t len) noexcept {
 
 
 int
-typhon::core::RcvBuf::decode(core::PackageEx** pkx) noexcept {
+typhon::core::Buffer::decode(core::PackageEx** pkx) noexcept {
     if (readable() < core::PKX_HDR_LEN) {
         return xAGAIN;
     }

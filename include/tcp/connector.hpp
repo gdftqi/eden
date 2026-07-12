@@ -142,16 +142,16 @@ public:
 
 
 private:
-    bool                 authed_       { false };
-    uint32_t             id_           { 0 };
-    core::SOCKET         fd_           { core::INVALID_SOCKET };
-    State                state_        { State::Disconnected };
-    uint64_t             last_recv_ms_ { 0 };
-    uint64_t             last_send_ms_ { 0 };
-    std::string          host_;
-    std::string          desc_;
-    core::RcvBuf         rbuf_;
-    std::vector<uint8_t> sbuf_;
+    bool         authed_       { false };
+    uint32_t     id_           { 0 };
+    core::SOCKET fd_           { core::INVALID_SOCKET };
+    State        state_        { State::Disconnected };
+    uint64_t     last_recv_ms_ { 0 };
+    uint64_t     last_send_ms_ { 0 };
+    std::string  host_;
+    std::string  desc_;
+    core::Buffer rbuf_;
+    core::Buffer sbuf_;
 }; // class Connector;
 
     
