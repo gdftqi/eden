@@ -251,7 +251,7 @@ typhon::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
     }
 
     id         = root["id"].as<uint32_t>();
-    timeout    = root["timeout"].as<uint32_t>();
+    timeout    = root["timeout"].as<uint32_t>() * 1000;
     protocol   = root["protocol"].as<std::string>();
     name       = root["name"].as<std::string>();
     host       = root["host"].as<std::string>();

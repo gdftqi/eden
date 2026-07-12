@@ -83,7 +83,7 @@ public:
 
         auto k = root["kcp"];
         typhon::kcp::Conf::instance()->set_id(server_.id);
-        typhon::kcp::Conf::instance()->set_timeout(server_.timeout * 1000);
+        typhon::kcp::Conf::instance()->set_timeout(server_.timeout);
         
         if (k["sndbuf"]) {
             typhon::kcp::Conf::instance()->set_sndbuf(k["sndbuf"].as<int>());
