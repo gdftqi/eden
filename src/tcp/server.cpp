@@ -1,8 +1,7 @@
 #include "tcp/server.hpp"
-#include "tcp/config.hpp"
 
 
-static constexpr int INTERVAL_MS = 1000;
+static constexpr int INTERVAL_MS = 5000;
 static constexpr int RBUF_SIZE = 1500;
 
 
@@ -33,6 +32,7 @@ typhon::tcp::Server::run() noexcept {
             break;
         }
 
+        tnow_ = utils::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
             if (ev.data.fd == stop_evfd_) {
@@ -43,6 +43,8 @@ typhon::tcp::Server::run() noexcept {
                 on_session_handle(ev);
             }
         }
+
+        update_serv();
     }
 
     release();
@@ -235,4 +237,76 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
         procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::RmvSess, fd));
     }
+}
+
+
+void
+typhon::tcp::Server::update_serv() noexcept {
+    constexpr uint64_t AUTH_INTERVAL = 120000;
+
+    static const typhon::utils::EtcdConfig* etcd   = nullptr;
+    static const typhon::core::ServerInfo*  server = nullptr;
+
+    static bool        put_flag = false;
+    static uint64_t    last_update = 0;
+    static std::string lease;
+    static std::string token;
+
+    if (etcd == nullptr) {
+        etcd = Conf::instance()->etcd();
+    }
+
+    if (server == nullptr) {
+        server = Conf::instance()->server();
+    }
+
+    typhon::utils::EtcdRsp rsp;
+    auto* url = etcd->url.c_str();
+
+    if (token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
+        if (typhon::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+            token.clear();
+            return;
+        }
+
+        token = rsp.token;
+    }
+
+    auto state = state_.load(std::memory_order_relaxed);
+    if (state != typhon::core::State::Starting && state != typhon::core::State::Running) {
+        typhon::utils::etcd_delete(&rsp, url, token.c_str(), server->key.c_str());
+        token.clear();
+        return;
+    }
+
+    if (tnow_ - last_update < INTERVAL_MS) {
+        return;
+    }
+
+    if (!put_flag) {
+        if (typhon::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
+            token.clear();
+            return;
+        }
+
+        lease = rsp.id;
+        auto k = server->key.c_str();
+        auto v = server->val.c_str();
+
+        if (typhon::utils::etcd_put(&rsp, url, token.c_str(), k, v, lease.c_str()) != 0) {
+            token.clear();
+            return;
+        }
+
+        put_flag = true;
+        xINFO("{} 注册 etcd 成功", k);
+    } else {
+        if (typhon::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
+            put_flag = false;
+            token.clear();
+            return;
+        }
+    }
+
+    last_update = tnow_;
 }

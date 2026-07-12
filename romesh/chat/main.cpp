@@ -68,8 +68,12 @@ main(int /*argc*/, char** /*argv*/) {
         return EXIT_FAILURE;
     }
 
+    typhon::tcp::Conf* conf = typhon::tcp::Conf::instance();
+
+    conf->load("config.yml");
+
     EchoService service;
-    typhon::tcp::Server server("0.0.0.0:6688", &service);
+    typhon::tcp::Server server(conf->server()->host.c_str(), &service);
     g_server = &server;
 
     // PK_ID_PING = 1,跟 test_tcp.py 一致

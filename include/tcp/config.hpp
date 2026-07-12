@@ -17,7 +17,7 @@ class Conf {
 
 
 public:
-    static const Conf*
+    static Conf*
     instance() noexcept {
         static Conf m;
         return &m;

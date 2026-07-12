@@ -3,6 +3,7 @@
 
 
 #include "tcp/proc.hpp"
+#include "tcp/config.hpp"
 
 
 namespace typhon::tcp {
@@ -78,6 +79,7 @@ public:
     Server(const char* host, IEvent* event) noexcept
         : event_(event)
         , host_(host) {
+        host_ = host_.substr(host_.find(':'));
         ASSERT(event_ != nullptr, "event handler cannot be null");
         ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
     }
@@ -209,9 +211,14 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
+    void
+    update_serv() noexcept;
+
+
     core::SOCKET             lfd_                         { core::INVALID_SOCKET };
     core::SOCKET             stop_evfd_                   { core::INVALID_SOCKET };
     core::SOCKET             epfd_                        { core::INVALID_SOCKET };
+    uint64_t                 tnow_                        { 0 };
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   
