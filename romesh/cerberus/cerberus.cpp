@@ -41,8 +41,7 @@ Cerberus::run() noexcept {
         return;
     }
 
-    int n = std::thread::hardware_concurrency();
-    n = n > 1 ? n - 1 : 1;
+    int n = Conf::instance()->server()->nthreads;
 
     // 1. XDP envelope MAC 过滤先 attach.
     //    顺序敏感: 必须在 socket bind 之前生效, 否则启动期间被攻击会让垃圾流量
@@ -86,16 +85,16 @@ Cerberus::run() noexcept {
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
-        kcp_servs_.emplace_back(std::move(s));
+        typhon::kcp::Server::Pool().emplace_back(std::move(s));
     }
 
     // 4. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组
     if (!kcp_bpf_path_.empty()) {
-        ASSERT(router_.attach(kcp_servs_[0]->fd()) == 0, "挂载 BPF 程序失败");
+        ASSERT(router_.attach(typhon::kcp::Server::Pool()[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
 
     // 5. 启动所有 worker 线程
-    for (auto& s : kcp_servs_) {
+    for (auto& s : typhon::kcp::Server::Pool()) {
         threads_.emplace_back(std::bind(&typhon::kcp::Server::run, s.get()));
     }
 
@@ -124,7 +123,7 @@ Cerberus::run() noexcept {
         update_serv();
     }
 
-    for (auto& s : kcp_servs_) {
+    for (auto& s : typhon::kcp::Server::Pool()) {
         s->stop();
     }
 
@@ -132,7 +131,7 @@ Cerberus::run() noexcept {
         t.join();
     }
 
-    kcp_servs_.clear();
+    typhon::kcp::Server::Pool().clear();
     threads_.clear();
 
     update_serv();
@@ -273,7 +272,7 @@ Cerberus::update_serv() noexcept {
             continue;
         }
 
-        for (auto& ks: kcp_servs_) {
+        for (auto& ks: typhon::kcp::Server::Pool()) {
             auto* arg = new typhon::core::AddServArg;
             arg->id = s.id;
             ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
@@ -317,10 +316,6 @@ Cerberus::on_event_handle(const ::epoll_event& ev) noexcept {
                     on_user_disconnected(ev);
                     break;
 
-                case EventType::OnUserSend:
-                    on_user_send(ev);
-                    break;
-
                 default:
                     xFATAL("无效的事件类型");
                     break;
@@ -349,14 +344,4 @@ Cerberus::on_user_connected(const Event*) noexcept {
 void
 Cerberus::on_user_disconnected(const Event*) noexcept {
     // TODO: redis 删除 用户路由表
-}
-
-
-void
-Cerberus::on_user_send(const Event* ev) noexcept {
-    auto* arg = new typhon::core::KcpSendArg;
-    arg->raw = (uint8_t*)ev->ptr_val;
-    arg->len = ev->u32_val;
-    ASSERT(ev->i32_val < kcp_servs_.size(), "下标越界, 请检查 为 kcp server 分配的 idx");
-    kcp_servs_[ev->i32_val]->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::KcpSend, arg));
 }

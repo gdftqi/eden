@@ -551,7 +551,9 @@ typhon::kcp::Server::on_s2c(tcp::Connector::Ptr, core::PKx<core::Host> &pkx) noe
             xERROR("{} 发送失败", user->to_json());
         }
     } else {
-        event_->on_user_send(pk);
+        Pool()[pk->dst_id % Pool().size()]->notify(
+            new core::QEvent(core::QEvent::Type::KcpSend, new core::KcpSendArg(pk.raw(), pk.size()))
+        );
     }
 }
 
@@ -596,6 +598,12 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
 
     if (token.user_id != in->src_id) {
         return xERR_TOKEN_USER;
+    }
+
+    const uint32_t n = Pool().size();
+    if (token.conv % n != token.user_id % n) {
+        xWARN("conv 不变量违反: conv % N= {} != user_id % N= {}, 拒绝(检查 RA 的 conv 算法或 N 配置)", token.conv % n, token.user_id % n);
+        return xERR_TOKEN_CONV;   // 或专门错误码
     }
 
     // 3. 校验登录服签名

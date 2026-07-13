@@ -14,7 +14,6 @@ enum class EventType: uint32_t {
     OnServDisconnected,
     OnUserConnected,
     OnUserDisconnected,
-    OnUserSend,
 };
 
 
@@ -25,12 +24,10 @@ enum class EventType: uint32_t {
  */
 struct Event {
     EventType type    { EventType::None };
-    int32_t   i32_val { 0 };
     uint32_t  u32_val { 0 };
-    void*     ptr_val { nullptr };
 }; // Event;
 
-static_assert(sizeof(Event) == 20, "Event 对齐错误");
+static_assert(sizeof(Event) == 8, "Event 对齐错误");
 
 #pragma pack(pop)
 
@@ -269,24 +266,6 @@ public:
     }
 
 
-    void
-    notify_user_send(int idx, const typhon::core::PK<typhon::core::Host>& pk) noexcept {
-        void* arg = ::mi_malloc(pk.size());
-        ::memcpy(arg, pk.raw(), pk.size());
-
-        Event ev;
-        ev.type = EventType::OnUserSend;
-        ev.ptr_val = arg;
-        ev.i32_val = idx;
-        ev.u32_val = pk.size();
-
-        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
-            xERROR("notify_user_send failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            ::mi_free(arg);
-        }
-    }
-
-
 private:
     void
     init() noexcept;
@@ -319,25 +298,20 @@ private:
     on_user_disconnected(const Event* ev) noexcept;
 
 
-    void
-    on_user_send(const Event* ev) noexcept;
-
-
-    typhon::core::SOCKET                  epfd_              { typhon::core::INVALID_SOCKET }; // epoll fd
-    typhon::core::SOCKET                  evrfd_             { typhon::core::INVALID_SOCKET }; // event read fd
-    typhon::core::SOCKET                  evwfd_             { typhon::core::INVALID_SOCKET }; // event read fd
-    uint64_t                              tnow_              { 0 };                            // 当前时间
-    std::atomic<typhon::core::State>      state_             { typhon::core::State::Stopped }; // 状态
-    typhon::kcp::IEvent*                  event_             { nullptr };                      // 服务事件
-    std::string                           host_;                                               // 监听 host:port
-    std::string                           ifname_;                                             // 网卡名 (XDP attach)
-    std::string                           kcp_bpf_path_;                                       // kcp.bpf.o 路径
-    std::string                           envelope_bpf_path_;                                  // envelope.bpf.o 路径
-    typhon::bpf::EnvelopeFilter           envelope_;                                           // XDP MAC 过滤
-    typhon::bpf::Router                   router_;                                             // SO_REUSEPORT 路由
-    std::vector<typhon::kcp::Server::Ptr> kcp_servs_;                                            // kcp server pool
-    std::vector<std::thread>              threads_;                                            // 线程池
-    ServSet                               servs_;                                              // 服务集合
+    typhon::core::SOCKET             epfd_              { typhon::core::INVALID_SOCKET }; // epoll fd
+    typhon::core::SOCKET             evrfd_             { typhon::core::INVALID_SOCKET }; // event read fd
+    typhon::core::SOCKET             evwfd_             { typhon::core::INVALID_SOCKET }; // event read fd
+    uint64_t                         tnow_              { 0 };                            // 当前时间
+    std::atomic<typhon::core::State> state_             { typhon::core::State::Stopped }; // 状态
+    typhon::kcp::IEvent*             event_             { nullptr };                      // 服务事件
+    std::string                      host_;                                               // 监听 host:port
+    std::string                      ifname_;                                             // 网卡名 (XDP attach)
+    std::string                      kcp_bpf_path_;                                       // kcp.bpf.o 路径
+    std::string                      envelope_bpf_path_;                                  // envelope.bpf.o 路径
+    typhon::bpf::EnvelopeFilter      envelope_;                                           // XDP MAC 过滤
+    typhon::bpf::Router              router_;                                             // SO_REUSEPORT 路由
+    std::vector<std::thread>         threads_;                                            // 线程池
+    ServSet                          servs_;                                              // 服务集合
 }; // class Cerberus;
 
 

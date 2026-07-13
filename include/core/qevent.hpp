@@ -77,6 +77,13 @@ struct AddServArg {
 
 
 struct KcpSendArg {
+    KcpSendArg(uint8_t* raw, size_t len) noexcept
+        : raw(raw)
+        , len(len) {
+        this->raw = (uint8_t*)::mi_malloc(len);
+        ::memcpy(this->raw, raw, len);
+    }
+
     uint8_t* raw  { nullptr };
     size_t   len  { 0 };
 };

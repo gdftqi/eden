@@ -47,7 +47,6 @@ public:
     on_user_connected(typhon::kcp::Session::Ptr s) noexcept {
         xINFO("{} connected.", s->to_json());
         server_->notify_user_connected(s->user_id());
-        user_ks_router_.insert(std::make_pair(s->user_id(), s->server()->index()));
     }
 
 
@@ -55,7 +54,6 @@ public:
     on_user_disconnected(typhon::kcp::Session::Ptr s) noexcept {
         xINFO("[{}:{}] unauth on {}", s->user_id(), s->remote_addr(), ::pthread_self());
         server_->notify_user_disconnected(s->user_id());
-        user_ks_router_.erase(s->user_id());
     }
 
 
@@ -70,19 +68,8 @@ public:
         xINFO("serv {} disconnected on {}", conn->id(), ::pthread_self());
         server_->notify_serv_disconnected(conn->id());
     }
-
-
-    virtual void
-    on_user_send(const typhon::core::PK<typhon::core::Host>& pk) noexcept {
-        uint32_t user_id = pk->dst_id;
-        auto itr = user_ks_router_.find(user_id);
-        if (itr != user_ks_router_.end()) {
-            server_->notify_user_send(itr->second, pk);
-        }
-    }
 private:
-    Cerberus*                          server_ { nullptr };
-    absl::flat_hash_map<uint32_t, int> user_ks_router_;
+    Cerberus* server_ { nullptr };
 }; // class ServiceEvent;
 
 

@@ -42,10 +42,6 @@ public:
 
     virtual void on_serv_disconnected(std::shared_ptr<tcp::Connector>) noexcept {
     }
-
-    virtual void on_user_send(const core::PK<core::Host>&) noexcept {
-        
-    }
 }; // namespace IEvent;
 
 

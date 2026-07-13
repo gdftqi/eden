@@ -189,6 +189,7 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
 struct ServerInfo {
     uint32_t    id        { 0 }; ///< 服务ID
     uint32_t    timeout   { 0 }; ///< 超时值
+    uint32_t    nthreads  { 0 }; ///< 工作线程数
     std::string protocol;        ///< 协议
     std::string name;            ///< 服务名称
     std::string host;            ///< 监听地址
@@ -204,8 +205,8 @@ struct ServerInfo {
      */
     std::string
     to_json() const noexcept {
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{}}}", 
-            id, protocol, name, host, desc, start_time);
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{}}}", 
+            id, protocol, name, host, desc, start_time, nthreads);
     }
 
 
