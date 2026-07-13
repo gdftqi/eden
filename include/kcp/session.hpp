@@ -77,8 +77,8 @@ public:
 
 
     std::string
-    to_string() const noexcept {
-        return desc_;
+    to_json() const noexcept {
+        return json_;
     }
 
 
@@ -98,6 +98,7 @@ public:
     set_user_id(uint32_t user_id) noexcept {
         user_id_ = user_id;
         kcp_->timeout = Conf::instance()->timeout();
+        json_ = std::format("{{\"user_id\":{},\"conv\":{},\"remote\":\"{}\"}}", user_id, kcp_->conv, core::sockaddr_to_string((sockaddr*)&addr_));
     }
     
 
@@ -220,6 +221,22 @@ public:
     recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept;
 
 
+    /**
+     * @brief 把一条应用层 Package 交给 KCP 发出: 填充发送幂等序号(seq), authed 且有 payload 时
+     *        用 tx_key_ 做 ChaCha20-Poly1305 加密(nonce = conv|seq|DIR_S2C), 未 authed / 空 payload
+     *        走明文, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成)。
+     *
+     * @param[in,out] pk 待发送包(host 序); 本方法会覆写 pk->seq; 明文分支会把头翻成 net 序。
+     *                   pk 所指缓冲可能是共享的(如 Connector rbuf_), 加密分支不原地改它。
+     *
+     * @return  xOK               成功入 KCP 发送队列(可靠传输, 但不代表对端已收到)
+     *
+     *          xERR_PK_LEN       payload 超限(加密后 wire 会超 PKG_MAX_LEN, 对端收不下)
+     *
+     *          xERR_PARAM        底层 ikcp_send 返回 -1(len < 0, 正常流程不会出现)
+     *
+     *          xERR_KCP_TOOBIG   包过大 / 分片数超接收窗口(ikcp_send)
+     */
     int
     send(core::PK<core::Host> &pk) noexcept;
 
@@ -233,6 +250,7 @@ private:
         return ++snd_seq_;
     }
 
+
     uint32_t           user_id_   { 0 };
     Server*            server_    { nullptr };
     uint32_t           snd_seq_   { 0 };
@@ -242,7 +260,7 @@ private:
     ::socklen_t        addrlen_   { sizeof(addr_) };
     Xx20Key            tx_key_    { 0 };
     Xx20Key            rx_key_    { 0 };
-    std::string        desc_;
+    std::string        json_;
 }; // class Kcp;
 
 

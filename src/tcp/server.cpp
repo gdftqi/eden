@@ -215,18 +215,18 @@ typhon::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 del = true;
                 break;
             } else {
-                auto* rbuf = (core::RcvArg*)::mi_malloc(sizeof(core::RcvArg) + n);
+                auto* rbuf = (core::TcpRecvArg*)::mi_malloc(sizeof(core::TcpRecvArg) + n);
                 ASSERT(rbuf != nullptr, "failed to allocate memory for RcvBuf");
                 rbuf->len = n;
                 rbuf->fd = fd;
                 ::memcpy(rbuf->data, buf, n);
-                procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::Recv, rbuf));
+                procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::TcpRecv, rbuf));
             }
         }
     }
 
     if (ev.events & EPOLLOUT) {
-        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::Send, fd));
+        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::TcpSend, fd));
     }
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {

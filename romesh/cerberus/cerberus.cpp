@@ -79,23 +79,23 @@ Cerberus::run() noexcept {
     
     // 3. 创建 KcpServer
     for (int i = 0; i < n; ++i) {
-        auto s = std::make_unique<typhon::kcp::Server>(host_.c_str(), event_);
+        auto s = std::make_unique<typhon::kcp::Server>(i, host_.c_str(), event_);
         ASSERT(s->fd() != typhon::core::INVALID_SOCKET, "创建 kcp server 失败");
 
         if (!kcp_bpf_path_.empty()) {
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
-        ks_pool_.emplace_back(std::move(s));
+        kcp_servs_.emplace_back(std::move(s));
     }
 
     // 4. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组
     if (!kcp_bpf_path_.empty()) {
-        ASSERT(router_.attach(ks_pool_[0]->fd()) == 0, "挂载 BPF 程序失败");
+        ASSERT(router_.attach(kcp_servs_[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
 
     // 5. 启动所有 worker 线程
-    for (auto& s : ks_pool_) {
+    for (auto& s : kcp_servs_) {
         threads_.emplace_back(std::bind(&typhon::kcp::Server::run, s.get()));
     }
 
@@ -124,7 +124,7 @@ Cerberus::run() noexcept {
         update_serv();
     }
 
-    for (auto& s : ks_pool_) {
+    for (auto& s : kcp_servs_) {
         s->stop();
     }
 
@@ -132,7 +132,7 @@ Cerberus::run() noexcept {
         t.join();
     }
 
-    ks_pool_.clear();
+    kcp_servs_.clear();
     threads_.clear();
 
     update_serv();
@@ -273,7 +273,7 @@ Cerberus::update_serv() noexcept {
             continue;
         }
 
-        for (auto& ks: ks_pool_) {
+        for (auto& ks: kcp_servs_) {
             auto* arg = new typhon::core::AddServArg;
             arg->id = s.id;
             ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
@@ -290,11 +290,10 @@ Cerberus::update_serv() noexcept {
 void
 Cerberus::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
-        uint8_t data[1400];
-        static_assert(sizeof(data) % sizeof(uint32_t) == 0);
+        uint8_t data[sizeof(Event) * 256];
 
         while (1) {
-            auto n = ::read(evrfd_, &data, sizeof(data));
+            ssize_t n = ::read(evrfd_, &data, sizeof(data));
             if (n <= 0) {
                 if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
                     xERROR("read eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -302,19 +301,62 @@ Cerberus::on_event_handle(const ::epoll_event& ev) noexcept {
                 break;
             }
 
-            for (uint8_t* p = data, *end = p + n; p < end; p += sizeof(uint32_t)) {
-                uint32_t serv_id = *(uint32_t*)p;
-                if (serv_id == 0) {
-                    // 服务停止
-                    continue;
-                }
+            for (uint8_t* p = data, *end = p + n; p < end; p += sizeof(Event)) {
+                Event* ev = (Event*)p;
 
-                auto itr = servs_.find(serv_id);
-                if (itr != servs_.end()) {
-                    servs_.erase(itr);
-                    xWARN("服务 {} 掉线", serv_id);
+                switch (ev->type) {
+                case EventType::OnServDisconnected:
+                    on_serv_disconnected(ev);
+                    break;
+
+                case EventType::OnUserConnected:
+                    on_user_connected(ev);
+                    break;
+
+                case EventType::OnUserDisconnected:
+                    on_user_disconnected(ev);
+                    break;
+
+                case EventType::OnUserSend:
+                    on_user_send(ev);
+                    break;
+
+                default:
+                    xFATAL("无效的事件类型");
+                    break;
                 }
             }
         }
     } // if (ev.events & EPOLLIN);
+}
+
+
+void
+Cerberus::on_serv_disconnected(const Event* ev) noexcept {
+    auto itr = servs_.find(ev->u32_val);
+    if (itr != servs_.end()) {
+        servs_.erase(itr);
+    }
+}
+
+
+void
+Cerberus::on_user_connected(const Event*) noexcept {
+    // TODO: redis 写入 用户路由表
+}
+
+
+void
+Cerberus::on_user_disconnected(const Event*) noexcept {
+    // TODO: redis 删除 用户路由表
+}
+
+
+void
+Cerberus::on_user_send(const Event* ev) noexcept {
+    auto* arg = new typhon::core::KcpSendArg;
+    arg->raw = (uint8_t*)ev->ptr_val;
+    arg->len = ev->u32_val;
+    ASSERT(ev->i32_val < kcp_servs_.size(), "下标越界, 请检查 为 kcp server 分配的 idx");
+    kcp_servs_[ev->i32_val]->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::KcpSend, arg));
 }

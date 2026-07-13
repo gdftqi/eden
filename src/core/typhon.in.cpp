@@ -213,7 +213,6 @@ typhon::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexc
 }
 
 
-
 ssize_t
 typhon::core::writen(SOCKET fd, const void* buf, size_t len) noexcept {
     ssize_t nleft = len, n;
@@ -282,8 +281,9 @@ typhon::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
         return -1;
     }
 
-    key = std::format("/{}/{}", name, id);
-    val = to_string();
+    // id 十六进制: 高 2 字节 = 类型, 低 2 字节 = 序号(如 0x10000000 → 类型 1000 / 序号 0000)
+    key = std::format("/{}/{:08X}", name, id);
+    val = to_json();
 
     return 0;
 }

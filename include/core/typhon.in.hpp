@@ -70,12 +70,15 @@ typedef int SOCKET;
 constexpr SOCKET INVALID_SOCKET = -1;
 
 
+/**
+ * @brief 服务状态
+ */
 enum class State: uint8_t {
-    Stopped,    // 已停止
-    Stopping,   // 正在停止
-    Starting,   // 正在启动
-    Running,    // 运行时
-};
+    Stopped,    ///< 已停止
+    Stopping,   ///< 正在停止
+    Starting,   ///< 正在启动
+    Running,    ///< 运行时
+}; // enum class State;
 
 
 /**
@@ -180,30 +183,35 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
 }
 
 
+/**
+ * @brief 服务信息
+ */
 struct ServerInfo {
-    uint32_t    id      { 0 };
-    uint32_t    timeout { 0 };
-    std::string protocol;
-    std::string name;
-    std::string host;
-    std::string desc;
-    ::time_t    start_time;
+    uint32_t    id        { 0 }; ///< 服务ID
+    uint32_t    timeout   { 0 }; ///< 超时值
+    std::string protocol;        ///< 协议
+    std::string name;            ///< 服务名称
+    std::string host;            ///< 监听地址
+    std::string desc;            ///< 描述信息
+    ::time_t    start_time;      ///< 启动时间
 
-    std::string key;
-    std::string val;
+    std::string key; ///< 用于注册 etcd 的 key
+    std::string val; ///< 用于注册 etcd 的 value
 
 
+    /** 
+     * @brief 转 json 字符串
+     */
     std::string
-    to_string() const noexcept {
+    to_json() const noexcept {
         return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{}}}", 
             id, protocol, name, host, desc, start_time);
     }
 
 
-    int
-    from_yaml(const YAML::Node& root) noexcept;
-
-
+    /**
+     * @brief 从 json 格式构建对象
+     */
     int
     from_json(const std::string& json) noexcept {
         simdjson::ondemand::parser parser;
@@ -220,6 +228,13 @@ struct ServerInfo {
 
         return 0;
     }
+
+
+    /**
+     * @brief 从 yaml 格式构建对象
+     */
+    int
+    from_yaml(const YAML::Node& root) noexcept;
 }; // class ServerInfo;
 
 

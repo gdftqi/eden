@@ -64,7 +64,8 @@ typhon::tcp::Connector::recv(core::PKx<core::Host>* pkx, uint64_t now) noexcept 
 
     core::PackageEx* raw;
     if (rbuf_.decode(&raw) != xOK) {
-        return xAGAIN;               // 半包, 等更多数据
+        // 半包, 等更多数据
+        return xAGAIN;
     }
 
     *pkx = core::PKx<core::Host>(raw, raw->len);

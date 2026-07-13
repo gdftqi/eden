@@ -9,6 +9,32 @@
 #include "utils/etcd.hpp"
 
 
+enum class EventType: uint32_t {
+    None,
+    OnServDisconnected,
+    OnUserConnected,
+    OnUserDisconnected,
+    OnUserSend,
+};
+
+
+#pragma pack(push, 4)
+
+/**
+ * @brief Cerberus 内部事件
+ */
+struct Event {
+    EventType type    { EventType::None };
+    int32_t   i32_val { 0 };
+    uint32_t  u32_val { 0 };
+    void*     ptr_val { nullptr };
+}; // Event;
+
+static_assert(sizeof(Event) == 20, "Event 对齐错误");
+
+#pragma pack(pop)
+
+
 class Conf {
     Conf(const Conf&) = delete;
     Conf& operator=(const Conf&) = delete;
@@ -160,7 +186,7 @@ private:
  *   4. Router register_socket + attach        — 把 socket 注册进 sock_map + 挂载 BPF
  *   5. 启动 N 个 KcpServer worker 线程
  *
- * 析构顺序刚好相反, 析构链各自处理资源回收。
+ * 析构顺序刚好相反, 析构链各自处理资源回收
  */
 class Cerberus {
     Cerberus(const Cerberus&) = delete;
@@ -176,7 +202,7 @@ public:
     /**
      * @brief 构造函数
      *
-     * @param ev                KcpServer 事件接口 (业务回调)
+     * @param ev KcpServer 事件接口 (业务回调)
      */
     explicit
     Cerberus(typhon::kcp::IEvent* ev) noexcept;
@@ -209,8 +235,54 @@ public:
 
     void
     notify_serv_disconnected(uint32_t serv_id) noexcept {
-        if (::write(evwfd_, &serv_id, sizeof(serv_id)) != sizeof(serv_id)) {
-            xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        Event ev;
+        ev.type = EventType::OnServDisconnected;
+        ev.u32_val = serv_id;
+
+        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
+            xERROR("notify_serv_disconnected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        }
+    }
+
+
+    void
+    notify_user_connected(uint32_t user_id) noexcept {
+        Event ev;
+        ev.type = EventType::OnUserConnected;
+        ev.u32_val = user_id;
+
+        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
+            xERROR("notify_user_connected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        }
+    }
+
+
+    void
+    notify_user_disconnected(uint32_t user_id) noexcept {
+        Event ev;
+        ev.type = EventType::OnUserDisconnected;
+        ev.u32_val = user_id;
+
+        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
+            xERROR("notify_user_disconnected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        }
+    }
+
+
+    void
+    notify_user_send(int idx, const typhon::core::PK<typhon::core::Host>& pk) noexcept {
+        void* arg = ::mi_malloc(pk.size());
+        ::memcpy(arg, pk.raw(), pk.size());
+
+        Event ev;
+        ev.type = EventType::OnUserSend;
+        ev.ptr_val = arg;
+        ev.i32_val = idx;
+        ev.u32_val = pk.size();
+
+        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
+            xERROR("notify_user_send failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+            ::mi_free(arg);
         }
     }
 
@@ -235,6 +307,22 @@ private:
     on_event_handle(const ::epoll_event& ev) noexcept;
 
 
+    void
+    on_serv_disconnected(const Event* ev) noexcept;
+
+
+    void
+    on_user_connected(const Event* ev) noexcept;
+
+
+    void
+    on_user_disconnected(const Event* ev) noexcept;
+
+
+    void
+    on_user_send(const Event* ev) noexcept;
+
+
     typhon::core::SOCKET                  epfd_              { typhon::core::INVALID_SOCKET }; // epoll fd
     typhon::core::SOCKET                  evrfd_             { typhon::core::INVALID_SOCKET }; // event read fd
     typhon::core::SOCKET                  evwfd_             { typhon::core::INVALID_SOCKET }; // event read fd
@@ -247,7 +335,7 @@ private:
     std::string                           envelope_bpf_path_;                                  // envelope.bpf.o 路径
     typhon::bpf::EnvelopeFilter           envelope_;                                           // XDP MAC 过滤
     typhon::bpf::Router                   router_;                                             // SO_REUSEPORT 路由
-    std::vector<typhon::kcp::Server::Ptr> ks_pool_;                                            // kcp server pool
+    std::vector<typhon::kcp::Server::Ptr> kcp_servs_;                                            // kcp server pool
     std::vector<std::thread>              threads_;                                            // 线程池
     ServSet                               servs_;                                              // 服务集合
 }; // class Cerberus;

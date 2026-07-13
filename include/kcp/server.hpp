@@ -54,10 +54,16 @@ public:
 
 
     explicit
-    Server(const char* host, IEvent* ev) noexcept;
+    Server(int idx, const char* host, IEvent* ev) noexcept;
 
 
     ~Server() noexcept;
+
+
+    int
+    index() const noexcept {
+        return idx_;
+    }
 
 
     int
@@ -190,7 +196,7 @@ private:
 
 
     void
-    remove_serv(tcp::Connector* c) noexcept;
+    remove_serv(tcp::Connector::Ptr c) noexcept;
 
 
     void
@@ -210,21 +216,25 @@ private:
 
 
     void
+    on_user_send(core::QEvent* qe) noexcept;
+
+
+    void
     update() noexcept;
 
 
     // --------------------------------- 服务侧 ---------------------------------
 
     void
-    on_pong(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+    on_pong(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
 
 
     void
-    on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+    on_regist_rsp(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
 
 
     void
-    on_s2c(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept;
+    on_s2c(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
 
 
     // --------------------------------- 用户侧 ---------------------------------
@@ -238,7 +248,7 @@ private:
 
 
     // --------------------------------- 基础属性 ---------------------------------
-
+    int                      idx_   { -1 };
     core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
     core::SOCKET             epfd_  { core::INVALID_SOCKET };  ///< epoll fd
     core::SOCKET             evfd_  { core::INVALID_SOCKET };  ///< event fd

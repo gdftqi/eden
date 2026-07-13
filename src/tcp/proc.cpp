@@ -76,8 +76,8 @@ typhon::tcp::Proc::release() noexcept {
     }
 
     evque_.clear([](core::QEvent* qe) {
-        if (qe->qe_type == core::QEvent::Type::Recv) {
-            auto* rbuf = (core::RcvArg*)qe->qe_data.ptr;
+        if (qe->qe_type == core::QEvent::Type::TcpRecv) {
+            auto* rbuf = (core::TcpRecvArg*)qe->qe_data.ptr;
             ::mi_free(rbuf);
         }
         delete qe;
@@ -119,11 +119,11 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
                 // nothing to do
                 break;
 
-            case core::QEvent::Type::Recv:
+            case core::QEvent::Type::TcpRecv:
                 on_recv_handle(qes[i]);
                 break;
 
-            case core::QEvent::Type::Send:
+            case core::QEvent::Type::TcpSend:
                 on_send_handle(qes[i]);
                 break;
 
@@ -147,7 +147,7 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
-    auto* rbuf = (core::RcvArg*)qe->qe_data.ptr;
+    auto* rbuf = (core::TcpRecvArg*)qe->qe_data.ptr;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);

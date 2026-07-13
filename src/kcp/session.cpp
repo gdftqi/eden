@@ -25,7 +25,7 @@ typhon::kcp::Session::Session(
     socklen_t   addrlen
 ) noexcept
     : server_(server)
-    , desc_(std::format("[{}]{}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
+    , json_(std::format("{{\"conv\":{},\"remote\":\"{}\"}}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
     kcp_ = ::ikcp_create(conv, this);
 
     ::memcpy(&addr_, addr, addrlen);

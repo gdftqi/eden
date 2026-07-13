@@ -8,8 +8,9 @@ static constexpr int INTERVAL_MS   = 10;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
-typhon::kcp::Server::Server(const char* host, IEvent* ev) noexcept
-    : event_(ev)
+typhon::kcp::Server::Server(int idx, const char* host, IEvent* ev) noexcept
+    : idx_(idx)
+    , event_(ev)
     , host_(host) {
 
     Conf::instance()->check();
@@ -153,7 +154,7 @@ typhon::kcp::Server::release() noexcept {
 
 
 void
-typhon::kcp::Server::remove_serv(tcp::Connector* c) noexcept {
+typhon::kcp::Server::remove_serv(tcp::Connector::Ptr c) noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
     event_->on_serv_disconnected(c);
     servs_.erase(c->id());
@@ -184,9 +185,20 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
     core::QEvent* qes[EVQUE_BATCH];
     while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
         for (i = 0; i < n; ++i) {
-            if (qes[i]->qe_type == core::QEvent::Type::AddServ) {
+            switch (qes[i]->qe_type) {
+            case core::QEvent::Type::AddServ:
                 on_new_serv(qes[i]);
+                break;
+
+            case core::QEvent::Type::KcpSend:
+                on_user_send(qes[i]);
+                break;
+
+            default:
+                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->qe_type);
+                break;
             }
+
             delete qes[i];
         }
     }
@@ -309,7 +321,7 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
-    auto* conn = (tcp::Connector*)ev.data.ptr;
+    auto conn = get_serv(((tcp::Connector*)ev.data.ptr)->id());
 
     if (ev.events & (EPOLLERR | EPOLLHUP)) {
         xWARN("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
@@ -330,7 +342,7 @@ typhon::kcp::Server::on_serv_handle(const ::epoll_event& ev) noexcept {
             // 连上成功: 转 Connected
             conn->set_state(tcp::Connector::State::Connected);
             ::epoll_event nev;
-            nev.data.ptr = conn;
+            nev.data.ptr = conn.get();
             nev.events = EPOLLIN | EPOLLET | EPOLLOUT;
     
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_MOD, conn->fd(), &nev) == 0, "修改后端连接事件失败: id = {}, host = {}, errno = {}, errstr = {}", conn->id(), conn->host(), errno, ::strerror(errno));
@@ -412,6 +424,24 @@ typhon::kcp::Server::on_new_serv(core::QEvent* qe) noexcept {
 
 
 void
+typhon::kcp::Server::on_user_send(core::QEvent* qe) noexcept {
+    auto* arg = (core::KcpSendArg*)qe->qe_data.ptr;
+
+    core::PK<core::Host> pk(arg->raw, arg->len);
+    auto s = get_user(pk->dst_id);
+    if (s != nullptr) {
+        int res = s->send(pk);
+        if (res != xOK) {
+            xERROR("{} 发送消息失败: {}", s->user_id(), res);
+        }
+    }
+
+    ::mi_free(arg->raw);
+    delete arg;
+}
+
+
+void
 typhon::kcp::Server::update() noexcept {
     auto now = tnow_;
 
@@ -478,14 +508,14 @@ typhon::kcp::Server::update() noexcept {
         auto& conn = itr->second;
         ++itr;
         if (conn->update(now) < 0) {
-            remove_serv(conn.get());
+            remove_serv(conn);
         }
     }
 }
 
 
 void
-typhon::kcp::Server::on_pong(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
+typhon::kcp::Server::on_pong(tcp::Connector::Ptr, core::PKx<core::Host> &pkx) noexcept {
     if (pkx.payload_len() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
     }
@@ -493,7 +523,7 @@ typhon::kcp::Server::on_pong(tcp::Connector*, core::PKx<core::Host> &pkx) noexce
 
 
 void
-typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &pkx) noexcept {
+typhon::kcp::Server::on_regist_rsp(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept {
     if (pkx.payload_len() != sizeof(uint32_t)) {
         xERROR("错误的 REGIST_RSP 长度");
         return;
@@ -510,15 +540,18 @@ typhon::kcp::Server::on_regist_rsp(tcp::Connector* conn, core::PKx<core::Host> &
 
 
 void
-typhon::kcp::Server::on_s2c(tcp::Connector*, core::PKx<core::Host> &pkx) noexcept {
+typhon::kcp::Server::on_s2c(tcp::Connector::Ptr, core::PKx<core::Host> &pkx) noexcept {
+    core::PK<core::Host> pk(pkx.pk(), pkx.payload_len() + core::PKG_HDR_LEN);
+
     auto user = get_user(pkx.pk()->dst_id);
     if (user != nullptr) {
         // 直接用 pkx.pk()(指向 Connector rbuf_): Session::send 把密文+tag 加密输出到它
-        // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包。
-        core::PK<core::Host> pk(pkx.pk(), pkx.payload_len() + core::PKG_HDR_LEN);
+        // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包.
         if (user->send(pk) < 0) {
-            xERROR("{} 发送失败", user->to_string());
+            xERROR("{} 发送失败", user->to_json());
         }
+    } else {
+        event_->on_user_send(pk);
     }
 }
 
@@ -612,7 +645,7 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
 
     auto sv = get_serv(pk->dst_id);
     if (sv == nullptr) {
-        xERROR("{} 转包: invalid dst_id [{}]", s->to_string(), pk->dst_id);
+        xERROR("{} 转包: invalid dst_id [{}]", s->to_json(), pk->dst_id);
         return xERR_PKT_DST;
     }
 
@@ -626,7 +659,7 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
     pkx->src_addr = s->remote_addr_u32();
 
     if (sv->send(pkx, tnow_) < 0) {
-        xERROR("{} 转发消息至 {} 失败: {}", s->to_string(), sv->id(), errno);
+        xERROR("{} 转发消息至 {} 失败: {}", s->to_json(), sv->id(), errno);
     }
 
     return xOK;

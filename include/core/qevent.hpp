@@ -18,10 +18,11 @@ struct QEvent {
         Stop,       ///< 停止      data => nullptr
         AddServ,    ///< 后端服务  data => AddServArg
         RmvServ,    ///< 移除后端  data => serv_id
-        Recv,       ///< 收到数据  data => RcvArg
-        Send,       ///< 发送数据  data => sock fd
+        TcpRecv,    ///< 收到数据  data => TcpRecvArg
+        TcpSend,    ///< 发送数据  data => sock fd
         AddSess,    ///< 添加会话  data => sock fd
         RmvSess,    ///< 移除会话  data => sock fd
+        KcpSend,    ///< 发送数据  data => KcpSendArg
     };
 
 
@@ -59,7 +60,7 @@ private:
 /**
  * @brief QEvent::Type::Recv 协带参数
  */
-struct RcvArg {
+struct TcpRecvArg {
     core::SOCKET fd;
     uint32_t     len;
     uint8_t      data[];
@@ -72,6 +73,12 @@ struct RcvArg {
 struct AddServArg {
     uint32_t id       { 0 };
     char     host[32] { 0 };
+};
+
+
+struct KcpSendArg {
+    uint8_t* raw  { nullptr };
+    size_t   len  { 0 };
 };
 
 
