@@ -178,9 +178,7 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
         }
     } // if (ev.events & EPOLLIN);
 
-    evq_wkring_.store(true);
     drain_qevent();
-
     evq_wkring_.store(false);
     drain_qevent();
 }

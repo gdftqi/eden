@@ -62,9 +62,9 @@ public:
 
     void
     notify(core::QEvent* ev) noexcept {
-        ASSERT(evque_.enqueue(std::move(ev)), "spsc 队列已满");
+        ASSERT(evque_.enqueue(std::move(ev)), "SPSC 队列已满, 请对队列扩容");
         bool expected = false;
-        if (evflag_.compare_exchange_strong(expected, true)) {
+        if (evq_wkring_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -125,6 +125,10 @@ private:
     on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
 
 
+    void
+    drain_evque() noexcept;
+
+
     Server*                    server_        { nullptr };
     int                        id_            { -1 };
     core::SOCKET               epfd_          { core::INVALID_SOCKET };
@@ -132,7 +136,7 @@ private:
     uint64_t                   tnow_          { 0 };
     uint64_t                   last_check_ms_ { 0 };
     std::atomic<core::State>   state_         { core::State::Stopped };
-    std::atomic<bool>          evflag_        { false };
+    std::atomic_bool           evq_wkring_    { false };
     utils::SPSC<core::QEvent*> evque_;
 }; // class Proc;
 

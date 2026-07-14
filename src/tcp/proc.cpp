@@ -108,40 +108,9 @@ typhon::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
         }
     }
 
-    evflag_.store(false, std::memory_order_relaxed);
-
-    size_t i, n;
-    core::QEvent* qes[16];
-    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
-        for (i = 0; i < n; ++i) {
-            switch (qes[i]->qe_type) {
-            case core::QEvent::Type::Stop:
-                // nothing to do
-                break;
-
-            case core::QEvent::Type::TcpRecv:
-                on_recv_handle(qes[i]);
-                break;
-
-            case core::QEvent::Type::TcpSend:
-                on_send_handle(qes[i]);
-                break;
-
-            case core::QEvent::Type::AddSess:
-                on_add_sess_handle(qes[i]);
-                break;
-
-            case core::QEvent::Type::RmvSess:
-                on_rmv_sess_handle(qes[i]);
-                break;
-
-            default:
-                break;
-            }
-
-            delete qes[i];
-        }
-    }
+    drain_evque();
+    evq_wkring_.store(false);
+    drain_evque();
 }
 
 
@@ -274,4 +243,41 @@ typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
         return;
     }
     h(s, pkx);
+}
+
+
+void
+typhon::tcp::Proc::drain_evque() noexcept {
+    size_t i, n;
+    core::QEvent* qes[16];
+    while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
+        for (i = 0; i < n; ++i) {
+            switch (qes[i]->qe_type) {
+            case core::QEvent::Type::Stop:
+                // nothing to do
+                break;
+
+            case core::QEvent::Type::TcpRecv:
+                on_recv_handle(qes[i]);
+                break;
+
+            case core::QEvent::Type::TcpSend:
+                on_send_handle(qes[i]);
+                break;
+
+            case core::QEvent::Type::AddSess:
+                on_add_sess_handle(qes[i]);
+                break;
+
+            case core::QEvent::Type::RmvSess:
+                on_rmv_sess_handle(qes[i]);
+                break;
+
+            default:
+                break;
+            }
+
+            delete qes[i];
+        }
+    }
 }

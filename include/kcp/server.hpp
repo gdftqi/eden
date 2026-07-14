@@ -114,7 +114,7 @@ public:
 
     void
     notify(core::QEvent* ev) noexcept {
-        ASSERT(evque_.enqueue(std::move(ev)), "事件队列已满");
+        ASSERT(evque_.enqueue(std::move(ev)), "MPSC 队列已满, 请对队列扩容");
         bool expected = false;
         if (evq_wkring_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
