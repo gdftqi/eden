@@ -83,16 +83,16 @@ typhon::kcp::Server::run() noexcept {
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
         }
 
-        typhon::kcp::Worker::Pool().emplace_back(std::move(s));
+        workers_.emplace_back(std::move(s));
     }
 
     // 4. 挂载 sk_reuseport 程序到 SO_REUSEPORT 组
     if (!kcp_bpf_path_.empty()) {
-        ASSERT(router_.attach(typhon::kcp::Worker::Pool()[0]->fd()) == 0, "挂载 BPF 程序失败");
+        ASSERT(router_.attach(workers_[0]->fd()) == 0, "挂载 BPF 程序失败");
     }
 
     // 5. 启动所有 worker 线程
-    for (auto& s : typhon::kcp::Worker::Pool()) {
+    for (auto& s : workers_) {
         threads_.emplace_back(std::bind(&typhon::kcp::Worker::run, s.get()));
     }
 
@@ -121,7 +121,7 @@ typhon::kcp::Server::run() noexcept {
         update_serv();
     }
 
-    for (auto& s : typhon::kcp::Worker::Pool()) {
+    for (auto& s : workers_) {
         s->stop();
     }
 
@@ -129,7 +129,7 @@ typhon::kcp::Server::run() noexcept {
         t.join();
     }
 
-    typhon::kcp::Worker::Pool().clear();
+    workers_.clear();
     threads_.clear();
 
     update_serv();
@@ -270,11 +270,11 @@ typhon::kcp::Server::update_serv() noexcept {
             continue;
         }
 
-        for (auto& ks: typhon::kcp::Worker::Pool()) {
+        for (auto& w: workers_) {
             auto* arg = new typhon::core::AddServArg;
             arg->id = s.id;
             ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
-            ks->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
+            w->notify(new typhon::core::QEvent(typhon::core::QEvent::Type::AddServ, arg));
         }
 
         servs_.insert(s.id);

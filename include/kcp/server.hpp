@@ -58,6 +58,8 @@ class Server {
 
 public:
     typedef absl::flat_hash_set<uint32_t> ServSet;
+    typedef std::vector<std::thread>      ThreadPool;
+    typedef std::vector<Worker::Ptr>      WorkerPool;
 
 
     /**
@@ -75,12 +77,9 @@ public:
     }
 
 
-    /**
-     * @brief worker udp_bind 用的监听地址 (构造时已砍成 :port, 即 0.0.0.0:port)
-     */
-    const std::string&
-    host() const noexcept {
-        return host_;
+    WorkerPool*
+    workers() noexcept {
+        return &workers_;
     }
 
 
@@ -183,13 +182,14 @@ private:
     uint64_t                 tnow_              { 0 };                            // 当前时间
     std::atomic<core::State> state_             { typhon::core::State::Stopped }; // 状态
     IEvent*                  event_             { nullptr };                      // 服务事件
-    std::string              host_;                                               // 监听 host:port
+    std::string              host_;
     std::string              ifname_;                                             // 网卡名 (XDP attach)
     std::string              kcp_bpf_path_;                                       // kcp.bpf.o 路径
     std::string              envelope_bpf_path_;                                  // envelope.bpf.o 路径
     bpf::EnvelopeFilter      envelope_;                                           // XDP MAC 过滤
     bpf::Router              router_;                                             // SO_REUSEPORT 路由
-    std::vector<std::thread> threads_;                                            // 线程池
+    ThreadPool               threads_;                                            // 线程池
+    WorkerPool               workers_;
     ServSet                  servs_;                                              // 服务集合
 }; // class Server;
 

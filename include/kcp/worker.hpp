@@ -52,13 +52,6 @@ public:
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
 
-    static std::vector<Ptr>&
-    Pool() noexcept {
-        static std::vector<Ptr> m;
-        return m;
-    }
-
-
     static int
     output(const char *buf, int len, struct IKCPCB* kcpcb) noexcept;
 
