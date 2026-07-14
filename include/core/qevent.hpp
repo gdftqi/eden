@@ -89,7 +89,7 @@ struct KcpSendArg {
 };
 
 
-} // namespace typhon::core;
+} // namespace typhon::core
 
 
 #endif // __TYPHON_CORE_QEVENT_HPP__

@@ -9,7 +9,7 @@
 #include "kcp/session.hpp"
 #include "tcp/connector.hpp"
 #include "utils/obj_pool.hpp"
-#include "utils/spsc.hpp"
+#include "utils/mpsc.hpp"
 
 
 namespace typhon::kcp {
@@ -34,7 +34,7 @@ public:
     typedef std::unique_ptr<Server> Ptr;
 
     // 事件队列, 用于跨线程传递事件
-    typedef utils::SPSC<core::QEvent*> EvQue;
+    typedef utils::MPSC<core::QEvent*> EvQue;
 
     // 发送缓冲区对象池, 用于复用 SndBuf 对象
     typedef utils::ObjPool<core::SndBuf> SndBufPool;
@@ -116,7 +116,7 @@ public:
     notify(core::QEvent* ev) noexcept {
         ASSERT(evque_.enqueue(std::move(ev)), "事件队列已满");
         bool expected = false;
-        if (evflag_.compare_exchange_strong(expected, true)) {
+        if (evq_wkring_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -254,6 +254,11 @@ private:
     on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
 
 
+    // --------------------------------- 内部事件 ---------------------------------
+    void
+    drain_qevent() noexcept;
+
+
     // --------------------------------- 基础属性 ---------------------------------
     int                      idx_   { -1 };
     core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
@@ -277,8 +282,8 @@ private:
 
     // --------------------------------- 工作事件属性 ---------------------------------
 
-    std::atomic_bool evflag_ { false };  ///< event queue 队列发送标识
-    EvQue            evque_;             ///< SPSC 事件队列 
+    std::atomic_bool evq_wkring_ { false };  ///< event queue 队列发送标识
+    EvQue            evque_;                   ///< MPSC 事件队列 
     
     // --------------------------------- 会话属性 ---------------------------------
 

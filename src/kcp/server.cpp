@@ -178,30 +178,11 @@ typhon::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
         }
     } // if (ev.events & EPOLLIN);
 
-    evflag_.store(false, std::memory_order_relaxed);
+    evq_wkring_.store(true);
+    drain_qevent();
 
-    constexpr int EVQUE_BATCH = 16;
-    int i, n;
-    core::QEvent* qes[EVQUE_BATCH];
-    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
-        for (i = 0; i < n; ++i) {
-            switch (qes[i]->qe_type) {
-            case core::QEvent::Type::AddServ:
-                on_new_serv(qes[i]);
-                break;
-
-            case core::QEvent::Type::KcpSend:
-                on_user_send(qes[i]);
-                break;
-
-            default:
-                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->qe_type);
-                break;
-            }
-
-            delete qes[i];
-        }
-    }
+    evq_wkring_.store(false);
+    drain_qevent();
 }
 
 
@@ -671,4 +652,31 @@ typhon::kcp::Server::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
     }
 
     return xOK;
+}
+
+
+void
+typhon::kcp::Server::drain_qevent() noexcept {
+    constexpr int EVQUE_BATCH = 16;
+    int i, n;
+    core::QEvent* qes[EVQUE_BATCH];
+    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
+        for (i = 0; i < n; ++i) {
+            switch (qes[i]->qe_type) {
+            case core::QEvent::Type::AddServ:
+                on_new_serv(qes[i]);
+                break;
+
+            case core::QEvent::Type::KcpSend:
+                on_user_send(qes[i]);
+                break;
+
+            default:
+                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->qe_type);
+                break;
+            }
+
+            delete qes[i];
+        }
+    }
 }
