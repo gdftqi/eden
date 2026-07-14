@@ -91,10 +91,24 @@ func Refresh(c *gin.Context) {
 		return
 	}
 
-	// Step 4, 分配【新】conv(占位, 生成规则待 user-manager)。
-	conv := uint32(time.Now().UnixNano())
-	if conv == 0 {
-		conv = 1
+	// Step 4, 按 userID 选网关(与登录同一套稳定映射), 用该网关的 nthreads 生成新 conv。
+	gwList, err := com.GetServerInfoListFromEtcd()
+	if err != nil {
+		log.Error("GetServerInfoListFromEtcd 失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误1")
+		return
+	}
+	if len(gwList) == 0 {
+		utils.WebResponse(c, -1, "无可用网关")
+		return
+	}
+	gw := gwList[userID%uint32(len(gwList))]
+
+	conv, err := com.MakeConv(userID, gw.Nthreads)
+	if err != nil {
+		log.Error("MakeConv 失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误2")
+		return
 	}
 
 	// Step 5, 会话写入 redis
@@ -146,7 +160,7 @@ func Refresh(c *gin.Context) {
 	rsp := refreshRsp{
 		Conv:         conv,
 		UserID:       userID,
-		Host:         "13.212.170.186:5555",
+		Host:         gw.Host,
 		HostID:       1000,
 		MacKey:       conf.Instance.SipHashKey,
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),

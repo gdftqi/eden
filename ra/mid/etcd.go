@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ra/log"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	etcd3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -42,16 +43,15 @@ func InitEtcd(conf *EtcdConfig) error {
 	return nil
 }
 
-// EtcdGet 获取 etcd 中的 key 值
+// EtcdGetPrefix 获取 etcd 中的 key 值
 // key: 要获取的 key
-// opts: 可选的操作选项（如 WithPrefix 等）
-func EtcdGet(key string, opts ...etcd3.OpOption) (*etcd3.GetResponse, error) {
+func EtcdGetPrefix(key string) (*etcd3.GetResponse, error) {
 	log.ASSERT(Etcd != nil, "ETCD 未初始化")
 
 	ctx, cancel := context.WithTimeout(context.TODO(), ETCD_TIMEOUT)
 	defer cancel()
 
-	return Etcd.Get(ctx, key, opts...)
+	return Etcd.Get(ctx, key, clientv3.WithPrefix())
 }
 
 // EtcdDelete 删除 etcd 中的 key

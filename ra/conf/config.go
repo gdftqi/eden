@@ -12,6 +12,7 @@ import (
 )
 
 type config struct {
+	ID           uint16           `yaml:"id"`
 	Host         string           `yaml:"host"`
 	Ed25519SkStr string           `yaml:"ed25519_sk"`  // 用于计算 Token 签名
 	X25519PkStr  string           `yaml:"x25519_pk"`   // 用于对 Token 作 sealedbox 加密
@@ -40,6 +41,10 @@ func Init(fname string) error {
 	err = yaml.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
+	}
+
+	if tmp.ID == 0 {
+		return errors.New("id is invalid")
 	}
 
 	if len(tmp.Host) == 0 {

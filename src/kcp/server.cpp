@@ -281,8 +281,11 @@ typhon::kcp::Server::on_udp_handle(const ::epoll_event& ev) noexcept {
                         break;
                     }
 
-                    if (pk->id == PKID_REGIST_REQ) {
-                        res = on_regist_req(s, pk);
+                    if (pk->dst_id == Conf::instance()->id()) {
+                        if (pk->id == PKID_REGIST_REQ) {
+                            res = on_regist_req(s, pk);
+                        }
+                        // TODO: 其他的消息句柄
                     } else {
                         res = on_c2s(s, pk);
                     }
@@ -547,10 +550,6 @@ typhon::kcp::Server::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
 
     if (in.size() != REGIST_PKG_LEN) {
         return xERR_PK_LEN;
-    }
-
-    if (in->dst_id != Conf::instance()->id()) {
-        return xERR_PKT_DST;
     }
 
     size_t plen = in.payload_len();

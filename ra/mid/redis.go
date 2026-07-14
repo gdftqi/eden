@@ -65,6 +65,15 @@ func RedisSet(key string, value interface{}) error {
 	return Redis.Set(ctx, key, value, 0).Err()
 }
 
+// RedisIncr 对键做原子自增, 返回自增后的值(键不存在则从 0 起自增到 1)
+// key: 键
+// 返回: 自增后的值, 错误
+func RedisIncr(key string) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), REDIS_TIMEOUT)
+	defer cancel()
+	return Redis.Incr(ctx, key).Result()
+}
+
 // RedisGet 获取键值
 // key: 键
 // 返回: 值, 错误

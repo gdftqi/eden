@@ -16,6 +16,7 @@ namespace typhon::core {
 #define PKID_KICK_REQ   (104) ///< 踢人请求
 #define PKID_KICK_RSP   (105) ///< 踢人应答
 #define PKID_KICK_NTF   (106) ///< 踢人通知
+#define PKID_CUSTOM     (200) ///< 自定义消息ID
 
 
 #pragma pack(push, 1)

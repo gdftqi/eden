@@ -111,9 +111,30 @@ func UserLogin(c *gin.Context) {
 
 	// Step 5, TODO check username & password in database
 	userID := uint32(time.Now().Unix())
-	conv := userID
 
-	// Step 6, 设置会话到 redis
+	// Step 6, 获取网关
+	gwList, err := com.GetServerInfoListFromEtcd()
+	if err != nil {
+		log.Error("GetServerInfoListFromEtcd 失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误2")
+		return
+	}
+
+	if len(gwList) == 0 {
+		utils.WebResponse(c, -1, "无可用网关")
+		return
+	}
+
+	gw := gwList[userID%uint32(len(gwList))]
+
+	conv, err := com.MakeConv(userID, gw.Nthreads)
+	if err != nil {
+		log.Error("MakeConv 失败: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误3")
+		return
+	}
+
+	// Step 7, 设置会话到 redis
 	sess := com.UserSession{
 		UserID: userID,
 		Conv:   conv,
@@ -124,11 +145,11 @@ func UserLogin(c *gin.Context) {
 	err = sess.UpdateToRedis()
 	if err != nil {
 		log.Error(err)
-		utils.WebResponse(c, -1, "服务器内部错误2")
+		utils.WebResponse(c, -1, "服务器内部错误4")
 		return
 	}
 
-	// Step 7, 生成令牌
+	// Step 8, 生成令牌
 	accessToken := com.AccessToken{
 		Expire: uint64(time.Now().Unix()) + 60, // 1 分钟有效
 		Conv:   conv,
@@ -140,7 +161,7 @@ func UserLogin(c *gin.Context) {
 	sealed, err := accessToken.SealeaBoxAndSign(conf.Instance.Ed25519Sk, conf.Instance.X25519Pk)
 	if err != nil {
 		log.Error("token seal 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误3")
+		utils.WebResponse(c, -1, "服务器内部错误5")
 		return
 	}
 
@@ -153,22 +174,22 @@ func UserLogin(c *gin.Context) {
 	err = refreshToken.UpdateToRedis()
 	if err != nil {
 		log.Error("更新 refresh token 到 redis 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误4")
+		utils.WebResponse(c, -1, "服务器内部错6")
 		return
 	}
 
 	refreshData, err := refreshToken.XX20Encrypt([]byte(conf.Instance.RefreshKey))
 	if err != nil {
 		log.Error("refreshToken 加密失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误5")
+		utils.WebResponse(c, -1, "服务器内部错误7")
 		return
 	}
 
-	// Step 8, 加密应答消息
+	// Step 9, 加密应答消息
 	rsp := userLoginRsp{
 		Conv:         conv,
 		UserID:       userID,
-		Host:         "13.212.170.186:5555",
+		Host:         gw.Host,
 		HostID:       1000,
 		MacKey:       conf.Instance.SipHashKey,
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
@@ -178,7 +199,7 @@ func UserLogin(c *gin.Context) {
 	data, err := utils.Seal(tx, rsp)
 	if err != nil {
 		log.Error("回包加密失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误6")
+		utils.WebResponse(c, -1, "服务器内部错误8")
 		return
 	}
 
