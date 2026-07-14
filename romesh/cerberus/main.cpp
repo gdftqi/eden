@@ -1,10 +1,13 @@
 #include <csignal>
 #include <iostream>
 
-#include "cerberus.hpp"
+#include "kcp/server.hpp"
 
 
-static std::unique_ptr<Cerberus> server;
+using typhon::kcp::Conf;
+
+
+static std::unique_ptr<typhon::kcp::Server> server;
 
 
 static void
@@ -18,14 +21,14 @@ on_signal(int) {
 class ServiceEvent: public typhon::kcp::IEvent {
 public:
     virtual void
-    on_init(void* arg) noexcept {
-        server_ = (Cerberus*)arg;
+    on_init(typhon::kcp::Server* s) noexcept {
+        server_ = s;
         xINFO("kcp echo listening on {}", Conf::instance()->server()->host);
     }
 
 
     virtual void
-    on_stopped(void*) noexcept {
+    on_stopped(typhon::kcp::Server*) noexcept {
         xINFO("{} stopped", Conf::instance()->server()->host);
     }
 
@@ -69,7 +72,7 @@ public:
         server_->notify_serv_disconnected(conn->id());
     }
 private:
-    Cerberus* server_ { nullptr };
+    typhon::kcp::Server* server_ { nullptr };
 }; // class ServiceEvent;
 
 
@@ -83,7 +86,7 @@ main(int, char**) {
     Conf::instance()->load("config.yml");
 
     ServiceEvent se;
-    server = std::make_unique<Cerberus>(&se);
+    server = std::make_unique<typhon::kcp::Server>(&se);
 
     ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);

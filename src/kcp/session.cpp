@@ -20,7 +20,7 @@ make_nonce(uint8_t nonce[typhon::utils::XX20_NONCE_LEN], uint32_t conv, uint32_t
 
 typhon::kcp::Session::Session(
     uint32_t    conv,
-    Server*     server,
+    Worker*     server,
     const void* addr,
     socklen_t   addrlen
 ) noexcept
@@ -37,7 +37,7 @@ typhon::kcp::Session::Session(
     ::ikcp_setmtu(kcp_, core::KCP_MTU);
     ::ikcp_set_siphash(kcp_, Conf::instance()->siphash());
     kcp_->timeout = 5000;
-    set_output(Server::output);
+    set_output(Worker::output);
 }
 
 

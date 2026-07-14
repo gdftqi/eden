@@ -187,9 +187,9 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
  * @brief 服务信息
  */
 struct ServerInfo {
-    uint32_t    id        { 0 }; ///< 服务ID
-    uint32_t    timeout   { 0 }; ///< 超时值
+    uint32_t    id        { 0 }; ///< 服务IDs
     uint32_t    nthreads  { 0 }; ///< 工作线程数
+    uint64_t    timeout   { 0 }; ///< 超时值
     std::string protocol;        ///< 协议
     std::string name;            ///< 服务名称
     std::string host;            ///< 监听地址

@@ -81,11 +81,11 @@ typhon::tcp::Connector::update(uint64_t now) noexcept {
     static uint64_t timeout = 0;
 
     if (timeout == 0) {
-        timeout = kcp::Conf::instance()->timeout() / 3;
+        timeout = kcp::Conf::instance()->server()->timeout / 3;
     }
 
     if (is_connected()) {
-        if (now - last_recv_ms_ > (uint64_t)kcp::Conf::instance()->timeout()) {
+        if (now - last_recv_ms_ > kcp::Conf::instance()->server()->timeout) {
             // 接收超时, 判死
             return xERR;
         }

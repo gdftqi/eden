@@ -3,8 +3,10 @@
 
 
 #include <inttypes.h>
+#include "core/typhon.in.hpp"
 #include "utils/cryptor.hpp"
 #include "utils/string_ex.hpp"
+#include "utils/etcd.hpp"
 #include "utils/log.hpp"
 
 
@@ -39,34 +41,103 @@ public:
 
 
     void
-    check() const noexcept {
-        ASSERT(id_ > 0, "id is invalid");
+    load(const char* cfname) {
+        auto root = YAML::LoadFile(cfname);
+        if (!root["server"] || server_.from_yaml(root["server"]) < 0) {
+            xFATAL("config.server is invalid");
+        }
+
+        if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
+            xFATAL("config.etcd is invalid");
+        }
+
+        if (root["ifname"]) {
+            ifname_ = root["ifname"].as<std::string>();
+        }
+
+        if (root["kcp_bpf_path"]) {
+            kcp_bpf_path_ = root["kcp_bpf_path"].as<std::string>();
+        }
+
+        if (root["envelope_bpf_path"]) {
+            envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
+        }
+
+        if (!root["kcp"]) {
+            xFATAL("config.kcp is invalid");
+        }
+
+        auto k = root["kcp"];
+        
+        if (k["sndbuf"]) {
+            sndbuf_ = k["sndbuf"].as<int>();
+        }
+
+        if (k["rcvbuf"]) {
+            rcvbuf_ = k["rcvbuf"].as<int>();
+        }
+        
+        if (k["sndwnd"]) {
+            sndwnd_ = k["sndwnd"].as<int>();
+        }
+
+        if (k["rcvwnd"]) {
+           rcvwnd_ = k["rcvwnd"].as<int>();
+        }
+
+        if (k["nodelay"]) {
+            nodelay_ = k["nodelay"].as<int>();
+        }
+
+        if (k["interval"]) {
+            interval_ = k["interval"].as<int>();
+        }
+
+        if (k["resend"]) {
+            resend_ = k["resend"].as<int>();
+        }
+
+        if (k["nc"]) {
+            nc_ = k["nc"].as<int>();
+        }
+
+        if (k["siphash"]) {
+            auto s = k["siphash"].as<std::string>();
+            ASSERT(s.length() == sizeof(SipKey), "无效的 siphash");
+            ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(SipKey));
+        }
+
+        if (k["x25519_pk"]) {
+            auto s = k["x25519_pk"].as<std::string>();
+            size_t len = sizeof(X25519Key);
+            ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0 && len == sizeof(X25519Key), "无效的 x25519_pk");
+        }
+
+        if (k["x25519_sk"]) {
+            auto s = k["x25519_sk"].as<std::string>();
+            size_t len = sizeof(X25519Key);
+            ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0 && len == sizeof(X25519Key), "无效的 x25519_sk");
+        }
+
+        if (k["ed25519_pk"]) {
+            auto s = k["ed25519_pk"].as<std::string>();
+            size_t len = sizeof(ED25519PK);
+            ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0 && len == sizeof(ED25519PK), "无效的 ed25519_pk");
+        }
+
+        // 全部校验在 load 内完成 (不再单独提供 check)
         ASSERT(sndbuf_ > 0, "sndbuf is invalid");
         ASSERT(rcvbuf_ > 0, "rcvbuf is invalid");
-        ASSERT(sndwnd_ > 0 && sndwnd_ <= 128, "sndwnd is invalid"); 
+        ASSERT(sndwnd_ > 0 && sndwnd_ <= 128, "sndwnd is invalid");
         ASSERT(rcvwnd_ > 0 && rcvwnd_ <= 128, "rcvwnd is invalid");
         ASSERT(nodelay_ == 0 || nodelay_ == 1, "nodelay is invalid");
         ASSERT(interval_ >= 10, "interval is invalid");
         ASSERT(resend_ > 0, "resend is invalid");
         ASSERT(nc_ == 0 || nc_ == 1, "nc is invalid");
-        ASSERT(timeout_ > 0, "timeout is invalid");
         ASSERT(!::sodium_is_zero(siphash_, sizeof(siphash_)), "siphash is invalid");
         ASSERT(!::sodium_is_zero(x25519_pk_, sizeof(x25519_pk_)), "x25519_pk is invalid");
         ASSERT(!::sodium_is_zero(x25519_sk_, sizeof(x25519_sk_)), "x25519_sk is invalid");
         ASSERT(!::sodium_is_zero(ed25519_pk_, sizeof(ed25519_pk_)), "ed25519_pk is invalid");
-    }
-
-
-    uint32_t
-    id() const noexcept {
-        return id_;
-    }
-
-
-    Conf*
-    set_id(uint32_t id) noexcept {
-        id_ = id;
-        return this;
     }
 
 
@@ -79,26 +150,9 @@ public:
     }
 
 
-    Conf*
-    set_sndbuf(int sndbuf) noexcept {
-        sndbuf_ = sndbuf;
-        return this;
-    }
-
-
-    /**
-     * @brief 接收缓冲区大小
-     */
     int
     rcvbuf() const noexcept {
         return rcvbuf_;
-    }
-
-
-    Conf*
-    set_rcvbuf(int rcvbuf) noexcept {
-        rcvbuf_ = rcvbuf;
-        return this;
     }
 
 
@@ -111,26 +165,12 @@ public:
     }
 
 
-    Conf*
-    set_sndwnd(int sndwnd) noexcept {
-        sndwnd_ = sndwnd;
-        return this;
-    }
-
-
     /**
      * @brief kcp 接收窗口大小
      */
     int
     rcvwnd() const noexcept {
         return rcvwnd_;
-    }
-
-
-    Conf*
-    set_rcvwnd(int rcvwnd) noexcept {
-        rcvwnd_ = rcvwnd;
-        return this;
     }
 
 
@@ -195,30 +235,6 @@ public:
     }
 
 
-    Conf*
-    set_nc(int nc) noexcept {
-        nc_ = nc;
-        return this;
-    }
-
-
-    /**
-     * @brief kcp 超时 (ms)
-     *        连接在 timeout 时间内没有任何数据交互, 就会被 kcp 认为已经断开
-     */
-    uint64_t
-    timeout() const noexcept {
-        return timeout_;
-    }
-
-
-    Conf*
-    set_timeout(uint64_t timeout) noexcept {
-        timeout_ = timeout;
-        return this;
-    }
-
-
     /**
      * @brief 协议密钥 (16 字节)
      *        生产部署请修改默认值, 确保安全性
@@ -230,26 +246,9 @@ public:
     }
 
 
-    Conf*
-    set_siphash(const std::string& s) noexcept {
-        ASSERT(s.length() == sizeof(SipKey), "无效的 siphash");
-        ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(SipKey));
-        return this;
-    }
-
-
     const X25519Key&
     x25519_pk() const noexcept {
         return x25519_pk_;
-    }
-
-
-    Conf*
-    set_x25519_pk(const std::string& s) noexcept {
-        ASSERT(s.length() > sizeof(x25519_pk_), "无效的 x25519 公钥");
-        size_t len = sizeof(x25519_pk_);
-        ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0, "无效的 x25519 公钥");
-        return this;
     }
 
 
@@ -259,27 +258,39 @@ public:
     }
 
 
-    Conf*
-    set_x25519_sk(const std::string& s) noexcept {
-        ASSERT(s.length() > sizeof(x25519_sk_), "无效的 x25519 私钥");
-        size_t len = sizeof(x25519_sk_);
-        ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0, "无效的 x25519 私钥");
-        return this;
-    }
-
-
     const ED25519PK&
     ed25519_pk() const noexcept {
         return ed25519_pk_;
     }
 
 
-    Conf*
-    set_ed25519_pk(const std::string& s) noexcept {
-        ASSERT(s.length() > sizeof(ed25519_pk_), "无效的 ed25519 公钥");
-        size_t len = sizeof(ed25519_pk_);
-        ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0, "无效的 ed25519 公钥");
-        return this;
+    const typhon::core::ServerInfo*
+    server() const noexcept {
+        return &server_;
+    }
+
+
+    const typhon::utils::EtcdConfig*
+    etcd() const noexcept {
+        return &etcd_;
+    }
+
+
+    std::string
+    ifname() const noexcept {
+        return ifname_;
+    }
+
+
+    std::string
+    kcp_bpf_path() const noexcept {
+        return kcp_bpf_path_;
+    }
+
+
+    std::string
+    envelope_bpf_path() const noexcept {
+        return envelope_bpf_path_;
     }
 
 
@@ -289,24 +300,27 @@ private:
     {}
 
 
-    uint32_t  id_           { 0 };
-    int       sndbuf_       { 16777216 };   ///< 发送缓冲区大小
-    int       rcvbuf_       { 33554432 };   ///< 接收缓冲区大小
-    int       sndwnd_       { 128 };        ///< 发送窗口
-    int       rcvwnd_       { 128 };        ///< 接收窗口
-    int       nodelay_      { 1 };          ///< 是否开启低延迟模式
-    int       interval_     { 10 };         ///< update 间隔
-    int       resend_       { 3 };          ///< 快速重传, 表示连接跳过3个包的时候就会重传
-    int       nc_           { 1 };          ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭
-    uint64_t  timeout_      { 45000 };      ///< 超时(ms)
-    SipKey    siphash_      {};             ///< 协议密钥
-    X25519Key x25519_pk_    {};             ///< LOGIN 服务用来作 sealedbox 加密
-    X25519Key x25519_sk_    {};             ///< 用于 鉴权时的 sealedbox 解密
-    ED25519PK ed25519_pk_   {};             ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
+    int               sndbuf_       { 16777216 };   ///< 发送缓冲区大小
+    int               rcvbuf_       { 33554432 };   ///< 接收缓冲区大小
+    int               sndwnd_       { 128 };        ///< 发送窗口
+    int               rcvwnd_       { 128 };        ///< 接收窗口
+    int               nodelay_      { 1 };          ///< 是否开启低延迟模式
+    int               interval_     { 10 };         ///< update 间隔
+    int               resend_       { 3 };          ///< 快速重传, 表示连接跳过3个包的时候就会重传
+    int               nc_           { 1 };          ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭s
+    SipKey            siphash_      {};             ///< 协议密钥
+    X25519Key         x25519_pk_    {};             ///< LOGIN 服务用来作 sealedbox 加密
+    X25519Key         x25519_sk_    {};             ///< 用于 鉴权时的 sealedbox 解密
+    ED25519PK         ed25519_pk_   {};             ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
+    core::ServerInfo  server_;
+    utils::EtcdConfig etcd_;
+    std::string       ifname_;
+    std::string       kcp_bpf_path_;
+    std::string       envelope_bpf_path_;
 }; // class Conf;
 
     
-} // namespace typhon::kcp;
+} // namespace typhon::kcp
 
 
 #endif // __TYPHON_KCP_CONFIG_HPP__

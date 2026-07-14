@@ -12,7 +12,7 @@
 namespace typhon::kcp {
 
 
-class Server;
+class Worker;
 
 
 /**
@@ -36,7 +36,7 @@ public:
      * @param server 所属 KcpServer
      */
     static Ptr
-    create(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept {
+    create(uint32_t conv, Worker* server, const void* addr, socklen_t addrlen) noexcept {
         return std::make_shared<Session>(conv, server, addr, addrlen);
     }
 
@@ -54,7 +54,7 @@ public:
      * @brief 构造函数
      */
     explicit
-    Session(uint32_t conv, Server* server, const void* addr, socklen_t addrlen) noexcept;
+    Session(uint32_t conv, Worker* server, const void* addr, socklen_t addrlen) noexcept;
 
 
     /**
@@ -97,7 +97,7 @@ public:
     void
     set_user_id(uint32_t user_id) noexcept {
         user_id_ = user_id;
-        kcp_->timeout = Conf::instance()->timeout();
+        kcp_->timeout = Conf::instance()->server()->timeout;
         json_ = std::format("{{\"user_id\":{},\"conv\":{},\"remote\":\"{}\"}}", user_id, kcp_->conv, core::sockaddr_to_string((sockaddr*)&addr_));
     }
     
@@ -105,7 +105,7 @@ public:
     /**
      * @brief 所属服务
      */
-    Server*
+    Worker*
     server() noexcept {
         return server_;
     }
@@ -252,7 +252,7 @@ private:
 
 
     uint32_t           user_id_   { 0 };
-    Server*            server_    { nullptr };
+    Worker*            server_    { nullptr };
     uint32_t           snd_seq_   { 0 };
     uint32_t           rcv_req_   { 0 };
     ::ikcpcb*          kcp_       { nullptr };
