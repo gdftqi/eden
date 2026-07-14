@@ -77,6 +77,12 @@ public:
     }
 
 
+    const std::string&
+    host() const noexcept {
+        return host_;
+    }
+
+
     WorkerPool*
     workers() noexcept {
         return &workers_;

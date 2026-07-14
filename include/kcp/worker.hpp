@@ -251,13 +251,13 @@ private:
 
     // --------------------------------- 基础属性 ---------------------------------
     Server*                  server_ { nullptr };
-    IEvent*                  event_ { nullptr };                       ///< 业务回调 (缓存自 server_->event())
-    int                      idx_   { -1 };
-    core::SOCKET             ufd_   { core::INVALID_SOCKET };  ///< UDP fd
-    core::SOCKET             epfd_  { core::INVALID_SOCKET };  ///< epoll fd
-    core::SOCKET             evfd_  { core::INVALID_SOCKET };  ///< event fd
-    uint64_t                 tnow_  { 0 };                     ///< 当前时间(ms), 系统启动时间
-    std::atomic<core::State> state_ { core::State::Stopped };  ///< 状态
+    IEvent*                  event_  { nullptr };                       ///< 业务回调 (缓存自 server_->event())
+    int                      idx_    { -1 };
+    core::SOCKET             ufd_    { core::INVALID_SOCKET };  ///< UDP fd
+    core::SOCKET             epfd_   { core::INVALID_SOCKET };  ///< epoll fd
+    core::SOCKET             evfd_   { core::INVALID_SOCKET };  ///< event fd
+    uint64_t                 tnow_   { 0 };                     ///< 当前时间(ms), 系统启动时间
+    std::atomic<core::State> state_  { core::State::Stopped };  ///< 状态
 
     // --------------------------------- recvmmsg 接收属性 ---------------------------------
 
