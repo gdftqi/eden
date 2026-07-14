@@ -10,6 +10,8 @@ build
 /romesh/chat/chat/
 /romesh/chat/obj/
 
+/ra/ra
+
 # --- Unity (echidna/) ---
 # Unity 自动生成的缓存 / 中间产物，重新打开工程会重建
 [Ll]ibrary/
