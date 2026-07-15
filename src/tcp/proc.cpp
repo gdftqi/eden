@@ -128,27 +128,22 @@ typhon::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
         return;
     }
 
-    int res;
-    core::PKx<core::Host> pkx;
-    while (1) {
-        res = sess->recv(&pkx);
-        if (res != xOK) {
-            break;
-        }
-
-        switch (pkx.pk()->id) {
+    core::Package* pk;
+    while (sess->recv(&pk) == xOK) {
+        switch (pk->data.id) {
         case PKID_PING:
-            on_ping(sess, pkx);
+            on_ping(sess, pk);
             break;
 
         case PKID_REGIST_REQ:
-            on_regist(sess, pkx);
+            on_regist(sess, pk);
             break;
 
         default:
-            on_handle(sess, pkx);
+            on_handle(sess, pk);
             break;
         }
+        ::mi_free(pk);   // recv 分配的堆 Package, 处理完(send 已拷走)释放
     }
 
     ::mi_free(rbuf);
@@ -204,24 +199,25 @@ typhon::tcp::Proc::check_timeout() noexcept {
 
 
 void
-typhon::tcp::Proc::on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
-    pkx.pk()->id = PKID_PONG;
-    if (s->send(pkx) < 0) {
+typhon::tcp::Proc::on_ping(Session::Ptr s, core::Package* pk) noexcept {
+    pk->data.id = PKID_PONG;
+    if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
     }
 }
 
 
 void
-typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
-    uint32_t id = ntohl(*(uint32_t*)pkx.pk()->payload);
+typhon::tcp::Proc::on_regist(Session::Ptr s, core::Package* pk) noexcept {
+    // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
+    uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pkx.pk()->id = PKID_REGIST_RSP;
-    *(uint32_t*)pkx.pk()->payload = htonl(0);
+    pk->data.id = PKID_REGIST_RSP;
+    *(uint32_t*)pk->data.payload = core::u32_to_le(0);   // 0 = 注册成功
 
     s->set_id(id);
 
-    if (s->send(pkx) < 0) {
+    if (s->send(*pk) < 0) {
         xERROR("消息发送失败");
     } else {
         xINFO("网关 {} 注册成功", id);
@@ -230,19 +226,19 @@ typhon::tcp::Proc::on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept
 
 
 void
-typhon::tcp::Proc::on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept {
+typhon::tcp::Proc::on_handle(Session::Ptr s, core::Package* pk) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
         return;
     }
 
-    auto h = server_->get_handler(pkx.pk()->id);
+    auto h = server_->get_handler((uint16_t)pk->data.id);
     if (!h) {
-        xWARN("no handler for pk_id {}, from {}", pkx.pk()->id, s->remote_addr());
+        xWARN("no handler for pk_id {}, from {}", pk->data.id, s->remote_addr());
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
         return;
     }
-    h(s, pkx);
+    h(s, pk);
 }
 
 

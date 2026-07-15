@@ -71,7 +71,7 @@ public:
     static constexpr int MAX_CONN = 2048; ///< 最大连接数
 
 
-    typedef void (*PackageHandler)(Session::Ptr, core::PKx<core::Host>&) noexcept;
+    typedef void (*PackageHandler)(Session::Ptr, core::Package*) noexcept;
     typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
 
 

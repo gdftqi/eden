@@ -239,6 +239,36 @@ struct ServerInfo {
 }; // class ServerInfo;
 
 
+inline uint16_t
+u16_to_le(uint16_t v) noexcept {
+#if (IWORD_BIG_ENDIAN == 1)
+    return __builtin_bswap16(v);
+#else
+    return v;
+#endif
+}
+
+
+inline uint32_t
+u32_to_le(uint32_t v) noexcept {
+#if (IWORD_BIG_ENDIAN == 1)
+    return __builtin_bswap32(v);
+#else
+    return v;
+#endif
+}
+
+
+inline uint64_t
+u64_to_le(uint64_t v) noexcept {
+#if (IWORD_BIG_ENDIAN == 1)
+    return __builtin_bswap64(v);
+#else
+    return v;
+#endif
+}
+
+
 } // namespace typhon::core
 
 

@@ -80,7 +80,6 @@ typhon::kcp::Worker::run() noexcept {
     }
 
     sesss_.clear();
-    users_.clear();
     servs_.clear();
 
     for (auto* sb: sque_) {
@@ -184,8 +183,6 @@ typhon::kcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
 
 void
 typhon::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
-    thread_local static uint8_t rbuf[core::PKG_MAX_LEN + core::PKX_HDR_LEN];
-
     // ufd_ 是 EPOLLET, 且和后端 Connector fd / 控制 eventfd 共用同一个 epoll 线程.
     // MAX_ROUND 只是防洪峰的安全阀(没吃完的包留在内核缓冲区, ET 下一有新包到达即自愈,不会丢),
     // 不是常规吞吐限流。正常流量下应远打不到这个 cap, 真正起作用的场景是攻击/洪峰.
@@ -262,10 +259,9 @@ typhon::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     continue;
                 }
 
-                core::PK<core::Host> pk;
-                uint8_t* pkbuf = rbuf + core::PKX_HDR_LEN;
+                core::Package* pk;
                 while (true) {
-                    res = s->recv(&pk, pkbuf, core::PKG_MAX_LEN);
+                    res = s->recv(&pk);
                     if (res == xAGAIN) {
                         // 没有更多消息了
                         break;
@@ -279,14 +275,16 @@ typhon::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                         break;
                     }
 
-                    if (pk->dst_id == Conf::instance()->server()->id) {
-                        if (pk->id == PKID_REGIST_REQ) {
+                    if (pk->data.dst_id == Conf::instance()->server()->id) {
+                        if (pk->data.id == PKID_REGIST_REQ) {
                             res = on_regist_req(s, pk);
                         }
                         // TODO: 其他的消息句柄
                     } else {
                         res = on_c2s(s, pk);
                     }
+
+                    ::mi_free(pk);   // recv 分配的堆 Package, 处理完(on_c2s 已整帧拷给后端)释放
 
                     if (res < 0) {
                         remove_session(s->conv());
@@ -368,22 +366,30 @@ typhon::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::PKx<core::Host> pkx;
-        while (conn->recv(&pkx, tnow_) == xOK) {
-            switch (pkx.pk()->id) {
+        core::Package* pk;
+        int rc;
+        while ((rc = conn->recv(&pk, tnow_)) == xOK) {
+            switch (pk->data.id) {
             case PKID_PONG:
-                on_pong(conn, pkx);
+                on_pong(conn, pk);
                 break;
 
             case PKID_REGIST_RSP:
-                on_regist_rsp(conn, pkx);
+                on_regist_rsp(conn, pk);
                 break;
 
             default:
-                on_s2c(conn, pkx);
+                on_s2c(conn, pk);   // 本地发 / 跨 worker 转(内部已拷贝), 之后即可释放
                 break;
             }
+            ::mi_free(pk);
         } // while;
+
+        if (rc != xAGAIN) {
+            // xERR = 帧非法 → 摘掉这个后端连接
+            remove_serv(conn);
+            return;
+        }
     }
 }
 
@@ -405,15 +411,13 @@ typhon::kcp::Worker::on_new_serv(core::QEvent* qe) noexcept {
 
 void
 typhon::kcp::Worker::on_user_send(core::QEvent* qe) noexcept {
+    // 别的 worker 转来的 s2c: arg->raw 是整个 Package 的拷贝, 按 conv 找本 worker 的会话发出
     auto* arg = (core::KcpSendArg*)qe->qe_data.ptr;
+    auto* pk  = (core::Package*)arg->raw;
 
-    core::PK<core::Host> pk(arg->raw, arg->len);
-    auto s = get_user(pk->dst_id);
-    if (s != nullptr) {
-        int res = s->send(pk);
-        if (res != xOK) {
-            xERROR("{} 发送消息失败: {}", s->user_id(), res);
-        }
+    auto s = get_session(pk->meta.conv);
+    if (s != nullptr && s->send(pk) < 0) {
+        xERROR("{} 发送失败", s->to_json());
     }
 
     ::mi_free(arg->raw);
@@ -495,21 +499,21 @@ typhon::kcp::Worker::update() noexcept {
 
 
 void
-typhon::kcp::Worker::on_pong(tcp::Connector::Ptr, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.payload_len() != sizeof(uint64_t)) {
+typhon::kcp::Worker::on_pong(tcp::Connector::Ptr, core::Package *pk) noexcept {
+    if (pk->payload_length() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
     }
 }
 
 
 void
-typhon::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept {
-    if (pkx.payload_len() != sizeof(uint32_t)) {
+typhon::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+    if (pk->payload_length() != sizeof(uint32_t)) {
         xERROR("错误的 REGIST_RSP 长度");
         return;
     }
     
-    uint32_t res = ::ntohl(*((uint32_t*)pkx.pk()->payload));
+    uint32_t res = ::ntohl(*((uint32_t*)pk->data.payload));
     if (res == 0) {
         xINFO("注册服务 {} 成功", conn->id());
         conn->set_authed(true);
@@ -520,43 +524,46 @@ typhon::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::PKx<core::Hos
 
 
 void
-typhon::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::PKx<core::Host> &pkx) noexcept {
-    core::PK<core::Host> pk(pkx.pk(), pkx.payload_len() + core::PKG_HDR_LEN);
+typhon::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
+    // 会话按 conv 分片(sk_reuseport conv%N), 目标会话在 worker conv%N 上
+    auto s = get_session(pk->meta.conv);
 
-    auto user = get_user(pkx.pk()->dst_id);
-    if (user != nullptr) {
-        // 直接用 pkx.pk()(指向 Connector rbuf_): Session::send 把密文+tag 加密输出到它
-        // 自己的发送暂存 buf, 不原地改 rbuf_, 故不会踩 rbuf_ 里粘在后面的下一个包.
-        if (user->send(pk) < 0) {
-            xERROR("{} 发送失败", user->to_json());
+    if (s != nullptr) {
+        // 本 worker 就是 owner, 直接发。pk 指向 Connector rbuf_ 解出的堆 Package,
+        // Session::send 加密输出到自己的暂存 buf, 不原地改 pk。
+        if (s->send(pk) < 0) {
+            xERROR("{} 发送失败", s->to_json());
         }
     } else {
+        // 不在本 worker → 转给 owner(conv % N); 把整个 Package(内存态)拷给它
         auto* wkrs = server_->workers();
-        (*wkrs)[pk->dst_id % wkrs->size()]->notify(
-            new core::QEvent(core::QEvent::Type::KcpSend, new core::KcpSendArg(pk.raw(), pk.size()))
+        (*wkrs)[pk->meta.conv % wkrs->size()]->notify(
+            new core::QEvent(core::QEvent::Type::KcpSend,
+                             new core::KcpSendArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length()))
         );
     }
 }
 
 
 int
-typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noexcept {
-    constexpr int REGIST_PKG_LEN = core::PKG_HDR_LEN + (int)sizeof(core::AccessToken) + 48;
+typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
+    // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken(sealedbox 头 +48)
+    constexpr int REGIST_PAYLOAD_LEN = (int)sizeof(core::AccessToken) + 48;
 
     if (s->authed()) {
         return xDUP;
     }
 
-    if (in.size() != REGIST_PKG_LEN) {
+    if ((int)in->payload_length() != REGIST_PAYLOAD_LEN) {
         return xERR_PK_LEN;
     }
 
-    size_t plen = in.payload_len();
+    size_t plen = in->payload_length();
     core::AccessToken token;
     size_t tklen = sizeof(token);
     
     // 1. 使用服务端私钥解密 Token
-    if (utils::sealedbox_decrypt(in->payload, plen, (uint8_t*)&token, &tklen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+    if (utils::sealedbox_decrypt(in->data.payload, plen, (uint8_t*)&token, &tklen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
 
@@ -573,7 +580,7 @@ typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
         return xERR_TOKEN_CONV;
     }
 
-    if (token.user_id != in->src_id) {
+    if (token.user_id != in->data.src_id) {
         return xERR_TOKEN_USER;
     }
 
@@ -603,35 +610,31 @@ typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::PK<core::Host>& in) noe
     // 5. 激活 Session 加密
     s->set_key(txkey, rxkey);
 
-    // 6. 构造回包
-    auto out = core::PK<core::Host>::create(PKID_REGIST_RSP, Conf::instance()->server()->id, token.user_id, tmppk, utils::X25519_KEY_LEN);
-    int res = s->send(out);
-    s->set_user_id(token.user_id);
+    // 6. 构造 REGIST_RSP 回包(明文: 客户端此刻还没派生出会话密钥, 需要 tmppk 才能派生)
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + utils::X25519_KEY_LEN] = {0};
+    auto* out = (core::Package*)buf;
+    out->meta.len    = core::PKG_HDR_LEN + utils::X25519_KEY_LEN;
+    out->data.id     = PKID_REGIST_RSP;
+    out->data.src_id = Conf::instance()->server()->id;
+    out->data.dst_id = token.user_id;
+    ::memcpy(out->data.payload, tmppk, utils::X25519_KEY_LEN);
 
-    // 7. 踢除已在线的用户
-    auto oitr = users_.find(s->user_id());
-    if (oitr != users_.end()) {
-        remove_session(oitr->second->conv());
-    }
-
-    // 8. 添加新用户
-    users_.emplace(s->user_id(), s);
-    server_->event()->on_user_connected(s);
-    core::PK<core::Host>::release(out);
+    int res = s->send(out);        // authed 尚为 false → 明文发出
+    s->set_user_id(token.user_id); // 之后才 authed, 后续消息才加密
     return res;
 }
 
 
 int
-typhon::kcp::Worker::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
+typhon::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
     if (!s->authed()) {
         return xERR_NOT_AUTH;
     }
 
-    auto sv = get_serv(pk->dst_id);
+    auto sv = get_serv(pk->data.dst_id);
     if (sv == nullptr) {
-        xERROR("{} 转包: invalid dst_id [{}]", s->to_json(), pk->dst_id);
-        return xERR_PKT_DST;
+        xERROR("{} 转包: invalid dst_id [{}]", s->to_json(), pk->data.dst_id);
+        return xERR_PK_DST;
     }
 
     if (!sv->is_connected() || !sv->authed()) {
@@ -639,11 +642,8 @@ typhon::kcp::Worker::on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept {
         return xOK;
     }
 
-    core::PKx<core::Host> pkx(pk.raw() - core::PKX_HDR_LEN, pk.size() + core::PKX_HDR_LEN);
-    pkx->len = (uint16_t)(core::PKX_HDR_LEN + pk.size());
-    pkx->src_addr = s->remote_addr_u32();
-
-    if (sv->send(pkx, tnow_) < 0) {
+    // pk 已带 meta.conv/src_addr(Session::recv 时本地合成), 整帧转发给后端
+    if (sv->send(*pk, tnow_) < 0) {
         xERROR("{} 转发消息至 {} 失败: {}", s->to_json(), sv->id(), errno);
     }
 

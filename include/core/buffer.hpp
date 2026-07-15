@@ -119,15 +119,6 @@ struct Buffer {
     append(const uint8_t* data, uint32_t len) noexcept;
 
 
-    /**
-     * @brief 解码
-     *
-     * @return xOK 取到一个完整包 / xAGAIN 半包
-     */
-    int
-    decode(core::PackageEx** pkx) noexcept;
-
-
     void
     compact() noexcept {
         if (rpos == 0) {

@@ -32,12 +32,6 @@ public:
     virtual void on_sess_disconnected(std::shared_ptr<Session>) noexcept {
     }
 
-    virtual void on_user_connected(std::shared_ptr<Session>) noexcept {
-    }
-
-    virtual void on_user_disconnected(std::shared_ptr<Session>) noexcept {
-    }
-
     virtual void on_serv_connected(std::shared_ptr<tcp::Connector>) noexcept {
     }
 

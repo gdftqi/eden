@@ -114,15 +114,15 @@ private:
 
 
     void
-    on_ping(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+    on_ping(Session::Ptr s, core::Package *pk) noexcept;
 
 
     void
-    on_regist(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+    on_regist(Session::Ptr s, core::Package *pk) noexcept;
 
 
     void
-    on_handle(Session::Ptr s, core::PKx<core::Host> pkx) noexcept;
+    on_handle(Session::Ptr s, core::Package *pk) noexcept;
 
 
     void

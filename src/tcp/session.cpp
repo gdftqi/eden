@@ -17,17 +17,17 @@ typhon::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
 
 
 int
-typhon::tcp::Session::recv(core::PKx<core::Host>* pke) noexcept {
-    if (rbuf_.readable() == 0) {
-        return xAGAIN;
+typhon::tcp::Session::recv(core::Package** pk) noexcept {
+    // Buffer 只存字节; 分帧(读 len)+ 解码都在 frame_decode 里
+    int n = core::frame_decode(rbuf_.peek(), rbuf_.readable(), pk);
+    if (n == 0) {
+        return xAGAIN;   // 半包, 等更多数据
+    }
+    if (n < 0) {
+        return xERR;     // 帧非法
     }
 
-    core::PackageEx* raw;
-    if (rbuf_.decode(&raw) != xOK) {           // decode 内部已 ntoh → host 序
-        return xAGAIN;                   // 半包, 等更多数据
-    }
-
-    *pke = core::PKx<core::Host>(raw, raw->len);
+    rbuf_.consume((uint32_t)n);
     last_recv_ms_ = proc_->tnow();
     return xOK;
 }
@@ -53,32 +53,31 @@ typhon::tcp::Session::send() noexcept {
 }
 
 
-// 发一个包: 先 flush 残留(保序), 再 hton 成网络序写出; 部分写存 sbuf_。
+// 发一个包: 先 flush 残留(保序), 再整帧(meta+data, 小端)序列化写出; 部分写存 sbuf_。
 ssize_t
-typhon::tcp::Session::send(core::PKx<core::Host> pkx) noexcept {
+typhon::tcp::Session::send(core::Package& pk) noexcept {
     ssize_t n = send();
     if (n < 0) {
         return n;
     }
 
-    ssize_t  total = pkx->len;
-    auto     net   = core::hton(pkx);
-    uint8_t* p     = net.raw();
+    thread_local static uint8_t buf[core::PKG_MAX_LEN];
+    ssize_t total = core::frame_encode(buf, &pk);
 
     if (sbuf_.size() > 0) {
-        sbuf_.insert(sbuf_.end(), p, p + total);
+        sbuf_.insert(sbuf_.end(), buf, buf + total);
         return xOK;
     }
 
-    n = core::writen(fd_, p, total);
+    n = core::writen(fd_, buf, total);
     if (n < 0) {
         return n;
     }
 
     if (n < total) {
-        sbuf_.insert(sbuf_.end(), p + n, p + total);
+        sbuf_.insert(sbuf_.end(), buf + n, buf + total);
         return xOK;
     }
-    
+
     return xOK;
 }

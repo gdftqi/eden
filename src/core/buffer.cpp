@@ -31,25 +31,3 @@ typhon::core::Buffer::append(const uint8_t* data, uint32_t len) noexcept {
     wpos += len;
     return xOK;
 }
-
-
-int
-typhon::core::Buffer::decode(core::PackageEx** pkx) noexcept {
-    if (readable() < core::PKX_HDR_LEN) {
-        return xAGAIN;
-    }
-
-    auto* p = (core::PackageEx*)(buf + rpos);
-    uint16_t pkxlen = ::ntohs(p->len);
-
-    ASSERT(pkxlen >= core::PKX_HDR_LEN + core::PKG_HDR_LEN, "invalid package ex length: {}", pkxlen);
-
-    if (readable() < pkxlen) {
-        return xAGAIN;
-    }
-
-    ntoh(PKx<Net>(p, pkxlen));
-    *pkx = p;
-    rpos += pkxlen;
-    return xOK;
-}

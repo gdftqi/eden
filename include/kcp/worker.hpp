@@ -45,9 +45,6 @@ public:
     // 会话映射表, 用于根据 conv 查找 Session, 存放所有会话(包括未鉴权的)
     typedef absl::flat_hash_map<uint32_t, Session::Ptr> SessMap;
 
-    // 用户映射表, 用于根据 user_id 查找 Session, 存放已经鉴权的会话.
-    typedef absl::flat_hash_map<uint32_t, Session::Ptr> UserMap;
-
     // 后端服务映射表, 用于根据 id 查找 tcp::Connector, 存放所有后端服务
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
@@ -131,13 +128,6 @@ private:
     }
 
 
-    Session::Ptr
-    get_user(uint32_t user_id) noexcept {
-        auto itr = users_.find(user_id);
-        return itr == users_.end() ? nullptr : itr->second;
-    }
-
-
     /**
      * @brief 添加会话,成功后会调用 event_->on_connected() 回调.
      * @return 成功返回 0, 否则返回 -1
@@ -160,17 +150,6 @@ private:
             auto sess = sess_itr->second;
             sesss_.erase(sess_itr);
             event_->on_sess_disconnected(sess);
-
-            if (sess->authed()) {
-                auto user_itr = users_.find(sess->user_id());
-                if (user_itr != users_.end()) {
-                    auto user = user_itr->second;
-                    if (user->conv() == sess->conv()) {
-                        event_->on_user_disconnected(user);
-                        users_.erase(user_itr);
-                    }
-                }
-            }
         }
     }
 
@@ -223,25 +202,25 @@ private:
     // --------------------------------- 服务侧 ---------------------------------
 
     void
-    on_pong(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
+    on_pong(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
     void
-    on_regist_rsp(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
+    on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
     void
-    on_s2c(tcp::Connector::Ptr conn, core::PKx<core::Host> &pkx) noexcept;
+    on_s2c(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
     // --------------------------------- 用户侧 ---------------------------------
 
     int
-    on_regist_req(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+    on_regist_req(Session::Ptr s, core::Package *pk) noexcept;
 
 
     int
-    on_c2s(Session::Ptr s, core::PK<core::Host> &pk) noexcept;
+    on_c2s(Session::Ptr s, core::Package *pk) noexcept;
 
 
     // --------------------------------- 内部事件 ---------------------------------
@@ -278,7 +257,6 @@ private:
     // --------------------------------- 会话属性 ---------------------------------
 
     SessMap sesss_; // 会话侧集合
-    UserMap users_; // 用户侧
     ServMap servs_; // 服务侧集合
 }; // class Worker;
 

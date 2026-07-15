@@ -49,12 +49,13 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static void
-echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::PKx<typhon::core::Host>& pkx) noexcept {
-    auto* pk = pkx.pk();
-    pk->dst_id = pk->src_id;
-    pk->src_id = pk->dst_id;
+echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::Package* pk) noexcept {
+    // src/dst 对调, 原样回送给对端
+    uint32_t src = pk->data.src_id;
+    pk->data.src_id = pk->data.dst_id;
+    pk->data.dst_id = src;
 
-    int rc = sess->send(pkx);
+    int rc = sess->send(*pk);
     if (rc < 0) {
         xWARN("echo send failed: fd={}, rc={}", sess->sockfd(), rc);
     }

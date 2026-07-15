@@ -218,7 +218,7 @@ public:
      *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int
-    recv(core::PK<core::Host>* pk, uint8_t* buf, int len) noexcept;
+    recv(core::Package** pk) noexcept;
 
 
     /**
@@ -238,7 +238,7 @@ public:
      *          xERR_KCP_TOOBIG   包过大 / 分片数超接收窗口(ikcp_send)
      */
     int
-    send(core::PK<core::Host> &pk) noexcept;
+    send(core::Package *pk) noexcept;
 
 
 private:
@@ -251,8 +251,8 @@ private:
     }
 
 
-    uint32_t           user_id_   { 0 };
     Worker*            server_    { nullptr };
+    uint32_t           user_id_   { 0 };
     uint32_t           snd_seq_   { 0 };
     uint32_t           rcv_req_   { 0 };
     ::ikcpcb*          kcp_       { nullptr };

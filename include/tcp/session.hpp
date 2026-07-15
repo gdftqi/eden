@@ -105,12 +105,12 @@ public:
 
 
     /**
-     * @brief 从 rbuf_ decode 出一个完整 PackageEx(decode 内部已 ntoh → host 序视图)。
+     * @brief 从 rbuf_ 分帧 + frame_decode 出一个完整 Package(堆分配, *pk 指向, 调用方 mi_free)。
      * @return  xOK    取到一个完整包, *pke 指向它(host 序)
      * @return  xAGAIN 无数据 / 半包, *pke 不变
      */
     int
-    recv(core::PKx<core::Host>* pke) noexcept;
+    recv(core::Package** pk) noexcept;
 
 
     /**
@@ -119,7 +119,7 @@ public:
      * @return 1 整包发完 / 0 部分或全部排进 sbuf_ / <0 socket 错(EAGAIN 不算)
      */
     ssize_t
-    send(core::PKx<core::Host> pke) noexcept;
+    send(core::Package& pk) noexcept;
 
     /** @brief 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。 */
     ssize_t
