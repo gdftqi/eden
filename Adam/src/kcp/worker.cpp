@@ -531,18 +531,17 @@ adam::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) no
 
 void
 adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
-    // 会话按 conv 分片(sk_reuseport conv%N), 目标会话在 worker conv%N 上
-    auto s = get_session(pk->meta.conv);
+    auto* wkrs = server_->workers();
 
-    if (s != nullptr) {
-        // 本 worker 就是 owner, 直接发。pk 指向 Connector rbuf_ 解出的堆 Package,
-        // Session::send 加密输出到自己的暂存 buf, 不原地改 pk。
-        if (s->send(pk) < 0) {
-            xERROR("{} 发送失败", s->to_json());
+    if (pk->meta.conv % wkrs->size() == idx_) {
+        auto s = get_session(pk->meta.conv);
+
+        if (s != nullptr) {
+            if (s->send(pk) < 0) {
+                xERROR("{} 发送失败", s->to_json());
+            }
         }
     } else {
-        // 不在本 worker → 转给 owner(conv % N); 把整个 Package(内存态)拷给它
-        auto* wkrs = server_->workers();
         (*wkrs)[pk->meta.conv % wkrs->size()]->notify(
             new core::QEvent(core::QEvent::Type::KcpSend, new core::KcpSendArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length()))
         );
