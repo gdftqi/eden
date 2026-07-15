@@ -11,64 +11,48 @@ namespace Lilith.Core
     public class Package
     {
         /// <summary>
-        /// 16 位大端序编码
+        /// 16 位小端序编码(与 C++ u16_to_le 对齐)
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="offset"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static int Encode16BE(byte[] p, int offset, ushort value)
+        public static int Encode16LE(byte[] p, int offset, ushort value)
         {
-            p[offset + 0] = (byte)(value >> 8);
-            p[offset + 1] = (byte)(value >> 0);
+            p[offset + 0] = (byte)(value >> 0);
+            p[offset + 1] = (byte)(value >> 8);
             return 2;
         }
 
 
         /// <summary>
-        /// 16 位大端序解码
+        /// 16 位小端序解码
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="offset"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static int Decode16BE(byte[] p, int offset, out ushort value)
-        {// 16 大端解码
-            value = (ushort)((p[offset + 0] << 8) | p[offset + 1]);
+        public static int Decode16LE(byte[] p, int offset, out ushort value)
+        {
+            value = (ushort)(p[offset + 0] | (p[offset + 1] << 8));
             return 2;
         }
 
 
         /// <summary>
-        /// 32 位大端序编码
+        /// 32 位小端序编码(与 C++ u32_to_le 对齐)
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="offset"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static int Encode32BE(byte[] p, int offset, uint value)
-        {// 32 大端编码
-            p[offset + 0] = (byte)(value >> 24);
-            p[offset + 1] = (byte)(value >> 16);
-            p[offset + 2] = (byte)(value >> 8);
-            p[offset + 3] = (byte)(value >> 0);
+        public static int Encode32LE(byte[] p, int offset, uint value)
+        {
+            p[offset + 0] = (byte)(value >> 0);
+            p[offset + 1] = (byte)(value >> 8);
+            p[offset + 2] = (byte)(value >> 16);
+            p[offset + 3] = (byte)(value >> 24);
             return 4;
         }
 
 
         /// <summary>
-        /// 32位大端序解码
+        /// 32 位小端序解码
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="offset"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public static int Decode32BE(byte[] p, int offset, out uint value)
-        {// 32 大端解码
-            value = ((uint)p[offset + 0] << 24)
-                   | ((uint)p[offset + 1] << 16)
-                   | ((uint)p[offset + 2] << 8)
-                   | ((uint)p[offset + 3] << 0);
+        public static int Decode32LE(byte[] p, int offset, out uint value)
+        {
+            value = ((uint)p[offset + 0] << 0)
+                   | ((uint)p[offset + 1] << 8)
+                   | ((uint)p[offset + 2] << 16)
+                   | ((uint)p[offset + 3] << 24);
             return 4;
         }
 

@@ -454,10 +454,10 @@ namespace Lilith.Core
         /// <returns>返回装包之后的 outBuf 长度</returns>
         private int Encode(Package pkg, byte[] outBuf)
         {
-            Package.Encode16BE(outBuf, Package.OFFSET_ID, pkg.ID);
-            Package.Encode32BE(outBuf, Package.OFFSET_SRC_ID, pkg.SrcID);
-            Package.Encode32BE(outBuf, Package.OFFSET_DST_ID, pkg.DstID);
-            Package.Encode32BE(outBuf, Package.OFFSET_IDEM, pkg.Idempotent);
+            Package.Encode16LE(outBuf, Package.OFFSET_ID, pkg.ID);
+            Package.Encode32LE(outBuf, Package.OFFSET_SRC_ID, pkg.SrcID);
+            Package.Encode32LE(outBuf, Package.OFFSET_DST_ID, pkg.DstID);
+            Package.Encode32LE(outBuf, Package.OFFSET_IDEM, pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
             var k = sKcp;
@@ -496,10 +496,10 @@ namespace Lilith.Core
                 return false;
             }
 
-            Package.Decode16BE(data, Package.OFFSET_ID, out pkg.ID);
-            Package.Decode32BE(data, Package.OFFSET_SRC_ID, out pkg.SrcID);
-            Package.Decode32BE(data, Package.OFFSET_DST_ID, out pkg.DstID);
-            Package.Decode32BE(data, Package.OFFSET_IDEM, out pkg.Idempotent);
+            Package.Decode16LE(data, Package.OFFSET_ID, out pkg.ID);
+            Package.Decode32LE(data, Package.OFFSET_SRC_ID, out pkg.SrcID);
+            Package.Decode32LE(data, Package.OFFSET_DST_ID, out pkg.DstID);
+            Package.Decode32LE(data, Package.OFFSET_IDEM, out pkg.Idempotent);
             if (pkg.Idempotent == 0)
             {
                 Log.Write($"接收到来自服务端错误的消息, 长度不满足 Package.Idempotent 为 0");
