@@ -547,8 +547,8 @@ typhon::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
 
 int
 typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
-    // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken(sealedbox 头 +48)
-    constexpr int REGIST_PAYLOAD_LEN = (int)sizeof(core::AccessToken) + 48;
+    // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken 明文(116) + sealedbox 头(48)
+    constexpr int REGIST_PAYLOAD_LEN = core::ACCESS_TOKEN_LEN + 48;
 
     if (s->authed()) {
         return xDUP;
@@ -558,20 +558,22 @@ typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
         return xERR_PK_LEN;
     }
 
-    size_t plen = in->payload_length();
+    // 1. 服务端私钥解密 → 116 字节明文
+    uint8_t plain[core::ACCESS_TOKEN_LEN];
+    size_t  plen = sizeof(plain);
+    if (utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen,
+                                 Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+        return xERR_PK_DEC;
+    }
+    if (plen != core::ACCESS_TOKEN_LEN) {
+        return xERR_PK_DEC;
+    }
+
+    // 2. 显式解出 token(小端, 不做内存覆盖)
     core::AccessToken token;
-    size_t tklen = sizeof(token);
-    
-    // 1. 使用服务端私钥解密 Token
-    if (utils::sealedbox_decrypt(in->data.payload, plen, (uint8_t*)&token, &tklen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
-        return xERR_PK_DEC;
-    }
+    core::token_decode(plain, &token);
 
-    if (tklen != sizeof(token)) {
-        return xERR_PK_DEC;
-    }
-
-    // 2. 检查有效期
+    // 3. 有效期 / conv / user 校验
     if ((uint64_t)::time(nullptr) > token.expire) {
         return xERR_TOKEN_EXP;
     }
@@ -590,8 +592,8 @@ typhon::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
         return xERR_TOKEN_CONV;   // 或专门错误码
     }
 
-    // 3. 校验登录服签名
-    if (utils::ed25519_verify(token.sign, (uint8_t*)&token, offsetof(core::AccessToken, sign), Conf::instance()->ed25519_pk()) != 0) {
+    // 4. 校验登录服签名: RA 签的是明文前 ACCESS_TOKEN_SIGNED_LEN(52) 字节
+    if (utils::ed25519_verify(token.sign, plain, core::ACCESS_TOKEN_SIGNED_LEN, Conf::instance()->ed25519_pk()) != 0) {
         return xERR_TOKEN_VER;
     }
 

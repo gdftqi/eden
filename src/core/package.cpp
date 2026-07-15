@@ -140,3 +140,18 @@ typhon::core::frame_decode(const uint8_t* buf, size_t avail, Package** pk) noexc
     *pk = pkg;
     return flen;   // 消费的字节数
 }
+
+
+void
+typhon::core::token_decode(const uint8_t* buf, AccessToken* out) noexcept {
+    // RA token.go 布局(小端): expire@0 conv@8 user_id@12 ip@16 cli_pk@20 sign@52
+    uint64_t e;
+    uint32_t v;
+
+    ::memcpy(&e, buf +  0, sizeof(e)); out->expire  = u64_to_le(e);
+    ::memcpy(&v, buf +  8, sizeof(v)); out->conv    = u32_to_le(v);
+    ::memcpy(&v, buf + 12, sizeof(v)); out->user_id = u32_to_le(v);
+    ::memcpy(&v, buf + 16, sizeof(v)); out->ip      = u32_to_le(v);
+    ::memcpy(out->cli_pk, buf + 20, sizeof(out->cli_pk));
+    ::memcpy(out->sign,   buf + 52, sizeof(out->sign));
+}
