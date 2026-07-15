@@ -306,14 +306,6 @@ adam::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
                     on_serv_disconnected(ev);
                     break;
 
-                case EventType::OnUserConnected:
-                    on_user_connected(ev);
-                    break;
-
-                case EventType::OnUserDisconnected:
-                    on_user_disconnected(ev);
-                    break;
-
                 default:
                     xFATAL("无效的事件类型");
                     break;
@@ -330,16 +322,4 @@ adam::kcp::Server::on_serv_disconnected(const Event* ev) noexcept {
     if (itr != servs_.end()) {
         servs_.erase(itr);
     }
-}
-
-
-void
-adam::kcp::Server::on_user_connected(const Event*) noexcept {
-    // TODO: redis 写入 用户路由表
-}
-
-
-void
-adam::kcp::Server::on_user_disconnected(const Event*) noexcept {
-    // TODO: redis 删除 用户路由表
 }

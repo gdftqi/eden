@@ -7,8 +7,8 @@
       "cppStandard": "c++20",
       "intelliSenseMode": "linux-gcc-x64",
       "includePath": [
-        "${workspaceFolder}/include",
-        "${workspaceFolder}/src",
+        "${workspaceFolder}/Adam/include",
+        "${workspaceFolder}/Adam/src",
         "/usr/local/include",
         "/usr/include"
       ],
@@ -17,8 +17,8 @@
       ],
       "browse": {
         "path": [
-          "${workspaceFolder}/include",
-          "${workspaceFolder}/src",
+          "${workspaceFolder}/Adam/include",
+          "${workspaceFolder}/Adam/src",
           "/usr/local/include"
         ],
         "limitSymbolsToIncludedHeaders": true

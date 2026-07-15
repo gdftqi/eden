@@ -2,7 +2,7 @@ server:
   id: 1000
   timeout: 45
   protocol: "kcp"
-  name: "cerberus"
+  name: "moses"
   host: "13.212.170.186:5555"
   desc: "网关"
 

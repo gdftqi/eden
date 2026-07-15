@@ -278,13 +278,19 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
                         if (pk->data.id == PKID_REGIST_REQ) {
                             res = on_regist_req(s, pk);
+                        } else {
+                            auto handler = server_->get_handler(pk->data.id);
+                            if (handler == nullptr) {
+                                res = -1;
+                            } else {
+                                res = handler(s, pk);
+                            }
                         }
-                        // TODO: 其他的消息句柄
                     } else {
                         res = on_c2s(s, pk);
                     }
 
-                    ::mi_free(pk);   // recv 分配的堆 Package, 处理完(on_c2s 已整帧拷给后端)释放
+                    ::mi_free(pk);
 
                     if (res < 0) {
                         remove_session(s->conv());
@@ -538,8 +544,7 @@ adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
         // 不在本 worker → 转给 owner(conv % N); 把整个 Package(内存态)拷给它
         auto* wkrs = server_->workers();
         (*wkrs)[pk->meta.conv % wkrs->size()]->notify(
-            new core::QEvent(core::QEvent::Type::KcpSend,
-                             new core::KcpSendArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length()))
+            new core::QEvent(core::QEvent::Type::KcpSend, new core::KcpSendArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length()))
         );
     }
 }

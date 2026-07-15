@@ -1,13 +1,13 @@
 services:
-  cerberus:
+  moses:
     image: ubuntu:26.04
-    container_name: cerberus
+    container_name: moses
     network_mode: host
     privileged: true
     tty: true
     stdin_open: true
     working_dir: /home/bin/
-    command: ./cerberus
+    command: ./moses
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro

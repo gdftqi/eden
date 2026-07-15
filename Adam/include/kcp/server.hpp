@@ -16,8 +16,6 @@ namespace adam::kcp {
 enum class EventType: uint32_t {
     None,
     OnServDisconnected,
-    OnUserConnected,
-    OnUserDisconnected,
 };
 
 
@@ -37,7 +35,7 @@ static_assert(sizeof(Event) == 8, "Event 对齐错误");
 
 
 /**
- * @brief cerberus 服务
+ * @brief moses 网关服务
  *
  * 启动流程 (顺序敏感):
  *   1. EnvelopeFilter init + attach 网卡       — XDP MAC 校验先生效, 即使后续步骤
@@ -60,6 +58,9 @@ public:
     typedef absl::flat_hash_set<uint32_t> ServSet;
     typedef std::vector<std::thread>      ThreadPool;
     typedef std::vector<Worker::Ptr>      WorkerPool;
+
+    typedef int (*PackageHandler)(Session::Ptr, core::Package*) noexcept;
+    typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
 
 
     /**
@@ -95,6 +96,22 @@ public:
     }
 
 
+    void
+    regist_handler(uint16_t pid, PackageHandler handler) noexcept {
+        if (handlers_.count(pid) > 0) {
+            xWARN("ID 为 {} 消息句柄已存在", pid);
+        }
+        handlers_[pid] = handler;
+    }
+
+
+    PackageHandler
+    get_handler(uint16_t pid) noexcept {
+        auto itr = handlers_.find(pid);
+        return itr == handlers_.end() ? nullptr : itr->second;
+    }
+
+
     /**
      * @brief 启动服务
      */
@@ -126,30 +143,6 @@ public:
     }
 
 
-    void
-    notify_user_connected(uint32_t user_id) noexcept {
-        Event ev;
-        ev.type = EventType::OnUserConnected;
-        ev.u32_val = user_id;
-
-        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
-            xERROR("notify_user_connected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-        }
-    }
-
-
-    void
-    notify_user_disconnected(uint32_t user_id) noexcept {
-        Event ev;
-        ev.type = EventType::OnUserDisconnected;
-        ev.u32_val = user_id;
-
-        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
-            xERROR("notify_user_disconnected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-        }
-    }
-
-
 private:
     void
     init() noexcept;
@@ -174,14 +167,6 @@ private:
     on_serv_disconnected(const Event* ev) noexcept;
 
 
-    void
-    on_user_connected(const Event* ev) noexcept;
-
-
-    void
-    on_user_disconnected(const Event* ev) noexcept;
-
-
     core::SOCKET             epfd_              { core::INVALID_SOCKET }; // epoll fd
     core::SOCKET             evrfd_             { core::INVALID_SOCKET }; // event read fd
     core::SOCKET             evwfd_             { core::INVALID_SOCKET }; // event read fd
@@ -197,6 +182,7 @@ private:
     ThreadPool               threads_;                                            // 线程池
     WorkerPool               workers_;
     ServSet                  servs_;                                              // 服务集合
+    PackageHandlers          handlers_;                                           // 服务句柄
 }; // class Server;
 
 

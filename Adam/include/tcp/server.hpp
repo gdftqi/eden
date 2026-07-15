@@ -166,7 +166,7 @@ public:
     PackageHandler
     get_handler(uint16_t pkid) const noexcept {
         auto itr = handlers.find(pkid);
-        return itr != handlers.end() ? itr->second : nullptr;
+        return itr == handlers.end() ? nullptr : itr->second;
     }
 
 

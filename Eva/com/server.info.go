@@ -33,7 +33,7 @@ func makeServerInfoFromJson(jstr []byte) (*ServerInfo, error) {
 }
 
 func GetServerInfoListFromEtcd(id ...uint32) ([]*ServerInfo, error) {
-	key := "/cerberus"
+	key := "/moses"
 
 	if len(id) > 0 {
 		key = fmt.Sprintf("%s/%08x", key, id[0])

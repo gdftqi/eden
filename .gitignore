@@ -5,12 +5,12 @@ build
 .venv
 
 # romesh 各服务的部署包输出目录(注意锚定全路径, 别误伤同名源码目录)
-/romesh/cerberus/cerberus/
-/romesh/cerberus/obj/
-/romesh/chat/chat/
-/romesh/chat/obj/
+/Zion/Moses/moses/
+/Zion/Moses/obj/
+/Zion/chat/chat/
+/Zion/chat/obj/
 
-/ra/ra
+/Eva/eva
 
 # --- Unity (echidna/) ---
 # Unity 自动生成的缓存 / 中间产物，重新打开工程会重建
