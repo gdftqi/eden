@@ -1,17 +1,20 @@
 #include <csignal>
 #include <cstdlib>
+#include <gperftools/profiler.h>
 
 #include "tcp/server.hpp"
 #include "utils/sys.hpp"
 
 
-static adam::tcp::Server* g_server = nullptr;
+static std::unique_ptr<adam::tcp::Server> server;
+
+using adam::tcp::Conf;
 
 
 static void
 on_signal(int) {
-    if (g_server) {
-        g_server->stop();
+    if (server) {
+        server->stop();
     }
 }
 
@@ -69,20 +72,31 @@ main(int /*argc*/, char** /*argv*/) {
         return EXIT_FAILURE;
     }
 
-    adam::tcp::Conf* conf = adam::tcp::Conf::instance();
+    Conf::instance()->load("config.yml");
 
-    conf->load("config.yml");
+    if (Conf::instance()->flame()) {
+        ProfilerStart("./moses.prof");
+    }
+
+    if (Conf::instance()->log_path().length() > 0) {
+        adam::utils::init_log(Conf::instance()->log_path());
+    }
 
     EchoService service;
-    adam::tcp::Server server(conf->server()->host.c_str(), &service);
-    g_server = &server;
+    server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &service);
 
     // PK_ID_PING = 1,跟 test_tcp.py 一致
-    server.regist_handler(1, &echo_handler);
+    server->regist_handler(1, &echo_handler);
 
     ::signal(SIGINT,  on_signal);
     ::signal(SIGTERM, on_signal);
 
-    server.run();
+    server->run();
+
+    xINFO("服务关闭");
+
+    if (Conf::instance()->flame()) {
+        ProfilerStop();
+    }
     return EXIT_SUCCESS;
 }

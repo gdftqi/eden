@@ -75,6 +75,10 @@ main(int, char**) {
         ProfilerStart("./moses.prof");
     }
 
+    if (Conf::instance()->log_path().length() > 0) {
+        adam::utils::init_log(Conf::instance()->log_path());
+    }
+
     ServiceEvent se;
     server = std::make_unique<adam::kcp::Server>(&se);
 
@@ -88,6 +92,5 @@ main(int, char**) {
     if (Conf::instance()->flame()) {
         ProfilerStop();
     }
-
     ::exit(EXIT_SUCCESS);
 }

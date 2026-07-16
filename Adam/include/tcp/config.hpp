@@ -34,6 +34,20 @@ public:
         if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
             xFATAL("etcd is invalid");
         }
+
+        if (root["flame"]) {
+            flame_ = root["flame"].as<bool>();
+        }
+
+        if (root["log_path"]) {
+            log_path_ = root["log_path"].as<std::string>();
+        }
+    }
+
+
+    bool
+    flame() const noexcept {
+        return flame_;
     }
 
 
@@ -49,13 +63,21 @@ public:
     }
 
 
+    std::string
+    log_path() const noexcept {
+        return log_path_;
+    }
+
+
 private:
     Conf() noexcept
     {}
 
 
+    bool              flame_ { false };
     core::ServerInfo  server_;
     utils::EtcdConfig etcd_;
+    std::string       log_path_;
 }; // class Conf;
 
     
