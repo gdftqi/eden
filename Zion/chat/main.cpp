@@ -5,7 +5,7 @@
 #include "utils/sys.hpp"
 
 
-static typhon::tcp::Server* g_server = nullptr;
+static adam::tcp::Server* g_server = nullptr;
 
 
 static void
@@ -16,29 +16,29 @@ on_signal(int) {
 }
 
 
-class EchoService: public typhon::tcp::Server::IEvent {
+class EchoService: public adam::tcp::Server::IEvent {
 public:
     void
-    on_init(typhon::tcp::Server* s) noexcept override {
+    on_init(adam::tcp::Server* s) noexcept override {
         xINFO("{} running on {}", s->host(), ::pthread_self());
     }
 
 
     void
-    on_stopped(typhon::tcp::Server* s) noexcept override {
+    on_stopped(adam::tcp::Server* s) noexcept override {
         xINFO("{} stopped on {}", s->host(), ::pthread_self());
     }
 
 
     int
-    on_connected(typhon::tcp::Session::Ptr sess) noexcept override {
+    on_connected(adam::tcp::Session::Ptr sess) noexcept override {
         xINFO("{} connected on {}", sess->remote_addr(), ::pthread_self());
         return 0;
     }
 
 
     void
-    on_disconnected(typhon::tcp::Session::Ptr sess) noexcept override {
+    on_disconnected(adam::tcp::Session::Ptr sess) noexcept override {
         xINFO("{} disconnected on {}", sess->remote_addr(), ::pthread_self());
     }
 };
@@ -49,7 +49,7 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static void
-echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::Package* pk) noexcept {
+echo_handler(adam::tcp::Session::Ptr sess, adam::core::Package* pk) noexcept {
     // src/dst 对调, 原样回送给对端
     uint32_t src = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
@@ -64,17 +64,17 @@ echo_handler(typhon::tcp::Session::Ptr sess, typhon::core::Package* pk) noexcept
 
 int
 main(int /*argc*/, char** /*argv*/) {
-    if (!typhon::utils::lock_pid("tcp_echo.pid")) {
+    if (!adam::utils::lock_pid("tcp_echo.pid")) {
         xERROR("tcp_echo 已经在运行");
         return EXIT_FAILURE;
     }
 
-    typhon::tcp::Conf* conf = typhon::tcp::Conf::instance();
+    adam::tcp::Conf* conf = adam::tcp::Conf::instance();
 
     conf->load("config.yml");
 
     EchoService service;
-    typhon::tcp::Server server(conf->server()->host.c_str(), &service);
+    adam::tcp::Server server(conf->server()->host.c_str(), &service);
     g_server = &server;
 
     // PK_ID_PING = 1,跟 test_tcp.py 一致

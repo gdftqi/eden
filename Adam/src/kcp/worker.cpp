@@ -666,6 +666,11 @@ adam::kcp::Worker::drain_qevent() noexcept {
     while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
         for (i = 0; i < n; ++i) {
             switch (qes[i]->qe_type) {
+            case core::QEvent::Type::Stop:
+                // 停止事件只为唤醒 epoll(state_ 已在 Worker::stop 里置 Stopping), 消费掉即可;
+                // 本轮 on_event_handle 返回后 while(running()) 会自然退出。
+                break;
+
             case core::QEvent::Type::AddServ:
                 on_new_serv(qes[i]);
                 break;

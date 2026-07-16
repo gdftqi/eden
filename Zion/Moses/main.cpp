@@ -47,20 +47,6 @@ public:
 
 
     virtual void
-    on_user_connected(adam::kcp::Session::Ptr s) noexcept {
-        xINFO("{} connected.", s->to_json());
-        server_->notify_user_connected(s->user_id());
-    }
-
-
-    virtual void
-    on_user_disconnected(adam::kcp::Session::Ptr s) noexcept {
-        xINFO("[{}:{}] unauth on {}", s->user_id(), s->remote_addr(), ::pthread_self());
-        server_->notify_user_disconnected(s->user_id());
-    }
-
-
-    virtual void
     on_serv_connected(adam::tcp::Connector::Ptr conn) noexcept {
         xINFO("serv {} connected on {}", conn->id(), ::pthread_self());
     }
