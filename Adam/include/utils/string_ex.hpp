@@ -59,7 +59,7 @@ base64_decode(const std::string& s) noexcept {
 }
 
 
-} // namespace adam::utils;
+} // namespace adam::utils
 
 
 #endif // __ADAM_UTILS_STRING_EX_HPP__
