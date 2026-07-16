@@ -63,66 +63,68 @@ public:
             envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
         }
 
-        if (!root["kcp"]) {
-            xFATAL("config.kcp is invalid");
-        }
-
-        auto k = root["kcp"];
-        
-        if (k["sndbuf"]) {
-            sndbuf_ = k["sndbuf"].as<int>();
-        }
-
-        if (k["rcvbuf"]) {
-            rcvbuf_ = k["rcvbuf"].as<int>();
+        if (root["flame"]) {
+            flame_ = root["flame"].as<bool>();
         }
         
-        if (k["sndwnd"]) {
-            sndwnd_ = k["sndwnd"].as<int>();
+        if (root["sndbuf"]) {
+            sndbuf_ = root["sndbuf"].as<int>();
         }
 
-        if (k["rcvwnd"]) {
-           rcvwnd_ = k["rcvwnd"].as<int>();
+        if (root["rcvbuf"]) {
+            rcvbuf_ = root["rcvbuf"].as<int>();
+        }
+        
+        if (root["sndwnd"]) {
+            sndwnd_ = root["sndwnd"].as<int>();
         }
 
-        if (k["nodelay"]) {
-            nodelay_ = k["nodelay"].as<int>();
+        if (root["rcvwnd"]) {
+           rcvwnd_ = root["rcvwnd"].as<int>();
         }
 
-        if (k["interval"]) {
-            interval_ = k["interval"].as<int>();
+        if (root["nodelay"]) {
+            nodelay_ = root["nodelay"].as<int>();
         }
 
-        if (k["resend"]) {
-            resend_ = k["resend"].as<int>();
+        if (root["interval"]) {
+            interval_ = root["interval"].as<int>();
         }
 
-        if (k["nc"]) {
-            nc_ = k["nc"].as<int>();
+        if (root["resend"]) {
+            resend_ = root["resend"].as<int>();
         }
 
-        if (k["siphash"]) {
-            auto s = k["siphash"].as<std::string>();
-            ASSERT(s.length() == sizeof(SipKey), "无效的 siphash");
-            ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(SipKey));
+        if (root["nc"]) {
+            nc_ = root["nc"].as<int>();
         }
 
-        if (k["x25519_pk"]) {
-            auto s = k["x25519_pk"].as<std::string>();
-            size_t len = sizeof(X25519Key);
-            ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0 && len == sizeof(X25519Key), "无效的 x25519_pk");
+        if (root["siphash"]) {
+            auto s = root["siphash"].as<std::string>();
+            ASSERT(s.length() == sizeof(siphash_), "无效的 siphash");
+            ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(siphash_));
         }
 
-        if (k["x25519_sk"]) {
-            auto s = k["x25519_sk"].as<std::string>();
-            size_t len = sizeof(X25519Key);
-            ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0 && len == sizeof(X25519Key), "无效的 x25519_sk");
+        if (root["x25519_pk"]) {
+            auto s = root["x25519_pk"].as<std::string>();
+            size_t len = sizeof(x25519_pk_);
+            ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0 && len == sizeof(x25519_pk_), "无效的 x25519_pk");
         }
 
-        if (k["ed25519_pk"]) {
-            auto s = k["ed25519_pk"].as<std::string>();
-            size_t len = sizeof(ED25519PK);
-            ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0 && len == sizeof(ED25519PK), "无效的 ed25519_pk");
+        if (root["x25519_sk"]) {
+            auto s = root["x25519_sk"].as<std::string>();
+            size_t len = sizeof(x25519_sk_);
+            ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0 && len == sizeof(x25519_sk_), "无效的 x25519_sk");
+        }
+
+        if (root["ed25519_pk"]) {
+            auto s = root["ed25519_pk"].as<std::string>();
+            size_t len = sizeof(ed25519_pk_);
+            ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0 && len == sizeof(ed25519_pk_), "无效的 ed25519_pk");
+        }
+
+        if (root["log_path"]) {
+            log_path_ = root["log_path"].as<std::string>();
         }
 
         // 全部校验在 load 内完成 (不再单独提供 check)
@@ -138,6 +140,12 @@ public:
         ASSERT(!::sodium_is_zero(x25519_pk_, sizeof(x25519_pk_)), "x25519_pk is invalid");
         ASSERT(!::sodium_is_zero(x25519_sk_, sizeof(x25519_sk_)), "x25519_sk is invalid");
         ASSERT(!::sodium_is_zero(ed25519_pk_, sizeof(ed25519_pk_)), "ed25519_pk is invalid");
+    }
+
+
+    bool
+    flame() const noexcept {
+        return flame_;
     }
 
 
@@ -294,12 +302,19 @@ public:
     }
 
 
+    std::string
+    log_path() const noexcept {
+        return log_path_;
+    }
+
+
 private:
     explicit
     Conf() noexcept 
     {}
 
 
+    bool              flame_        { false };
     int               sndbuf_       { 16777216 };   ///< 发送缓冲区大小
     int               rcvbuf_       { 33554432 };   ///< 接收缓冲区大小
     int               sndwnd_       { 128 };        ///< 发送窗口
@@ -307,7 +322,7 @@ private:
     int               nodelay_      { 1 };          ///< 是否开启低延迟模式
     int               interval_     { 10 };         ///< update 间隔
     int               resend_       { 3 };          ///< 快速重传, 表示连接跳过3个包的时候就会重传
-    int               nc_           { 1 };          ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭s
+    int               nc_           { 1 };          ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭ss
     SipKey            siphash_      {};             ///< 协议密钥
     X25519Key         x25519_pk_    {};             ///< LOGIN 服务用来作 sealedbox 加密
     X25519Key         x25519_sk_    {};             ///< 用于 鉴权时的 sealedbox 解密
@@ -317,6 +332,7 @@ private:
     std::string       ifname_;
     std::string       kcp_bpf_path_;
     std::string       envelope_bpf_path_;
+    std::string       log_path_;
 }; // class Conf;
 
     

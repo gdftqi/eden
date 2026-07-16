@@ -1,5 +1,5 @@
 #include <csignal>
-#include <iostream>
+#include <gperftools/profiler.h>
 
 #include "kcp/server.hpp"
 
@@ -71,6 +71,10 @@ main(int, char**) {
 
     Conf::instance()->load("config.yml");
 
+    if (Conf::instance()->flame()) {
+        ProfilerStart("./moses.prof");
+    }
+
     ServiceEvent se;
     server = std::make_unique<adam::kcp::Server>(&se);
 
@@ -80,5 +84,10 @@ main(int, char**) {
     server->run();
 
     xINFO("服务关闭");
+
+    if (Conf::instance()->flame()) {
+        ProfilerStop();
+    }
+
     ::exit(EXIT_SUCCESS);
 }
