@@ -33,7 +33,6 @@ namespace CC
                 desktop.MainWindow = new LoginWindow();
             }
 
-
             base.OnFrameworkInitializationCompleted();
         }
     }
