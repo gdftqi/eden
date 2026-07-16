@@ -67,19 +67,19 @@ echo_handler(adam::tcp::Session::Ptr sess, adam::core::Package* pk) noexcept {
 
 int
 main(int /*argc*/, char** /*argv*/) {
-    if (!adam::utils::lock_pid("tcp_echo.pid")) {
+    if (!adam::utils::lock_pid("chat.pid")) {
         xERROR("tcp_echo 已经在运行");
         return EXIT_FAILURE;
     }
 
     Conf::instance()->load("config.yml");
 
-    if (Conf::instance()->flame()) {
-        ProfilerStart("./moses.prof");
-    }
-
     if (Conf::instance()->log_path().length() > 0) {
         adam::utils::init_log(Conf::instance()->log_path());
+    }
+
+    if (Conf::instance()->flame()) {
+        ProfilerStart("./chat.prof");
     }
 
     EchoService service;

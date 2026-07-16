@@ -64,19 +64,19 @@ private:
 
 int
 main(int, char**) {
-    if (!adam::utils::lock_pid("server.pid")) {
+    if (!adam::utils::lock_pid("moses.pid")) {
         xERROR("程序已启动");
         ::exit(EXIT_FAILURE);
     }
 
     Conf::instance()->load("config.yml");
 
-    if (Conf::instance()->flame()) {
-        ProfilerStart("./moses.prof");
-    }
-
     if (Conf::instance()->log_path().length() > 0) {
         adam::utils::init_log(Conf::instance()->log_path());
+    }
+
+    if (Conf::instance()->flame()) {
+        ProfilerStart("./moses.prof");
     }
 
     ServiceEvent se;

@@ -6,9 +6,6 @@ server:
   host: "13.212.170.186:5555"
   desc: "网关"
 
-ifname: "lo"
-kcp_bpf_path: "kcp.bpf.o"
-envelope_bpf_path: "envelope.bpf.o"
 
 etcd:
   url: "http://13.212.159.179:2379"
@@ -17,20 +14,26 @@ etcd:
   ttl: 15
 
 
-kcp:
-  sndbuf: 16777216
-  rcvbuf: 33554432
+ifname: "lo"
+kcp_bpf_path: "kcp.bpf.o"
+envelope_bpf_path: "envelope.bpf.o"
 
-  sndwnd: 128
-  rcvwnd: 128
+flame: true
+log_path: "logs"
 
-  nodelay: 1
-  interval: 10
-  resend: 3
-  nc: 1
+sndbuf: 16777216
+rcvbuf: 33554432
 
-  siphash: "XA1,y9Mn]0+iu2Y9"
-  x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
-  x25519_sk: "MLCRzqZTtmEIerqQeJKiIMgNOpEZOKH3f/ehhle6bhA="
-  ed25519_pk: "OjvxWlrli0k+EDeNwWDMMTyXWpXtizQyifq8tn+bBck="
-  # ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
+sndwnd: 128
+rcvwnd: 128
+
+nodelay: 1
+interval: 10
+resend: 3
+nc: 1
+
+siphash: "XA1,y9Mn]0+iu2Y9"
+x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
+x25519_sk: "MLCRzqZTtmEIerqQeJKiIMgNOpEZOKH3f/ehhle6bhA="
+ed25519_pk: "OjvxWlrli0k+EDeNwWDMMTyXWpXtizQyifq8tn+bBck="
+# ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
