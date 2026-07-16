@@ -1,218 +1,200 @@
-# typhon
+# KCP 网关 · MMO / IM 微服务框架
 
-> 基于 KCP 的 C++ MMO 微服务框架 —— 网关 IO 底座 + 后端业务服骨架。
+> 工程总代号待定 —— 各服务以「凡人比肩神明」为主题命名(**Adam / Eva / Lilith / Moses / Ark / Zion**),见下「组件」。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-typhon 是一个**面向 MMOARPG 的服务端框架**,核心目标是把"客户端 ↔ 网关 ↔ 后端业务服"这条数据通道做到工业级:可靠、低延迟、可水平扩展、可观测。
+一套面向 **MMOARPG / IM** 的服务端框架与配套服务,把「客户端 ↔ 网关 ↔ 后端业务服」这条数据通道做到工业级:**可靠、低延迟、水平扩展、share-nothing 无锁、零分配收包、可观测**。
 
-当前阶段聚焦**网络 IO substrate** —— 业务层(战斗、AOI、持久化等)由上层应用接入。
-
----
-
-## 关键设计
-
-### 整体拓扑
-
-```
-                ┌──────────────┐
-   客户端 ──KCP──┤              ├──TCP──┐
-                │   网关       │       ├──> backend instance (scene)
-   客户端 ──KCP──┤  (gateway)   ├──TCP──┤
-                │              │       ├──> backend instance (chat)
-   客户端 ──KCP──┤              ├──TCP──┤
-                └──────────────┘       └──> backend instance (guild)
-                       │
-                       └─── etcd (服务发现)
-```
-
-- **客户端 ↔ 网关**:KCP over UDP,带 X25519 鉴权握手(每会话密钥协商)+ ChaCha20-Poly1305 AEAD payload 加密(机密性+完整性一体)+ XDP envelope MAC(SipHash)DoS 过滤(均已实现,见下「传输安全层」)
-- **网关 ↔ 后端**:TCP 长连,wire frame 走 length-prefix `PackageEx`,网关 stamp `pke_src_id` (FromPlayerID) 让后端拿到来源信息
-- **后端 ↔ 后端**:暂未规划(后期通过 etcd 服务发现 + sticky routing 接入)
-
-### 网关层 (`kcp::Server`)
-
-- N 个独立 `kcp::Server` 实例(N ≈ CPU 核数 - 1),每个一条线程
-- `SO_REUSEPORT` + **eBPF 程序按 KCP conv 路由**,同一 conv 始终落到同一实例 → **share-nothing,零锁**
-- `recvmmsg` / `sendmmsg` 批量 syscall,降低内核切换开销
-- 每实例自己的 epoll loop:`ufd` + `stop_evfd`,1 个 `epoll_wait` 拿数据
-- session 用 `shared_ptr` 管理,业务可跨调用安全持有
-
-详见 [include/kcp/server.hpp](include/kcp/server.hpp)、[src/kcp/server.cpp](src/kcp/server.cpp)。
-
-### 协议层 (`core::Package` / `core::PackageEx`)
-
-字节序统一**大端**(网络字节序)。两种方向各用一种 wire frame:
-
-```
-┌─────────────────────────────────────────────────────┐
-│ 客户端 → 网关 (KCP):  Package                       │
-├─────────────────────────────────────────────────────┤
-│   pk_id (2B) │ pk_seq (4B) │ pk_dst_id (4B)         │
-│   pk_payload[...]   ← authed 后加密, 尾部附 16B tag  │
-│                                                     │
-│   长度由 KCP 消息边界给定 (KCP 自带帧边界,无需长度字段)│
-└─────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│ 网关 → 后端 (TCP):  PackageEx                            │
-├─────────────────────────────────────────────────────────┤
-│   pke_len (2B) │ pke_src_id (4B) │ pke_src_addr (4B)   │
-│   pke_pk[...]  ← 内嵌完整 Package wire frame            │
-│                                                         │
-│   pke_len = 整个 wire frame 总长,后端 peek 2B 即可切包  │
-└─────────────────────────────────────────────────────────┘
-```
-
-- `pk_seq`:客户端在 session 内单调递增的序号(必须 != 0),网关侧做幂等 dedup;兼作 ChaCha20-Poly1305 nonce 输入
-- `pk_dst_id`:目标服务类型(路由键,scene/chat/guild/...)
-- `pke_src_id`:网关从 conv 查到的 FromPlayerID,**后端无需信任客户端身份信息**
-
-详见 [include/core/package.hpp](include/core/package.hpp)。
-
-### 传输安全层
-
-客户端 ↔ 网关这一跳两层独立防护,可分别开关:
-
-**1. envelope MAC —— XDP 内核态 DoS 过滤**
-
-```
-UDP payload: [siphash 8B][KCP frame: header 24B + segment data]
-```
-
-- UDP payload 前 8B 是 SipHash-2-4 tag,**覆盖 KCP frame 前 24B(KCP header)**
-- XDP 在网卡驱动层校验,不过直接 `XDP_DROP` —— 垃圾 / 伪造包**不进 socket、不进 KCP**,不耗 worker CPU
-- key 走 BPF map(current / previous 双槽,支持热 rotate 不停服)
-- **ikcp.c/.h 一字不改**,envelope 套在 KCP frame 外;sk_reuseport 路由的 conv 读取偏移 +8
-- 选 fixed-24B 而非全 frame:避开 eBPF verifier 对 bpf_loop / 大循环展开的限制
-
-**2. X25519 鉴权握手 —— 每会话密钥协商**
-
-- LOGIN 服登录成功后,用**网关公钥 sealedbox 加密** + **ed25519 签名**签发 `AuthToken`(绑 `conv` + 限时),客户端只搬运不解密
-- 网关 `REGIST_REQ` 校验链:sealedbox 解密 → 验期 → 验 `conv` → 验签,再用**临时 X25519 密钥对**与 token 内 `cli_pk` 做 ECDH(libsodium `crypto_kx`,BLAKE2b KDF)派生**双向会话密钥** `rx/tx`
-- `REGIST_RSP` 回带网关临时公钥,客户端同样派生出镜像的 `rx/tx`(client.tx == server.rx)
-- **双边前向保密**:两端 X25519 都是临时的(网关每会话 / 客户端每登录),长期密钥泄露也回算不出历史会话密钥
-- 握手包走明文,`Session::authed_` 翻转后才加解密,两端对称
-
-**3. ChaCha20-Poly1305 payload 加密 —— AEAD(机密性 + 完整性一体)**
-
-- Package header(10B)**明文**(网关读 `pk_dst_id` 路由 / `pk_seq` 做 nonce),只加密 `pk_payload`,密文尾部附 **16B Poly1305 tag**(`Session::recv` 验签失败直接 drop)
-- **key 来自上面握手的 ECDH 会话密钥**(上行 `tx` / 下行 `rx`,各 **32B 用满**,每 session 独立),不再是固定共享 key
-- per-packet nonce(12B) = `[conv 4B][seq 4B][dir 1B][0 3B]`:同 session 内 `seq` 单调递增保证 (key, nonce) 唯一;`dir` 区分上 / 下行防跨方向复用
-- libsodium `crypto_aead_chacha20poly1305_ietf`(AVX2 SIMD,constant-time;**不依赖 AES-NI**,且无 AES 旁路 / 降频风险)
-- **tag 把篡改挡死**:bit-flip / 重放被 Poly1305 验签拒绝 —— 不像 CTR 那样可定向改数据且不可检测
-
-三套算法(SipHash / X25519+crypto_kx / ChaCha20-Poly1305)客户端均与服务端位等价、可互操作:[test_kcp.py](examples/kcp_echo/test_kcp.py) 走 OpenSSL `EVP_chacha20_poly1305`;Unity 端走 BouncyCastle。
-
-> ✅ **完整性已落地**:换 CTR → **ChaCha20-Poly1305 AEAD** 后,payload 篡改被 Poly1305 tag 挡死(早期 CTR "可 bit-flip 定向篡改不可检测"的短板已消除);per-session ECDH 密钥也已消解"key 复用、conv 撞 → nonce 复用"问题。剩:envelope SipHash key 仍全局静态(可选 HKDF + 定时 rotate)。详见 [PLAN.md](PLAN.md)「传输安全层」。
-
-详见 [src/bpf/envelope.bpf.c](src/bpf/envelope.bpf.c)、[src/utils/cryptor.cpp](src/utils/cryptor.cpp)、[src/kcp/session.cpp](src/kcp/session.cpp)。
-
-### 后端层 (`tcp::Server` + `tcp::Proc`)
-
-- 主线程:listen + accept + N 个 Proc worker(线程池)
-- 同一 `fd` 始终被 `fd % worker_size` 这条 Proc 处理 → **同一 session 不跨线程,无锁**
-- 主线程 ↔ Proc 通信走 **SPSC 无锁队列 + eventfd 唤醒**(`QEvent: Recv / Send / AddSess / RmvSess`)
-- Proc 内部:
-  - 自己的 epoll loop 听 `que_evfd` + `stop_evfd`
-  - 接收 server 主线程 push 的 QEvent,按 fd 路由到本地 Session
-  - 自己维护 `tnow_`(woker-local 时间戳,免 cross-core cache contention)
-  - 自己维护超时切片扫描 (`i = id_; i += worker_size`),与其他 Proc 物理隔离
-
-详见 [include/tcp/server.hpp](include/tcp/server.hpp)、[include/tcp/proc.hpp](include/tcp/proc.hpp)、[src/tcp/server.cpp](src/tcp/server.cpp)、[src/tcp/proc.cpp](src/tcp/proc.cpp)。
-
-### Session 模型
-
-|  | 网关 KCP Session | 后端 TCP Session |
-|---|---|---|
-| 容器 | `unordered_map<conv, shared_ptr>` | `shared_ptr[MAX_CONN]` (按 fd 索引) |
-| 生命周期 | KcpServer 内部 + 业务可持有 | TcpServer 内部 + 业务可持有 |
-| 线程归属 | conv 所属的 kcp::Server 实例线程 | `fd % ws` 所属的 Proc 线程 |
-| 业务 hook | `IEvent::on_data / on_connected / on_disconnected` | `PackageHandler` + `IEvent::on_connected / on_disconnected` |
-| 业务自定义数据 | TBD(后期补) | `set_user_data` / `get_user_data<T>` |
-
-两边都用 `shared_ptr` 保证业务跨调用持有 Session 不会 UAF。
-
-### 关键工程决策
-
-| 决策 | 选择 | 理由 |
-|---|---|---|
-| 时间戳类型 | `uint64_t` monotonic ms | 5.84 亿年才 wrap,免去 wrap-safe 算术心智 |
-| 时间戳来源 | 每个 worker 自己 `clock_gettime` | 免去 atomic store/load 的 cache contention |
-| RcvBuf | lazy `mi_malloc(PKG_MAX_LEN)` + 双游标 + 阈值 compact | 冷连接零开销,热连接零碎片 |
-| SPSC 队列 | 自实现,cache-line aligned,producer/consumer 缓存对方游标 | 避免 false sharing,每个 enqueue/dequeue ~5ns |
-| KCP wrap 兼容 | KCP 内部仍用 `uint32_t` ms,我们 cast 后传 | `_itimediff` 在 < 24.8 天差距内 wrap-safe,实际场景远不到 |
-| Server::tnow 取消 | 每 worker 自己维护 | 消除一个 atomic 共享字段,简化数据结构 |
-
-### 已规避的 race / lifecycle bug
-
-这两天的迭代踩平了一系列隐患,文档化下来给后来人避坑:
-
-- **release 顺序**:`procs_.clear()` 必须在 `threads_.join()` **之后**,否则 worker 线程持有的 `this` 指针变成 UAF
-- **epoll_ctl DEL 二次调用**:同一 fd 的 `remove_session` 加幂等检查 `if (sessions_[fd])`,挡掉 EBADF
-- **EAGAIN 误判为 EOF**:`recv` 返回 -1 + `EAGAIN/EWOULDBLOCK` 是"读完了"的正常信号,必须单独 `break` 不能 `del = true`
-- **fd 跨 worker 扫描 race**:`Proc::check_timeout` 按 `i = id_; i += worker_size` 切片,**worker 之间不会读对方的 sessions_[fd]**
-- **EPOLLHUP 持续触发**:server 主线程拿到 HUP 后**立即** `epoll_ctl DEL`,然后再 push RmvSess,避免后续 epoll_wait 重复触发同一事件
-- **on_que_handle drain**:eventfd 读到 EAGAIN 后必须 `break` 走到 `sending_.store(false) + drain SPSC`,不能 `return`
-
-详见 [PLAN.md](PLAN.md) 与各文件 doxygen。
+当前聚焦**网络 IO substrate 与传输安全**;业务层(战斗、AOI、聊天、持久化)由上层接入。
 
 ---
 
-## 当前进度
+## 组件
 
-- [x] **Phase 1** —— 网关 IO substrate + 端到端 echo(KCP, Unity 客户端跑通)
-- [x] **Phase 2a-c** —— 协议层 (Package/PackageEx) + 后端框架 (TcpServer + Proc + SPSC + handler 派发)
-- [x] **传输安全层** —— XDP envelope MAC(SipHash-2-4) + ChaCha20-Poly1305 AEAD payload 加密(机密性+完整性一体,均已实现并跑通)
-- [x] **用户侧 ↔ 网关鉴权** —— X25519 ECDH 握手(LOGIN 签发 sealedbox + ed25519 token,绑 conv)+ 每会话双向密钥派生 + 双边前向保密;payload AES key 升级为会话密钥([test_kcp.py](examples/kcp_echo/test_kcp.py) 已端到端跑通)
-- [x] **Phase 2d 链路骨架** —— TcpConnector(连接状态机 + 非阻塞 connect + EPOLLOUT 续发 + PING 心跳)已实现并挂进 KcpServer epoll(`servs_` / `on_serv_handle`);gateway↔backend 控制面(REGIST_REQ/RSP 握手 + PING/PONG)已跑通
-- [x] **Phase 2d 业务转发** —— `on_c2s`(KCP→后端:按 `pk_dst_id` 选 Connector + 零拷贝 prepend PackageEx) + `on_s2c`(后端→KCP 回程:`pk_dst_id`=conv 查 session 回发,已修共享缓冲越界)已端到端跑通(client → 后端 echo → client)
-- [x] **Phase 2e** —— EchoBackend 进程([examples/tcp_echo](examples/tcp_echo))+ 完整链路跑通(PING/PONG + REGIST 握手)
-- [ ] **Phase 2f** —— etcd 服务注册发现:网关 control loop 已通(typhon::Server 周期 `update_serv` → `AddServ` 广播 → kcp::Server 建 Connector;worker 掉线经 **pipe 回流** `RmvServ` → 周期重连),**etcd 客户端待填**(`update_serv` 当前硬编码后端地址)
-- [ ] **安全层加固** —— ~~payload 完整性~~(已由 ChaCha20-Poly1305 AEAD 解决)+ envelope SipHash key 的 HKDF 派生 + 定时 rotate
+| 代号 | 语言 | 角色 |
+|---|---|---|
+| **Adam** | C++20 | 核心框架 `libadam.a` —— KCP 网关库 + TCP 后端库 + 线协议 codec + eBPF + utils。命名空间 `adam` |
+| **Moses** | C++ | KCP **网关**服务(基于 Adam 的 kcp 库) |
+| **chat** | C++ | 后端 **TCP echo** 示例服务(基于 Adam 的 tcp 库) |
+| **Eva** | Go | **登录 / RA 服务** —— 签发 AccessToken、生成会话 conv、从 etcd 读网关注册表返回客户端 |
+| **Lilith** | C# | **客户端** —— KCP 核心库(Lilith) + 聊天 GUI(CC,Avalonia) |
+| **Ark** | — | **基础设施**编排 —— etcd / redis / mysql 主从 / docker-compose |
+| **Zion** | — | 可部署服务的**总目录**(Moses / chat / tools) |
 
-完整规划见 [PLAN.md](PLAN.md)。
+---
+
+## 整体拓扑
+
+```
+                              ┌──────────── etcd (服务发现: /moses/<id>) ────────────┐
+                              │                                                      │
+   ┌────────┐   ①登录 HTTP    ▼          ┌──────────────┐                            ▼
+   │ Lilith │ ───────────► ┌──────┐      │    Moses     │ ──TCP──► chat  (后端 echo) │
+   │ 客户端 │ ◄─token+conv─ │ Eva  │      │  (KCP 网关)  │ ──TCP──► scene (业务实例)   │
+   │  (C#)  │              │ (Go) │      │              │ ──TCP──► guild            │
+   └────────┘              └──────┘      └──────────────┘                            │
+        │  ②KCP/UDP + 鉴权握手                 ▲                                     │
+        └─────────────────────────────────────┘  ③conv 落到负责该 user 的 worker    │
+                                                  (sk_reuseport 按 conv%N 分片)      │
+   Ark: etcd / redis(conv 序号) / mysql ───────────────────────────────────────────┘
+```
+
+1. **登录**:Lilith → Eva(HTTP)。Eva 校验账号 → `MakeConv` 生成 conv → 用**网关公钥 sealedbox 封 + ed25519 签**签发 `AccessToken`(绑 conv/user/expire)→ 从 etcd 读网关列表,一并返回客户端。
+2. **建连**:Lilith → Moses(KCP over UDP)。首包 `REGIST_REQ` 携带密封的 token,网关验签后与客户端做 X25519 ECDH,派生每会话双向密钥。
+3. **转发**:Moses 按 `data.dst_id` 把上行包转给对应后端(TCP 整帧),后端回程按 `conv` 找回会话下发。
+
+---
+
+## 数据面:线协议
+
+线上**全小端**(x86 / ARM 原生,两端零字节序转换)。内存态 `Package` = `meta` + `data`:
+
+```
+Package (内存态)
+├─ meta { len:u32, conv:u32, src_addr:u32 }      ← 网关/后端用, 不一定上线
+└─ data { id:u32, src_id:u32, dst_id:u32, seq:u32, payload[] }
+```
+
+线上宽度:`len`/`id` = **2B**(uint16),其余 = **4B**。`PKG_META_LEN=10` / `PKG_DATA_LEN=14` / `PKG_HDR_LEN=24`。两个方向用不同 wire frame:
+
+```
+客户端 → 网关 (KCP, data-only):   meta 由网关本地合成(conv=会话conv, src_addr=对端addr)
+  ┌ id 2 ┬ src_id 4 ┬ dst_id 4 ┬ seq 4 ┬ payload ... ┐
+  └──────┴──────────┴──────────┴───────┴─────────────┘
+  鉴权后 payload 段加密:  [ data头 14B 明文 ][ 密文 ][ ChaCha20-Poly1305 tag 16B ]
+                          KCP 消息边界即帧边界, 无需长度字段
+
+网关 → 后端 (TCP, 整帧):          明文(可信内网, 加密在网关卸载)
+  ┌ len 2 ┬ conv 4 ┬ src_addr 4 ┬ id 2 ┬ src_id 4 ┬ dst_id 4 ┬ seq 4 ┬ payload ... ┐
+  └───────┴────────┴────────────┴──────┴──────────┴──────────┴───────┴─────────────┘
+  len = 整帧长, 后端 peek 2B 即可分帧;conv 是路由键, src_addr 让后端拿到来源
+```
+
+- `seq`:会话内单调递增(≠0),网关做**幂等 dedup**,兼作加密 nonce 输入
+- `dst_id`:目标服务类型(路由键:scene/chat/guild…);`dst_id == 网关自身 id` 时进网关内建处理(REGIST / PING)
+- 共享 codec 在 [`Adam/src/core/package.cpp`](Adam/src/core/package.cpp):`data_encode/decode`(客户端段)、`frame_encode/decode`(整帧,自带分帧)、`token_decode`。**codec 不分配内存**——见「零分配收包」。
+
+---
+
+## 网关:控制面 / 数据面分离
+
+- **`kcp::Server`(控制面,主线程)** —— 拥有 XDP `EnvelopeFilter` + `sk_reuseport` `Router`,创建 N 个 Worker、起线程、跑控制面 epoll(服务发现 / 顶号事件),向 etcd 注册。
+- **`kcp::Worker`(每线程数据面 actor)** —— 独立 UDP socket(`SO_REUSEPORT`)+ 自己的 epoll + 会话表(按 conv)+ 后端 `Connector` + **无锁 MPSC 事件队列**。
+- **`sk_reuseport` + eBPF 按 `conv % nthreads` 路由** —— 同一 conv 恒落同一 Worker,**share-nothing 零锁**;`recvmmsg` 批量收包。
+- 会话只按 conv 存(无 user→session 映射);s2c 回程 `conv % N`:本 Worker 直发,否则转 owner Worker(跨线程走 COPY)。
+
+见 [`Adam/include/kcp/server.hpp`](Adam/include/kcp/server.hpp)、[`Adam/src/kcp/worker.cpp`](Adam/src/kcp/worker.cpp)。
+
+## 后端:IO 线程 / Proc 分离
+
+- **`tcp::Server`(IO 线程)** —— accept + 从 socket 读字节,塞进目标 Proc 的 **SPSC 队列 + eventfd 唤醒**。
+- **`tcp::Proc`(每线程数据面)** —— 自己的 epoll + eventfd + SPSC + 会话表(按 fd)。同一 `fd` 恒由 `fd % worker_size` 这条 Proc 处理 → **同一会话不跨线程,无锁**。
+- 业务以 `server.regist_handler(pkid, handler)` 注册,handler 同步消费。
+- **`tcp::Connector`** 是网关侧的后端客户端(连接状态机 + 非阻塞 connect + EPOLLOUT 续发 + PING/PONG 心跳 + 应用层探活)。
+
+见 [`Adam/include/tcp/server.hpp`](Adam/include/tcp/server.hpp)、[`Adam/include/tcp/proc.hpp`](Adam/include/tcp/proc.hpp)。
+
+---
+
+## 传输安全层
+
+客户端 ↔ 网关这一跳三层独立防护:
+
+**① XDP envelope MAC —— 内核态 DoS 过滤**
+UDP payload 前 8B 是 SipHash-2-4 tag,覆盖 KCP header。XDP 在网卡驱动层校验,不过直接 `XDP_DROP` —— 伪造 / 垃圾包**不进 socket、不进 KCP、不耗 Worker CPU**。key 走 BPF map(双槽,支持热轮换)。`ikcp.c/.h` 一字不改,envelope 套在 KCP frame 外;sk_reuseport 读 conv 偏移 +8。
+
+**② X25519 ECDH 鉴权握手 —— 每会话密钥协商**
+Eva 用网关公钥 **sealedbox 封** + **ed25519 签** 签发 `AccessToken`(116B:`expire/conv/user_id/ip/cli_pk/sign`),客户端只搬运。网关 `REGIST_REQ` 校验链:解封 → 验期 → 验 `conv` → **验 `conv % N == user_id % N` 不变量** → ed25519 验签,再用**临时 X25519** 与 token 内 `cli_pk` 做 `crypto_kx` 派生**双向会话密钥**;`REGIST_RSP` 回带网关临时公钥。两端 X25519 皆临时 → **双边前向保密**。
+
+**③ ChaCha20-Poly1305 AEAD —— payload 加密(机密性 + 完整性一体)**
+14B `data` 头**明文**(网关读 `dst_id` 路由 / `seq` 做 nonce),只加密 payload,尾附 **16B Poly1305 tag**。per-packet nonce(12B)= `conv(4) | seq(4) | dir(1) | 0(3)`:`seq` 单调递增保证 (key,nonce) 唯一,`dir` 分上/下行防跨方向复用。基于 libsodium(不依赖 AES-NI,无 AES 旁路 / 降频风险)。
+
+> `conv` 不变量是关键:Eva 的 `MakeConv` 生成的 conv 满足 `conv % N == user_id % N`(N=网关 worker 数,Eva 从 etcd 的 ServerInfo 读取),从而这条会话经 sk_reuseport 恒落到负责该 user 的那个 Worker。
+
+见 [`Adam/src/bpf/envelope.bpf.c`](Adam/src/bpf/envelope.bpf.c)、[`Adam/src/kcp/session.cpp`](Adam/src/kcp/session.cpp)、[`Eva/com/token.go`](Eva/com/token.go)、[`Eva/com/kcp.ex.go`](Eva/com/kcp.ex.go)。
+
+---
+
+## 性能设计
+
+- **零分配收包** —— `recv(Package*)` 解进**调用方提供**的 buffer,内部绝不分配;每线程一块 `alignas(Package) static thread_local` 复用 Package(同线程 decode→消费→下条覆盖),热路径无 per-message malloc/free。仅**跨线程转交**(s2c 跨 Worker)才 COPY 一份(mimalloc)。
+- **无锁 MPSC 事件队列**(Vyukov 有界环)+ eventfd / park-unpark 双检唤醒 —— 跨 Worker s2c 转发、服务发现事件走它。
+- **share-nothing** —— 网关 by conv、后端 by fd,worker 间物理隔离;时间戳每 worker 自持 monotonic `uint64` ms(免 cross-core cache contention)。
+- **`recvmmsg` 批量收包** + **mimalloc** 全局分配器 + `ikcp_allocator` 挂 mimalloc。
+
+见 [收包契约](Adam/src/kcp/session.cpp)、[MPSC](Adam/include/utils/mpsc.hpp)。
+
+## 服务发现 · 登录
+
+- 网关向 etcd 注册 `/{name}/{id:08X}`(如 `/moses/000003E8`),value 为 `ServerInfo` JSON(含 `nthreads`),TTL 续租;掉线经 pipe 回流通知主线程周期重连(`AddServ` / `RmvServ`)。
+- Eva 读 `/moses` 前缀拿网关列表返回客户端;`MakeConv` 用 **Redis `INCR`** 取全局序号,`(seq % kmax) * N + user % N` 生成非冲突、满足不变量的 conv。
+
+## 可观测
+
+内嵌 **gperftools CPU profiler**:config `flame: true` 开启,输出 `.prof` → `pprof` 转火焰图(容器内无需 `perf` 权限)。注:on-CPU 采样,看吞吐 / QPS 热点;off-CPU(阻塞 / 延迟)需另配 `perf sched` / eBPF `offcputime`。
 
 ---
 
 ## 构建与运行
 
-依赖:
-- Linux,kernel ≥ 5.x(XDP envelope 过滤;io_uring 可选需 ≥ 5.10)
-- C++20 编译器(g++ ≥ 11 / clang ≥ 13)
-- [libsodium](https://github.com/jedisct1/libsodium)(X25519 / Ed25519 / sealedbox / crypto_kx / ChaCha20-Poly1305 密码学原语;不再需要 AES-NI)
-- [mimalloc](https://github.com/microsoft/mimalloc) (高性能内存分配器)
-- [spdlog](https://github.com/gabime/spdlog) (日志)
-- libbpf(eBPF SO_REUSEPORT 路由 + XDP envelope MAC 过滤;clang 编译 BPF 对象)
-- (仅压测客户端)OpenSSL `libcrypto`,[test_kcp.py](examples/kcp_echo/test_kcp.py) 用它做 ChaCha20-Poly1305 / SipHash
+**依赖**:Linux kernel ≥ 5.x(XDP)· C++20(g++ ≥ 11 / clang ≥ 13)· libsodium · mimalloc · spdlog · libbpf + clang(编 BPF)· yaml-cpp · abseil · simdjson · gperftools(profiling)· Go ≥ 1.21(Eva)· etcd / redis(运行期)
 
 ```bash
-make                            # 编译 lib + bpf 对象
-make -C examples/kcp_echo       # 编译 echo server + 拷 bpf 对象到 build/
+# 1) 核心框架:静态库 + BPF 对象
+cd Adam && make                 # → build/libadam.a  build/bpf/{kcp,envelope}.bpf.o
 
-cd examples/kcp_echo
-# 参数: <ifname> <kcp.bpf.o> <envelope.bpf.o>  (需 root / CAP_BPF 加载 XDP)
-sudo ./build/server lo build/kcp.bpf.o build/envelope.bpf.o   # 监听 0.0.0.0:5555
+# 2) 基础设施(etcd / redis / mysql)
+cd Ark && docker compose up -d
 
-# 跑压测 (另一终端)
-python3 test_kcp.py
+# 3) 登录服 Eva
+cd Eva && go build ./...        # 或 docker compose up -d
+
+# 4) KCP 网关 Moses(需 root / CAP_BPF 加载 XDP)
+cd Zion/Moses && make           # → moses/ 部署包(二进制 + config + bpf + compose + flame_build.sh)
+cd moses && sudo ./moses
+
+# 5) 后端 echo 示例 chat
+cd Zion/chat && make && cd chat && ./chat
+```
+
+关键配置(`config.yml`):`server.id/name/host` · `etcd.url` · `ifname` + `*_bpf_path`(XDP)· `flame`(profiling)· `log_path` · KCP 调优(`sndbuf/rcvbuf/sndwnd/rcvwnd/nodelay`)· 密钥(`siphash / x25519 / ed25519`)。详见 [CONFIG.md](CONFIG.md)。
+
+---
+
+## 目录结构
+
+```
+.
+├── Adam/          C++ 框架 (libadam.a): core / kcp / tcp / bpf / utils
+├── Eva/           Go 登录 / RA 服务 (token 签发 / MakeConv / etcd 网关注册表)
+├── Lilith/        C# 客户端 (Lilith KCP 核心库 + CC 聊天 GUI)
+├── Ark/           基础设施 (etcd / redis / mysql 主从 / docker-compose)
+├── Zion/          可部署服务总目录
+│   ├── Moses/     KCP 网关 (Adam kcp 库)
+│   ├── chat/      后端 TCP echo 示例 (Adam tcp 库)
+│   └── tools/     ed25519 / x25519 密钥工具
+├── docs/          设计文档 (kcp_server / tcp_server / package / login …)
+├── CONFIG.md      配置项说明
+├── PLAN.md        路线规划
+└── README.md
 ```
 
 ---
 
 ## 设计哲学
 
-> **底层稳了,业务才能跑得动**。
+> **底层稳了,业务才跑得动。**
 
 - **share-nothing > 加锁**:网关 by conv、后端 by fd,worker 之间物理隔离
-- **明确的数据所有权**:Session 由 server 持有,worker 通过 shared_ptr 拿副本,业务跨调用安全
-- **fail-fast > silent error**:后端 `ASSERT abort` 暴露 bug,而不是 swallow + 继续运行;客户端入口走 graceful drop
-- **KCP 协议不动**:envelope MAC 套在 KCP frame 外、payload 加密在 ikcp_send 之前完成,**ikcp.c/.h 一字不改,上游升级照单全收**
-- **时间戳一律 monotonic uint64 ms**:全程一种类型,免 wrap、免 cast
-- **接口契约写在 doxygen 里**:并发性、线程归属、生命周期、调用顺序约束都明确文档化
+- **零分配热路径**:收包解进复用 buffer,只有跨线程才 COPY
+- **明确的所有权契约**:`recv` 只填不分配、buffer 谁调用谁供;并发性 / 线程归属 / 生命周期写进 doxygen
+- **fail-fast > silent error**:后端 `ASSERT` 暴露 bug;客户端入口 **reject 不 abort**(不信任对端输入)
+- **KCP 协议不动**:envelope MAC 套在 frame 外、加密在 `ikcp_send` 前完成,`ikcp.c/.h` 一字不改,上游升级照单全收
+- **全小端 + monotonic `uint64` ms**:两端零字节序转换、免 wrap / 免 cast
 
 ---
 
 ## 许可
 
-[MIT](LICENSE) © 2026 xiaoq87722-art
+[MIT](LICENSE) © 2026
