@@ -17,9 +17,9 @@ adam::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
 
 
 int
-adam::tcp::Session::recv(core::Package** pk) noexcept {
+adam::tcp::Session::recv(core::Package* pk) noexcept {
     // Buffer 只存字节; 分帧(读 len)+ 解码都在 frame_decode 里
-    int n = core::frame_decode(rbuf_.peek(), rbuf_.readable(), pk);
+    int n = core::frame_decode(pk, rbuf_.peek(), rbuf_.readable());
     if (n == 0) {
         return xAGAIN;   // 半包, 等更多数据
     }

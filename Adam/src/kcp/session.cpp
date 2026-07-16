@@ -45,7 +45,10 @@ adam::kcp::Session::Session(
 
 
 int
-adam::kcp::Session::recv(adam::core::Package** pk) noexcept {
+adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
+    // rbuf: 原始线上字节的暂存(thread_local, 非 per-message 分配)。解码目标 pk 由调用方提供,
+    // data_decode 只往 pk 里填、绝不分配 —— 所以 wire 输入和 Package 输出必须是两块, 不能原地
+    // (wire 是 data-only 14B 头, 内存态 Package 是 28B 头, 更宽且首部重叠, 原地会自我覆盖)。
     thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
 
     int res = ::ikcp_recv(kcp_, (char*)rbuf, sizeof(rbuf));
@@ -83,42 +86,41 @@ adam::kcp::Session::recv(adam::core::Package** pk) noexcept {
     }
 
     // 客户端侧 data-only, meta 是本地合成: conv=会话 conv, src_addr=客户端地址
-    core::Package* p = core::data_decode(rbuf, datalen);
-    if (p == nullptr) {
+    if (core::data_decode(pk, rbuf, datalen) < 0) {
         return xERR_PK_LEN;
     }
-    p->meta.conv     = conv();
-    p->meta.src_addr = remote_addr_u32();
+
+    pk->meta.conv     = conv();
+    pk->meta.src_addr = remote_addr_u32();
 
     int err = xOK;
 
-    if (p->data.id == 0) {
+    if (pk->data.id == 0) {
         err = xERR_PK_ID;
-    } else if (p->data.src_id == 0) {
+    } else if (pk->data.src_id == 0) {
         err = xERR_PK_SRC; 
-    } else if (p->data.dst_id == 0) {
+    } else if (pk->data.dst_id == 0) {
         err = xERR_PK_DST;
-    } else if (p->data.seq == 0) {
+    } else if (pk->data.seq == 0) {
         err = xERR_PK_SEQ;
-    } else if (rcv_req_ >= p->data.seq) {
+    } else if (rcv_req_ >= pk->data.seq) {
         err = xDUP;
     }
 
     if (err != xOK) {
-        ::mi_free(p);
         return err;
     }
 
-    rcv_req_ = p->data.seq;
-    *pk = p;
+    rcv_req_ = pk->data.seq;
     return xOK;
 }
 
 
 int
 adam::kcp::Session::send(core::Package *pk) noexcept  {
-    // 发送时最大的 payload 长度
-    constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_HDR_LEN - utils::XX20_TAG_LEN;
+    // 发送时最大明文 payload: 客户端线上是 data-only 帧, 整帧 = PKG_DATA_LEN 头 + payload + tag,
+    // 上限 PKG_MAX_LEN。故减的是 PKG_DATA_LEN(14, meta 不上线)再减 tag, 不是 PKG_HDR_LEN。
+    constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN - utils::XX20_TAG_LEN;
 
     // 发送缓冲区
     thread_local static uint8_t sndbuf[core::PKG_MAX_LEN];

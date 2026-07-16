@@ -191,6 +191,9 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
     //   MAX_ROUND = ceil((总QPS / worker数) * INTERVAL_MS(10ms) * 余量系数(5~10) / MAX_RECV(128))
     constexpr int MAX_ROUND = 16;
 
+    alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_DATA_LEN)];
+    core::Package* pk = (core::Package*)buf;
+
     int res = 0;
     if (ev.events & EPOLLERR) {
         socklen_t len = sizeof(res);
@@ -258,10 +261,9 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 if (is_new && add_session(conv, s) != 0) {
                     continue;
                 }
-
-                core::Package* pk;
+                
                 while (true) {
-                    res = s->recv(&pk);
+                    res = s->recv(pk);
                     if (res == xAGAIN) {
                         // 没有更多消息了
                         break;
@@ -289,8 +291,6 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     } else {
                         res = on_c2s(s, pk);
                     }
-
-                    ::mi_free(pk);
 
                     if (res < 0) {
                         remove_session(s->conv());
@@ -372,9 +372,11 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
             return;
         }
 
-        core::Package* pk;
+        alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
+        core::Package* pk = (core::Package*)buf;
+
         int rc;
-        while ((rc = conn->recv(&pk, tnow_)) == xOK) {
+        while ((rc = conn->recv(pk, tnow_)) == xOK) {
             switch (pk->data.id) {
             case PKID_PONG:
                 on_pong(conn, pk);
@@ -385,10 +387,9 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 break;
 
             default:
-                on_s2c(conn, pk);   // 本地发 / 跨 worker 转(内部已拷贝), 之后即可释放
+                on_s2c(conn, pk);   // 本地发 / 跨 worker 转(内部拷 KcpSendArg.raw)
                 break;
             }
-            ::mi_free(pk);
         } // while;
 
         if (rc != xAGAIN) {
@@ -533,7 +534,7 @@ void
 adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
     auto* wkrs = server_->workers();
 
-    if (pk->meta.conv % wkrs->size() == idx_) {
+    if (pk->meta.conv % wkrs->size() == (size_t)idx_) {
         auto s = get_session(pk->meta.conv);
 
         if (s != nullptr) {

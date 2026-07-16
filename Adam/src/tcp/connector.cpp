@@ -58,9 +58,9 @@ adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
 
 
 int
-adam::tcp::Connector::recv(core::Package** pk, uint64_t now) noexcept {
+adam::tcp::Connector::recv(core::Package* pk, uint64_t now) noexcept {
     // Buffer 只存字节; 分帧(读 len)+ 解码都在 frame_decode 里, Buffer 不知道帧格式
-    int n = core::frame_decode(rbuf_.peek(), rbuf_.readable(), pk);
+    int n = core::frame_decode(pk, rbuf_.peek(), rbuf_.readable());
     if (n == 0) {
         return xAGAIN;   // 半包, 等更多数据
     }

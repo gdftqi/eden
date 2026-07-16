@@ -128,7 +128,7 @@ public:
 
 
     int
-    recv(core::Package** pk, uint64_t now) noexcept;
+    recv(core::Package* pk, uint64_t now) noexcept;
 
 
     int

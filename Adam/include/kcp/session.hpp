@@ -218,7 +218,7 @@ public:
      *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int
-    recv(core::Package** pk) noexcept;
+    recv(core::Package* pk) noexcept;
 
 
     /**

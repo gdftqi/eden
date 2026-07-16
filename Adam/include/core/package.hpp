@@ -83,8 +83,8 @@ data_encode(uint8_t* buf, const Package* pk) noexcept;
 /**
  * @brief kcp 包只需要解包= Package::data 部分
  */
-Package*
-data_decode(const uint8_t* buf, size_t buflen) noexcept;
+int
+data_decode(Package* pk, const uint8_t* buf, size_t buflen) noexcept;
 
 
 /**
@@ -98,7 +98,7 @@ frame_encode(uint8_t* buf, const Package* pk) noexcept;
  * @brief tcp 包只需要解 Package 全部
  */
 int
-frame_decode(const uint8_t* buf, size_t avail, Package** pk) noexcept;
+frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept;
 
 
 /**

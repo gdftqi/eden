@@ -128,8 +128,10 @@ adam::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
         return;
     }
 
-    core::Package* pk;
-    while (sess->recv(&pk) == xOK) {
+    alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
+    core::Package* pk = (core::Package*)buf;
+
+    while (sess->recv(pk) == xOK) {
         switch (pk->data.id) {
         case PKID_PING:
             on_ping(sess, pk);
@@ -143,7 +145,6 @@ adam::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
             on_handle(sess, pk);
             break;
         }
-        ::mi_free(pk);   // recv 分配的堆 Package, 处理完(send 已拷走)释放
     }
 
     ::mi_free(rbuf);

@@ -36,14 +36,13 @@ adam::core::data_encode(uint8_t* buf, const Package* pk) noexcept {
 }
 
 
-adam::core::Package*
-adam::core::data_decode(const uint8_t* buf, size_t buflen) noexcept {
+int
+adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t buflen) noexcept {
     if (buflen < (size_t)PKG_DATA_LEN) {
-        return nullptr;
+        return -1;
     }
 
     const size_t plen = buflen - PKG_DATA_LEN;
-    Package* pk = (Package*)::mi_malloc(sizeof(Package) + plen);
     ASSERT(pk != nullptr, "::mi_malloc 分配失败");
 
     pk->meta.len      = PKG_HDR_LEN + (uint32_t)plen;
@@ -71,7 +70,7 @@ adam::core::data_decode(const uint8_t* buf, size_t buflen) noexcept {
     p += sizeof(v32);
 
     ::memcpy(pk->data.payload, p, plen);
-    return pk;
+    return 0;
 }
 
 
@@ -101,9 +100,10 @@ adam::core::frame_encode(uint8_t* buf, const Package* pk) noexcept {
 
 
 int
-adam::core::frame_decode(const uint8_t* buf, size_t avail, Package** pk) noexcept {
+adam::core::frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept {
     if (avail < (size_t)PKG_META_LEN) {
-        return 0;   // 连 len 都读不出 → 半包
+        // 连 len 都读不出 → 半包
+        return 0;
     }
 
     // 帧首 2 字节小端 = 整帧长
@@ -129,15 +129,13 @@ adam::core::frame_decode(const uint8_t* buf, size_t avail, Package** pk) noexcep
     ::memcpy(&src_addr, p, sizeof(src_addr));
     p += sizeof(src_addr);
 
-    Package* pkg = data_decode(p, (size_t)flen - PKG_META_LEN);
-    if (pkg == nullptr) {
+    if (data_decode(pk, p, (size_t)flen - PKG_META_LEN) < 0) {
         return -1;
     }
 
-    pkg->meta.conv     = u32_to_le(conv);
-    pkg->meta.src_addr = u32_to_le(src_addr);
+    pk->meta.conv     = u32_to_le(conv);
+    pk->meta.src_addr = u32_to_le(src_addr);
 
-    *pk = pkg;
     return flen;   // 消费的字节数
 }
 

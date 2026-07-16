@@ -110,7 +110,7 @@ public:
      * @return  xAGAIN 无数据 / 半包, *pke 不变
      */
     int
-    recv(core::Package** pk) noexcept;
+    recv(core::Package* pk) noexcept;
 
 
     /**
