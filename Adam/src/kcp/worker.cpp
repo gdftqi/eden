@@ -10,7 +10,7 @@ static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 adam::kcp::Worker::Worker(Server* s, int idx) noexcept
     : server_(s)
-    , idx_(idx) {
+    , index_(idx) {
     ASSERT(server_ != nullptr && idx >= 0, "invalid server or idx");
     event_ = server_->event();
 
@@ -88,8 +88,8 @@ adam::kcp::Worker::run() noexcept {
     sque_.clear();
 
     evque_.clear([](core::QEvent* qe) {
-        if (qe->qe_type == core::QEvent::Type::AddServ) {
-            ::mi_free(qe->qe_data.ptr);
+        if (qe->type == core::QEvent::Type::AddServ) {
+            ::mi_free(qe->arg.ptr);
         }
         delete qe; 
     });
@@ -101,9 +101,9 @@ adam::kcp::Worker::run() noexcept {
 
 int
 adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
-    auto s   = (Session*)kcpcb->user;
-    auto svr = s->server();
-    auto sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    auto* s   = (Session*)kcpcb->user;
+    auto* svr = s->server();
+    auto* sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
     svr->sque_.emplace_back(sb);
     return 0;
 }
@@ -150,6 +150,28 @@ adam::kcp::Worker::release() noexcept {
 }
 
 
+int
+adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
+    auto [_, res] = sesss_.emplace(conv, s);
+    if (res && event_->on_sess_connected(s)) {
+        sesss_.erase(conv);
+        return -1;
+    }
+    return 0;
+}
+
+
+void
+adam::kcp::Worker::remove_session(uint32_t conv) noexcept {
+    auto itr = sesss_.find(conv);
+    if (itr != sesss_.end()) {
+        auto sess = itr->second;
+        sesss_.erase(itr);
+        event_->on_sess_disconnected(sess);
+    }
+}
+
+
 void
 adam::kcp::Worker::remove_serv(tcp::Connector::Ptr c) noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -176,7 +198,7 @@ adam::kcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
     } // if (ev.events & EPOLLIN);
 
     drain_qevent();
-    evq_wkring_.store(false);
+    evq_workring_.store(false);
     drain_qevent();
 }
 
@@ -224,7 +246,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     // 判断 UDP 包被截断了
                     // 内核收到的包长度超过了 UDP_MTU, 后面的数据被丢弃
                     // 如果出现这种情况, 一定是攻击行为
-                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
+                    // TODO: 记录攻击行为
                     xWARN("UDP truncated from {} dropped", core::sockaddr_to_string((sockaddr*)rmsgs_[i].msg_hdr.msg_name));
                     continue;
                 }
@@ -232,7 +254,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 auto& msg = rmsgs_[i];
                 if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
                     // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法
-                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
+                    // TODO: 记录攻击行为
                     continue;
                 }
 
@@ -242,7 +264,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 auto conv = Session::getconv(raw, msglen);
                 if (conv == 0) {
-                    // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
+                    // TODO: 记录攻击行为
                     continue;
                 }
 
@@ -281,12 +303,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                         if (pk->data.id == PKID_REGIST_REQ) {
                             res = on_regist_req(s, pk);
                         } else {
-                            auto handler = server_->get_handler(pk->data.id);
-                            if (handler == nullptr) {
-                                res = -1;
-                            } else {
-                                res = handler(s, pk);
-                            }
+                            res = on_pack_handle(s, pk);
                         }
                     } else {
                         res = on_c2s(s, pk);
@@ -403,7 +420,7 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
 
 void
 adam::kcp::Worker::on_new_serv(core::QEvent* qe) noexcept {
-    auto* arg = (core::AddServArg*)qe->qe_data.ptr;
+    auto* arg = (core::AddServArg*)qe->arg.ptr;
 
     if (servs_.find(arg->id) == servs_.end()) {
         auto conn = tcp::Connector::create(arg->id, arg->host);
@@ -419,7 +436,7 @@ adam::kcp::Worker::on_new_serv(core::QEvent* qe) noexcept {
 void
 adam::kcp::Worker::on_user_send(core::QEvent* qe) noexcept {
     // 别的 worker 转来的 s2c: arg->raw 是整个 Package 的拷贝, 按 conv 找本 worker 的会话发出
-    auto* arg = (core::KcpSendArg*)qe->qe_data.ptr;
+    auto* arg = (core::KcpSendArg*)qe->arg.ptr;
     auto* pk  = (core::Package*)arg->raw;
 
     auto s = get_session(pk->meta.conv);
@@ -506,6 +523,38 @@ adam::kcp::Worker::update() noexcept {
 
 
 void
+adam::kcp::Worker::drain_qevent() noexcept {
+    constexpr int EVQUE_BATCH = 16;
+    int i, n;
+    core::QEvent* qes[EVQUE_BATCH];
+    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
+        for (i = 0; i < n; ++i) {
+            switch (qes[i]->type) {
+            case core::QEvent::Type::Stop:
+                // 停止事件只为唤醒 epoll(state_ 已在 Worker::stop 里置 Stopping), 消费掉即可;
+                // 本轮 on_event_handle 返回后 while(running()) 会自然退出。
+                break;
+
+            case core::QEvent::Type::AddServ:
+                on_new_serv(qes[i]);
+                break;
+
+            case core::QEvent::Type::KcpSend:
+                on_user_send(qes[i]);
+                break;
+
+            default:
+                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->type);
+                break;
+            }
+
+            delete qes[i];
+        }
+    }
+}
+
+
+void
 adam::kcp::Worker::on_pong(tcp::Connector::Ptr, core::Package *pk) noexcept {
     if (pk->payload_length() != sizeof(uint64_t)) {
         xERROR("错误的PONG 长度");
@@ -534,7 +583,7 @@ void
 adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
     auto* wkrs = server_->workers();
 
-    if (pk->meta.conv % wkrs->size() == (size_t)idx_) {
+    if (pk->meta.conv % wkrs->size() == (size_t)index_) {
         auto s = get_session(pk->meta.conv);
 
         if (s != nullptr) {
@@ -658,33 +707,8 @@ adam::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
 }
 
 
-void
-adam::kcp::Worker::drain_qevent() noexcept {
-    constexpr int EVQUE_BATCH = 16;
-    int i, n;
-    core::QEvent* qes[EVQUE_BATCH];
-    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
-        for (i = 0; i < n; ++i) {
-            switch (qes[i]->qe_type) {
-            case core::QEvent::Type::Stop:
-                // 停止事件只为唤醒 epoll(state_ 已在 Worker::stop 里置 Stopping), 消费掉即可;
-                // 本轮 on_event_handle 返回后 while(running()) 会自然退出。
-                break;
-
-            case core::QEvent::Type::AddServ:
-                on_new_serv(qes[i]);
-                break;
-
-            case core::QEvent::Type::KcpSend:
-                on_user_send(qes[i]);
-                break;
-
-            default:
-                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->qe_type);
-                break;
-            }
-
-            delete qes[i];
-        }
-    }
+int
+adam::kcp::Worker::on_pack_handle(Session::Ptr s, core::Package* pk) noexcept {
+    auto handler = server_->get_handler(pk->data.id);
+    return handler == nullptr ? -1 : handler(s, pk);
 }

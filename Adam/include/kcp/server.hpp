@@ -4,7 +4,6 @@
 
 #include "bpf/router.hpp"
 #include "bpf/envelope_filter.hpp"
-#include "kcp/event.hpp"
 #include "tcp/server.hpp"
 #include "kcp/worker.hpp"
 #include "utils/etcd.hpp"
@@ -13,39 +12,64 @@
 namespace adam::kcp {
 
 
-enum class EventType: uint32_t {
-    None,
-    OnServDisconnected,
-};
-
-
-#pragma pack(push, 4)
-
 /**
- * @brief Cerberus 内部事件
+ * Kcp server 事件
  */
-struct Event {
-    EventType type    { EventType::None };
-    uint32_t  u32_val { 0 };
-}; // Event;
+class IEvent {
+public:
+    /**
+     * @brief 服务初始化事件
+     */
+    virtual void
+    on_init(Server*) noexcept {
+    }
 
-static_assert(sizeof(Event) == 8, "Event 对齐错误");
 
-#pragma pack(pop)
+    /**
+     * @brief 服务停止事件
+     */
+    virtual void
+    on_stopped(Server*) noexcept {
+    }
+
+
+    /**
+     * @brief 会话连接事件
+     * @return 成功返回 0, 否则返回 -1
+     */
+    virtual int
+    on_sess_connected(Session::Ptr) noexcept {
+        return 0;
+    }
+
+
+    /**
+     * @brief 会话断开事件
+     */
+    virtual void
+    on_sess_disconnected(Session::Ptr) noexcept {
+    }
+
+
+    /**
+     * @brief 后端服务连接事件
+     */
+    virtual void
+    on_serv_connected(tcp::Connector::Ptr) noexcept {
+    }
+
+
+    /**
+     * @brief 后端服务断开事件
+     */
+    virtual void
+    on_serv_disconnected(tcp::Connector::Ptr) noexcept {
+    }
+}; // class IEvent;
 
 
 /**
- * @brief moses 网关服务
- *
- * 启动流程 (顺序敏感):
- *   1. EnvelopeFilter init + attach 网卡       — XDP MAC 校验先生效, 即使后续步骤
- *                                                 期间被攻击, 垃圾流量也进不了内核
- *   2. Router init (加载 sk_reuseport ELF)
- *   3. 创建 N 个 KcpServer (各自 udp_bind, SO_REUSEPORT)
- *   4. Router register_socket + attach        — 把 socket 注册进 sock_map + 挂载 BPF
- *   5. 启动 N 个 KcpServer worker 线程
- *
- * 析构顺序刚好相反, 析构链各自处理资源回收
+ * @brief kcp server
  */
 class Server {
     Server(const Server&) = delete;
@@ -54,10 +78,52 @@ class Server {
     Server& operator=(Server&&) = delete;
 
 
+    enum EventType {
+        Stop,
+    }; // enum SigType;
+
+
+    struct Event {
+        EventType type;
+        uint32_t  u32;
+        uint8_t*  ptr;
+
+
+        explicit
+        Event(EventType type) noexcept
+            : type(type)
+            , u32(0)
+            , ptr(nullptr)
+        {}
+
+
+        Event(EventType type, uint32_t arg) noexcept
+            : type(type)
+            , u32(arg)
+            , ptr(nullptr)
+        {}
+
+
+        Event(EventType type, uint8_t* arg) noexcept
+            : type(type)
+            , u32(0)
+            , ptr(arg)
+        {}
+
+
+        ~Event() noexcept {
+            if (ptr != nullptr) {
+                ::mi_free(ptr);
+            }
+        }
+    }; // struct Signal;
+
+
 public:
     typedef absl::flat_hash_set<uint32_t> ServSet;
     typedef std::vector<std::thread>      ThreadPool;
     typedef std::vector<Worker::Ptr>      WorkerPool;
+    typedef utils::MPSC<Event*>           EvQue;
 
     typedef int (*PackageHandler)(Session::Ptr, core::Package*) noexcept;
     typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
@@ -66,36 +132,51 @@ public:
     /**
      * @brief 构造函数
      *
-     * @param ev KcpServer 事件接口 (业务回调)
+     * @param ev KcpServer 事件接口
      */
     explicit
     Server(IEvent* ev) noexcept;
 
 
+    /**
+     * @brief 事件
+     */
     IEvent*
     event() noexcept {
         return event_;
     }
 
 
+    /**
+     * @brief 绑定的地址端口
+     */
     const std::string&
     host() const noexcept {
         return host_;
     }
 
 
+    /**
+     * @brief kcp workers
+     */
     WorkerPool*
     workers() noexcept {
         return &workers_;
     }
 
 
+    /**
+     * @brief 是否运行中
+     */
     bool
     running() const noexcept {
         return state_.load(std::memory_order_relaxed) == adam::core::State::Running;
     }
 
 
+    /**
+     * @brief 注册消息句柄
+     */
     void
     regist_handler(uint16_t pid, PackageHandler handler) noexcept {
         if (handlers_.count(pid) > 0) {
@@ -105,6 +186,9 @@ public:
     }
 
 
+    /**
+     * @brief 获取消息句柄
+     */
     PackageHandler
     get_handler(uint16_t pid) noexcept {
         auto itr = handlers_.find(pid);
@@ -124,21 +208,9 @@ public:
      */
     void
     stop() noexcept {
-        auto running = adam::core::State::Running;
-        if (state_.compare_exchange_strong(running, adam::core::State::Stopping)) {
-            notify_serv_disconnected(0);
-        }
-    }
-
-
-    void
-    notify_serv_disconnected(uint32_t serv_id) noexcept {
-        Event ev;
-        ev.type = EventType::OnServDisconnected;
-        ev.u32_val = serv_id;
-
-        if (::write(evwfd_, &ev, sizeof(Event)) != sizeof(Event)) {
-            xERROR("notify_serv_disconnected failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+        auto expected = adam::core::State::Running;
+        if (state_.compare_exchange_strong(expected, adam::core::State::Stopping)) {
+            notify(EventType::Stop);
         }
     }
 
@@ -159,30 +231,81 @@ private:
     update_serv() noexcept;
 
 
+    /**
+     * @brief 事件句柄
+     */
     void
     on_event_handle(const ::epoll_event& ev) noexcept;
 
 
     void
-    on_serv_disconnected(const Event* ev) noexcept;
+    notify(EventType type, uint32_t arg) noexcept {
+        ASSERT(evque_.enqueue(new Event(type, arg)), "队列已满, 需要扩容");
+        bool expected = false;
+        if (evq_working_.compare_exchange_strong(expected, true)) {
+            constexpr uint64_t v = 1;
+            if (::write(evfd_, &v, sizeof(v)) != sizeof(v)) {
+                xERROR("write failed: {}, {}", errno, ::strerror(errno));
+            }
+        }
+    }
 
 
-    core::SOCKET             epfd_              { core::INVALID_SOCKET }; // epoll fd
-    core::SOCKET             evrfd_             { core::INVALID_SOCKET }; // event read fd
-    core::SOCKET             evwfd_             { core::INVALID_SOCKET }; // event read fd
+    void
+    notify(EventType type, uint8_t* arg) noexcept {
+        ASSERT(evque_.enqueue(new Event(type, arg)), "队列已满, 需要扩容");
+        bool expected = false;
+        if (evq_working_.compare_exchange_strong(expected, true)) {
+            constexpr uint64_t v = 1;
+            if (::write(evfd_, &v, sizeof(v)) != sizeof(v)) {
+                xERROR("write failed: {}, {}", errno, ::strerror(errno));
+            }
+        }
+    }
+
+
+    void
+    notify(EventType type) noexcept {
+        ASSERT(evque_.enqueue(new Event(type)), "队列已满, 需要扩容");
+        bool expected = false;
+        if (evq_working_.compare_exchange_strong(expected, true)) {
+            constexpr uint64_t v = 1;
+            if (::write(evfd_, &v, sizeof(v)) != sizeof(v)) {
+                xERROR("write failed: {}, {}", errno, ::strerror(errno));
+            }
+        }
+    }
+
+
+    void
+    drain_qevent() noexcept;
+
+
+    // --------------------------------------------------------------------
+    // 基础属性
+    // --------------------------------------------------------------------
+
+    core::SOCKET             epfd_              { core::INVALID_SOCKET };         // epoll fd
     uint64_t                 tnow_              { 0 };                            // 当前时间
-    std::atomic<core::State> state_             { adam::core::State::Stopped }; // 状态
+    std::atomic<core::State> state_             { adam::core::State::Stopped };   // 状态
     IEvent*                  event_             { nullptr };                      // 服务事件
-    std::string              host_;
+    std::string              host_;                                               // 直实绑定的地址端口
     std::string              ifname_;                                             // 网卡名 (XDP attach)
     std::string              kcp_bpf_path_;                                       // kcp.bpf.o 路径
     std::string              envelope_bpf_path_;                                  // envelope.bpf.o 路径
     bpf::EnvelopeFilter      envelope_;                                           // XDP MAC 过滤
     bpf::Router              router_;                                             // SO_REUSEPORT 路由
     ThreadPool               threads_;                                            // 线程池
-    WorkerPool               workers_;
-    ServSet                  servs_;                                              // 服务集合
+    WorkerPool               workers_;                                            // kcp workers
     PackageHandlers          handlers_;                                           // 服务句柄
+
+    // --------------------------------------------------------------------
+    // 事件属性
+    // --------------------------------------------------------------------
+    
+    core::SOCKET     evfd_        { core::INVALID_SOCKET }; // event fd
+    std::atomic_bool evq_working_ { false };                // 事件队列状态
+    EvQue            evque_;                                // 事件队列
 }; // class Server;
 
 

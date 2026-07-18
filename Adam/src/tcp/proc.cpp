@@ -76,8 +76,8 @@ adam::tcp::Proc::release() noexcept {
     }
 
     evque_.clear([](core::QEvent* qe) {
-        if (qe->qe_type == core::QEvent::Type::TcpRecv) {
-            auto* rbuf = (core::TcpRecvArg*)qe->qe_data.ptr;
+        if (qe->type == core::QEvent::Type::TcpRecv) {
+            auto* rbuf = (core::TcpRecvArg*)qe->arg.ptr;
             ::mi_free(rbuf);
         }
         delete qe;
@@ -116,7 +116,7 @@ adam::tcp::Proc::on_event_handle(const ::epoll_event& ev) noexcept {
 
 void
 adam::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
-    auto* rbuf = (core::TcpRecvArg*)qe->qe_data.ptr;
+    auto* rbuf = (core::TcpRecvArg*)qe->arg.ptr;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
         ::mi_free(rbuf);
@@ -153,7 +153,7 @@ adam::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
 
 void
 adam::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
+    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
         int n = sess->send();
@@ -166,14 +166,14 @@ adam::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
 
 void
 adam::tcp::Proc::on_add_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
+    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
     server_->add_session(fd, this);
 }
 
 
 void
 adam::tcp::Proc::on_rmv_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->qe_data.ptr;
+    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
     server_->remove_session(fd, false);
 }
 
@@ -249,7 +249,7 @@ adam::tcp::Proc::drain_evque() noexcept {
     core::QEvent* qes[16];
     while ((n = evque_.try_dequeue_bulk(qes, 16)) > 0) {
         for (i = 0; i < n; ++i) {
-            switch (qes[i]->qe_type) {
+            switch (qes[i]->type) {
             case core::QEvent::Type::Stop:
                 // nothing to do
                 break;

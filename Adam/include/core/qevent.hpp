@@ -28,25 +28,25 @@ struct QEvent {
 
     explicit
     QEvent(Type t, void* ptr = nullptr) 
-        : qe_type(t) {
-        qe_data.ptr = ptr;
+        : type(t) {
+        arg.ptr = ptr;
     }
 
 
     explicit
     QEvent(Type t, SOCKET fd)
-        : qe_type(t) {
-        qe_data.fd = fd;
+        : type(t) {
+        arg.fd = fd;
     }
 
 
-    Type qe_type; ///< 事件类型
+    Type type; ///< 事件类型
 
 
     union {
         SOCKET fd;
         void*  ptr;
-    } qe_data;
+    } arg;
 
 
 private:

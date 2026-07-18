@@ -5,7 +5,6 @@
 #include "core/buffer.hpp"
 #include "core/package.hpp"
 #include "core/qevent.hpp"
-#include "kcp/event.hpp"
 #include "kcp/session.hpp"
 #include "tcp/connector.hpp"
 #include "utils/obj_pool.hpp"
@@ -15,15 +14,12 @@
 namespace adam::kcp {
 
 
-constexpr int MAX_RECV = 128;
-constexpr int MAX_SEND = MAX_RECV;
-
-
+class IEvent;
 class Server;
 
 
 /**
- * @brief KCP 服务器
+ * @brief Kcp Worker
  * @note 线程不安全, 必须在单线程中使用
  */
 class Worker {
@@ -49,45 +45,72 @@ public:
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
 
 
+    /**
+     * @brief ikcp 发送回调
+     */
     static int
     output(const char *buf, int len, struct IKCPCB* kcpcb) noexcept;
 
 
+    /**
+     * @brief 构造函数
+     */
     explicit
     Worker(Server* s, int idx) noexcept;
 
 
+    /**
+     * @brief 析构函数
+     */
     ~Worker() noexcept;
 
 
+    /**
+     * @brief 属性 kcp server 的下标, 用于确认 session 的发送线程
+     */
     int
     index() const noexcept {
-        return idx_;
+        return index_;
     }
 
 
+    /**
+     * @brief UDP 套接字
+     */
     int
     fd() const noexcept {
         return ufd_;
     }
 
 
+    /**
+     * @brief 当前时间 (系统运行时间, 而非 unix 时间戳, 单位ms)
+     */
     uint64_t
     tnow() const noexcept {
         return tnow_;
     }
 
 
+    /**
+     * @brief 是否运行中
+     */
     bool
     running() const noexcept {
         return state_.load(std::memory_order_relaxed) == core::State::Running;
     }
 
 
+    /** 
+     * @brief 启动服务
+     */
     void
     run() noexcept;
 
 
+    /**
+     * @brief 停止服务
+     */
     void
     stop() noexcept {
         if (running()) {
@@ -99,11 +122,14 @@ public:
     }
 
 
+    /**
+     * @brief 事件通知, 该函数可在多线程中调用, 线程安全.
+     */
     void
     notify(core::QEvent* ev) noexcept {
         ASSERT(evque_.enqueue(std::move(ev)), "MPSC 队列已满, 请对队列扩容");
         bool expected = false;
-        if (evq_wkring_.compare_exchange_strong(expected, true)) {
+        if (evq_workring_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -133,25 +159,11 @@ private:
      * @return 成功返回 0, 否则返回 -1
      */
     int
-    add_session(uint32_t conv, Session::Ptr s) noexcept {
-        auto [_, res] = sesss_.emplace(conv, s);
-        if (res && event_->on_sess_connected(s)) {
-            sesss_.erase(conv);
-            return -1;
-        }
-        return 0;
-    }
+    add_session(uint32_t conv, Session::Ptr s) noexcept;
 
 
     void
-    remove_session(uint32_t conv) noexcept {
-        auto sess_itr = sesss_.find(conv);
-        if (sess_itr != sesss_.end()) {
-            auto sess = sess_itr->second;
-            sesss_.erase(sess_itr);
-            event_->on_sess_disconnected(sess);
-        }
-    }
+    remove_session(uint32_t conv) noexcept;
 
 
     tcp::Connector::Ptr
@@ -167,7 +179,7 @@ private:
         ev.data.ptr = c.get();
         ev.events = EPOLLOUT | EPOLLET;
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, c->fd(), &ev) == 0, "epoll_ctl add serv fd failed: id = {}, host = {}, errno = {}, errstr = {}", c->id(), c->host(), errno, ::strerror(errno));
-        servs_.insert(std::make_pair(c->id(), c));
+        servs_.emplace(c->id(), c);
     }
 
 
@@ -199,6 +211,10 @@ private:
     update() noexcept;
 
 
+    void
+    drain_qevent() noexcept;
+
+
     // --------------------------------- 服务侧 ---------------------------------
 
     void
@@ -223,38 +239,54 @@ private:
     on_c2s(Session::Ptr s, core::Package *pk) noexcept;
 
 
-    // --------------------------------- 内部事件 ---------------------------------
-    void
-    drain_qevent() noexcept;
+    int
+    on_pack_handle(Session::Ptr s, core::Package* pk) noexcept;
 
 
-    // --------------------------------- 基础属性 ---------------------------------
+    // ------------------------------------------------------------------
+    // 基础属性
+    // ------------------------------------------------------------------
+
     Server*                  server_ { nullptr };
-    IEvent*                  event_  { nullptr };                       ///< 业务回调 (缓存自 server_->event())
-    int                      idx_    { -1 };
-    core::SOCKET             ufd_    { core::INVALID_SOCKET };  ///< UDP fd
-    core::SOCKET             epfd_   { core::INVALID_SOCKET };  ///< epoll fd
-    core::SOCKET             evfd_   { core::INVALID_SOCKET };  ///< event fd
-    uint64_t                 tnow_   { 0 };                     ///< 当前时间(ms), 系统启动时间
-    std::atomic<core::State> state_  { core::State::Stopped };  ///< 状态
+    IEvent*                  event_  { nullptr };               // 业务回调 (缓存自 server_->event())
+    int                      index_  { -1 };                    // 在 kcp server 中的所属下标
+    core::SOCKET             ufd_    { core::INVALID_SOCKET };  // UDP fd
+    core::SOCKET             epfd_   { core::INVALID_SOCKET };  // epoll fd
+    core::SOCKET             evfd_   { core::INVALID_SOCKET };  // event fd
+    uint64_t                 tnow_   { 0 };                     // 当前时间(ms), 系统启动时间
+    std::atomic<core::State> state_  { core::State::Stopped };  // 状态
 
-    // --------------------------------- recvmmsg 接收属性 ---------------------------------
+    // ------------------------------------------------------------------
+    // recvmmsg 接收属性
+    // ------------------------------------------------------------------
 
-    ::mmsghdr          rmsgs_[MAX_RECV]   {};
-    ::iovec            riovecs_[MAX_RECV] {};
-    ::sockaddr_storage raddrs_[MAX_RECV]  {};
+    // recvmmsg 最大接收值
+    static constexpr int MAX_RECV = 128;
 
-    // --------------------------------- 发送属性 ---------------------------------
+    // sendmmsg 最大发送值
+    static constexpr int MAX_SEND = MAX_RECV;
 
-    core::SndBuf::Que sque_;    ///< 发送队列
-    SndBufPool        sb_pool_; ///< 发送缓冲区对象池          
+    ::mmsghdr          rmsgs_[MAX_RECV]   {}; // recvmmsg 参数
+    ::iovec            riovecs_[MAX_RECV] {}; // recvmmsg iov 数据
+    ::sockaddr_storage raddrs_[MAX_RECV]  {}; // 对端地址集
 
-    // --------------------------------- 工作事件属性 ---------------------------------
+    // ------------------------------------------------------------------
+    // 发送属性
+    // ------------------------------------------------------------------
 
-    std::atomic_bool evq_wkring_ { false };  ///< event queue 队列发送标识
-    EvQue            evque_;                   ///< MPSC 事件队列 
+    core::SndBuf::Que sque_;    // 发送队列
+    SndBufPool        sb_pool_; // 发送缓冲区对象池          
+
+    // ------------------------------------------------------------------
+    // 事件属性
+    // ------------------------------------------------------------------
+
+    std::atomic_bool evq_workring_ { false };  // event queue 队列发送标识
+    EvQue            evque_;                   // MPSC 事件队列 
     
-    // --------------------------------- 会话属性 ---------------------------------
+    // ------------------------------------------------------------------
+    // 会话属性
+    // ------------------------------------------------------------------
 
     SessMap sesss_; // 会话侧集合
     ServMap servs_; // 服务侧集合

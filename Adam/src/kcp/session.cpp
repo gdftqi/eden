@@ -3,11 +3,11 @@
 #include <format>
 
 
-static constexpr uint8_t DIR_C2S = 0;   // client → server (上行, recv 解密用)
-static constexpr uint8_t DIR_S2C = 1;   // server → client (下行, send 加密用)
+// client → server (上行, recv 解密用)
+static constexpr uint8_t DIR_C2S = 0;
 
-
-// data_decode / data_encode 已移到 core/package.cpp(共享 codec, Session 用 data 段那对)
+// server → client (下行, send 加密用)
+static constexpr uint8_t DIR_S2C = 1;
 
 
 static inline void

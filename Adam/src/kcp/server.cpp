@@ -34,12 +34,14 @@ adam::kcp::Server::Server(IEvent* ev) noexcept
 
 void
 adam::kcp::Server::run() noexcept {
-    auto stopped = adam::core::State::Stopped;
-    if (!state_.compare_exchange_strong(stopped, adam::core::State::Starting)) {
+    auto expected = adam::core::State::Stopped;
+    if (!state_.compare_exchange_strong(expected, adam::core::State::Starting)) {
         return;
     }
 
-    int n = Conf::instance()->server()->nthreads;
+    // -------------------------------------- 启动步骤 --------------------------------------
+
+    int n = (int)Conf::instance()->server()->nthreads;
 
     // 1. XDP envelope MAC 过滤先 attach.
     //    顺序敏感: 必须在 socket bind 之前生效, 否则启动期间被攻击会让垃圾流量
@@ -74,7 +76,7 @@ adam::kcp::Server::run() noexcept {
         }
     }
     
-    // 3. 创建 KcpServer
+    // 3. 创建 KcpWorker
     for (int i = 0; i < n; ++i) {
         auto s = std::make_unique<adam::kcp::Worker>(this, i);
         ASSERT(s->fd() != adam::core::INVALID_SOCKET, "创建 kcp worker 失败");
@@ -121,6 +123,20 @@ adam::kcp::Server::run() noexcept {
         update_serv();
     }
 
+    // -------------------------------------- 停止步骤 --------------------------------------
+    
+    // Step 1, 从 ETCD 中注销
+    auto* etcd   = Conf::instance()->etcd();
+    auto* server = Conf::instance()->server();
+    adam::utils::EtcdRsp rsp;
+    auto* url = etcd->url.c_str();
+
+    if (adam::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) == 0) {
+        auto token = rsp.token;
+        adam::utils::etcd_delete(&rsp, url, token.c_str(), server->key.c_str());;
+    }
+
+    // Step 2, 停止 KcpWorker
     for (auto& s : workers_) {
         s->stop();
     }
@@ -129,10 +145,10 @@ adam::kcp::Server::run() noexcept {
         t.join();
     }
 
+    // Step 3, 清理资源
     workers_.clear();
     threads_.clear();
 
-    update_serv();
     release();
     state_.store(adam::core::State::Stopped);
     event_->on_stopped(this);
@@ -144,16 +160,13 @@ adam::kcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != adam::core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    adam::core::SOCKET fds[2];
-    ASSERT(::pipe2(fds, O_NONBLOCK | O_CLOEXEC) == xOK, "pipe2 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-
-    evrfd_ = fds[0];
-    evwfd_ = fds[1];
+    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
-    ev.data.fd = evrfd_;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evrfd_, &ev) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ev.data.fd = evfd_;
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -164,26 +177,22 @@ adam::kcp::Server::release() noexcept {
         epfd_ = adam::core::INVALID_SOCKET;
     }
 
-    if (evrfd_ != adam::core::INVALID_SOCKET) {
-        ::close(evrfd_);
-        evrfd_ = adam::core::INVALID_SOCKET;
-    }
-
-    if (evwfd_ != adam::core::INVALID_SOCKET) {
-        ::close(evwfd_);
-        evwfd_ = adam::core::INVALID_SOCKET;
+    if (evfd_ != adam::core::INVALID_SOCKET) {
+        ::close(evfd_);
+        evfd_ = adam::core::INVALID_SOCKET;
     }
 }
 
 
 void
 adam::kcp::Server::update_serv() noexcept {
+    // 重新鉴权的时间间隔(120s)
     constexpr uint64_t AUTH_INTERVAL = 120000;
 
     static const adam::utils::EtcdConfig* etcd   = nullptr;
     static const adam::core::ServerInfo*  server = nullptr;
 
-    static bool        put_flag = false;
+    static bool        put_flag    = false;
     static uint64_t    last_update = 0;
     static std::string lease;
     static std::string token;
@@ -194,6 +203,10 @@ adam::kcp::Server::update_serv() noexcept {
 
     if (server == nullptr) {
         server = Conf::instance()->server();
+    }
+
+    if (state_ != core::State::Running) {
+        return;
     }
     
     adam::utils::EtcdRsp rsp;
@@ -206,13 +219,6 @@ adam::kcp::Server::update_serv() noexcept {
         }
 
         token = rsp.token;
-    }
-
-    auto state = state_.load(std::memory_order_relaxed);
-    if (state != adam::core::State::Starting && state != adam::core::State::Running) {
-        adam::utils::etcd_delete(&rsp, url, token.c_str(), server->key.c_str());
-        token.clear();
-        return;
     }
 
     if (tnow_ - last_update < INTERVAL_MS) {
@@ -266,18 +272,12 @@ adam::kcp::Server::update_serv() noexcept {
             continue;
         }
 
-        if (servs_.count(s.id) > 0) {
-            continue;
-        }
-
         for (auto& w: workers_) {
             auto* arg = new adam::core::AddServArg;
             arg->id = s.id;
             ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
             w->notify(new adam::core::QEvent(adam::core::QEvent::Type::AddServ, arg));
         }
-
-        servs_.insert(s.id);
     }
 
     last_update = tnow_;
@@ -287,39 +287,33 @@ adam::kcp::Server::update_serv() noexcept {
 void
 adam::kcp::Server::on_event_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
-        uint8_t data[sizeof(Event) * 256];
-
         while (1) {
-            ssize_t n = ::read(evrfd_, &data, sizeof(data));
+            uint64_t data = 0;
+            ssize_t n = ::read(evfd_, &data, sizeof(data));
             if (n <= 0) {
                 if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
                     xERROR("read eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
                 break;
             }
-
-            for (uint8_t* p = data, *end = p + n; p < end; p += sizeof(Event)) {
-                Event* ev = (Event*)p;
-
-                switch (ev->type) {
-                case EventType::OnServDisconnected:
-                    on_serv_disconnected(ev);
-                    break;
-
-                default:
-                    xFATAL("无效的事件类型");
-                    break;
-                }
-            }
         }
     } // if (ev.events & EPOLLIN);
+
+    drain_qevent();
+    evq_working_.store(false);
+    drain_qevent();
 }
 
 
 void
-adam::kcp::Server::on_serv_disconnected(const Event* ev) noexcept {
-    auto itr = servs_.find(ev->u32_val);
-    if (itr != servs_.end()) {
-        servs_.erase(itr);
+adam::kcp::Server::drain_qevent() noexcept {
+    constexpr int EVQUE_BATCH = 16;
+    int i, n;
+    Event* ss[EVQUE_BATCH];
+    while ((n = evque_.try_dequeue_bulk(ss, EVQUE_BATCH)) > 0) {
+        for (i = 0; i < n; ++i) {
+            // 目前没有事件需要处理
+            delete ss[i];
+        }
     }
 }

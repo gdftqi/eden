@@ -40,109 +40,16 @@ public:
     {}
 
 
+    /**
+     * @brief 从文件中加载 Conf
+     */
     void
-    load(const char* cfname) {
-        auto root = YAML::LoadFile(cfname);
-        if (!root["server"] || server_.from_yaml(root["server"]) < 0) {
-            xFATAL("config.server is invalid");
-        }
-
-        if (!root["etcd"] || etcd_.from_yaml(root["etcd"]) < 0) {
-            xFATAL("config.etcd is invalid");
-        }
-
-        if (root["ifname"]) {
-            ifname_ = root["ifname"].as<std::string>();
-        }
-
-        if (root["kcp_bpf_path"]) {
-            kcp_bpf_path_ = root["kcp_bpf_path"].as<std::string>();
-        }
-
-        if (root["envelope_bpf_path"]) {
-            envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
-        }
-
-        if (root["flame"]) {
-            flame_ = root["flame"].as<bool>();
-        }
-        
-        if (root["sndbuf"]) {
-            sndbuf_ = root["sndbuf"].as<int>();
-        }
-
-        if (root["rcvbuf"]) {
-            rcvbuf_ = root["rcvbuf"].as<int>();
-        }
-        
-        if (root["sndwnd"]) {
-            sndwnd_ = root["sndwnd"].as<int>();
-        }
-
-        if (root["rcvwnd"]) {
-           rcvwnd_ = root["rcvwnd"].as<int>();
-        }
-
-        if (root["nodelay"]) {
-            nodelay_ = root["nodelay"].as<int>();
-        }
-
-        if (root["interval"]) {
-            interval_ = root["interval"].as<int>();
-        }
-
-        if (root["resend"]) {
-            resend_ = root["resend"].as<int>();
-        }
-
-        if (root["nc"]) {
-            nc_ = root["nc"].as<int>();
-        }
-
-        if (root["siphash"]) {
-            auto s = root["siphash"].as<std::string>();
-            ASSERT(s.length() == sizeof(siphash_), "无效的 siphash");
-            ::memcpy(siphash_, (uint8_t*)s.data(), sizeof(siphash_));
-        }
-
-        if (root["x25519_pk"]) {
-            auto s = root["x25519_pk"].as<std::string>();
-            size_t len = sizeof(x25519_pk_);
-            ASSERT(utils::base64_decode(s, x25519_pk_, &len) == 0 && len == sizeof(x25519_pk_), "无效的 x25519_pk");
-        }
-
-        if (root["x25519_sk"]) {
-            auto s = root["x25519_sk"].as<std::string>();
-            size_t len = sizeof(x25519_sk_);
-            ASSERT(utils::base64_decode(s, x25519_sk_, &len) == 0 && len == sizeof(x25519_sk_), "无效的 x25519_sk");
-        }
-
-        if (root["ed25519_pk"]) {
-            auto s = root["ed25519_pk"].as<std::string>();
-            size_t len = sizeof(ed25519_pk_);
-            ASSERT(utils::base64_decode(s, ed25519_pk_, &len) == 0 && len == sizeof(ed25519_pk_), "无效的 ed25519_pk");
-        }
-
-        if (root["log_path"]) {
-            log_path_ = root["log_path"].as<std::string>();
-        }
-
-        // 全部校验在 load 内完成 (不再单独提供 check)
-        ASSERT(sndbuf_ > 0, "sndbuf is invalid");
-        ASSERT(rcvbuf_ > 0, "rcvbuf is invalid");
-        ASSERT(sndwnd_ > 0 && sndwnd_ <= 128, "sndwnd is invalid");
-        ASSERT(rcvwnd_ > 0 && rcvwnd_ <= 128, "rcvwnd is invalid");
-        ASSERT(nodelay_ == 0 || nodelay_ == 1, "nodelay is invalid");
-        ASSERT(interval_ >= 10, "interval is invalid");
-        ASSERT(resend_ > 0, "resend is invalid");
-        ASSERT(nc_ == 0 || nc_ == 1, "nc is invalid");
-        ASSERT(!::sodium_is_zero(siphash_, sizeof(siphash_)), "siphash is invalid");
-        ASSERT(!::sodium_is_zero(x25519_pk_, sizeof(x25519_pk_)), "x25519_pk is invalid");
-        ASSERT(!::sodium_is_zero(x25519_sk_, sizeof(x25519_sk_)), "x25519_sk is invalid");
-        ASSERT(!::sodium_is_zero(ed25519_pk_, sizeof(ed25519_pk_)), "ed25519_pk is invalid");
-    }
+    load_from_file(const char* fname) noexcept;
 
 
+    /**
+     * @brief 是否生成火焰图
+     */
     bool
     flame() const noexcept {
         return flame_;
@@ -150,7 +57,7 @@ public:
 
 
     /**
-     * @brief 发送缓冲区大小
+     * @brief socket 发送缓冲区大小
      */
     int
     sndbuf() const noexcept {
@@ -158,6 +65,9 @@ public:
     }
 
 
+    /**
+     * @brief socket 接收缓冲区大小
+     */
     int
     rcvbuf() const noexcept {
         return rcvbuf_;
@@ -184,21 +94,14 @@ public:
 
     /**
      * @brief 是否开启低延迟模式 (nodelay)
-      *        0: 不开启
-      *        1: 开启, 等同于 nodelay(1, 10, 2, 1)
-      *        2: 开启, 等同于 nodelay(1, 10, 2, 0)
-      *        3: 开启, 等同于 nodelay(1, 10, 0, 0)
+     * 
+     *        0: 不开启
+     * 
+     *        1: 开启
      */
     int
     nodelay() const noexcept {
         return nodelay_;
-    }
-
-
-    Conf*
-    set_nodelay(int nodelay) noexcept {
-        nodelay_ = nodelay;
-        return this;
     }
 
 
@@ -211,26 +114,12 @@ public:
     }
 
 
-    Conf*
-    set_interval(int interval) noexcept {
-        interval_ = interval;
-        return this;
-    }
-
-
     /**
      * @brief kcp 快速重传, 表示连接跳过 resend_ 个包的时候就会重传
      */
     int
     resend() const noexcept {
         return resend_;
-    }
-
-
-    Conf*
-    set_resend(int resend) noexcept {
-        resend_ = resend;
-        return this;
     }
 
 
@@ -244,9 +133,8 @@ public:
 
 
     /**
-     * @brief 协议密钥 (16 字节)
-     *        生产部署请修改默认值, 确保安全性
-     *        该密钥用于加密协议头, 防止被攻击者轻易伪造数据包
+     * @brief 协议密钥 (16 字节), 该密钥用于加密协议头, 防止被攻击者轻易伪造数据包
+     *        
      */
     const SipKey&
     siphash() const noexcept {
@@ -254,54 +142,81 @@ public:
     }
 
 
+    /**
+     * @brief x25519 公钥 (32 字节), 登录服务用 sealedbox 加密 AccessToken 数据
+     */
     const X25519Key&
     x25519_pk() const noexcept {
         return x25519_pk_;
     }
 
 
+    /**
+     * @brief x25519 私钥 (32 字节), 用来解密 AccessToken 数据
+     */
     const X25519Key&
     x25519_sk() const noexcept {
         return x25519_sk_;
     }
 
 
+    /**
+     * @brief ed25519pk 用来对 AccessToken 进行签名验证
+     */
     const ED25519PK&
     ed25519_pk() const noexcept {
         return ed25519_pk_;
     }
 
 
+    /**
+     * @brief 服务信息
+     */
     const adam::core::ServerInfo*
     server() const noexcept {
         return &server_;
     }
 
 
+    /**
+     * @brief ETCD 配置
+     */
     const adam::utils::EtcdConfig*
     etcd() const noexcept {
         return &etcd_;
     }
 
 
+    /**
+     * @brief 网卡接口名称, 用于 XDP 验证
+     */
     std::string
     ifname() const noexcept {
         return ifname_;
     }
 
 
+    /**
+     * @brief kcp bpf 文件路径
+     */
     std::string
     kcp_bpf_path() const noexcept {
         return kcp_bpf_path_;
     }
 
 
+    /**
+     * @brief bpf xdp 文件路径
+     */
     std::string
     envelope_bpf_path() const noexcept {
         return envelope_bpf_path_;
     }
 
 
+    /**
+     * @brief 日志文件存放路径
+     */
     std::string
     log_path() const noexcept {
         return log_path_;
