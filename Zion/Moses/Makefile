@@ -45,7 +45,7 @@ $(KCP_BPF_SRC):
 $(ENVELOPE_BPF_SRC):
 	@$(MAKE) -C ../../Adam
 
-# C++ moses: profiler 走静态自包含链(见上 PROF_LIBS + -no-pie)
+# C++ moses:
 $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -no-pie $(OBJECTS) $(LIB) -lpthread $(PROF_LIBS) -o $@
 
