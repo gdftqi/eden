@@ -55,7 +55,6 @@ public:
     virtual void
     on_serv_disconnected(adam::tcp::Connector::Ptr conn) noexcept {
         xINFO("serv {} disconnected on {}", conn->id(), ::pthread_self());
-        server_->notify_serv_disconnected(conn->id());
     }
 private:
     adam::kcp::Server* server_ { nullptr };
@@ -69,7 +68,7 @@ main(int, char**) {
         ::exit(EXIT_FAILURE);
     }
 
-    Conf::instance()->load("config.yml");
+    Conf::instance()->load_from_file("config.yml");
 
     if (Conf::instance()->log_path().length() > 0) {
         adam::utils::init_log(Conf::instance()->log_path());
