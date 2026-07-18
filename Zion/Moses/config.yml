@@ -18,7 +18,7 @@ ifname: "lo"
 kcp_bpf_path: "kcp.bpf.o"
 envelope_bpf_path: "envelope.bpf.o"
 
-flame: true
+prof_path: "moses.prof"
 log_path: "logs"
 
 sndbuf: 16777216

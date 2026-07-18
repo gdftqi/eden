@@ -36,8 +36,8 @@ public:
     }
 
 
-    ~Conf() noexcept
-    {}
+    ~Conf() noexcept {
+    }
 
 
     /**
@@ -45,15 +45,6 @@ public:
      */
     void
     load_from_file(const char* fname) noexcept;
-
-
-    /**
-     * @brief 是否生成火焰图
-     */
-    bool
-    flame() const noexcept {
-        return flame_;
-    }
 
 
     /**
@@ -223,13 +214,21 @@ public:
     }
 
 
+    /**
+     * @brief 火焰图路径
+     */
+    std::string
+    prof_path() const noexcept {
+        return prof_path_;
+    }
+
+
 private:
     explicit
     Conf() noexcept 
     {}
 
 
-    bool              flame_        { false };
     int               sndbuf_       { 16777216 };   ///< 发送缓冲区大小
     int               rcvbuf_       { 33554432 };   ///< 接收缓冲区大小
     int               sndwnd_       { 128 };        ///< 发送窗口
@@ -248,6 +247,7 @@ private:
     std::string       kcp_bpf_path_;
     std::string       envelope_bpf_path_;
     std::string       log_path_;
+    std::string       prof_path_;
 }; // class Conf;
 
     

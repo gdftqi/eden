@@ -52,9 +52,13 @@ public:
 
 
 void
-adam::utils::init_log(const std::string& log_dir) {
-    std::string dir = log_dir;
-    if (!dir.empty() && dir.back() != '/') {
+adam::utils::init_log(const std::string& log_path) {
+    if (log_path.empty()) {
+        return;
+    }
+
+    std::string dir = log_path;
+    if (dir.back() != '/') {
         dir += '/';
     }
     

@@ -23,10 +23,6 @@ adam::kcp::Conf::load_from_file(const char* fname) noexcept {
     if (root["envelope_bpf_path"]) {
         envelope_bpf_path_ = root["envelope_bpf_path"].as<std::string>();
     }
-
-    if (root["flame"]) {
-        flame_ = root["flame"].as<bool>();
-    }
         
     if (root["sndbuf"]) {
         sndbuf_ = root["sndbuf"].as<int>();
@@ -86,6 +82,10 @@ adam::kcp::Conf::load_from_file(const char* fname) noexcept {
 
     if (root["log_path"]) {
         log_path_ = root["log_path"].as<std::string>();
+    }
+
+    if (root["prof_path"]) {
+        prof_path_ = root["prof_path"].as<std::string>();
     }
 
     // 全部校验在 load 内完成 (不再单独提供 check)

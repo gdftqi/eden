@@ -16,7 +16,7 @@ namespace adam::utils {
 
 
 void
-init_log(const std::string& log_dir);
+init_log(const std::string& log_path);
 
 
 inline void

@@ -120,6 +120,7 @@ class Server {
 
 
 public:
+    typedef std::unique_ptr<Server>       Ptr;
     typedef absl::flat_hash_set<uint32_t> ServSet;
     typedef std::vector<std::thread>      ThreadPool;
     typedef std::vector<Worker::Ptr>      WorkerPool;
