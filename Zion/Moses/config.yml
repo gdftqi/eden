@@ -1,5 +1,5 @@
 server:
-  id: 1000
+  id: 0x10000000
   timeout: 45
   protocol: "kcp"
   name: "moses"

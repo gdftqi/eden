@@ -7,12 +7,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/eva/com"
 	"github.com/eva/conf"
 	"github.com/eva/log"
 	"github.com/eva/utils"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const USER_LOGIN = "/user_login"
@@ -190,7 +190,7 @@ func UserLogin(c *gin.Context) {
 		Conv:         conv,
 		UserID:       userID,
 		Host:         gw.Host,
-		HostID:       1000,
+		HostID:       gw.ID,
 		MacKey:       conf.Instance.SipHashKey,
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,

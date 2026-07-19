@@ -200,6 +200,18 @@ struct ServerInfo {
     std::string val; // 用于注册 etcd 的 value
 
 
+    uint32_t
+    get_type() const noexcept {
+        return id >> 16;
+    }
+
+
+    uint32_t
+    get_seq() const noexcept {
+        return 0x0000FFFF & id;
+    }
+
+
     /** 
      * @brief 转 json 字符串
      */
