@@ -24,17 +24,17 @@ public:
 
 
     static Ptr
-    create(core::SOCKET sockfd, Proc* w) noexcept {
+    create(SOCKET sockfd, Proc* w) noexcept {
         return std::make_shared<Session>(sockfd, w);
     }
 
 
     explicit
-    Session(core::SOCKET sockfd, Proc* w) noexcept;
+    Session(SOCKET sockfd, Proc* w) noexcept;
 
 
     ~Session() noexcept {
-        if (fd_ != core::INVALID_SOCKET) {
+        if (fd_ != INVALID_SOCKET) {
             ::close(fd_);
         }
     }
@@ -61,7 +61,7 @@ public:
     }
 
 
-    core::SOCKET
+    SOCKET
     sockfd() const noexcept {
         return fd_;
     }
@@ -128,7 +128,7 @@ public:
 
 private:
     uint32_t             id_           { 0 };
-    core::SOCKET         fd_           { core::INVALID_SOCKET };
+    SOCKET               fd_           { INVALID_SOCKET };
     sockaddr_storage     addr_         {};
     socklen_t            addrlen_      { 0 };
     uint64_t             last_recv_ms_ { 0 };

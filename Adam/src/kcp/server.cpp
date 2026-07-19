@@ -79,7 +79,7 @@ adam::kcp::Server::run() noexcept {
     // 3. 创建 KcpWorker
     for (int i = 0; i < n; ++i) {
         auto s = std::make_unique<adam::kcp::Worker>(this, i);
-        ASSERT(s->fd() != adam::core::INVALID_SOCKET, "创建 kcp worker 失败");
+        ASSERT(s->fd() != INVALID_SOCKET, "创建 kcp worker 失败");
 
         if (!kcp_bpf_path_.empty()) {
             ASSERT(router_.register_socket(i, s->fd()) == 0, "注册 socket 失败");
@@ -158,10 +158,10 @@ adam::kcp::Server::run() noexcept {
 void
 adam::kcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != adam::core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.events = EPOLLIN | EPOLLET;
@@ -172,14 +172,14 @@ adam::kcp::Server::init() noexcept {
 
 void
 adam::kcp::Server::release() noexcept {
-    if (epfd_ != adam::core::INVALID_SOCKET) {
+    if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = adam::core::INVALID_SOCKET;
+        epfd_ = INVALID_SOCKET;
     }
 
-    if (evfd_ != adam::core::INVALID_SOCKET) {
+    if (evfd_ != INVALID_SOCKET) {
         ::close(evfd_);
-        evfd_ = adam::core::INVALID_SOCKET;
+        evfd_ = INVALID_SOCKET;
     }
 }
 

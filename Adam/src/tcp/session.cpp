@@ -4,7 +4,7 @@
 #include "core/error.hpp"
 
 
-adam::tcp::Session::Session(core::SOCKET sockfd, Proc* w) noexcept
+adam::tcp::Session::Session(sSOCKET sockfd, Proc* w) noexcept
     : fd_(sockfd)
     , addrlen_(sizeof(addr_))
     , last_recv_ms_(w->tnow())

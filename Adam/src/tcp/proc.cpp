@@ -51,10 +51,10 @@ adam::tcp::Proc::run() noexcept {
 void
 adam::tcp::Proc::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != core::INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(evfd_ != core::INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.fd = evfd_;
@@ -65,14 +65,14 @@ adam::tcp::Proc::init() noexcept {
 
 void
 adam::tcp::Proc::release() noexcept {
-    if (epfd_ != core::INVALID_SOCKET) {
+    if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = core::INVALID_SOCKET;
+        epfd_ = INVALID_SOCKET;
     }
 
-    if (evfd_ != core::INVALID_SOCKET) {
+    if (evfd_ != INVALID_SOCKET) {
         ::close(evfd_);
-        evfd_ = core::INVALID_SOCKET;
+        evfd_ = INVALID_SOCKET;
     }
 
     evque_.clear([](core::QEvent* qe) {
@@ -153,7 +153,7 @@ adam::tcp::Proc::on_recv_handle(core::QEvent* qe) noexcept {
 
 void
 adam::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
+    auto fd = (SOCKET)(uintptr_t)qe->arg.ptr;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
         int n = sess->send();
@@ -166,14 +166,14 @@ adam::tcp::Proc::on_send_handle(core::QEvent* qe) noexcept {
 
 void
 adam::tcp::Proc::on_add_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
+    auto fd = (SOCKET)(uintptr_t)qe->arg.ptr;
     server_->add_session(fd, this);
 }
 
 
 void
 adam::tcp::Proc::on_rmv_sess_handle(core::QEvent* qe) noexcept {
-    auto fd = (core::SOCKET)(uintptr_t)qe->arg.ptr;
+    auto fd = (SOCKET)(uintptr_t)qe->arg.ptr;
     server_->remove_session(fd, false);
 }
 

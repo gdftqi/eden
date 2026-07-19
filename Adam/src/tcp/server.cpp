@@ -57,13 +57,13 @@ adam::tcp::Server::run() noexcept {
 void
 adam::tcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != core::INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(stop_evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     lfd_ = core::tcp_listen(host_);
-    ASSERT(lfd_ != core::INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(lfd_ != INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.fd = stop_evfd_;
@@ -96,19 +96,19 @@ adam::tcp::Server::release() noexcept {
     threads_.clear();
     procs_.clear();
 
-    if (epfd_ != core::INVALID_SOCKET) {
+    if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = core::INVALID_SOCKET;
+        epfd_ = INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != core::INVALID_SOCKET) {
+    if (stop_evfd_ != INVALID_SOCKET) {
         ::close(stop_evfd_);
-        stop_evfd_ = core::INVALID_SOCKET;
+        stop_evfd_ = INVALID_SOCKET;
     }
 
-    if (lfd_ != core::INVALID_SOCKET) {
+    if (lfd_ != INVALID_SOCKET) {
         ::close(lfd_);
-        lfd_ = core::INVALID_SOCKET;
+        lfd_ = INVALID_SOCKET;
     }
 
     for (auto& s: gws_) {
@@ -161,7 +161,7 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & EPOLLIN) {
         while (1) {
-            core::SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
+            SOCKET cfd = ::accept4(lfd_, nullptr, nullptr, SOCK_NONBLOCK | SOCK_CLOEXEC);
             if (cfd < 0) {
                 err = errno;
                 if (err == EINTR) {
@@ -192,7 +192,7 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
 
 void
 adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
-    core::SOCKET fd = ev.data.fd;
+    SOCKET fd = ev.data.fd;
     bool del = false;
 
     if (ev.events & EPOLLIN) {

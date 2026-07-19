@@ -27,7 +27,7 @@ adam::kcp::Worker::Worker(Server* s, int idx) noexcept
     }
 
     ufd_ = core::udp_bind(server_->host(), Conf::instance()->sndbuf(), Conf::instance()->rcvbuf());
-    ASSERT(ufd_ != core::INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(ufd_ != INVALID_SOCKET, "创建 udp fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     ::ikcp_allocator(::mi_malloc, ::mi_free);
 }
 
@@ -112,10 +112,10 @@ adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
 void
 adam::kcp::Worker::init() noexcept {
     epfd_ = ::epoll_create1(0);
-    ASSERT(epfd_ != core::INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(evfd_ != core::INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
     ev.data.ptr = &evfd_;
@@ -133,19 +133,19 @@ adam::kcp::Worker::init() noexcept {
 
 void
 adam::kcp::Worker::release() noexcept {
-    if (epfd_ != core::INVALID_SOCKET) {
+    if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
-        epfd_ = core::INVALID_SOCKET;
+        epfd_ = INVALID_SOCKET;
     }
 
-    if (evfd_ != core::INVALID_SOCKET) {
+    if (evfd_ != INVALID_SOCKET) {
         ::close(evfd_);
-        evfd_ = core::INVALID_SOCKET;
+        evfd_ = INVALID_SOCKET;
     }
 
-    if (ufd_ != core::INVALID_SOCKET) {
+    if (ufd_ != INVALID_SOCKET) {
         ::close(ufd_);
-        ufd_ = core::INVALID_SOCKET;
+        ufd_ = INVALID_SOCKET;
     }
 }
 

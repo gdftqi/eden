@@ -2,7 +2,7 @@
 #include "utils/string_ex.hpp"
 
 
-adam::core::SOCKET
+SOCKET
 adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     if (host.empty()) {
         return INVALID_SOCKET;
@@ -68,7 +68,7 @@ adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
 }
 
 
-adam::core::SOCKET
+SOCKET
 adam::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     std::string host_str(host);
     if (host_str.empty()) {
@@ -139,7 +139,7 @@ adam::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept
 }
 
 
-adam::core::SOCKET
+SOCKET
 adam::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     if (host.empty()) {
         return INVALID_SOCKET;

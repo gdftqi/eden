@@ -61,9 +61,9 @@ private:
  * @brief QEvent::Type::Recv 协带参数
  */
 struct TcpRecvArg {
-    core::SOCKET fd;
-    uint32_t     len;
-    uint8_t      data[];
+    SOCKET   fd;
+    uint32_t len;
+    uint8_t  data[];
 };
 
 

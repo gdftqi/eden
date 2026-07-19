@@ -286,7 +286,7 @@ private:
     // 基础属性
     // --------------------------------------------------------------------
 
-    core::SOCKET             epfd_              { core::INVALID_SOCKET };         // epoll fd
+    SOCKET                   epfd_              { INVALID_SOCKET };         // epoll fd
     uint64_t                 tnow_              { 0 };                            // 当前时间
     std::atomic<core::State> state_             { adam::core::State::Stopped };   // 状态
     IEvent*                  event_             { nullptr };                      // 服务事件
@@ -304,9 +304,9 @@ private:
     // 事件属性
     // --------------------------------------------------------------------
     
-    core::SOCKET     evfd_        { core::INVALID_SOCKET }; // event fd
-    std::atomic_bool evq_working_ { false };                // 事件队列状态
-    EvQue            evque_;                                // 事件队列
+    SOCKET           evfd_        { INVALID_SOCKET }; // event fd
+    std::atomic_bool evq_working_ { false };          // 事件队列状态
+    EvQue            evque_;                          // 事件队列
 }; // class Server;
 
 

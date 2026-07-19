@@ -250,9 +250,9 @@ private:
     Server*                  server_ { nullptr };
     IEvent*                  event_  { nullptr };               // 业务回调 (缓存自 server_->event())
     int                      index_  { -1 };                    // 在 kcp server 中的所属下标
-    core::SOCKET             ufd_    { core::INVALID_SOCKET };  // UDP fd
-    core::SOCKET             epfd_   { core::INVALID_SOCKET };  // epoll fd
-    core::SOCKET             evfd_   { core::INVALID_SOCKET };  // event fd
+    SOCKET                   ufd_    { INVALID_SOCKET };  // UDP fd
+    SOCKET                   epfd_   { INVALID_SOCKET };  // epoll fd
+    SOCKET                   evfd_   { INVALID_SOCKET };  // event fd
     uint64_t                 tnow_   { 0 };                     // 当前时间(ms), 系统启动时间
     std::atomic<core::State> state_  { core::State::Stopped };  // 状态
 

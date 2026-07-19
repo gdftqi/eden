@@ -131,8 +131,8 @@ private:
 
     Server*                    server_        { nullptr };
     int                        id_            { -1 };
-    core::SOCKET               epfd_          { core::INVALID_SOCKET };
-    core::SOCKET               evfd_          { core::INVALID_SOCKET };   // 队列事件
+    SOCKET                     epfd_          { INVALID_SOCKET };
+    SOCKET                     evfd_          { INVALID_SOCKET };   // 队列事件
     uint64_t                   tnow_          { 0 };
     uint64_t                   last_check_ms_ { 0 };
     std::atomic<core::State>   state_         { core::State::Stopped };

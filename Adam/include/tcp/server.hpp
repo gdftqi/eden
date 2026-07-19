@@ -133,14 +133,14 @@ public:
 
 
     Session::Ptr
-    get_session(core::SOCKET fd) noexcept {
+    get_session(SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         return gws_[fd];
     }
 
 
     void
-    add_session(core::SOCKET fd, Proc* w) noexcept {
+    add_session(SOCKET fd, Proc* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         gws_[fd] = Session::create(fd, w);
         if (event_->on_connected(gws_[fd]) != 0) {
@@ -151,7 +151,7 @@ public:
 
 
     void
-    remove_session(core::SOCKET fd, bool del_from_epoll = true) noexcept {
+    remove_session(SOCKET fd, bool del_from_epoll = true) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         if (gws_[fd]) {
             if (del_from_epoll) {
@@ -215,9 +215,9 @@ private:
     update_serv() noexcept;
 
 
-    core::SOCKET             lfd_                         { core::INVALID_SOCKET };
-    core::SOCKET             stop_evfd_                   { core::INVALID_SOCKET };
-    core::SOCKET             epfd_                        { core::INVALID_SOCKET };
+    SOCKET                   lfd_                         { INVALID_SOCKET };
+    SOCKET                   stop_evfd_                   { INVALID_SOCKET };
+    SOCKET                   epfd_                        { INVALID_SOCKET };
     uint64_t                 tnow_                        { 0 };
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };

@@ -33,7 +33,7 @@ public:
         auto cfd = core::tcp_connect(host);
         if (cfd < 0) {
             int err = errno;
-            cfd = core::INVALID_SOCKET;
+            cfd = INVALID_SOCKET;
             xERROR("创建后端连接失败: id = {}, host = {}, err = {}, errstr = {}", id, host, err, ::strerror(err));
             return nullptr;
         }
@@ -42,7 +42,7 @@ public:
 
 
     explicit
-    Connector(uint32_t id, core::SOCKET fd, const char* host) noexcept
+    Connector(uint32_t id, SOCKET fd, const char* host) noexcept
         : id_(id)
         , fd_(fd)
         , host_(host)
@@ -53,13 +53,13 @@ public:
 
 
     ~Connector() noexcept {
-        if (fd_ != core::INVALID_SOCKET) {
+        if (fd_ != INVALID_SOCKET) {
             ::close(fd_);
         }
     }
 
 
-    core::SOCKET
+    SOCKET
     fd() const noexcept {
         return fd_;
     }
@@ -142,7 +142,7 @@ public:
 private:
     bool         authed_       { false };
     uint32_t     id_           { 0 };
-    core::SOCKET fd_           { core::INVALID_SOCKET };
+    SOCKET       fd_                 { INVALID_SOCKET };
     State        state_        { State::Disconnected };
     uint64_t     last_recv_ms_ { 0 };
     uint64_t     last_send_ms_ { 0 };

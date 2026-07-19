@@ -41,6 +41,10 @@
 #endif
 
 
+typedef int SOCKET;
+constexpr SOCKET INVALID_SOCKET = -1;
+
+
 namespace adam::core {
 
 
@@ -56,7 +60,7 @@ constexpr int UDP_MTU = 1450;
 constexpr int ENVELOPE_MAC_LEN = 8;
 
 /**
- * @brief KCP MTU, 用于 KCP 分片
+ * @brief KCP MTU, 用于 KCP 分片, KCP MTU 指的是 KCP 消息头(24字节) + payload 长度
  */
 constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
 
@@ -64,10 +68,6 @@ constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
  * @brief KCP 协议头长度
  */
 constexpr int KCP_HDR_LEN = 24;
-
-
-typedef int SOCKET;
-constexpr SOCKET INVALID_SOCKET = -1;
 
 
 /**
@@ -187,17 +187,17 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
  * @brief 服务信息
  */
 struct ServerInfo {
-    uint32_t    id        { 0 }; ///< 服务IDs
-    uint32_t    nthreads  { 0 }; ///< 工作线程数
-    uint64_t    timeout   { 0 }; ///< 超时值
-    std::string protocol;        ///< 协议
-    std::string name;            ///< 服务名称
-    std::string host;            ///< 监听地址
-    std::string desc;            ///< 描述信息
-    ::time_t    start_time;      ///< 启动时间
+    uint32_t    id        { 0 }; // 服务IDs
+    uint32_t    nthreads  { 0 }; // 工作线程数
+    uint64_t    timeout   { 0 }; // 超时值
+    std::string protocol;        // 协议
+    std::string name;            // 服务名称
+    std::string host;            // 监听地址
+    std::string desc;            // 描述信息
+    ::time_t    start_time;      // 启动时间
 
-    std::string key; ///< 用于注册 etcd 的 key
-    std::string val; ///< 用于注册 etcd 的 value
+    std::string key; // 用于注册 etcd 的 key
+    std::string val; // 用于注册 etcd 的 value
 
 
     /** 
