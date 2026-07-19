@@ -420,8 +420,6 @@ namespace Lilith.Components
 
                     await Task.Delay((int)reconnectRetryIntervalMs).ConfigureAwait(false);
                 }
-
-                SetState(HydraState.Disconnected);
             }
             finally
             {
