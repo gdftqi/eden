@@ -1,23 +1,23 @@
-#include "core/buffer.hpp"
+#include "tcp/buffer.hpp"
 
 
 int
-adam::core::Buffer::append(const uint8_t* data, uint32_t len) noexcept {
+adam::tcp::Buffer::append(const uint8_t* data, uint32_t len) noexcept {
     if (writable() < len) {
         compact();
 
         if (writable() < len) {
             size_t need = (size_t)wpos + len;
-            if (need > core::RCVBUF_MAX) {
+            if (need > MAX_SIZE) {
                 return xERR;
             }
 
-            uint32_t ncap = cap ? cap : core::RCVBUF_INIT;
+            uint32_t ncap = cap ? cap : INIT_SIZE;
             while (ncap < need) {
                 ncap <<= 1;
             }
-            if (ncap > core::RCVBUF_MAX) {
-                ncap = core::RCVBUF_MAX;
+            if (ncap > MAX_SIZE) {
+                ncap = MAX_SIZE;
             }
 
             auto* nbuf = (uint8_t*)::mi_realloc(buf, ncap);

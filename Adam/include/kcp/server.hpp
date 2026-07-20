@@ -13,9 +13,9 @@ namespace adam::kcp {
 
 
 /**
- * Kcp server 事件
+ * Kcp server 钩子
  */
-class IEvent {
+class IHook {
 public:
     /**
      * @brief 服务初始化事件
@@ -133,18 +133,18 @@ public:
     /**
      * @brief 构造函数
      *
-     * @param ev KcpServer 事件接口
+     * @param hook KcpServer 事件接口
      */
     explicit
-    Server(IEvent* ev) noexcept;
+    Server(IHook* hook) noexcept;
 
 
     /**
      * @brief 事件
      */
-    IEvent*
+    IHook*
     event() noexcept {
-        return event_;
+        return hook_;
     }
 
 
@@ -286,10 +286,10 @@ private:
     // 基础属性
     // --------------------------------------------------------------------
 
-    SOCKET                   epfd_              { INVALID_SOCKET };         // epoll fd
+    SOCKET                   epfd_              { INVALID_SOCKET };               // epoll fd
     uint64_t                 tnow_              { 0 };                            // 当前时间
     std::atomic<core::State> state_             { adam::core::State::Stopped };   // 状态
-    IEvent*                  event_             { nullptr };                      // 服务事件
+    IHook*                   hook_              { nullptr };                      // 服务事件
     std::string              host_;                                               // 直实绑定的地址端口
     std::string              ifname_;                                             // 网卡名 (XDP attach)
     std::string              kcp_bpf_path_;                                       // kcp.bpf.o 路径

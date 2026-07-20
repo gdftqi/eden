@@ -6,8 +6,8 @@ static constexpr int MAX_EVENTS  = 1;
 static constexpr int INTERVAL_MS = 5000;
 
 
-adam::kcp::Server::Server(IEvent* ev) noexcept
-    : event_(ev) {
+adam::kcp::Server::Server(IHook* hook) noexcept
+    : hook_(hook) {
     ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
 
     if (host_.empty()) {
@@ -99,7 +99,7 @@ adam::kcp::Server::run() noexcept {
     }
 
     init();
-    event_->on_init(this);
+    hook_->on_init(this);
 
     int i;
     ::epoll_event evs[MAX_EVENTS];
@@ -151,7 +151,7 @@ adam::kcp::Server::run() noexcept {
 
     release();
     state_.store(adam::core::State::Stopped);
-    event_->on_stopped(this);
+    hook_->on_stopped(this);
 }
 
 
@@ -267,16 +267,16 @@ adam::kcp::Server::update_serv() noexcept {
             continue;
         }
 
-        if (s.host.length() == 0 || s.host.length() > sizeof(adam::core::AddServArg::host)) {
+        if (s.host.length() == 0 || s.host.length() > sizeof(EnsureBackendArg::host)) {
             xWARN("{} 服务 Host {} 无效", kv.first, s.host);
             continue;
         }
 
         for (auto& w: workers_) {
-            auto* arg = new adam::core::AddServArg;
+            auto* arg = new EnsureBackendArg(s.id, s.host.c_str());
             arg->id = s.id;
             ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
-            w->notify(new adam::core::QEvent(adam::core::QEvent::Type::AddServ, arg));
+            w->notify(new Message(Message::Type::EnsureBackend, arg));
         }
     }
 

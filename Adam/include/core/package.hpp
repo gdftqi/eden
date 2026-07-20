@@ -9,10 +9,28 @@
 namespace adam::core {
 
 
-constexpr int PKG_MAX_LEN  = 65535; // 最大支持的消息长度
+/**
+ * @brief Package 最大支持的消息长度
+ */
+constexpr int PKG_MAX_LEN  = 65535;
+
+
+/**
+ * @brief Package::meta 长度, 只在 TCP 传输之间需要用到这个头
+ */
 constexpr int PKG_META_LEN = 10;
+
+
+/**
+ * @brief Package::data UDP 消息头长度
+ */
 constexpr int PKG_DATA_LEN = 14;
-constexpr int PKG_HDR_LEN  = PKG_META_LEN + PKG_DATA_LEN;
+
+
+/**
+ * @brief Package 消息头长度, TCP 之间传输之间的消息头
+ */
+constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 
 
 #define PKID_PING       (100) ///< 心跳 PING
@@ -30,18 +48,18 @@ constexpr int PKG_HDR_LEN  = PKG_META_LEN + PKG_DATA_LEN;
  */
 struct Package {
     struct {
-        uint32_t len       { 0 };
-        uint32_t conv      { 0 };
-        uint32_t src_addr  { 0 };
+        uint32_t len       { 0 };   // Package总长度
+        uint32_t conv      { 0 };   // kcp conv
+        uint32_t src_addr  { 0 };   // 源地址
     } meta;
     
 
     struct {
-        uint32_t id         { 0 };
-        uint32_t src_id     { 0 };
-        uint32_t dst_id     { 0 };
-        uint32_t seq        { 0 };
-        uint8_t  payload[];
+        uint32_t id         { 0 };  // 消息ID, PKID, 16 bits
+        uint32_t src_id     { 0 };  // 源ID, 发送者的ID
+        uint32_t dst_id     { 0 };  // 目标ID, 接收者的ID
+        uint32_t seq        { 0 };  // Package sequence, 用来确保消息的唯一性
+        uint8_t  payload[];         // payload
     } data;
 
 
@@ -52,9 +70,16 @@ struct Package {
 }; // struct Package;
 
 
-// RA token.go 线上明文布局(全小端): expire@0 conv@8 user_id@12 ip@16 cli_pk@20 sign@52
-constexpr int ACCESS_TOKEN_LEN        = 116;   // 明文总长(线上; 与含对齐 padding 的 sizeof(AccessToken) 无关)
-constexpr int ACCESS_TOKEN_SIGNED_LEN = 52;    // 被 ed25519 签名的前段(expire..cli_pk)
+/**
+ * @brief 明文总长(线上; 与含对齐 padding 的 sizeof(AccessToken) 无关)
+ */
+constexpr int ACCESS_TOKEN_LEN = 116;
+
+
+/**
+ * @brief 被 ed25519 签名的前段(expire..cli_pk)
+ */
+constexpr int ACCESS_TOKEN_SIGNED_LEN = 52;
 
 /**
  * @brief 网关鉴权 token(仅内存持有)。线上字节由 token_decode 显式逐字段小端解析,

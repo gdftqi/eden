@@ -1,14 +1,14 @@
 #include "tcp/config.hpp"
-#include "tcp/proc.hpp"
+#include "tcp/worker.hpp"
 #include "tcp/session.hpp"
 #include "core/error.hpp"
 
 
-adam::tcp::Session::Session(SOCKET sockfd, Proc* w) noexcept
+adam::tcp::Session::Session(SOCKET sockfd, Worker* w) noexcept
     : fd_(sockfd)
     , addrlen_(sizeof(addr_))
     , last_recv_ms_(w->tnow())
-    , proc_(w) {
+    , worker_(w) {
     constexpr int on = 1;
     ASSERT(::getpeername(fd_, (sockaddr*)&addr_, &addrlen_) == 0, "failed to get peer name");
     ASSERT(core::set_nonblocking(fd_) == 0, "failed to set non-blocking");
@@ -28,7 +28,7 @@ adam::tcp::Session::recv(core::Package* pk) noexcept {
     }
 
     rbuf_.consume((uint32_t)n);
-    last_recv_ms_ = proc_->tnow();
+    last_recv_ms_ = worker_->tnow();
     return xOK;
 }
 

@@ -3,7 +3,7 @@
 
 
 #include "core/adam.in.hpp"
-#include "core/buffer.hpp"
+#include "tcp/buffer.hpp"
 #include "tcp/config.hpp"
 
 
@@ -148,8 +148,8 @@ private:
     uint64_t     last_send_ms_ { 0 };
     std::string  host_;
     std::string  desc_;
-    core::Buffer rbuf_;
-    core::Buffer sbuf_;
+    Buffer rbuf_;
+    Buffer sbuf_;
 }; // class Connector;
 
     

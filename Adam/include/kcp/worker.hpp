@@ -2,9 +2,9 @@
 #define __ADAM_KCP_WORKER_HPP__
 
 
-#include "core/buffer.hpp"
 #include "core/package.hpp"
-#include "core/qevent.hpp"
+#include "kcp/datagram.hpp"
+#include "kcp/message.hpp"
 #include "kcp/session.hpp"
 #include "tcp/connector.hpp"
 #include "utils/obj_pool.hpp"
@@ -14,7 +14,7 @@
 namespace adam::kcp {
 
 
-class IEvent;
+class IHook;
 class Server;
 
 
@@ -33,10 +33,10 @@ public:
     typedef std::unique_ptr<Worker> Ptr;
 
     // 事件队列, 用于跨线程传递事件
-    typedef utils::MPSC<core::QEvent*> EvQue;
+    typedef utils::MPSC<Message*> MsgQue;
 
     // 发送缓冲区对象池, 用于复用 SndBuf 对象
-    typedef utils::ObjPool<core::SndBuf> SndBufPool;
+    typedef utils::ObjPool<Datagram> DatagramPool;
 
     // 会话映射表, 用于根据 conv 查找 Session, 存放所有会话(包括未鉴权的)
     typedef absl::flat_hash_map<uint32_t, Session::Ptr> SessMap;
@@ -116,7 +116,7 @@ public:
         if (running()) {
             core::State expected = core::State::Running;
             if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
-                notify(new core::QEvent(core::QEvent::Type::Stop));
+                notify(new Message(Message::Type::Stop));
             }
         }
     }
@@ -126,10 +126,10 @@ public:
      * @brief 事件通知, 该函数可在多线程中调用, 线程安全.
      */
     void
-    notify(core::QEvent* ev) noexcept {
-        ASSERT(evque_.enqueue(std::move(ev)), "MPSC 队列已满, 请对队列扩容");
+    notify(Message* m) noexcept {
+        ASSERT(mque_.enqueue(std::move(m)), "MPSC 队列已满, 请对队列扩容");
         bool expected = false;
-        if (evq_workring_.compare_exchange_strong(expected, true)) {
+        if (mq_workring_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
             if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -174,7 +174,7 @@ private:
 
 
     void
-    add_serv(tcp::Connector::Ptr c) noexcept {
+    add_backend(tcp::Connector::Ptr c) noexcept {
         ::epoll_event ev;
         ev.data.ptr = c.get();
         ev.events = EPOLLOUT | EPOLLET;
@@ -200,11 +200,11 @@ private:
 
 
     void
-    on_new_serv(core::QEvent* qe) noexcept;
+    on_ensure_backend(Message* m) noexcept;
 
 
     void
-    on_user_send(core::QEvent* qe) noexcept;
+    on_forward_to_session(Message* m) noexcept;
 
 
     void
@@ -248,11 +248,11 @@ private:
     // ------------------------------------------------------------------
 
     Server*                  server_ { nullptr };
-    IEvent*                  event_  { nullptr };               // 业务回调 (缓存自 server_->event())
+    IHook*                   event_  { nullptr };               // 业务回调 (缓存自 server_->event())
     int                      index_  { -1 };                    // 在 kcp server 中的所属下标
-    SOCKET                   ufd_    { INVALID_SOCKET };  // UDP fd
-    SOCKET                   epfd_   { INVALID_SOCKET };  // epoll fd
-    SOCKET                   evfd_   { INVALID_SOCKET };  // event fd
+    SOCKET                   ufd_    { INVALID_SOCKET };        // UDP fd
+    SOCKET                   epfd_   { INVALID_SOCKET };        // epoll fd
+    SOCKET                   evfd_   { INVALID_SOCKET };        // event fd
     uint64_t                 tnow_   { 0 };                     // 当前时间(ms), 系统启动时间
     std::atomic<core::State> state_  { core::State::Stopped };  // 状态
 
@@ -274,15 +274,15 @@ private:
     // 发送属性
     // ------------------------------------------------------------------
 
-    core::SndBuf::Que sque_;    // 发送队列
-    SndBufPool        sb_pool_; // 发送缓冲区对象池          
+    Datagram::Que dg_que_;    // 发送队列
+    DatagramPool  dg_pool_; // 发送缓冲区对象池     s     
 
     // ------------------------------------------------------------------
     // 事件属性
     // ------------------------------------------------------------------
 
-    std::atomic_bool evq_workring_ { false };  // event queue 队列发送标识
-    EvQue            evque_;                   // MPSC 事件队列 
+    std::atomic_bool mq_workring_ { false };  // event queue 队列发送标识
+    MsgQue           mque_;                   // MPSC 事件队列 
     
     // ------------------------------------------------------------------
     // 会话属性

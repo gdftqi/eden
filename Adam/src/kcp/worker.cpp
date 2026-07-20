@@ -82,13 +82,13 @@ adam::kcp::Worker::run() noexcept {
     sesss_.clear();
     servs_.clear();
 
-    for (auto* sb: sque_) {
-        sb_pool_.release(sb);
+    for (auto* dg: dg_que_) {
+        dg_pool_.release(dg);
     }
-    sque_.clear();
+    dg_que_.clear();
 
-    evque_.clear([](core::QEvent* qe) {
-        if (qe->type == core::QEvent::Type::AddServ) {
+    mque_.clear([](Message* qe) {
+        if (qe->type == Message::Type::EnsureBackend) {
             ::mi_free(qe->arg.ptr);
         }
         delete qe; 
@@ -103,8 +103,8 @@ int
 adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
     auto* s   = (Session*)kcpcb->user;
     auto* svr = s->server();
-    auto* sb  = svr->sb_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
-    svr->sque_.emplace_back(sb);
+    auto* dg  = svr->dg_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+    svr->dg_que_.emplace_back(dg);
     return 0;
 }
 
@@ -198,7 +198,7 @@ adam::kcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
     } // if (ev.events & EPOLLIN);
 
     drain_qevent();
-    evq_workring_.store(false);
+    mq_workring_.store(false);
     drain_qevent();
 }
 
@@ -419,13 +419,13 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-adam::kcp::Worker::on_new_serv(core::QEvent* qe) noexcept {
-    auto* arg = (core::AddServArg*)qe->arg.ptr;
+adam::kcp::Worker::on_ensure_backend(Message* m) noexcept {
+    auto* arg = (EnsureBackendArg*)m->arg.ptr;
 
     if (servs_.find(arg->id) == servs_.end()) {
         auto conn = tcp::Connector::create(arg->id, arg->host);
         if (conn) {
-            add_serv(conn);
+            add_backend(conn);
         }
     }
 
@@ -434,9 +434,9 @@ adam::kcp::Worker::on_new_serv(core::QEvent* qe) noexcept {
 
 
 void
-adam::kcp::Worker::on_user_send(core::QEvent* qe) noexcept {
+adam::kcp::Worker::on_forward_to_session(Message* m) noexcept {
     // 别的 worker 转来的 s2c: arg->raw 是整个 Package 的拷贝, 按 conv 找本 worker 的会话发出
-    auto* arg = (core::KcpSendArg*)qe->arg.ptr;
+    auto* arg = (ForwardToSessionArg*)m->arg.ptr;
     auto* pk  = (core::Package*)arg->raw;
 
     auto s = get_session(pk->meta.conv);
@@ -444,7 +444,6 @@ adam::kcp::Worker::on_user_send(core::QEvent* qe) noexcept {
         xERROR("{} 发送失败", s->to_json());
     }
 
-    ::mi_free(arg->raw);
     delete arg;
 }
 
@@ -468,21 +467,21 @@ adam::kcp::Worker::update() noexcept {
     // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动. b
     size_t exp = 0;
     auto timeout = Conf::instance()->server()->timeout / 2;
-    while (exp < sque_.size() && sque_[exp]->time + timeout < now) {
-        sb_pool_.release(sque_[exp]);
+    while (exp < dg_que_.size() && dg_que_[exp]->time + timeout < now) {
+        dg_pool_.release(dg_que_[exp]);
         ++exp;
     }
 
     ::mmsghdr msgs[MAX_SEND] {};
     ::iovec iovecs[MAX_SEND] {};
-    int nsnd = 0, total = (int)sque_.size() - (int)exp;
+    int nsnd = 0, total = (int)dg_que_.size() - (int)exp;
 
     while (nsnd < total) {
         int n = total - nsnd;
         n = n > MAX_SEND ? MAX_SEND : n;
 
         for (int i = 0; i < n; ++i) {
-            auto& buf = sque_[exp + nsnd + i];
+            auto& buf = dg_que_[exp + nsnd + i];
             auto& msg = msgs[i];
             auto& hdr = msg.msg_hdr;
 
@@ -508,9 +507,9 @@ adam::kcp::Worker::update() noexcept {
     }
 
     for (int i = 0; i < nsnd; ++i) {
-        sb_pool_.release(sque_[exp + i]);
+        dg_pool_.release(dg_que_[exp + i]);
     }
-    sque_.erase(sque_.begin(), sque_.begin() + exp + nsnd);
+    dg_que_.erase(dg_que_.begin(), dg_que_.begin() + exp + nsnd);
 
     for (auto itr = servs_.begin(); itr != servs_.end();) {
         auto& conn = itr->second;
@@ -524,31 +523,31 @@ adam::kcp::Worker::update() noexcept {
 
 void
 adam::kcp::Worker::drain_qevent() noexcept {
-    constexpr int EVQUE_BATCH = 16;
+    constexpr int MQUE_BATCH = 16;
     int i, n;
-    core::QEvent* qes[EVQUE_BATCH];
-    while ((n = evque_.try_dequeue_bulk(qes, EVQUE_BATCH)) > 0) {
+    Message* ms[MQUE_BATCH];
+    while ((n = mque_.try_dequeue_bulk(ms, MQUE_BATCH)) > 0) {
         for (i = 0; i < n; ++i) {
-            switch (qes[i]->type) {
-            case core::QEvent::Type::Stop:
+            switch (ms[i]->type) {
+            case Message::Type::Stop:
                 // 停止事件只为唤醒 epoll(state_ 已在 Worker::stop 里置 Stopping), 消费掉即可;
                 // 本轮 on_event_handle 返回后 while(running()) 会自然退出。
                 break;
 
-            case core::QEvent::Type::AddServ:
-                on_new_serv(qes[i]);
+            case Message::Type::EnsureBackend:
+                on_ensure_backend(ms[i]);
                 break;
 
-            case core::QEvent::Type::KcpSend:
-                on_user_send(qes[i]);
+            case Message::Type::ForwardToSession:
+                on_forward_to_session(ms[i]);
                 break;
 
             default:
-                xFATAL("无效的 QEvent::Type {}", (int)qes[i]->type);
+                xFATAL("无效的 QEvent::Type {}", (int)ms[i]->type);
                 break;
             }
 
-            delete qes[i];
+            delete ms[i];
         }
     }
 }
@@ -593,7 +592,9 @@ adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
         }
     } else {
         (*wkrs)[pk->meta.conv % wkrs->size()]->notify(
-            new core::QEvent(core::QEvent::Type::KcpSend, new core::KcpSendArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length()))
+            new Message(Message::Type::ForwardToSession,
+                new ForwardToSessionArg((uint8_t*)pk, sizeof(core::Package) + pk->payload_length())
+            )
         );
     }
 }

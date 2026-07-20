@@ -2,7 +2,7 @@
 #define __ADAM_TCP_SERVER_HPP__
 
 
-#include "tcp/proc.hpp"
+#include "tcp/worker.hpp"
 #include "tcp/config.hpp"
 
 
@@ -98,13 +98,13 @@ public:
 
     const Session::Ptr*
     sessions() const noexcept {
-        return gws_;
+        return sesss_;
     }
 
 
     int
     worker_size() const noexcept {
-        return (int)procs_.size();
+        return (int)workers_.size();
     }
 
 
@@ -135,17 +135,17 @@ public:
     Session::Ptr
     get_session(SOCKET fd) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        return gws_[fd];
+        return sesss_[fd];
     }
 
 
     void
-    add_session(SOCKET fd, Proc* w) noexcept {
+    add_session(SOCKET fd, Worker* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        gws_[fd] = Session::create(fd, w);
-        if (event_->on_connected(gws_[fd]) != 0) {
+        sesss_[fd] = Session::create(fd, w);
+        if (event_->on_connected(sesss_[fd]) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-            gws_[fd] = nullptr;
+            sesss_[fd] = nullptr;
         }
     }
 
@@ -153,12 +153,12 @@ public:
     void
     remove_session(SOCKET fd, bool del_from_epoll = true) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        if (gws_[fd]) {
+        if (sesss_[fd]) {
             if (del_from_epoll) {
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
-            event_->on_disconnected(gws_[fd]);
-            gws_[fd] = nullptr;
+            event_->on_disconnected(sesss_[fd]);
+            sesss_[fd] = nullptr;
         }
     }
 
@@ -222,9 +222,9 @@ private:
     IEvent*                  event_                       { nullptr };
     std::atomic<core::State> state_                       { core::State::Stopped };
     std::string              host_;   
-    std::vector<Proc::Ptr>   procs_;   
+    std::vector<Worker::Ptr> workers_;   
     std::vector<std::thread> threads_;
-    Session::Ptr             gws_[MAX_CONN]               { nullptr };
+    Session::Ptr             sesss_[MAX_CONN]             { nullptr };
     PackageHandlers          handlers                     {};
 };
 

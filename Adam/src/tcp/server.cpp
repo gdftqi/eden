@@ -77,15 +77,15 @@ adam::tcp::Server::init() noexcept {
     n = n > 2 ? n - 2 : 2;
 
     for (int i = 0; i < n; ++i) {
-        procs_.emplace_back(Proc::create(this, i));
-        threads_.emplace_back((std::bind(&Proc::run, procs_[i].get())));
+        workers_.emplace_back(Worker::create(this, i));
+        threads_.emplace_back((std::bind(&Worker::run, workers_[i].get())));
     }
 }
 
 
 void
 adam::tcp::Server::release() noexcept {
-    for (auto& w: procs_) {
+    for (auto& w: workers_) {
         w->stop();
     }
 
@@ -94,7 +94,7 @@ adam::tcp::Server::release() noexcept {
     }
     
     threads_.clear();
-    procs_.clear();
+    workers_.clear();
 
     if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
@@ -111,7 +111,7 @@ adam::tcp::Server::release() noexcept {
         lfd_ = INVALID_SOCKET;
     }
 
-    for (auto& s: gws_) {
+    for (auto& s: sesss_) {
         if (s) {
             event_->on_disconnected(s);
             s = nullptr;
@@ -184,7 +184,7 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events = EPOLLIN | EPOLLET | EPOLLOUT;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            procs_[cfd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::AddSess, cfd));
+            workers_[cfd % workers_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
         }
     }
 }
@@ -215,18 +215,18 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 del = true;
                 break;
             } else {
-                auto* rbuf = (core::TcpRecvArg*)::mi_malloc(sizeof(core::TcpRecvArg) + n);
+                auto* rbuf = (SessionInputArg*)::mi_malloc(sizeof(SessionInputArg) + n);
                 ASSERT(rbuf != nullptr, "failed to allocate memory for RcvBuf");
                 rbuf->len = n;
                 rbuf->fd = fd;
                 ::memcpy(rbuf->data, buf, n);
-                procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::TcpRecv, rbuf));
+                workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionInput, rbuf));
             }
         }
     }
 
     if (ev.events & EPOLLOUT) {
-        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::TcpSend, fd));
+        workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionOutput, fd));
     }
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
@@ -235,7 +235,7 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (del) {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-        procs_[fd % procs_.size()]->notify(new core::QEvent(core::QEvent::Type::RmvSess, fd));
+        workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionDisconnected, fd));
     }
 }
 

@@ -2,14 +2,14 @@
 #define __ADAM_TCP_SESSION_HPP__
 
 
-#include "core/buffer.hpp"
+#include "tcp/buffer.hpp"
 #include "core/package.hpp"
 
 
 namespace adam::tcp {
 
 
-class Proc;
+class Worker;
 
 
 class Session {
@@ -24,13 +24,13 @@ public:
 
 
     static Ptr
-    create(SOCKET sockfd, Proc* w) noexcept {
+    create(SOCKET sockfd, Worker* w) noexcept {
         return std::make_shared<Session>(sockfd, w);
     }
 
 
     explicit
-    Session(SOCKET sockfd, Proc* w) noexcept;
+    Session(SOCKET sockfd, Worker* w) noexcept;
 
 
     ~Session() noexcept {
@@ -73,9 +73,9 @@ public:
     }
 
 
-    const Proc*
-    proc() const noexcept {
-        return proc_;
+    const Worker*
+    worker() const noexcept {
+        return worker_;
     }
 
 
@@ -121,6 +121,7 @@ public:
     ssize_t
     send(core::Package& pk) noexcept;
 
+
     /** @brief 纯 flush sbuf_ 残留(EPOLLOUT 触发时续发)。 */
     ssize_t
     send() noexcept;
@@ -133,9 +134,9 @@ private:
     socklen_t            addrlen_      { 0 };
     uint64_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
-    Proc*                proc_         { nullptr };
+    Worker*              worker_       { nullptr };
     std::vector<uint8_t> sbuf_         {};
-    core::Buffer         rbuf_         {};
+    Buffer               rbuf_         {};
 }; // class TcpSession;
 
     
