@@ -13,7 +13,7 @@ adam::tcp::Server::run() noexcept {
     }
 
     init();
-    event_->on_init(this);
+    hook_->on_init(this);
 
     int i, n;
     constexpr size_t MAX_EVENTS = MAX_CONN + 2;
@@ -48,7 +48,7 @@ adam::tcp::Server::run() noexcept {
     }
 
     release();
-    event_->on_stopped(this);
+    hook_->on_stopped(this);
 
     state_.store(core::State::Stopped);
 }
@@ -113,7 +113,7 @@ adam::tcp::Server::release() noexcept {
 
     for (auto& s: sesss_) {
         if (s) {
-            event_->on_disconnected(s);
+            hook_->on_disconnected(s);
             s = nullptr;
         }
     }
@@ -197,7 +197,7 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (ev.events & EPOLLIN) {
         int n;
-        static uint8_t buf[RBUF_SIZE];
+        static thread_local uint8_t buf[RBUF_SIZE];
 
         while (1) {
             n = ::recv(fd, buf, RBUF_SIZE, 0);
@@ -206,21 +206,22 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                     if (errno == EINTR) {
                         continue;
                     }
+
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        break;   // 数据读完了, 不是断开
+                        break;
                     }
+
                     xERROR("recv failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
                 // n == 0 (对端 close 的 EOF) 或 n < 0 真错误 → 连接断开
                 del = true;
                 break;
             } else {
-                auto* rbuf = (SessionInputArg*)::mi_malloc(sizeof(SessionInputArg) + n);
-                ASSERT(rbuf != nullptr, "failed to allocate memory for RcvBuf");
-                rbuf->len = n;
-                rbuf->fd = fd;
-                ::memcpy(rbuf->data, buf, n);
-                workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionInput, rbuf));
+                workers_[fd % workers_.size()]->notify(
+                    new Message(
+                        Message::Type::SessionInput, new SessionInputArg(fd, n, buf)
+                    )
+                );
             }
         }
     }

@@ -39,10 +39,10 @@ public:
      *          同一个 session(同一 fd)上的回调不会重入,因为同一 fd 始终被
      *          同一个 worker 处理(`fd % workers_.size()`)。
      */
-    class IEvent {
+    class IHook {
     public:
         virtual
-        ~IEvent() noexcept
+        ~IHook() noexcept
         {}
 
 
@@ -65,7 +65,7 @@ public:
         virtual void
         on_disconnected(Session::Ptr) noexcept
         {}
-    }; // class IEvent;
+    }; // class IHook;
 
 
     static constexpr int MAX_CONN = 2048; ///< 最大连接数
@@ -76,11 +76,11 @@ public:
 
 
     explicit
-    Server(const char* host, IEvent* event) noexcept
-        : event_(event)
+    Server(const char* host, IHook* hook) noexcept
+        : hook_(hook)
         , host_(host) {
         host_ = host_.substr(host_.find(':'));
-        ASSERT(event_ != nullptr, "event handler cannot be null");
+        ASSERT(hook_ != nullptr, "hook handler cannot be null");
         ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
     }
 
@@ -143,7 +143,7 @@ public:
     add_session(SOCKET fd, Worker* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         sesss_[fd] = Session::create(fd, w);
-        if (event_->on_connected(sesss_[fd]) != 0) {
+        if (hook_->on_connected(sesss_[fd]) != 0) {
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             sesss_[fd] = nullptr;
         }
@@ -157,7 +157,7 @@ public:
             if (del_from_epoll) {
                 ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
-            event_->on_disconnected(sesss_[fd]);
+            hook_->on_disconnected(sesss_[fd]);
             sesss_[fd] = nullptr;
         }
     }
@@ -170,16 +170,6 @@ public:
     }
 
 
-    /**
-     * @brief 注册 pk_id → handler 路由表项。
-     *
-     * @warning **必须在 run() 之前调用**。handlers[] 是裸数组,运行中由 worker 线程
-     *          只读访问,本函数是唯一写点;没有任何同步原语保护。
-     *          run() 起来之后再 regist_handler 属于跨线程裸读 + 裸写,UB。
-     *
-     * @param pkid    业务消息号
-     * @param handler 处理函数指针;同一 pkid 重复注册会覆盖并打 WARN
-     */
     void
     regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
         if (handlers[pkid] != nullptr) {
@@ -215,17 +205,17 @@ private:
     update_serv() noexcept;
 
 
-    SOCKET                   lfd_                         { INVALID_SOCKET };
-    SOCKET                   stop_evfd_                   { INVALID_SOCKET };
-    SOCKET                   epfd_                        { INVALID_SOCKET };
-    uint64_t                 tnow_                        { 0 };
-    IEvent*                  event_                       { nullptr };
-    std::atomic<core::State> state_                       { core::State::Stopped };
+    SOCKET                   lfd_             { INVALID_SOCKET };
+    SOCKET                   stop_evfd_       { INVALID_SOCKET };
+    SOCKET                   epfd_            { INVALID_SOCKET };
+    uint64_t                 tnow_            { 0 };
+    IHook*                  hook_           { nullptr };
+    std::atomic<core::State> state_           { core::State::Stopped };
     std::string              host_;   
     std::vector<Worker::Ptr> workers_;   
     std::vector<std::thread> threads_;
-    Session::Ptr             sesss_[MAX_CONN]             { nullptr };
-    PackageHandlers          handlers                     {};
+    Session::Ptr             sesss_[MAX_CONN] { nullptr };
+    PackageHandlers          handlers;
 };
 
     

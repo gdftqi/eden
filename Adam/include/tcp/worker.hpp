@@ -66,7 +66,7 @@ public:
         bool expected = false;
         if (mq_workering_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
-            if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
+            if (::write(mfd_, &event, sizeof(event)) != sizeof(event)) {
                 xERROR("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
             }
         }
@@ -132,7 +132,7 @@ private:
     Server*                  server_        { nullptr };
     int                      id_            { -1 };
     SOCKET                   epfd_          { INVALID_SOCKET };
-    SOCKET                   evfd_          { INVALID_SOCKET };   // 队列事件
+    SOCKET                   mfd_          { INVALID_SOCKET };   // 队列事件
     uint64_t                 tnow_          { 0 };
     uint64_t                 last_check_ms_ { 0 };
     std::atomic<core::State> state_         { core::State::Stopped };

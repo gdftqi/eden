@@ -140,16 +140,16 @@ public:
 
 
 private:
-    bool         authed_       { false };
-    uint32_t     id_           { 0 };
-    SOCKET       fd_                 { INVALID_SOCKET };
-    State        state_        { State::Disconnected };
-    uint64_t     last_recv_ms_ { 0 };
-    uint64_t     last_send_ms_ { 0 };
-    std::string  host_;
-    std::string  desc_;
-    Buffer rbuf_;
-    Buffer sbuf_;
+    bool        authed_       { false };
+    uint32_t    id_           { 0 };
+    SOCKET      fd_           { INVALID_SOCKET };
+    State       state_        { State::Disconnected };
+    uint64_t    last_recv_ms_ { 0 };
+    uint64_t    last_send_ms_ { 0 };
+    std::string host_;
+    std::string desc_;
+    Buffer      rbuf_;
+    Buffer      sbuf_;
 }; // class Connector;
 
     

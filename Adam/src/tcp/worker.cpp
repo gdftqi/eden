@@ -32,7 +32,7 @@ adam::tcp::Worker::run() noexcept {
 
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == evfd_) {
+            if (ev.data.fd == mfd_) {
                 on_event_handle(ev);
             }
         }
@@ -53,13 +53,13 @@ adam::tcp::Worker::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(evfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
+    mfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(mfd_ != INVALID_SOCKET, "eventfd failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = evfd_;
+    ev.data.fd = mfd_;
     ev.events = EPOLLIN | EPOLLET;
-    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, mfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 }
 
 
@@ -70,9 +70,9 @@ adam::tcp::Worker::release() noexcept {
         epfd_ = INVALID_SOCKET;
     }
 
-    if (evfd_ != INVALID_SOCKET) {
-        ::close(evfd_);
-        evfd_ = INVALID_SOCKET;
+    if (mfd_ != INVALID_SOCKET) {
+        ::close(mfd_);
+        mfd_ = INVALID_SOCKET;
     }
 
     mque_.clear([](Message* m) {
@@ -94,7 +94,7 @@ adam::tcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
     int err = 0;
     while (1) {
         uint64_t event;
-        auto n = ::read(evfd_, &event, sizeof(event));
+        auto n = ::read(mfd_, &event, sizeof(event));
         if (n < 0) {
             err = errno;
             if (err == EINTR) {
