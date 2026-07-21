@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/eva/conf"
 	"github.com/eva/handlers"
 	"github.com/eva/log"
 	"github.com/eva/mid"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
