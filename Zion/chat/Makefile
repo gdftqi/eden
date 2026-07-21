@@ -1,6 +1,12 @@
 CXX         := g++
 CXXFLAGS    := -O2 -g -Wall -Wextra -I../../Adam/include -MMD -MP -std=c++20
 
+# gperftools profiler 静态自包含链:让 chat 二进制不依赖 libprofiler.so / libunwind.so
+# 运行期库(最小化部署镜像里没这俩 .so 也能起)。链序敏感: profiler → unwind → lzma。
+# 注意: 这些 distro 静态库非 PIC, 故链接必须 -no-pie —— 该可执行文件放弃 ASLR(安全降级),
+#       这是"自包含"换来的代价。若想保留 ASLR, 改回 -lprofiler(动态, 需部署镜像装 .so)。
+PROF_LIBS := -l:libprofiler.a -l:libunwind.a -l:liblzma.a
+
 # chat/ 是干净的部署包: 二进制 + config + docker-compose + flame_build.sh;
 # 编译中间产物(.o/.d)全部放 obj/, 不进部署包
 BUILD_DIR   := chat
@@ -24,9 +30,9 @@ all: $(SERVER) $(CONFIG_DST) $(COMPOSE_DST) $(FLAME_DST)
 $(LIB):
 	@$(MAKE) -C ../../Adam
 
-# -lprofiler: gperftools CPU profiler(config.flame 开启时采样; 需 main.cpp 里 ProfilerStart/Stop)
+# C++ chat: profiler 静态链
 $(SERVER): $(OBJECTS) $(LIB) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(OBJECTS) $(LIB) -lpthread -lprofiler -o $@
+	$(CXX) $(CXXFLAGS) -no-pie $(OBJECTS) $(LIB) -lpthread $(PROF_LIBS) -o $@
 
 $(CONFIG_DST): config.yml | $(BUILD_DIR)
 	cp $< $@

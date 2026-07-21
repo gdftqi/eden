@@ -1,9 +1,9 @@
 #include <csignal>
 #include <cstdlib>
-#include <gperftools/profiler.h>
 
 #include "tcp/server.hpp"
 #include "utils/sys.hpp"
+#include "utils/prof.hpp"
 
 
 static std::unique_ptr<adam::tcp::Server> server;
@@ -19,7 +19,7 @@ on_signal(int) {
 }
 
 
-class EchoService: public adam::tcp::Server::IEvent {
+class EchoService: public adam::tcp::Server::IHook {
 public:
     void
     on_init(adam::tcp::Server* s) noexcept override {
@@ -72,15 +72,9 @@ main(int /*argc*/, char** /*argv*/) {
         return EXIT_FAILURE;
     }
 
-    Conf::instance()->load("config.yml");
-
-    if (Conf::instance()->log_path().length() > 0) {
-        adam::utils::init_log(Conf::instance()->log_path());
-    }
-
-    if (Conf::instance()->flame()) {
-        ProfilerStart("./chat.prof");
-    }
+    Conf::instance()->load_from_file("config.yml");
+    adam::utils::init_log(Conf::instance()->log_path());
+    adam::utils::Prof prof(Conf::instance()->prof_path());
 
     EchoService service;
     server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &service);
@@ -94,9 +88,5 @@ main(int /*argc*/, char** /*argv*/) {
     server->run();
 
     xINFO("服务关闭");
-
-    if (Conf::instance()->flame()) {
-        ProfilerStop();
-    }
     return EXIT_SUCCESS;
 }

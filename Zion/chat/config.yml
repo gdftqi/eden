@@ -1,9 +1,9 @@
 server:
-  id: 10000
+  id: 0x10010000
   timeout: 45
   protocol: "tcp"
   name: "public/chat"
-  host: "127.0.0.1:5555"
+  host: "127.0.0.1:6688"
   desc: "echo chat"
 
 etcd:
@@ -11,3 +11,6 @@ etcd:
   user: "root"
   pass: "123456"
   ttl: 15
+
+log_path: "logs"
+prof_path: "chat.prof"

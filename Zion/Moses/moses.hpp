@@ -5,7 +5,7 @@
 #include "adam.h"
 
 
-class Moses: public adam::kcp::IEvent {
+class Moses: public adam::kcp::IHook {
 public:
     virtual void
     on_init(adam::kcp::Server* s) noexcept {
