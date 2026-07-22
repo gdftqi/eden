@@ -420,6 +420,8 @@ namespace Lilith.Components
 
                     await Task.Delay((int)reconnectRetryIntervalMs).ConfigureAwait(false);
                 }
+
+                Close();
             }
             finally
             {
