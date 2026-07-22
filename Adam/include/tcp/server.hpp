@@ -2,7 +2,7 @@
 #define __ADAM_TCP_SERVER_HPP__
 
 
-#include "tcp/worker.hpp"
+#include "tcp/reactor.hpp"
 #include "tcp/config.hpp"
 
 
@@ -104,7 +104,7 @@ public:
 
     int
     worker_size() const noexcept {
-        return (int)workers_.size();
+        return (int)reactors_.size();
     }
 
 
@@ -124,7 +124,7 @@ public:
             core::State expected = core::State::Running;
             if (state_.compare_exchange_strong(expected, core::State::Stopping)) {
                 constexpr uint64_t event = 1;
-                if (::write(stop_evfd_, &event, sizeof(event)) != sizeof(event)) {
+                if (::write(evfd_, &event, sizeof(event)) != sizeof(event)) {
                     xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
             }
@@ -140,7 +140,7 @@ public:
 
 
     void
-    add_session(SOCKET fd, Worker* w) noexcept {
+    add_session(SOCKET fd, Reactor* w) noexcept {
         ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
         sesss_[fd] = Session::create(fd, w);
         if (hook_->on_connected(sesss_[fd]) != 0) {
@@ -205,18 +205,18 @@ private:
     update_serv() noexcept;
 
 
-    SOCKET                   lfd_             { INVALID_SOCKET };
-    SOCKET                   stop_evfd_       { INVALID_SOCKET };
-    SOCKET                   epfd_            { INVALID_SOCKET };
-    uint64_t                 tnow_            { 0 };
-    IHook*                  hook_           { nullptr };
-    std::atomic<core::State> state_           { core::State::Stopped };
-    std::string              host_;   
-    std::vector<Worker::Ptr> workers_;   
-    std::vector<std::thread> threads_;
-    Session::Ptr             sesss_[MAX_CONN] { nullptr };
-    PackageHandlers          handlers;
-};
+    SOCKET                    lfd_             { INVALID_SOCKET };
+    SOCKET                    evfd_             { INVALID_SOCKET };
+    SOCKET                    epfd_            { INVALID_SOCKET };
+    uint64_t                  tnow_            { 0 };
+    IHook*                    hook_           { nullptr };
+    std::atomic<core::State>  state_           { core::State::Stopped };
+    std::string               host_;   
+    std::vector<Reactor::Ptr> reactors_;   
+    std::vector<std::thread>  threads_;
+    Session::Ptr              sesss_[MAX_CONN] { nullptr };
+    PackageHandlers           handlers;
+}; // class Server;
 
     
 } // namespace adam::tcp

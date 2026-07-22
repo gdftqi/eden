@@ -35,7 +35,7 @@ adam::tcp::Server::run() noexcept {
         tnow_ = utils::systime_ms();
         for (i = 0; i < n; ++i) {
             auto& ev = events[i];
-            if (ev.data.fd == stop_evfd_) {
+            if (ev.data.fd == evfd_) {
                 on_stop_handle(ev);
             } else if (ev.data.fd == lfd_) {
                 on_listen_handle(ev);
@@ -59,16 +59,16 @@ adam::tcp::Server::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != INVALID_SOCKET, "创建 epoll fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    stop_evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-    ASSERT(stop_evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
+    evfd_ = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    ASSERT(evfd_ != INVALID_SOCKET, "创建 停止事件 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     lfd_ = core::tcp_listen(host_);
     ASSERT(lfd_ != INVALID_SOCKET, "创建 TCP 监听 fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ::epoll_event ev;
-    ev.data.fd = stop_evfd_;
+    ev.data.fd = evfd_;
     ev.events = EPOLLIN | EPOLLET;
-    ASSERT((::epoll_ctl(epfd_, EPOLL_CTL_ADD, stop_evfd_, &ev)) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
+    ASSERT((::epoll_ctl(epfd_, EPOLL_CTL_ADD, evfd_, &ev)) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
     ev.data.fd = lfd_;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
@@ -77,15 +77,15 @@ adam::tcp::Server::init() noexcept {
     n = n > 2 ? n - 2 : 2;
 
     for (int i = 0; i < n; ++i) {
-        workers_.emplace_back(Worker::create(this, i));
-        threads_.emplace_back((std::bind(&Worker::run, workers_[i].get())));
+        reactors_.emplace_back(Reactor::create(this, i));
+        threads_.emplace_back((std::bind(&Reactor::run, reactors_[i].get())));
     }
 }
 
 
 void
 adam::tcp::Server::release() noexcept {
-    for (auto& w: workers_) {
+    for (auto& w: reactors_) {
         w->stop();
     }
 
@@ -94,16 +94,16 @@ adam::tcp::Server::release() noexcept {
     }
     
     threads_.clear();
-    workers_.clear();
+    reactors_.clear();
 
     if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
         epfd_ = INVALID_SOCKET;
     }
 
-    if (stop_evfd_ != INVALID_SOCKET) {
-        ::close(stop_evfd_);
-        stop_evfd_ = INVALID_SOCKET;
+    if (evfd_ != INVALID_SOCKET) {
+        ::close(evfd_);
+        evfd_ = INVALID_SOCKET;
     }
 
     if (lfd_ != INVALID_SOCKET) {
@@ -125,7 +125,7 @@ adam::tcp::Server::on_stop_handle(const ::epoll_event& ev) noexcept {
     if (ev.events & EPOLLIN) {
         while (1) {
             uint64_t event;
-            auto n = ::read(stop_evfd_, &event, sizeof(event));
+            auto n = ::read(evfd_, &event, sizeof(event));
             if (n == -1) {
                 int err = errno;
                 if (err == EINTR) {
@@ -184,7 +184,7 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
             event.data.fd = cfd;
             event.events = EPOLLIN | EPOLLET | EPOLLOUT;
             ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            workers_[cfd % workers_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
+            reactors_[cfd % reactors_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
         }
     }
 }
@@ -217,7 +217,7 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
                 del = true;
                 break;
             } else {
-                workers_[fd % workers_.size()]->notify(
+                reactors_[fd % reactors_.size()]->notify(
                     new Message(
                         Message::Type::SessionInput, new SessionInputArg(fd, n, buf)
                     )
@@ -227,7 +227,7 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (ev.events & EPOLLOUT) {
-        workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionOutput, fd));
+        reactors_[fd % reactors_.size()]->notify(new Message(Message::Type::SessionOutput, fd));
     }
 
     if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
@@ -236,7 +236,7 @@ adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
 
     if (del) {
         ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-        workers_[fd % workers_.size()]->notify(new Message(Message::Type::SessionDisconnected, fd));
+        reactors_[fd % reactors_.size()]->notify(new Message(Message::Type::SessionDisconnected, fd));
     }
 }
 

@@ -1,5 +1,5 @@
-#ifndef __ADAM_TCP_PROC_HPP__
-#define __ADAM_TCP_PROC_HPP__
+#ifndef __ADAM_TCP_REACTOR_HPP__
+#define __ADAM_TCP_REACTOR_HPP__
 
 
 #include "tcp/session.hpp"
@@ -13,24 +13,24 @@ namespace adam::tcp {
 class Server;
 
 
-class Worker {
-    Worker(const Worker&) = delete;
-    Worker& operator=(const Worker&) = delete;
-    Worker(Worker&&) = delete;
-    Worker& operator=(Worker&&) = delete;
+class Reactor {
+    Reactor(const Reactor&) = delete;
+    Reactor& operator=(const Reactor&) = delete;
+    Reactor(Reactor&&) = delete;
+    Reactor& operator=(Reactor&&) = delete;
 
 
 public:
-    typedef std::unique_ptr<Worker> Ptr;
+    typedef std::unique_ptr<Reactor> Ptr;
 
 
     static Ptr
     create(Server* server, int id) noexcept {
-        return Ptr(new Worker(server, id));
+        return Ptr(new Reactor(server, id));
     }
 
     
-    ~Worker() noexcept {
+    ~Reactor() noexcept {
         release();
     }
 
@@ -75,7 +75,7 @@ public:
 
 private:
     explicit
-    Worker(Server* server, int id) noexcept
+    Reactor(Server* server, int id) noexcept
         : server_(server)
         , id_(id)
     {}
@@ -138,10 +138,10 @@ private:
     std::atomic<core::State> state_         { core::State::Stopped };
     std::atomic_bool         mq_workering_  { false };
     utils::SPSC<Message*>    mque_;
-}; // class Worker;
+}; // class Reactor;
 
     
 } // namespace adam::tcp
 
 
-#endif // __ADAM_TCP_PROC_HPP__
+#endif // __ADAM_TCP_REACTOR_HPP__

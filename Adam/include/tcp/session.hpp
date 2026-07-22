@@ -9,7 +9,7 @@
 namespace adam::tcp {
 
 
-class Worker;
+class Reactor;
 
 
 class Session {
@@ -24,13 +24,13 @@ public:
 
 
     static Ptr
-    create(SOCKET sockfd, Worker* w) noexcept {
+    create(SOCKET sockfd, Reactor* w) noexcept {
         return std::make_shared<Session>(sockfd, w);
     }
 
 
     explicit
-    Session(SOCKET sockfd, Worker* w) noexcept;
+    Session(SOCKET sockfd, Reactor* w) noexcept;
 
 
     ~Session() noexcept {
@@ -73,7 +73,7 @@ public:
     }
 
 
-    const Worker*
+    const Reactor*
     worker() const noexcept {
         return worker_;
     }
@@ -134,7 +134,7 @@ private:
     socklen_t            addrlen_      { 0 };
     uint64_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
-    Worker*              worker_       { nullptr };
+    Reactor*              worker_       { nullptr };
     std::vector<uint8_t> sbuf_         {};
     Buffer               rbuf_         {};
 }; // class TcpSession;

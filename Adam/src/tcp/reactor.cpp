@@ -1,11 +1,11 @@
-#include "tcp/config.hpp"
-#include "tcp/server.hpp"
-#include "tcp/worker.hpp"
 #include "core/error.hpp"
+#include "tcp/config.hpp"
+#include "tcp/reactor.hpp"
+#include "tcp/server.hpp"
 
 
 void
-adam::tcp::Worker::run() noexcept {
+adam::tcp::Reactor::run() noexcept {
     auto expected = core::State::Stopped;
     if (!state_.compare_exchange_strong(expected, core::State::Starting)) {
         return;
@@ -49,7 +49,7 @@ adam::tcp::Worker::run() noexcept {
 
 
 void
-adam::tcp::Worker::init() noexcept {
+adam::tcp::Reactor::init() noexcept {
     epfd_ = ::epoll_create1(0);
     ASSERT(epfd_ != INVALID_SOCKET, "epoll_create1 failed: errno = {}, errstr = {}", errno, ::strerror(errno));
 
@@ -64,7 +64,7 @@ adam::tcp::Worker::init() noexcept {
 
 
 void
-adam::tcp::Worker::release() noexcept {
+adam::tcp::Reactor::release() noexcept {
     if (epfd_ != INVALID_SOCKET) {
         ::close(epfd_);
         epfd_ = INVALID_SOCKET;
@@ -86,7 +86,7 @@ adam::tcp::Worker::release() noexcept {
 
 
 void
-adam::tcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
+adam::tcp::Reactor::on_event_handle(const ::epoll_event& ev) noexcept {
     if (!(ev.events & EPOLLIN)) {
         return;
     }
@@ -115,7 +115,7 @@ adam::tcp::Worker::on_event_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-adam::tcp::Worker::on_recv_handle(Message* m) noexcept {
+adam::tcp::Reactor::on_recv_handle(Message* m) noexcept {
     auto* rbuf = (SessionInputArg*)m->arg.ptr;
     auto sess = server_->get_session(rbuf->fd);
     if (sess == nullptr) {
@@ -152,7 +152,7 @@ adam::tcp::Worker::on_recv_handle(Message* m) noexcept {
 
 
 void
-adam::tcp::Worker::on_send_handle(Message* m) noexcept {
+adam::tcp::Reactor::on_send_handle(Message* m) noexcept {
     auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
     auto sess = server_->get_session(fd);
     if (sess != nullptr) {
@@ -165,21 +165,21 @@ adam::tcp::Worker::on_send_handle(Message* m) noexcept {
 
 
 void
-adam::tcp::Worker::on_add_sess_handle(Message* m) noexcept {
+adam::tcp::Reactor::on_add_sess_handle(Message* m) noexcept {
     auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
     server_->add_session(fd, this);
 }
 
 
 void
-adam::tcp::Worker::on_rmv_sess_handle(Message* m) noexcept {
+adam::tcp::Reactor::on_rmv_sess_handle(Message* m) noexcept {
     auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
     server_->remove_session(fd, false);
 }
 
 
 void
-adam::tcp::Worker::check_timeout() noexcept {
+adam::tcp::Reactor::check_timeout() noexcept {
     const auto tn = tnow_;
     const auto to = Conf::instance()->server()->timeout;
     const int  n  = Server::MAX_CONN;
@@ -200,7 +200,7 @@ adam::tcp::Worker::check_timeout() noexcept {
 
 
 void
-adam::tcp::Worker::on_ping(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
     pk->data.id = PKID_PONG;
     if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
@@ -209,7 +209,7 @@ adam::tcp::Worker::on_ping(Session::Ptr s, core::Package* pk) noexcept {
 
 
 void
-adam::tcp::Worker::on_regist(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
@@ -227,7 +227,7 @@ adam::tcp::Worker::on_regist(Session::Ptr s, core::Package* pk) noexcept {
 
 
 void
-adam::tcp::Worker::on_handle(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_handle(Session::Ptr s, core::Package* pk) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
         return;
@@ -244,7 +244,7 @@ adam::tcp::Worker::on_handle(Session::Ptr s, core::Package* pk) noexcept {
 
 
 void
-adam::tcp::Worker::drain_evque() noexcept {
+adam::tcp::Reactor::drain_evque() noexcept {
     size_t i, n;
     Message* ms[16];
     while ((n = mque_.try_dequeue_bulk(ms, 16)) > 0) {

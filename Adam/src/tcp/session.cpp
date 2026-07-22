@@ -1,10 +1,10 @@
 #include "tcp/config.hpp"
-#include "tcp/worker.hpp"
+#include "tcp/reactor.hpp"
 #include "tcp/session.hpp"
 #include "core/error.hpp"
 
 
-adam::tcp::Session::Session(SOCKET sockfd, Worker* w) noexcept
+adam::tcp::Session::Session(SOCKET sockfd, Reactor* w) noexcept
     : fd_(sockfd)
     , addrlen_(sizeof(addr_))
     , last_recv_ms_(w->tnow())
