@@ -4,6 +4,12 @@
 #include "tcp/server.hpp"
 
 
+// ET 下单次 recv 的读缓冲(循环读到 EAGAIN 为止), 每 reactor 线程一份
+static constexpr int RBUF_SIZE  = 16 * 1024;
+// 一次 epoll_wait 最多取的事件数(reactor 名下可能有很多连接 fd)
+static constexpr int MAX_EVENTS = 256;
+
+
 void
 adam::tcp::Reactor::run() noexcept {
     auto expected = core::State::Stopped;
@@ -14,12 +20,12 @@ adam::tcp::Reactor::run() noexcept {
     init();
 
     int i, n;
-    ::epoll_event events[2];
+    ::epoll_event events[MAX_EVENTS];
 
     state_.store(core::State::Running);
 
     while (running()) {
-        n = ::epoll_wait(epfd_, events, 2, 10);
+        n = ::epoll_wait(epfd_, events, MAX_EVENTS, 10);
         if (n < 0) {
             if (errno == EINTR) {
                 continue;
@@ -34,6 +40,8 @@ adam::tcp::Reactor::run() noexcept {
             auto& ev = events[i];
             if (ev.data.fd == mfd_) {
                 on_event_handle(ev);
+            } else {
+                on_session_handle(ev);
             }
         }
 
@@ -75,13 +83,24 @@ adam::tcp::Reactor::release() noexcept {
         mfd_ = INVALID_SOCKET;
     }
 
+    // 残留消息只剩 Stop / SessionConnected(arg 是 fd, 无堆内存), 直接 delete
     mque_.clear([](Message* m) {
-        if (m->type == Message::Type::SessionInput) {
-            auto* rbuf = (SessionInputArg*)m->arg.ptr;
-            ::mi_free(rbuf);
-        }
         delete m;
     });
+}
+
+
+void
+adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
+    auto itr = sesss_.find(fd);
+    if (itr == sesss_.end()) {
+        return;
+    }
+
+    auto s = itr->second;
+    ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
+    sesss_.erase(itr);
+    server_->hook()->on_disconnected(s);
 }
 
 
@@ -115,86 +134,122 @@ adam::tcp::Reactor::on_event_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-adam::tcp::Reactor::on_recv_handle(Message* m) noexcept {
-    auto* rbuf = (SessionInputArg*)m->arg.ptr;
-    auto sess = server_->get_session(rbuf->fd);
-    if (sess == nullptr) {
-        ::mi_free(rbuf);
+adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
+    SOCKET fd = m->arg.fd;
+    auto s = Session::create(fd, this);
+
+    ::epoll_event ev;
+    ev.events  = EPOLLIN | EPOLLET | EPOLLOUT;
+    ev.data.fd = fd;
+    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, fd, &ev) != 0) {
+        xERROR("epoll_ctl ADD failed: fd = {}, errno = {}, errstr = {}", fd, errno, ::strerror(errno));
         return;
     }
 
-    if (sess->input(rbuf->data, rbuf->len) != xOK) {
-        ::mi_free(rbuf);
+    if (server_->hook()->on_connected(s) != 0) {
+        ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
         return;
     }
 
-    alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
-    core::Package* pk = (core::Package*)buf;
-
-    while (sess->recv(pk) == xOK) {
-        switch (pk->data.id) {
-        case PKID_PING:
-            on_ping(sess, pk);
-            break;
-
-        case PKID_REGIST_REQ:
-            on_regist(sess, pk);
-            break;
-
-        default:
-            on_handle(sess, pk);
-            break;
-        }
-    }
-
-    ::mi_free(rbuf);
-}
-
-
-void
-adam::tcp::Reactor::on_send_handle(Message* m) noexcept {
-    auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
-    auto sess = server_->get_session(fd);
-    if (sess != nullptr) {
-        int n = sess->send();
-        if (n < 0) {
-            xWARN("failed to send data to fd {}, err = {}", fd, -n);
-        }
+    sesss_.emplace(fd, s);
+    if (session_recv(s)) {
+        remove_session(fd);
     }
 }
 
 
 void
-adam::tcp::Reactor::on_add_sess_handle(Message* m) noexcept {
-    auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
-    server_->add_session(fd, this);
+adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
+    SOCKET fd = ev.data.fd;
+    auto s = get_session(fd);
+    if (s == nullptr) {
+        return;
+    }
+
+    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+        remove_session(fd);
+        return;
+    }
+
+    bool del = false;
+
+    if (ev.events & EPOLLIN) {
+        del = session_recv(s);
+    }
+
+    if (!del && (ev.events & EPOLLOUT)) {
+        if (s->send() < 0) {
+            del = true;
+        }
+    }
+
+    if (del) {
+        remove_session(fd);
+    }
 }
 
 
-void
-adam::tcp::Reactor::on_rmv_sess_handle(Message* m) noexcept {
-    auto fd = (SOCKET)(uintptr_t)m->arg.ptr;
-    server_->remove_session(fd, false);
+bool
+adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
+    static thread_local uint8_t buf[RBUF_SIZE];
+    alignas(core::Package) static thread_local uint8_t pkbuf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
+    core::Package* pk = (core::Package*)pkbuf;
+
+    while (1) {
+        ssize_t n = ::recv(s->fd(), buf, RBUF_SIZE, 0);
+        if (n > 0) {
+            if (s->input(buf, (size_t)n) != xOK) {
+                return true;
+            }
+
+            while (s->recv(pk) == xOK) {
+                switch (pk->data.id) {
+                case PKID_PING:
+                    on_ping(s, pk);
+                    break;
+
+                case PKID_REGIST_REQ:
+                    on_regist(s, pk);
+                    break;
+
+                default:
+                    on_package_handle(s, pk);
+                    break;
+                }
+            }
+        } else if (n == 0) {
+            return true;   // 对端 close 的 EOF
+        } else {
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return false;   // ET: 内核缓冲读干净了
+            }
+            xERROR("recv failed: fd = {}, errno = {}, errstr = {}", s->fd(), errno, ::strerror(errno));
+            return true;
+        }
+    }
 }
 
 
 void
 adam::tcp::Reactor::check_timeout() noexcept {
-    const auto tn = tnow_;
     const auto to = Conf::instance()->server()->timeout;
-    const int  n  = Server::MAX_CONN;
-    const int  ws = server_->worker_size();
 
-    auto* ss = server_->sessions();
-    for (int i = id_; i < n; i += ws) {
-        auto& s = ss[i];
-        if (!s) {
-            continue;
-        }
+    // remove_session 会 erase, 不能边遍历边删 —— 先收集超时 fd, 再统一摘除。
+    // thread_local vector 复用, 稳态无 per-call 分配。
+    static thread_local std::vector<SOCKET> expired;
+    expired.clear();
 
-        if (s->last_recv_ms() + (uint64_t)to < tn) {
-            server_->remove_session(s->sockfd());
+    for (auto& [fd, s] : sesss_) {
+        if (s->last_recv_ms() + to < tnow_) {
+            expired.push_back(fd);
         }
+    }
+
+    for (SOCKET fd : expired) {
+        remove_session(fd);
     }
 }
 
@@ -227,7 +282,7 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
 
 
 void
-adam::tcp::Reactor::on_handle(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
         return;
@@ -251,23 +306,11 @@ adam::tcp::Reactor::drain_evque() noexcept {
         for (i = 0; i < n; ++i) {
             switch (ms[i]->type) {
             case Message::Type::Stop:
-                // nothing to do
-                break;
-
-            case Message::Type::SessionInput:
-                on_recv_handle(ms[i]);
-                break;
-
-            case Message::Type::SessionOutput:
-                on_send_handle(ms[i]);
+                // 仅用于唤醒, state_ 已在 stop() 里置 Stopping, 本轮返回后循环自然退出
                 break;
 
             case Message::Type::SessionConnected:
-                on_add_sess_handle(ms[i]);
-                break;
-
-            case Message::Type::SessionDisconnected:
-                on_rmv_sess_handle(ms[i]);
+                on_session_connected(ms[i]);
                 break;
 
             default:

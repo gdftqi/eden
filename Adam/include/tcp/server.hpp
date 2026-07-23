@@ -96,9 +96,10 @@ public:
     }
 
 
-    const Session::Ptr*
-    sessions() const noexcept {
-        return sesss_;
+    // reactor 线程通过它触发 on_connected / on_disconnected 业务钩子
+    IHook*
+    hook() noexcept {
+        return hook_;
     }
 
 
@@ -128,37 +129,6 @@ public:
                     xWARN("write failed: errno = {}, errstr = {}", errno, ::strerror(errno));
                 }
             }
-        }
-    }
-
-
-    Session::Ptr
-    get_session(SOCKET fd) noexcept {
-        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        return sesss_[fd];
-    }
-
-
-    void
-    add_session(SOCKET fd, Reactor* w) noexcept {
-        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        sesss_[fd] = Session::create(fd, w);
-        if (hook_->on_connected(sesss_[fd]) != 0) {
-            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-            sesss_[fd] = nullptr;
-        }
-    }
-
-
-    void
-    remove_session(SOCKET fd, bool del_from_epoll = true) noexcept {
-        ASSERT(fd >= 0 && fd < MAX_CONN, "invalid fd: {}", fd);
-        if (sesss_[fd]) {
-            if (del_from_epoll) {
-                ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-            }
-            hook_->on_disconnected(sesss_[fd]);
-            sesss_[fd] = nullptr;
         }
     }
 
@@ -198,23 +168,19 @@ private:
 
 
     void
-    on_session_handle(const ::epoll_event& ev) noexcept;
-
-
-    void
     update_serv() noexcept;
 
 
-    SOCKET                    lfd_             { INVALID_SOCKET };
-    SOCKET                    evfd_             { INVALID_SOCKET };
-    SOCKET                    epfd_            { INVALID_SOCKET };
-    uint64_t                  tnow_            { 0 };
-    IHook*                    hook_           { nullptr };
-    std::atomic<core::State>  state_           { core::State::Stopped };
+    SOCKET                    lfd_       { INVALID_SOCKET };
+    SOCKET                    evfd_      { INVALID_SOCKET };
+    SOCKET                    epfd_      { INVALID_SOCKET };
+    uint64_t                  tnow_      { 0 };
+    uint32_t                  acc_next_  { 0 };
+    IHook*                    hook_      { nullptr };
+    std::atomic<core::State>  state_     { core::State::Stopped };
     std::string               host_;   
     std::vector<Reactor::Ptr> reactors_;   
     std::vector<std::thread>  threads_;
-    Session::Ptr              sesss_[MAX_CONN] { nullptr };
     PackageHandlers           handlers;
 }; // class Server;
 

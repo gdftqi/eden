@@ -62,7 +62,7 @@ public:
 
 
     SOCKET
-    sockfd() const noexcept {
+    fd() const noexcept {
         return fd_;
     }
 
@@ -134,7 +134,7 @@ private:
     socklen_t            addrlen_      { 0 };
     uint64_t             last_recv_ms_ { 0 };
     void*                user_data_    { nullptr };
-    Reactor*              worker_       { nullptr };
+    Reactor*             worker_       { nullptr };
     std::vector<uint8_t> sbuf_         {};
     Buffer               rbuf_         {};
 }; // class TcpSession;

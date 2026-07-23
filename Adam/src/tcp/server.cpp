@@ -2,7 +2,6 @@
 
 
 static constexpr int INTERVAL_MS = 5000;
-static constexpr int RBUF_SIZE = 1500;
 
 
 void
@@ -16,7 +15,8 @@ adam::tcp::Server::run() noexcept {
     hook_->on_init(this);
 
     int i, n;
-    constexpr size_t MAX_EVENTS = MAX_CONN + 2;
+    // 本 epoll 只挂 evfd_(停止) + lfd_(监听), 连接 fd 全在各 reactor 的 epoll 上
+    constexpr int MAX_EVENTS = 8;
     ::epoll_event events[MAX_EVENTS];
 
     state_.store(core::State::Running);
@@ -39,8 +39,6 @@ adam::tcp::Server::run() noexcept {
                 on_stop_handle(ev);
             } else if (ev.data.fd == lfd_) {
                 on_listen_handle(ev);
-            } else {
-                on_session_handle(ev);
             }
         }
 
@@ -92,7 +90,7 @@ adam::tcp::Server::release() noexcept {
     for (auto& t: threads_) {
         t.join();
     }
-    
+
     threads_.clear();
     reactors_.clear();
 
@@ -109,13 +107,6 @@ adam::tcp::Server::release() noexcept {
     if (lfd_ != INVALID_SOCKET) {
         ::close(lfd_);
         lfd_ = INVALID_SOCKET;
-    }
-
-    for (auto& s: sesss_) {
-        if (s) {
-            hook_->on_disconnected(s);
-            s = nullptr;
-        }
     }
 }
 
@@ -175,68 +166,13 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
             }
 
             if (cfd >= MAX_CONN) {
-                xWARN("已到最大连接数 2048, 请重新设置 tcp::Server::MAX_CONN 大小");
+                xWARN("已到最大连接数 {}, 请重新设置 tcp::Server::MAX_CONN 大小", MAX_CONN);
                 ::close(cfd);
                 continue;
             }
 
-            ::epoll_event event;
-            event.data.fd = cfd;
-            event.events = EPOLLIN | EPOLLET | EPOLLOUT;
-            ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, cfd, &event) == 0, "failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-            reactors_[cfd % reactors_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
+            reactors_[acc_next_++ % reactors_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
         }
-    }
-}
-
-
-void
-adam::tcp::Server::on_session_handle(const ::epoll_event& ev) noexcept {
-    SOCKET fd = ev.data.fd;
-    bool del = false;
-
-    if (ev.events & EPOLLIN) {
-        int n;
-        static thread_local uint8_t buf[RBUF_SIZE];
-
-        while (1) {
-            n = ::recv(fd, buf, RBUF_SIZE, 0);
-            if (n <= 0) {
-                if (n < 0) {
-                    if (errno == EINTR) {
-                        continue;
-                    }
-
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        break;
-                    }
-
-                    xERROR("recv failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-                }
-                // n == 0 (对端 close 的 EOF) 或 n < 0 真错误 → 连接断开
-                del = true;
-                break;
-            } else {
-                reactors_[fd % reactors_.size()]->notify(
-                    new Message(
-                        Message::Type::SessionInput, new SessionInputArg(fd, n, buf)
-                    )
-                );
-            }
-        }
-    }
-
-    if (ev.events & EPOLLOUT) {
-        reactors_[fd % reactors_.size()]->notify(new Message(Message::Type::SessionOutput, fd));
-    }
-
-    if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-        del = true;
-    }
-
-    if (del) {
-        ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr) == 0 || errno == ENOENT, "failed to remove session from epoll: errno = {}, errstr = {}", errno, ::strerror(errno));
-        reactors_[fd % reactors_.size()]->notify(new Message(Message::Type::SessionDisconnected, fd));
     }
 }
 

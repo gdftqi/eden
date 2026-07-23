@@ -60,7 +60,7 @@ echo_handler(adam::tcp::Session::Ptr sess, adam::core::Package* pk) noexcept {
 
     int rc = sess->send(*pk);
     if (rc < 0) {
-        xWARN("echo send failed: fd={}, rc={}", sess->sockfd(), rc);
+        xWARN("echo send failed: fd={}, rc={}", sess->fd(), rc);
     }
 }
 

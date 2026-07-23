@@ -25,21 +25,6 @@ struct Message {
          * @brief 连接成功
          */
         SessionConnected,
-
-        /**
-         * @brief Session 连接断开
-         */
-        SessionDisconnected,
-
-        /**
-         * @brief Session 收到消息
-         */
-        SessionInput,
-
-        /**
-         * @brief Session 可以发送消息
-         */
-        SessionOutput
     };
 
 
@@ -63,32 +48,6 @@ struct Message {
         void*  ptr;
     } arg;
 }; // struct Message;
-
-
-/**
- * @brief QEvent::Type::Recv 协带参数
- */
-struct SessionInputArg {
-    explicit
-    SessionInputArg(SOCKET fd, size_t n, const uint8_t* buf) noexcept
-        : fd(fd)
-        , len(n) {
-        data = (uint8_t*)::mi_malloc(n);
-        ::memcpy(data, buf, n);
-    }
-
-
-    ~SessionInputArg() noexcept {
-        if (data != nullptr) {
-            ::mi_free(data);
-        }
-    }
-
-
-    SOCKET   fd;
-    uint32_t len;
-    uint8_t* data;
-}; // struct SessionInputArg;
 
     
 } // namespace adam::tcp
