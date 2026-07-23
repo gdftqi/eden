@@ -21,23 +21,7 @@ class Server {
 
 public:
     /**
-     * @brief TCP 服务事件回调接口。
-     *
-     * @warning **`on_connected` / `on_disconnected` 会被多个 worker 线程并发触发**。
-     *          tcp::Server 主线程只负责 accept,session 真正的 add / remove 在
-     *          worker 线程里(`on_qe_add_sess_handle` / `on_qe_rmv_sess_handle`),
-     *          按 `fd % workers_.size()` 分流到 N 个 worker。也就是说:
-     *            - on_init / on_stopped:server 主线程串行调,只 1 次
-     *            - on_connected / on_disconnected:不同 fd 可能在不同 worker
-     *              线程同时调到
-     *
-     *          实现方必须**自己保证线程安全**:
-     *            - 写共享容器(玩家表 / 在线名单等)要加锁 / shard by fd 等
-     *            - 读全局只读状态无需保护
-     *            - 调 spdlog 等 thread-safe 库直接用即可
-     *
-     *          同一个 session(同一 fd)上的回调不会重入,因为同一 fd 始终被
-     *          同一个 worker 处理(`fd % workers_.size()`)。
+     * @brief TCP server 钩子
      */
     class IHook {
     public:
