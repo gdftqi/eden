@@ -14,12 +14,7 @@ class Server;
 
 
 /**
- * @brief Reactor: single-acceptor + multi-reactor 里的 reactor。
- *
- * 每个 reactor 一条线程 + 独立 epoll,自持一批连接会话(sesss_,按 fd)。
- * acceptor(Server 主线程)accept 出 fd 后,只投一条 SessionConnected 消息过来;
- * fd 的 epoll 注册、recv/send、分帧派发、断开清理全部在本 reactor 线程完成 ——
- * 同一 fd 只被这一个 reactor 碰,会话状态(rbuf_/sbuf_)无锁。
+ * @brief TCP Reactor
  */
 class Reactor {
     Reactor(const Reactor&) = delete;
@@ -69,7 +64,6 @@ public:
     }
 
 
-    // 由 acceptor(Server 主线程,单生产者)投递消息;本 reactor 线程消费(SPSC)
     void
     notify(Message* m) noexcept {
         ASSERT(mque_.enqueue(std::move(m)), "SPSC 队列已满, 请对队列扩容");
@@ -118,7 +112,7 @@ private:
     on_session_handle(const ::epoll_event& ev) noexcept;
 
 
-    bool
+    int
     session_recv(Session::Ptr s) noexcept;
 
 

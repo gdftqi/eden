@@ -162,6 +162,7 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
                 if (err != EAGAIN && err != EWOULDBLOCK) {
                     xERROR("accept failed: errno = {}, errstr = {}", err, ::strerror(err));
                 }
+
                 break;
             }
 

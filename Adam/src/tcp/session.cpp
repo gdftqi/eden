@@ -36,17 +36,17 @@ adam::tcp::Session::recv(core::Package* pk) noexcept {
 // 纯 flush: 把 sbuf_ 积压字节尽量写出(EPOLLOUT 续发用)
 ssize_t
 adam::tcp::Session::send() noexcept {
-    if (sbuf_.empty()) {
+    if (sbuf_.readable() == 0) {
         return xOK;
     }
 
-    ssize_t n = core::writen(fd_, sbuf_.data(), sbuf_.size());
+    ssize_t n = core::writen(fd_, sbuf_.peek(), sbuf_.readable());
     if (n < 0) {
         return n;
     }
 
     if (n > 0) {
-        sbuf_.erase(sbuf_.begin(), sbuf_.begin() + n);
+        sbuf_.consume((uint32_t)n);
     }
     
     return xOK;
@@ -61,12 +61,15 @@ adam::tcp::Session::send(core::Package& pk) noexcept {
         return n;
     }
 
+    if (pk.meta.len > (uint32_t)core::PKG_MAX_LEN) {
+        return xERR;
+    }
+
     thread_local static uint8_t buf[core::PKG_MAX_LEN];
     ssize_t total = core::frame_encode(buf, &pk);
 
-    if (sbuf_.size() > 0) {
-        sbuf_.insert(sbuf_.end(), buf, buf + total);
-        return xOK;
+    if (sbuf_.readable() > 0) {
+        return sbuf_.append(buf, (uint32_t)total);
     }
 
     n = core::writen(fd_, buf, total);
@@ -75,8 +78,7 @@ adam::tcp::Session::send(core::Package& pk) noexcept {
     }
 
     if (n < total) {
-        sbuf_.insert(sbuf_.end(), buf + n, buf + total);
-        return xOK;
+        return sbuf_.append(buf + n, (uint32_t)(total - n));
     }
 
     return xOK;

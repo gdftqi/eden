@@ -152,7 +152,7 @@ adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
     }
 
     sesss_.emplace(fd, s);
-    if (session_recv(s)) {
+    if (session_recv(s) != 0) {
         remove_session(fd);
     }
 }
@@ -174,13 +174,11 @@ adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
     bool del = false;
 
     if (ev.events & EPOLLIN) {
-        del = session_recv(s);
+        del = session_recv(s) != 0;
     }
 
-    if (!del && (ev.events & EPOLLOUT)) {
-        if (s->send() < 0) {
-            del = true;
-        }
+    if (!del && (ev.events & EPOLLOUT) && s->send() < 0) {
+         del = true;
     }
 
     if (del) {
@@ -189,7 +187,7 @@ adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
 }
 
 
-bool
+int
 adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
     static thread_local uint8_t buf[RBUF_SIZE];
     alignas(core::Package) static thread_local uint8_t pkbuf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
@@ -199,10 +197,11 @@ adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
         ssize_t n = ::recv(s->fd(), buf, RBUF_SIZE, 0);
         if (n > 0) {
             if (s->input(buf, (size_t)n) != xOK) {
-                return true;
+                return -1;
             }
 
-            while (s->recv(pk) == xOK) {
+            int rc;
+            while ((rc = s->recv(pk)) == xOK) {
                 switch (pk->data.id) {
                 case PKID_PING:
                     on_ping(s, pk);
@@ -217,17 +216,21 @@ adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
                     break;
                 }
             }
+
+            if (rc == xERR) {
+                return -1;
+            }
         } else if (n == 0) {
-            return true;   // 对端 close 的 EOF
+            return -1;
         } else {
             if (errno == EINTR) {
                 continue;
             }
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return false;   // ET: 内核缓冲读干净了
+                return 0;
             }
             xERROR("recv failed: fd = {}, errno = {}, errstr = {}", s->fd(), errno, ::strerror(errno));
-            return true;
+            return -1;
         }
     }
 }

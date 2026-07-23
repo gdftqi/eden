@@ -28,17 +28,25 @@ struct Buffer {
     /**
      * @brief 缓冲区最大值
      */
-    static constexpr uint32_t MAX_SIZE  = core::PKG_MAX_LEN + 8 * 1024;
+    static constexpr uint32_t MAX_SIZE = core::PKG_MAX_LEN + 1024 * 1024;
 
 
-    uint32_t rpos { 0 };       // 读游标
-    uint32_t wpos { 0 };       // 写游标
-    uint32_t cap  { 0 };       // 当前已分配容量(0 = 未分配)
-    uint8_t* buf  { nullptr }; // 缓冲区
+    /**
+     * @brief limit 传此值表示不设上限(仅受可用内存与 uint32 容量约束)
+     */
+    static constexpr uint32_t UNLIMITED = 0;
+
+
+    uint32_t rpos  { 0 };        // 读游标
+    uint32_t wpos  { 0 };        // 写游标
+    uint32_t cap   { 0 };        // 当前已分配容量(0 = 未分配)
+    uint32_t limit { MAX_SIZE }; // 本实例扩容上限; UNLIMITED(0) = 无上限
+    uint8_t* buf   { nullptr };  // 缓冲区
 
 
     explicit
-    Buffer() noexcept
+    Buffer(uint32_t max_size = MAX_SIZE) noexcept
+        : limit(max_size)
     {}
 
 
@@ -91,7 +99,7 @@ struct Buffer {
     /**
      * @brief 追加数据
      *
-     * @return 成功返回 xOK. 内存分配失败则 abort
+     * @return 成功 xOK; 超过上限(limit)返回 xERR; 分配失败 abort
      */
     int
     append(const uint8_t* data, uint32_t len) noexcept;

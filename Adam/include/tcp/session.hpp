@@ -128,15 +128,15 @@ public:
 
 
 private:
-    uint32_t             id_           { 0 };
-    SOCKET               fd_           { INVALID_SOCKET };
-    sockaddr_storage     addr_         {};
-    socklen_t            addrlen_      { 0 };
-    uint64_t             last_recv_ms_ { 0 };
-    void*                user_data_    { nullptr };
-    Reactor*             worker_       { nullptr };
-    std::vector<uint8_t> sbuf_         {};
-    Buffer               rbuf_         {};
+    uint32_t         id_           { 0 };
+    SOCKET           fd_           { INVALID_SOCKET };
+    sockaddr_storage addr_         {};
+    socklen_t        addrlen_      { 0 };
+    uint64_t         last_recv_ms_ { 0 };
+    void*            user_data_    { nullptr };
+    Reactor*         worker_       { nullptr };
+    Buffer           sbuf_         { Buffer::UNLIMITED };
+    Buffer           rbuf_         {};
 }; // class TcpSession;
 
     
