@@ -7,8 +7,8 @@ build
 # romesh 各服务的部署包输出目录(注意锚定全路径, 别误伤同名源码目录)
 /Zion/Moses/moses/
 /Zion/Moses/obj/
-/Zion/chat/chat/
-/Zion/chat/obj/
+/Zion/Noah/noah/
+/Zion/Noah/obj/
 
 /Eva/eva
 

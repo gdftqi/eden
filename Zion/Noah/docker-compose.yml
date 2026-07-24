@@ -1,14 +1,14 @@
 services:
-  chat:
+  noah:
     image: ubuntu:26.04
-    container_name: chat
+    container_name: noah
     network_mode: host
     privileged: true
     tty: true
     stdin_open: true
     working_dir: /usr/local/bin
-    command: ./chat
+    command: ./noah
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
-      - ./chat:/usr/local/bin/chat
+      - ./noah:/usr/local/bin/noah

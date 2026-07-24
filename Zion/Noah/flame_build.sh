@@ -4,7 +4,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-PROF_FILE="./server.prof"
+PROF_FILE="./noah.prof"
 SVG_FILE="./flame.svg"
 FLAMEGRAPH_DIR="$HOME/FlameGraph"
 
@@ -15,8 +15,8 @@ if [ ! -f "$PROF_FILE" ]; then
 fi
 
 # 检查 server 二进制
-if [ ! -f "./server" ]; then
-    echo "[flame_build.sh] 找不到 server 二进制，请先 make"
+if [ ! -f "./noah" ]; then
+    echo "[flame_build.sh] 找不到 noah 二进制，请先 make"
     exit 1
 fi
 
@@ -33,7 +33,7 @@ if ! command -v google-pprof &>/dev/null; then
 fi
 
 echo "[flame_build.sh] 生成火焰图..."
-google-pprof --collapsed ./server "$PROF_FILE" \
+google-pprof --collapsed ./noah "$PROF_FILE" \
     | "$FLAMEGRAPH_DIR/flamegraph.pl" \
     > "$SVG_FILE"
 

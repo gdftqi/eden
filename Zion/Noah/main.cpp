@@ -67,8 +67,8 @@ echo_handler(adam::tcp::Session::Ptr sess, adam::core::Package* pk) noexcept {
 
 int
 main(int /*argc*/, char** /*argv*/) {
-    if (!adam::utils::lock_pid("chat.pid")) {
-        xERROR("tcp_echo 已经在运行");
+    if (!adam::utils::lock_pid("noah.pid")) {
+        xERROR("noah 已经在运行");
         return EXIT_FAILURE;
     }
 
