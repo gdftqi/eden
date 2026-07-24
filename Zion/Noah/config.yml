@@ -1,0 +1,16 @@
+server:
+  id: 0x10010000
+  timeout: 45
+  protocol: "tcp"
+  name: "public/noah"
+  host: "127.0.0.1:6688"
+  desc: "noah"
+
+etcd:
+  url: "http://13.212.159.179:2379"
+  user: "root"
+  pass: "123456"
+  ttl: 15
+
+log_path: "logs"
+prof_path: "noah.prof"
