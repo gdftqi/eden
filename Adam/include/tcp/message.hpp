@@ -9,12 +9,6 @@ namespace adam::tcp {
 
 
 struct Message {
-    Message(const Message&) = delete;
-    Message& operator=(const Message&) = delete;
-    Message(Message&&) = delete;
-    Message& operator=(Message&&) = delete;
-
-
     enum class Type {
         /**
          * @brief 停止
@@ -25,6 +19,21 @@ struct Message {
          * @brief 连接成功
          */
         SessionConnected,
+
+        /**
+         * @brief 用户进入
+         */
+        UserEnter,
+
+        /**
+         * @brief 用户离开
+         */
+        UserLeave,
+
+        /**
+         * @brief 用户处理
+         */
+        UserHandle,
     };
 
 
@@ -47,6 +56,12 @@ struct Message {
         SOCKET fd;
         void*  ptr;
     } arg;
+
+
+    Message(const Message&) = delete;
+    Message& operator=(const Message&) = delete;
+    Message(Message&&) = delete;
+    Message& operator=(Message&&) = delete;
 }; // struct Message;
 
     

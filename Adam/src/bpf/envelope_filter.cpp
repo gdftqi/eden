@@ -2,8 +2,8 @@
 
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
-#include <linux/if_link.h>      // XDP_FLAGS_*
-#include <net/if.h>             // if_nametoindex
+#include <linux/if_link.h>
+#include <net/if.h>
 #include <cstring>
 #include <errno.h>
 #include "utils/log.hpp"
@@ -89,7 +89,7 @@ adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const u
     }
 
     // filter_envelope: envelope.bpf.c:136 函数签名
-    auto* prog    = ::bpf_object__find_program_by_name(obj_, "filter_envelope");
+    auto* prog = ::bpf_object__find_program_by_name(obj_, "filter_envelope");
 
     // envelope_key: envelope.bpf.c:49 map 的变量名
     auto* key_map = ::bpf_object__find_map_by_name(obj_, "envelope_key");

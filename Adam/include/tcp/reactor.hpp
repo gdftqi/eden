@@ -2,6 +2,7 @@
 #define __ADAM_TCP_REACTOR_HPP__
 
 
+#include "core/user.hpp"
 #include "tcp/session.hpp"
 #include "tcp/message.hpp"
 #include "utils/spsc.hpp"
@@ -29,13 +30,19 @@ public:
 
 
     static Ptr
-    create(Server* server, int id) noexcept {
-        return Ptr(new Reactor(server, id));
+    create(Server* server, uint32_t index) noexcept {
+        return Ptr(new Reactor(server, index));
     }
 
 
     ~Reactor() noexcept {
         release();
+    }
+
+
+    uint32_t
+    index() const noexcept {
+        return index_;
     }
 
 
@@ -79,9 +86,9 @@ public:
 
 private:
     explicit
-    Reactor(Server* server, int id) noexcept
+    Reactor(Server* server, uint32_t index) noexcept
         : server_(server)
-        , id_(id)
+        , index_(index)
     {}
 
 
@@ -142,7 +149,7 @@ private:
 
 
     Server*                  server_        { nullptr };
-    int                      id_            { -1 };
+    uint32_t                 index_         { (uint32_t)-1 };
     SOCKET                   epfd_          { INVALID_SOCKET };
     SOCKET                   mfd_           { INVALID_SOCKET };
     uint64_t                 tnow_          { 0 };
@@ -151,6 +158,7 @@ private:
     std::atomic_bool         mq_workering_  { false };
     utils::SPSC<Message*>    mque_;
     SessMap                  sesss_;
+    core::User::Map          user_map_;
 }; // class Reactor;
 
 
