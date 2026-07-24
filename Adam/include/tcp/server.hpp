@@ -49,6 +49,14 @@ public:
         virtual void
         on_disconnected(Session::Ptr) noexcept
         {}
+
+
+        virtual void
+        on_terminal_enter(Session::Ptr, core::Package*) noexcept;
+
+
+        virtual void
+        on_terminal_leave(Session::Ptr, core::Package*) noexcept;
     }; // class IHook;
 
 

@@ -1,0 +1,32 @@
+#include "core/proto/pkid_regist_terminal.hpp"
+#include "core/adam.in.hpp"
+#include "core/error.hpp"
+
+
+int
+adam::core::AccessToken::decode(const uint8_t* buf, size_t len) noexcept {
+    if (len < (size_t)LEN) {
+        return xERR;
+    }
+
+    // RA token.go 布局(小端): expire@0 conv@8 user_id@12 ip@16 cli_pk@20 sign@52
+    uint64_t v64;
+    uint32_t v32;
+
+    ::memcpy(&v64, buf +  0, sizeof(v64));
+    expire = u64_to_le(v64);
+
+    ::memcpy(&v32, buf +  8, sizeof(v32));
+    conv = u32_to_le(v32);
+
+    ::memcpy(&v32, buf + 12, sizeof(v32));
+    user_id = u32_to_le(v32);
+
+    ::memcpy(&v32, buf + 16, sizeof(v32));
+    ip = u32_to_le(v32);
+    
+    ::memcpy(cli_pk, buf + 20, sizeof(cli_pk));
+    ::memcpy(sign,   buf + 52, sizeof(sign));
+
+    return xOK;
+}

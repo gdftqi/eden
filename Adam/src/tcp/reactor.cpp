@@ -152,7 +152,7 @@ adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
     }
 
     sesss_.emplace(fd, s);
-    if (session_recv(s) != 0) {
+    if (session_handle(s) != 0) {
         remove_session(fd);
     }
 }
@@ -174,7 +174,7 @@ adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
     bool del = false;
 
     if (ev.events & EPOLLIN) {
-        del = session_recv(s) != 0;
+        del = session_handle(s) != 0;
     }
 
     if (!del && (ev.events & EPOLLOUT) && s->send() < 0) {
@@ -188,7 +188,7 @@ adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
 
 
 int
-adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
+adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
     static thread_local uint8_t buf[RBUF_SIZE];
     alignas(core::Package) static thread_local uint8_t pkbuf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
     core::Package* pk = (core::Package*)pkbuf;
@@ -209,6 +209,14 @@ adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
 
                 case PKID_REG_GW_REQ:
                     on_regist(s, pk);
+                    break;
+
+                case PKID_TER_ENT_REQ:
+                    on_terminal_enter(s, pk);
+                    break;
+
+                case PKID_TER_LEA_REQ:
+                    on_terminal_leave(s, pk);
                     break;
 
                 default:
@@ -281,6 +289,21 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     } else {
         xINFO("网关 {} 注册成功", id);
     }
+}
+
+
+void
+adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept {
+    ASSERT(s->reactor() == this, "terminal enter 不在属主 reactor 线程");
+
+
+    
+}
+
+
+void
+adam::tcp::Reactor::on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept {
+
 }
 
 

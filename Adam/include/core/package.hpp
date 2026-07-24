@@ -42,11 +42,13 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PKID_KIC_TER_REQ    (104)             // 踢除终端请求
 #define PKID_KIC_TER_RSP    (105)             // 踢除终端应答
 #define PKID_KIC_TER_NTF    (106)             // 踢除终端通知
-#define PKID_ON_TER_REQ     (107)             // 终端上线请求
-#define PKID_ON_TER_RSP     (108)             // 终端上线应答
-#define PKID_OFF_TER_NTF    (109)             // 终端下线通知
-#define PKID_BIND_TER_NTF   (110)             // 终端绑定通知
-#define PKID_UNBD_TER_NTF   (111)             // 终端解绑通知
+#define PKID_TER_ENT_REQ    (107)             // 终端进入请求
+#define PKID_TER_ENT_RSP    (108)             // 终端进入应答
+#define PKID_TER_LEA_REQ    (109)             // 终端离开请求
+#define PKID_TER_LEA_RSP    (110)             // 终端离开应答
+#define PKID_OFF_TER_NTF    (113)             // 终端下线通知
+#define PKID_BIND_TER_NTF   (114)             // 终端绑定通知
+#define PKID_UNBD_TER_NTF   (115)             // 终端解绑通知
 #define PKID_CUSTOM         (200)             // 自定义消息ID
 
 
@@ -75,31 +77,6 @@ struct Package {
         return meta.len - PKG_HDR_LEN;
     }
 }; // struct Package;
-
-
-/**
- * @brief 明文总长(线上; 与含对齐 padding 的 sizeof(AccessToken) 无关)
- */
-constexpr int ACCESS_TOKEN_LEN = 116;
-
-
-/**
- * @brief 被 ed25519 签名的前段(expire..cli_pk)
- */
-constexpr int ACCESS_TOKEN_SIGNED_LEN = 52;
-
-/**
- * @brief 网关鉴权 token(仅内存持有)。线上字节由 token_decode 显式逐字段小端解析,
- *        不做内存覆盖, 所以不需要 1 字节对齐(和 Package 那套 codec 统一)。
- */
-struct AccessToken {
-    uint64_t expire;     // 过期时间戳
-    uint32_t conv;       // 会话 ID
-    uint32_t user_id;    // 用户 ID
-    uint32_t ip;         // 登录 IP
-    uint8_t  cli_pk[32]; // 客户端 X25519 公钥
-    uint8_t  sign[64];   // 登录服 Ed25519 签名
-}; // struct AccessToken;
 
 
 // ---------------------------- 编解码 (全小端) ----------------------------
@@ -131,14 +108,6 @@ frame_encode(uint8_t* buf, const Package* pk) noexcept;
  */
 int
 frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept;
-
-
-/**
- * @brief 从 RA 密封解出的 ACCESS_TOKEN_LEN(116)字节明文里, 显式逐字段小端解出 AccessToken。
- *        buf 至少 ACCESS_TOKEN_LEN 字节; 签名校验请对 buf 的前 ACCESS_TOKEN_SIGNED_LEN 字节做。
- */
-void
-token_decode(const uint8_t* buf, AccessToken* out) noexcept;
 
 
 } // namespace adam::core

@@ -74,8 +74,8 @@ public:
 
 
     const Reactor*
-    worker() const noexcept {
-        return worker_;
+    reactor() const noexcept {
+        return reactor_;
     }
 
 
@@ -134,7 +134,7 @@ private:
     socklen_t        addrlen_      { 0 };
     uint64_t         last_recv_ms_ { 0 };
     void*            user_data_    { nullptr };
-    Reactor*         worker_       { nullptr };
+    Reactor*         reactor_      { nullptr };
     Buffer           sbuf_         { Buffer::UNLIMITED };
     Buffer           rbuf_         {};
 }; // class TcpSession;

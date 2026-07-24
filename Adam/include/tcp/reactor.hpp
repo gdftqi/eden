@@ -119,7 +119,7 @@ private:
 
 
     int
-    session_recv(Session::Ptr s) noexcept;
+    session_handle(Session::Ptr s) noexcept;
 
 
     // 新连接: 注册进本 reactor 的 epoll(ET)+ on_connected 钩子 + 首读(补 ET 注册前到达的数据)
@@ -137,6 +137,14 @@ private:
 
     void
     on_regist(Session::Ptr s, core::Package *pk) noexcept;
+
+
+    void
+    on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept;
+
+
+    void
+    on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept;
 
 
     void

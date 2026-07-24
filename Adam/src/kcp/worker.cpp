@@ -1,6 +1,7 @@
 #include "kcp/worker.hpp"
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
+#include "core/proto/pkid_regist_terminal.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -603,7 +604,7 @@ adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
 int
 adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken 明文(116) + sealedbox 头(48)
-    constexpr int REGIST_PAYLOAD_LEN = core::ACCESS_TOKEN_LEN + 48;
+    constexpr int REGIST_PAYLOAD_LEN = core::AccessToken::LEN + 48;
 
     if (s->authed()) {
         return xDUP;
@@ -614,19 +615,21 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     }
 
     // 1. 服务端私钥解密 → 116 字节明文
-    uint8_t plain[core::ACCESS_TOKEN_LEN];
+    uint8_t plain[REGIST_PAYLOAD_LEN];
     size_t  plen = sizeof(plain);
     if (utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen,
                                  Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
-    if (plen != core::ACCESS_TOKEN_LEN) {
+    if (plen != (size_t)core::AccessToken::LEN) {
         return xERR_PK_DEC;
     }
 
     // 2. 显式解出 token(小端, 不做内存覆盖)
     core::AccessToken token;
-    core::token_decode(plain, &token);
+    if (token.decode(plain, plen) != xOK) {
+        return xERR_PK_LEN;
+    }
 
     // 3. 有效期 / conv / user 校验
     if ((uint64_t)::time(nullptr) > token.expire) {
@@ -648,7 +651,7 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     }
 
     // 4. 校验登录服签名: RA 签的是明文前 ACCESS_TOKEN_SIGNED_LEN(52) 字节
-    if (utils::ed25519_verify(token.sign, plain, core::ACCESS_TOKEN_SIGNED_LEN, Conf::instance()->ed25519_pk()) != 0) {
+    if (utils::ed25519_verify(token.sign, plain, core::AccessToken::SIGNED_LEN, Conf::instance()->ed25519_pk()) != 0) {
         return xERR_TOKEN_VER;
     }
 

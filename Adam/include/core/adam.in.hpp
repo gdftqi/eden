@@ -25,11 +25,10 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <mimalloc-3.2/mimalloc.h>
-#include <simdjson.h>
 #include <sodium.h>
-#include <yaml-cpp/yaml.h>
 
 #include "core/error.hpp"
+#include "core/server_info.hpp"
 #include "utils/cryptor.hpp"
 #include "utils/log.hpp"
 #include "utils/sys.hpp"
@@ -181,74 +180,6 @@ u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
     addr->sin_port        = 0;
     addr->sin_addr.s_addr = ::htonl(v);
 }
-
-
-/**
- * @brief 服务信息
- */
-struct ServerInfo {
-    uint32_t    id        { 0 }; // 服务IDs
-    uint32_t    nthreads  { 0 }; // 工作线程数
-    uint64_t    timeout   { 0 }; // 超时值
-    std::string protocol;        // 协议
-    std::string name;            // 服务名称
-    std::string host;            // 监听地址
-    std::string desc;            // 描述信息
-    ::time_t    start_time;      // 启动时间
-
-    std::string key; // 用于注册 etcd 的 key
-    std::string val; // 用于注册 etcd 的 value
-
-
-    uint32_t
-    get_type() const noexcept {
-        return id >> 16;
-    }
-
-
-    uint32_t
-    get_seq() const noexcept {
-        return 0x0000FFFF & id;
-    }
-
-
-    /** 
-     * @brief 转 json 字符串
-     */
-    std::string
-    to_json() const noexcept {
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{}}}", 
-            id, protocol, name, host, desc, start_time, nthreads);
-    }
-
-
-    /**
-     * @brief 从 json 格式构建对象
-     */
-    int
-    from_json(const std::string& json) noexcept {
-        simdjson::ondemand::parser parser;
-        auto j = simdjson::padded_string(json);
-        auto doc = parser.iterate(j);
-
-        if (doc["id"].has_value()) {
-            id = doc["id"].get_uint32().value_unsafe();
-        }
-
-        if (doc["host"].has_value()) {
-            host = std::string(doc["host"].get_string().value_unsafe());
-        }
-
-        return 0;
-    }
-
-
-    /**
-     * @brief 从 yaml 格式构建对象
-     */
-    int
-    from_yaml(const YAML::Node& root) noexcept;
-}; // class ServerInfo;
 
 
 inline uint16_t
