@@ -2,8 +2,7 @@
 #define __ADAM_TCP_REACTOR_HPP__
 
 
-#include "core/user.hpp"
-#include "tcp/session.hpp"
+#include "tcp/terminal.hpp"
 #include "tcp/message.hpp"
 #include "utils/spsc.hpp"
 
@@ -158,7 +157,7 @@ private:
     std::atomic_bool         mq_workering_  { false };
     utils::SPSC<Message*>    mque_;
     SessMap                  sesss_;
-    core::User::Map          user_map_;
+    Terminal::Map            terminal_router_;
 }; // class Reactor;
 
 

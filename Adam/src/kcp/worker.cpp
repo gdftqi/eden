@@ -300,7 +300,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
 
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
-                        if (pk->data.id == PKID_REGIST_REQ) {
+                        if (pk->data.id == PKID_REG_GW_REQ) {
                             res = on_regist_req(s, pk);
                         } else {
                             res = on_pack_handle(s, pk);
@@ -399,7 +399,7 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 on_pong(conn, pk);
                 break;
 
-            case PKID_REGIST_RSP:
+            case PKID_REG_GW_RSP:
                 on_regist_rsp(conn, pk);
                 break;
 
@@ -671,7 +671,7 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + utils::X25519_KEY_LEN] = {0};
     auto* out = (core::Package*)buf;
     out->meta.len    = core::PKG_HDR_LEN + utils::X25519_KEY_LEN;
-    out->data.id     = PKID_REGIST_RSP;
+    out->data.id     = PKID_REG_TER_RSP;
     out->data.src_id = Conf::instance()->server()->id;
     out->data.dst_id = token.user_id;
     ::memcpy(out->data.payload, tmppk, utils::X25519_KEY_LEN);

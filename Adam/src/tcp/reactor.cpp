@@ -207,7 +207,7 @@ adam::tcp::Reactor::session_recv(Session::Ptr s) noexcept {
                     on_ping(s, pk);
                     break;
 
-                case PKID_REGIST_REQ:
+                case PKID_REG_GW_REQ:
                     on_regist(s, pk);
                     break;
 
@@ -271,7 +271,7 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pk->data.id = PKID_REGIST_RSP;
+    pk->data.id = PKID_REG_TER_RSP;
     *(uint32_t*)pk->data.payload = core::u32_to_le(0);   // 0 = 注册成功
 
     s->set_id(id);

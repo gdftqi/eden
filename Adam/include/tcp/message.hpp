@@ -21,19 +21,19 @@ struct Message {
         SessionConnected,
 
         /**
-         * @brief 用户进入
+         * @brief 终端进入
          */
-        UserEnter,
+        TerminalEnter,
 
         /**
-         * @brief 用户离开
+         * @brief 终端离开
          */
-        UserLeave,
+        TerminalLeave,
 
         /**
-         * @brief 用户处理
+         * @brief 终端处理
          */
-        UserHandle,
+        TerminalHandle,
     };
 
 

@@ -33,14 +33,21 @@ constexpr int PKG_DATA_LEN = 14;
 constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 
 
-#define PKID_PING       (100) ///< 心跳 PING
-#define PKID_PONG       (101) ///< 心跳 PONG
-#define PKID_REGIST_REQ (102) ///< 注册请求
-#define PKID_REGIST_RSP (103) ///< 注册应答
-#define PKID_KICK_REQ   (104) ///< 踢人请求
-#define PKID_KICK_RSP   (105) ///< 踢人应答
-#define PKID_KICK_NTF   (106) ///< 踢人通知
-#define PKID_CUSTOM     (200) ///< 自定义消息ID
+#define PKID_PING           (100)             // 心跳 PING
+#define PKID_PONG           (101)             // 心跳 PONG
+#define PKID_REG_GW_REQ     (102)             // 网关注册请求
+#define PKID_REG_GW_RSP     (103)             // 网关注册应答
+#define PKID_REG_TER_REQ    PKID_REG_GW_REQ   // 终端注册请求
+#define PKID_REG_TER_RSP    PKID_REG_GW_RSP   // 终端注册应答
+#define PKID_KIC_TER_REQ    (104)             // 踢除终端请求
+#define PKID_KIC_TER_RSP    (105)             // 踢除终端应答
+#define PKID_KIC_TER_NTF    (106)             // 踢除终端通知
+#define PKID_ON_TER_REQ     (107)             // 终端上线请求
+#define PKID_ON_TER_RSP     (108)             // 终端上线应答
+#define PKID_OFF_TER_NTF    (109)             // 终端下线通知
+#define PKID_BIND_TER_NTF   (110)             // 终端绑定通知
+#define PKID_UNBD_TER_NTF   (111)             // 终端解绑通知
+#define PKID_CUSTOM         (200)             // 自定义消息ID
 
 
 /**
