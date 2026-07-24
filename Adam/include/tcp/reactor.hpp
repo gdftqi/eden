@@ -4,7 +4,7 @@
 
 #include "tcp/terminal.hpp"
 #include "tcp/message.hpp"
-#include "utils/spsc.hpp"
+#include "utils/mpsc.hpp"
 
 
 namespace adam::tcp {
@@ -155,7 +155,7 @@ private:
     uint64_t                 last_check_ms_ { 0 };
     std::atomic<core::State> state_         { core::State::Stopped };
     std::atomic_bool         mq_workering_  { false };
-    utils::SPSC<Message*>    mque_;
+    utils::MPSC<Message*>    mque_;
     SessMap                  sesss_;
     Terminal::Map            terminal_router_;
 }; // class Reactor;
