@@ -133,14 +133,19 @@ namespace Lilith.Core
         public const ushort PKID_PONG = 101;
 
         /// <summary>
-        /// 鉴权注册请求 客户端主动发起
+        /// 终端注册请求 客户端主动发起(对应 Adam PKID_REG_TER_REQ)
         /// </summary>
-        public const ushort PKID_REGIST_REQ = 102;
+        public const ushort PKID_REG_TER_REQ = 102;
 
         /// <summary>
-        /// 鉴权注册应答 服务端响应
+        /// 终端注册应答 服务端响应(对应 Adam PKID_REG_TER_RSP, payload = 32B 服务端临时公钥)
         /// </summary>
-        public const ushort PKID_REGIST_RSP = 103;
+        public const ushort PKID_REG_TER_RSP = 103;
+
+        /// <summary>
+        /// 自定义消息ID起点(100-199 为系统段, 网关/后端专用, 客户端业务消息应使用 ≥ 此值)
+        /// </summary>
+        public const ushort PKID_CUSTOM = 200;
 
         #endregion /// 消息ID
 

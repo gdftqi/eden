@@ -3,9 +3,8 @@
 #include "core/error.hpp"
 
 
-
 void
-adam::core::TerminalInfo::encode(uint8_t* buf) noexcept {
+adam::core::TerminalEnterReq::encode(uint8_t* buf) noexcept {
     uint32_t v32;
     uint16_t v16;
 
@@ -27,7 +26,7 @@ adam::core::TerminalInfo::encode(uint8_t* buf) noexcept {
 
 
 int
-adam::core::TerminalInfo::decode(const uint8_t* buf, size_t len) noexcept {
+adam::core::TerminalEnterReq::decode(const uint8_t* buf, size_t len) noexcept {
     if (len < (size_t)LEN) {
         return xERR;
     }
@@ -50,6 +49,37 @@ adam::core::TerminalInfo::decode(const uint8_t* buf, size_t len) noexcept {
 
     ::memcpy(&v16, buf + 14, sizeof(v16));
     type = u16_to_le(v16);
+
+    return xOK;
+}
+
+
+void
+adam::core::TerminalEnterRsp::encode(uint8_t* buf) noexcept {
+    uint32_t v32;
+
+    v32 = u32_to_le(uid);
+    ::memcpy(buf + 0, &v32, sizeof(v32));
+
+    v32 = u32_to_le(code);
+    ::memcpy(buf + 4, &v32, sizeof(v32));
+}
+
+
+int
+adam::core::TerminalEnterRsp::decode(const uint8_t* buf, size_t len) noexcept {
+    if (len < (size_t)LEN) {
+        return xERR;
+    }
+
+    // 布局(小端): uid@0 code@4
+    uint32_t v32;
+
+    ::memcpy(&v32, buf + 0, sizeof(v32));
+    uid = u32_to_le(v32);
+
+    ::memcpy(&v32, buf + 4, sizeof(v32));
+    code = u32_to_le(v32);
 
     return xOK;
 }

@@ -4,7 +4,7 @@
 
 
 int
-adam::core::AccessToken::decode(const uint8_t* buf, size_t len) noexcept {
+adam::core::RegistTerminalReq::decode(const uint8_t* buf, size_t len) noexcept {
     if (len < (size_t)LEN) {
         return xERR;
     }
@@ -27,6 +27,24 @@ adam::core::AccessToken::decode(const uint8_t* buf, size_t len) noexcept {
     
     ::memcpy(cli_pk, buf + 20, sizeof(cli_pk));
     ::memcpy(sign,   buf + 52, sizeof(sign));
+
+    return xOK;
+}
+
+
+void
+adam::core::RegistTerminalRsp::encode(uint8_t* buf) noexcept {
+    ::memcpy(buf + 0, PK, sizeof(PK));
+}
+
+
+int
+adam::core::RegistTerminalRsp::decode(const uint8_t* buf, size_t len) noexcept {
+    if (len < (size_t)LEN) {
+        return xERR;
+    }
+
+    ::memcpy(PK, buf + 0, sizeof(PK));
 
     return xOK;
 }

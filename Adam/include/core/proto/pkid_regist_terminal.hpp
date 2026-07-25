@@ -4,18 +4,16 @@
 
 #include <cinttypes>
 #include <cstddef>
+#include "utils/cryptor.hpp"
 
 
 namespace adam::core {
 
 
 /**
- * @brief PKID_REG_TER_REQ 的 payload 数据
+ * @brief PKID_REG_TER_REQ 的 payload 数据. 对应 Eva 中的结构是 AccessToken
  */
-struct AccessToken {
-    /**
-     * @brief 明文总长(线上; 与含对齐 padding 的 sizeof(AccessToken) 无关)
-     */
+struct RegistTerminalReq {
     static constexpr int LEN = 116;
 
 
@@ -37,13 +35,37 @@ struct AccessToken {
     uint8_t  sign[64];   // 登录服 Ed25519 签名
 
 
-    AccessToken() = default;
-    ~AccessToken() = default;
-    AccessToken(const AccessToken&) = delete;
-    AccessToken& operator=(const AccessToken&) = delete;
-    AccessToken(AccessToken&&) = delete;
-    AccessToken& operator=(AccessToken&&) = delete;
-}; // struct AccessToken;
+    RegistTerminalReq() = default;
+    ~RegistTerminalReq() = default;
+    RegistTerminalReq(const RegistTerminalReq&) = delete;
+    RegistTerminalReq& operator=(const RegistTerminalReq&) = delete;
+    RegistTerminalReq(RegistTerminalReq&&) = delete;
+    RegistTerminalReq& operator=(RegistTerminalReq&&) = delete;
+}; // struct RegistTerminalReq;
+
+
+struct RegistTerminalRsp {
+    static constexpr int LEN = utils::X25519_KEY_LEN;
+
+
+    uint8_t PK[utils::X25519_KEY_LEN];
+
+
+    void
+    encode(uint8_t* buf) noexcept;
+
+
+    int
+    decode(const uint8_t* buf, size_t len) noexcept;
+
+
+    RegistTerminalRsp() = default;
+    ~RegistTerminalRsp() = default;
+    RegistTerminalRsp(const RegistTerminalRsp&) = delete;
+    RegistTerminalRsp& operator=(const RegistTerminalRsp&) = delete;
+    RegistTerminalRsp(RegistTerminalRsp&&) = delete;
+    RegistTerminalRsp& operator=(RegistTerminalRsp&&) = delete;
+}; // struct RegistTerminalRsp;
 
     
 } // namespace adam::core

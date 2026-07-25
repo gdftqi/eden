@@ -569,7 +569,7 @@ adam::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) no
         return;
     }
     
-    uint32_t res = ::ntohl(*((uint32_t*)pk->data.payload));
+    uint32_t res = core::u32_to_le(*((uint32_t*)pk->data.payload));
     if (res == 0) {
         xINFO("注册服务 {} 成功", conn->id());
         conn->set_authed(true);
@@ -604,7 +604,7 @@ adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
 int
 adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken 明文(116) + sealedbox 头(48)
-    constexpr int REGIST_PAYLOAD_LEN = core::AccessToken::LEN + 48;
+    constexpr int REGIST_PAYLOAD_LEN = core::RegistTerminalReq::LEN + 48;
 
     if (s->authed()) {
         return xDUP;
@@ -617,41 +617,40 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     // 1. 服务端私钥解密 → 116 字节明文
     uint8_t plain[REGIST_PAYLOAD_LEN];
     size_t  plen = sizeof(plain);
-    if (utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen,
-                                 Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+    if (utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
         return xERR_PK_DEC;
     }
-    if (plen != (size_t)core::AccessToken::LEN) {
+    if (plen != (size_t)core::RegistTerminalReq::LEN) {
         return xERR_PK_DEC;
     }
 
     // 2. 显式解出 token(小端, 不做内存覆盖)
-    core::AccessToken token;
-    if (token.decode(plain, plen) != xOK) {
+    core::RegistTerminalReq req;
+    if (req.decode(plain, plen) != xOK) {
         return xERR_PK_LEN;
     }
 
     // 3. 有效期 / conv / user 校验
-    if ((uint64_t)::time(nullptr) > token.expire) {
+    if ((uint64_t)::time(nullptr) > req.expire) {
         return xERR_TOKEN_EXP;
     }
 
-    if (token.conv != s->conv()) {
+    if (req.conv != s->conv()) {
         return xERR_TOKEN_CONV;
     }
 
-    if (token.user_id != in->data.src_id) {
+    if (req.user_id != in->data.src_id) {
         return xERR_TOKEN_USER;
     }
 
     const uint32_t n = server_->workers()->size();
-    if (token.conv % n != token.user_id % n) {
-        xWARN("conv 不变量违反: conv % N= {} != user_id % N= {}, 拒绝(检查 RA 的 conv 算法或 N 配置)", token.conv % n, token.user_id % n);
+    if (req.conv % n != req.user_id % n) {
+        xWARN("conv 不变量违反: conv % N= {} != user_id % N= {}, 拒绝(检查 RA 的 conv 算法或 N 配置)", req.conv % n, req.user_id % n);
         return xERR_TOKEN_CONV;   // 或专门错误码
     }
 
     // 4. 校验登录服签名: RA 签的是明文前 ACCESS_TOKEN_SIGNED_LEN(52) 字节
-    if (utils::ed25519_verify(token.sign, plain, core::AccessToken::SIGNED_LEN, Conf::instance()->ed25519_pk()) != 0) {
+    if (utils::ed25519_verify(req.sign, plain, core::RegistTerminalReq::SIGNED_LEN, Conf::instance()->ed25519_pk()) != 0) {
         return xERR_TOKEN_VER;
     }
 
@@ -663,7 +662,7 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     uint8_t rxkey[utils::SESSION_KEY_LEN];
     uint8_t txkey[utils::SESSION_KEY_LEN];
 
-    if (utils::x25519_kx_server(rxkey, txkey, tmppk, tmpsk, token.cli_pk) != xOK) {
+    if (utils::x25519_kx_server(rxkey, txkey, tmppk, tmpsk, req.cli_pk) != xOK) {
         return xERR_X25519_KX;
     }
 
@@ -671,16 +670,19 @@ adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
     s->set_key(txkey, rxkey);
 
     // 6. 构造 REGIST_RSP 回包(明文: 客户端此刻还没派生出会话密钥, 需要 tmppk 才能派生)
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + utils::X25519_KEY_LEN] = {0};
+    core::RegistTerminalRsp rsp;
+    ::memcpy(rsp.PK, tmppk, sizeof(rsp.PK));
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::RegistTerminalRsp::LEN] = {0};
     auto* out = (core::Package*)buf;
-    out->meta.len    = core::PKG_HDR_LEN + utils::X25519_KEY_LEN;
+    out->meta.len    = core::PKG_HDR_LEN + core::RegistTerminalRsp::LEN;
     out->data.id     = PKID_REG_TER_RSP;
     out->data.src_id = Conf::instance()->server()->id;
-    out->data.dst_id = token.user_id;
-    ::memcpy(out->data.payload, tmppk, utils::X25519_KEY_LEN);
+    out->data.dst_id = req.user_id;
+    rsp.encode(out->data.payload);
 
     int res = s->send(out);        // authed 尚为 false → 明文发出
-    s->set_user_id(token.user_id); // 之后才 authed, 后续消息才加密
+    s->set_user_id(req.user_id); // 之后才 authed, 后续消息才加密
     return res;
 }
 

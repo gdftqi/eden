@@ -3,6 +3,7 @@
 #include "tcp/config.hpp"
 #include "tcp/reactor.hpp"
 #include "tcp/server.hpp"
+#include "core/proto/pkid_regist_terminal.hpp"
 
 
 // ET 下单次 recv 的读缓冲(循环读到 EAGAIN 为止), 每 reactor 线程一份
@@ -286,8 +287,9 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pk->data.id = PKID_REG_TER_RSP;
-    *(uint32_t*)pk->data.payload = core::u32_to_le(0);   // 0 = 注册成功
+    pk->data.id = PKID_REG_GW_RSP;
+    pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);
+    *(uint32_t*)pk->data.payload = core::u32_to_le(0);
 
     s->set_id(id);
 
@@ -309,45 +311,48 @@ adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcep
         return xERR;
     }
 
-    core::TerminalInfo info;
-    if (info.decode(pk->data.payload, pk->payload_length()) != xOK) {
+    core::TerminalEnterReq req;
+    if (req.decode(pk->data.payload, pk->payload_length()) != xOK) {
         return xERR;
     }
 
     uint32_t code = 0;
 
-    if (info.conv != pk->meta.conv) {
-        xWARN("info.conv: {} != pk->meta.conv: {}", info.conv, pk->meta.conv);
+    if (req.conv != pk->meta.conv) {
+        xWARN("info.conv: {} != pk->meta.conv: {}", req.conv, pk->meta.conv);
         code = 1;
-    } else if (info.ip != pk->meta.src_addr) {
-        xWARN("info.ip: {} != pk->meta.src_addr: {}", info.ip, pk->meta.src_addr);
+    } else if (req.ip != pk->meta.src_addr) {
+        xWARN("info.ip: {} != pk->meta.src_addr: {}", req.ip, pk->meta.src_addr);
         code = 1;
     }
 
     if (code == 0) {
-        uint32_t prev = server_->directory()->exchange(info.uid, index_);
+        uint32_t prev = server_->directory()->exchange(req.uid, index_);
         if (prev != Directory::NPOS && prev != index_) {
-            server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, info.uid));
+            server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, req.uid));
         } else {
-            auto itr = terminal_router_.find(info.uid);
+            auto itr = terminal_router_.find(req.uid);
             if (itr != terminal_router_.end() && itr->second->sess() != s) {
-                kick_terminal(itr->second);
+                kick_terminal(req.uid);
             }
         }
 
-        terminal_router_[info.uid] = Terminal::create(info.uid, info.conv, info.ip, info.port, s);
+        terminal_router_[req.uid] = Terminal::create(req.uid, req.conv, req.ip, req.port, s);
     }
+
+    core::TerminalEnterRsp rsp;
+    rsp.uid  = req.uid;
+    rsp.code = code;
 
     pk->data.id = PKID_TER_ENT_RSP;
     uint32_t src_id = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
     pk->data.dst_id = src_id;
-    pk->meta.len = core::PKG_HDR_LEN + 8;
-    *(uint32_t*)(pk->data.payload) = core::u32_to_le(info.uid);
-    *(uint32_t*)(pk->data.payload + 4) = core::u32_to_le(code);
+    pk->meta.len = core::PKG_HDR_LEN + core::TerminalEnterRsp::LEN;
+    rsp.encode(pk->data.payload);
 
     if (s->send(*pk) < 0) {
-        xERROR("TER_ENT_RSP 发送失败: uid = {}", info.uid);
+        xERROR("TER_ENT_RSP 发送失败: uid = {}", req.uid);
     }
 
     return xOK;
@@ -367,13 +372,7 @@ adam::tcp::Reactor::kick_terminal(uint32_t uid) noexcept {
         return;
     }
 
-    kick_terminal(itr->second);
-    terminal_router_.erase(itr);
-}
-
-
-void
-adam::tcp::Reactor::kick_terminal(const Terminal::Ptr& t) noexcept {
+    auto t = itr->second;
     alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + 8];
     auto* kpk = (core::Package*)kbuf;
 
@@ -390,6 +389,8 @@ adam::tcp::Reactor::kick_terminal(const Terminal::Ptr& t) noexcept {
     if (t->sess()->send(*kpk) < 0) {
         xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());
     }
+
+    terminal_router_.erase(itr);
 }
 
 

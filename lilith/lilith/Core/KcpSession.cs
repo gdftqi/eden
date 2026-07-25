@@ -341,7 +341,7 @@ namespace Lilith.Core
                 return -1000;
             }
 
-            if (k.State != KcpState.Open && pkg.ID != Package.PKID_REGIST_REQ)
+            if (k.State != KcpState.Open && pkg.ID != Package.PKID_REG_TER_REQ)
             {
                 Log.Write("会话未鉴权时调用 Send");
                 return -1001;
@@ -545,7 +545,7 @@ namespace Lilith.Core
         private int RegistReq()
         {
             var pkg = Package.Pool.Take();
-            pkg.ID = Package.PKID_REGIST_REQ;
+            pkg.ID = Package.PKID_REG_TER_REQ;
             pkg.DstID = GatewayID;
             Buffer.BlockCopy(accessToken, 0, pkg.Payload, 0, accessToken!.Length);
             pkg.PayloadLength = accessToken.Length;
@@ -583,7 +583,7 @@ namespace Lilith.Core
 
                     foreach (var pkg in pkgList)
                     {
-                        if (sKcp!.State != KcpState.Open && pkg.ID == Package.PKID_REGIST_RSP && pkg.PayloadLength == 32)
+                        if (sKcp!.State != KcpState.Open && pkg.ID == Package.PKID_REG_TER_RSP && pkg.PayloadLength == 32)
                         {
                             Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
                             sKcp!.Open();

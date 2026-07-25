@@ -9,7 +9,7 @@
 namespace adam::core {
 
 
-struct TerminalInfo {
+struct TerminalEnterReq {
     static constexpr int LEN = 16;
 
 
@@ -28,13 +28,38 @@ struct TerminalInfo {
     decode(const uint8_t* buf, size_t len) noexcept;
 
 
-    TerminalInfo() = default;
-    ~TerminalInfo() = default;
-    TerminalInfo(const TerminalInfo&) = delete;
-    TerminalInfo& operator=(const TerminalInfo&) = delete;
-    TerminalInfo(TerminalInfo&&) = delete;
-    TerminalInfo& operator=(TerminalInfo&&) = delete;
-}; // struct TerminalInfo;
+    TerminalEnterReq() = default;
+    ~TerminalEnterReq() = default;
+    TerminalEnterReq(const TerminalEnterReq&) = delete;
+    TerminalEnterReq& operator=(const TerminalEnterReq&) = delete;
+    TerminalEnterReq(TerminalEnterReq&&) = delete;
+    TerminalEnterReq& operator=(TerminalEnterReq&&) = delete;
+}; // struct TerminalEnterReq;
+
+
+struct TerminalEnterRsp {
+    static constexpr int LEN = 8;
+
+
+    uint32_t code;
+    uint32_t uid;
+
+
+    void
+    encode(uint8_t* buf) noexcept;
+
+
+    int
+    decode(const uint8_t* buf, size_t len) noexcept;
+
+
+    TerminalEnterRsp() = default;
+    ~TerminalEnterRsp() = default;
+    TerminalEnterRsp(const TerminalEnterRsp&) = delete;
+    TerminalEnterRsp& operator=(const TerminalEnterRsp&) = delete;
+    TerminalEnterRsp(TerminalEnterRsp&&) = delete;
+    TerminalEnterRsp& operator=(TerminalEnterRsp&&) = delete;
+}; // struct TerminalEnterRsp;
 
     
 } // namespace adam::core

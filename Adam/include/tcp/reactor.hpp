@@ -151,10 +151,6 @@ private:
     kick_terminal(uint32_t uid) noexcept;
 
 
-    void
-    kick_terminal(const Terminal::Ptr& t) noexcept;
-
-
     int
     on_package_handle(Session::Ptr s, core::Package *pk) noexcept;
 
