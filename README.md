@@ -1,7 +1,5 @@
 # KCP 网关 · MMO / IM 微服务框架
 
-> 工程总代号待定
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 一套面向 **MMOARPG / IM** 的服务端框架与配套服务,把「客户端 ↔ 网关 ↔ 后端业务服」这条数据通道做到工业级:**可靠、低延迟、水平扩展、share-nothing 无锁、零分配收包、可观测**。
