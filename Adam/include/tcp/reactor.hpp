@@ -72,7 +72,7 @@ public:
 
     void
     notify(Message* m) noexcept {
-        ASSERT(mque_.enqueue(std::move(m)), "SPSC 队列已满, 请对队列扩容");
+        ASSERT(mque_.enqueue(std::move(m)), "MPSC 队列已满, 请对队列扩容");
         bool expected = false;
         if (mq_workering_.compare_exchange_strong(expected, true)) {
             constexpr uint64_t event = 1;
@@ -131,23 +131,31 @@ private:
     check_timeout() noexcept;
 
 
-    void
+    int
     on_ping(Session::Ptr s, core::Package *pk) noexcept;
 
 
-    void
+    int
     on_regist(Session::Ptr s, core::Package *pk) noexcept;
 
 
-    void
+    int
     on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept;
 
 
-    void
+    int
     on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept;
 
 
     void
+    kick_terminal(uint32_t uid) noexcept;
+
+
+    void
+    kick_terminal(const Terminal::Ptr& t) noexcept;
+
+
+    int
     on_package_handle(Session::Ptr s, core::Package *pk) noexcept;
 
 

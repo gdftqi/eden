@@ -9,6 +9,12 @@ etcd:
   user: "root"
   pass: "123456"
 
+mysql:
+  addr: "13.212.159.179:3306"
+  username: "root"
+  password: "aa113311.."
+  timeout: 15
+
 id: 1
 host: "0.0.0.0:8080"
 ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="

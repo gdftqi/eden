@@ -27,6 +27,12 @@ func main() {
 	}
 	log.Info("初始化 etcd 完成")
 
+	err = mid.InitMySQL(conf.Instance.Mysql)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info("初始化 mysql 完成")
+
 	gin.SetMode(gin.ReleaseMode)
 	eng := gin.Default()
 

@@ -22,6 +22,7 @@ type config struct {
 	SipHashKey   string           `yaml:"siphash_key"` // siphash mac key
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
 	Etcd         *mid.EtcdConfig  `yaml:"etcd"`        // etcd 配置
+	Mysql        *mid.MysqlConfig `yaml:"mysql"`       // mysql 配置
 
 	Ed25519Sk []byte `yaml:"-"` // ed25519 签名私钥, 网关会用公钥验签
 	X25519Pk  []byte `yaml:"-"` // 网关的 sealedbox 加密公钥
@@ -123,6 +124,22 @@ func Init(fname string) error {
 
 	if len(tmp.Etcd.Pass) == 0 {
 		return errors.New("etcd.pass is invalid")
+	}
+
+	if tmp.Mysql == nil {
+		return errors.New("mysql is invalid")
+	}
+
+	if len(tmp.Mysql.Addr) == 0 {
+		return errors.New("mysql.addr is invalid")
+	}
+
+	if len(tmp.Mysql.Username) == 0 {
+		return errors.New("mysql.username is invalid")
+	}
+
+	if len(tmp.Mysql.Password) == 0 {
+		return errors.New("mysql.password is invalid")
 	}
 
 	Instance = &tmp

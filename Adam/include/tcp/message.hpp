@@ -34,6 +34,11 @@ struct Message {
          * @brief 终端处理
          */
         TerminalHandle,
+
+        /**
+         * @brief 踢除终端(旧属主 reactor 发 KIC 并清档)
+         */
+        TerminalKick,
     };
 
 
@@ -51,10 +56,18 @@ struct Message {
     }
 
 
+    explicit
+    Message(Type t, uint32_t id)
+        : type(t) {
+        arg.id = id;
+    }
+
+
     Type type;
     union {
-        SOCKET fd;
-        void*  ptr;
+        SOCKET   fd;
+        uint32_t id;
+        void*    ptr;
     } arg;
 
 

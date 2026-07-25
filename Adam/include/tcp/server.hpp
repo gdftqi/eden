@@ -3,6 +3,7 @@
 
 
 #include "tcp/reactor.hpp"
+#include "tcp/directory.hpp"
 #include "tcp/config.hpp"
 
 
@@ -95,6 +96,21 @@ public:
     }
 
 
+    // 终端全局目录(uid → 属主 reactor), 各 reactor 线程共享
+    Directory*
+    directory() noexcept {
+        return &dir_;
+    }
+
+
+    // 按 index 取 reactor(跨 reactor 投递 TerminalKick 用)
+    Reactor*
+    reactor(uint32_t idx) noexcept {
+        ASSERT(idx < (uint32_t)reactors_.size(), "reactor index 越界: {}", idx);
+        return reactors_[idx].get();
+    }
+
+
     int
     worker_size() const noexcept {
         return (int)reactors_.size();
@@ -174,6 +190,7 @@ private:
     std::vector<Reactor::Ptr> reactors_;   
     std::vector<std::thread>  threads_;
     PackageHandlers           handlers;
+    Directory                 dir_;
 }; // class Server;
 
     

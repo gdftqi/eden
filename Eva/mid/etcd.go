@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/eva/log"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	etcd3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -51,7 +50,7 @@ func EtcdGetPrefix(key string) (*etcd3.GetResponse, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), ETCD_TIMEOUT)
 	defer cancel()
 
-	return Etcd.Get(ctx, key, clientv3.WithPrefix())
+	return Etcd.Get(ctx, key, etcd3.WithPrefix())
 }
 
 // EtcdDelete 删除 etcd 中的 key

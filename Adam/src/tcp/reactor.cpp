@@ -1,4 +1,5 @@
 #include "core/error.hpp"
+#include "core/proto/pkid_terminal_enter.hpp"
 #include "tcp/config.hpp"
 #include "tcp/reactor.hpp"
 #include "tcp/server.hpp"
@@ -200,32 +201,36 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                 return -1;
             }
 
-            int rc;
-            while ((rc = s->recv(pk)) == xOK) {
+            int res;
+            while ((res = s->recv(pk)) == xOK) {
                 switch (pk->data.id) {
                 case PKID_PING:
-                    on_ping(s, pk);
+                    res = on_ping(s, pk);
                     break;
 
                 case PKID_REG_GW_REQ:
-                    on_regist(s, pk);
+                    res = on_regist(s, pk);
                     break;
 
                 case PKID_TER_ENT_REQ:
-                    on_terminal_enter(s, pk);
+                    res = on_terminal_enter(s, pk);
                     break;
 
                 case PKID_TER_LEA_REQ:
-                    on_terminal_leave(s, pk);
+                    res = on_terminal_leave(s, pk);
                     break;
 
                 default:
-                    on_package_handle(s, pk);
+                    res = on_package_handle(s, pk);
+                    break;
+                }
+
+                if (res != xOK && res != xAGAIN) {
                     break;
                 }
             }
 
-            if (rc == xERR) {
+            if (res != xAGAIN) {
                 return -1;
             }
         } else if (n == 0) {
@@ -265,16 +270,18 @@ adam::tcp::Reactor::check_timeout() noexcept {
 }
 
 
-void
+int
 adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
     pk->data.id = PKID_PONG;
     if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
     }
+
+    return 0;
 }
 
 
-void
+int
 adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
@@ -289,38 +296,119 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     } else {
         xINFO("网关 {} 注册成功", id);
     }
+
+    return 0;
 }
 
 
-void
+int
 adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept {
     ASSERT(s->reactor() == this, "terminal enter 不在属主 reactor 线程");
 
+    if (!s->authed()) {
+        return xERR;
+    }
 
-    
+    core::TerminalInfo info;
+    if (info.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        return xERR;
+    }
+
+    uint32_t code = 0;
+
+    if (info.conv != pk->meta.conv) {
+        xWARN("info.conv: {} != pk->meta.conv: {}", info.conv, pk->meta.conv);
+        code = 1;
+    } else if (info.ip != pk->meta.src_addr) {
+        xWARN("info.ip: {} != pk->meta.src_addr: {}", info.ip, pk->meta.src_addr);
+        code = 1;
+    }
+
+    if (code == 0) {
+        uint32_t prev = server_->directory()->exchange(info.uid, index_);
+        if (prev != Directory::NPOS && prev != index_) {
+            server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, info.uid));
+        } else {
+            auto itr = terminal_router_.find(info.uid);
+            if (itr != terminal_router_.end() && itr->second->sess() != s) {
+                kick_terminal(itr->second);
+            }
+        }
+
+        terminal_router_[info.uid] = Terminal::create(info.uid, info.conv, info.ip, info.port, s);
+    }
+
+    pk->data.id = PKID_TER_ENT_RSP;
+    uint32_t src_id = pk->data.src_id;
+    pk->data.src_id = pk->data.dst_id;
+    pk->data.dst_id = src_id;
+    pk->meta.len = core::PKG_HDR_LEN + 8;
+    *(uint32_t*)(pk->data.payload) = core::u32_to_le(info.uid);
+    *(uint32_t*)(pk->data.payload + 4) = core::u32_to_le(code);
+
+    if (s->send(*pk) < 0) {
+        xERROR("TER_ENT_RSP 发送失败: uid = {}", info.uid);
+    }
+
+    return xOK;
 }
 
 
-void
+int
 adam::tcp::Reactor::on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept {
-
+    return 0;
 }
 
 
 void
+adam::tcp::Reactor::kick_terminal(uint32_t uid) noexcept {
+    auto itr = terminal_router_.find(uid);
+    if (itr == terminal_router_.end()) {
+        return;
+    }
+
+    kick_terminal(itr->second);
+    terminal_router_.erase(itr);
+}
+
+
+void
+adam::tcp::Reactor::kick_terminal(const Terminal::Ptr& t) noexcept {
+    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + 8];
+    auto* kpk = (core::Package*)kbuf;
+
+    kpk->meta.len      = core::PKG_HDR_LEN + 8;
+    kpk->meta.conv     = t->conv();
+    kpk->meta.src_addr = 0;
+    kpk->data.id       = PKID_KIC_TER_REQ;
+    kpk->data.src_id   = Conf::instance()->server()->id;
+    kpk->data.dst_id   = t->sess()->id();
+    kpk->data.seq      = 0;
+    *(uint32_t*)(kpk->data.payload)     = core::u32_to_le(t->uid());
+    *(uint32_t*)(kpk->data.payload + 4) = core::u32_to_le(t->conv());
+
+    if (t->sess()->send(*kpk) < 0) {
+        xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());
+    }
+}
+
+
+int
 adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
-        return;
+        return -1;
     }
 
     auto h = server_->get_handler((uint16_t)pk->data.id);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pk->data.id, s->remote_addr());
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
-        return;
+        return 0;
     }
     h(s, pk);
+
+    return 0;
 }
 
 
@@ -337,6 +425,10 @@ adam::tcp::Reactor::drain_evque() noexcept {
 
             case Message::Type::SessionConnected:
                 on_session_connected(ms[i]);
+                break;
+
+            case Message::Type::TerminalKick:
+                kick_terminal(ms[i]->arg.id);
                 break;
 
             default:

@@ -23,7 +23,7 @@ public:
     };
 
 
-    typedef std::shared_ptr<Terminal> Ptr;
+    typedef std::shared_ptr<Terminal>          Ptr;
     typedef absl::flat_hash_map<uint32_t, Ptr> Map;
 
 
@@ -33,7 +33,34 @@ public:
     }
 
 
+    uint32_t
+    conv() const noexcept {
+        return conv_;
+    }
+
+
+    const Session::Ptr&
+    sess() const noexcept {
+        return sess_;
+    }
+
+
+    static Ptr
+    create(uint32_t uid, uint32_t conv, uint32_t ip, uint16_t port, Session::Ptr s) noexcept {
+        return Ptr(new Terminal(uid, conv, ip, port, std::move(s)));
+    }
+
+
 private:
+    explicit
+    Terminal(uint32_t uid, uint32_t conv, uint32_t ip, uint16_t port, Session::Ptr s) noexcept
+        : uid_(uid)
+        , conv_(conv)
+        , sess_(std::move(s)) {
+        core::u32_to_sockaddr((sockaddr_in*)&addr_, ip, port);
+    }
+
+
     uint32_t           uid_  { 0 };
     uint32_t           conv_ { 0 };
     ::sockaddr_storage addr_ {};

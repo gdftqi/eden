@@ -175,10 +175,10 @@ sockaddr_to_u32(const sockaddr_in* addr) noexcept {
  * @brief 将 uint32_t 4 字节转为 IPV4 地址
  */
 inline void
-u32_to_sockaddr(sockaddr_in* addr, uint32_t v) noexcept {
+u32_to_sockaddr(sockaddr_in* addr, uint32_t ip, uint16_t port = 0) noexcept {
     addr->sin_family      = AF_INET;
-    addr->sin_port        = 0;
-    addr->sin_addr.s_addr = ::htonl(v);
+    addr->sin_port        = port;
+    addr->sin_addr.s_addr = ::htonl(ip);
 }
 
 
