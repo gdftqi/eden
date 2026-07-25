@@ -53,11 +53,13 @@ public:
 
 
         virtual void
-        on_terminal_enter(Session::Ptr, core::Package*) noexcept;
+        on_terminal_enter(Session::Ptr, core::Package*) noexcept
+        {}
 
 
         virtual void
-        on_terminal_leave(Session::Ptr, core::Package*) noexcept;
+        on_terminal_leave(Session::Ptr, core::Package*) noexcept
+        {}
     }; // class IHook;
 
 

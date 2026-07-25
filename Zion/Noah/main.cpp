@@ -19,7 +19,7 @@ on_signal(int) {
 }
 
 
-class EchoService: public adam::tcp::Server::IHook {
+class Noah: public adam::tcp::Server::IHook {
 public:
     void
     on_init(adam::tcp::Server* s) noexcept override {
@@ -76,8 +76,8 @@ main(int /*argc*/, char** /*argv*/) {
     adam::utils::init_log(Conf::instance()->log_path());
     adam::utils::Prof prof(Conf::instance()->prof_path());
 
-    EchoService service;
-    server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &service);
+    Noah s;
+    server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &s);
 
     // PK_ID_PING = 1,跟 test_tcp.py 一致
     server->regist_handler(1, &echo_handler);
