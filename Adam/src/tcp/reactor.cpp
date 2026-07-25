@@ -273,7 +273,7 @@ adam::tcp::Reactor::check_timeout() noexcept {
 
 int
 adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
-    pk->data.id = PKID_PONG_BKD;
+    pk->data.id = PKID_PONG;
     if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
     }
