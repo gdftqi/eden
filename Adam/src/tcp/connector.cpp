@@ -117,7 +117,7 @@ adam::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + sizeof(uint32_t)] = {0};
     auto* pk = (core::Package*)buf;
     pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);
-    pk->data.id  = PKID_REG_GW_REQ;
+    pk->data.id  = PKID_REG_BKD_REQ;
 
     uint32_t v = core::u32_to_le(id);
     ::memcpy(pk->data.payload, &v, sizeof(v));

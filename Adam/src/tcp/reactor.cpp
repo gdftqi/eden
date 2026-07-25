@@ -209,7 +209,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     res = on_ping(s, pk);
                     break;
 
-                case PKID_REG_GW_REQ:
+                case PKID_REG_BKD_REQ:
                     res = on_regist(s, pk);
                     break;
 
@@ -273,7 +273,7 @@ adam::tcp::Reactor::check_timeout() noexcept {
 
 int
 adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
-    pk->data.id = PKID_PONG;
+    pk->data.id = PKID_PONG_BKD;
     if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
     }
@@ -287,7 +287,7 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pk->data.id = PKID_REG_GW_RSP;
+    pk->data.id = PKID_REG_BKD_RSP;
     pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);
     *(uint32_t*)pk->data.payload = core::u32_to_le(0);
 

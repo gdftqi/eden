@@ -222,7 +222,7 @@ private:
 
 
     void
-    on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
+    on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
     void
@@ -232,7 +232,7 @@ private:
     // --------------------------------- 用户侧 ---------------------------------
 
     int
-    on_regist_req(Session::Ptr s, core::Package *pk) noexcept;
+    on_regist_terminal_req(Session::Ptr s, core::Package *pk) noexcept;
 
 
     int

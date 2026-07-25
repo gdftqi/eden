@@ -301,8 +301,8 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
 
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
-                        if (pk->data.id == PKID_REG_GW_REQ) {
-                            res = on_regist_req(s, pk);
+                        if (pk->data.id == PKID_REG_BKD_REQ) {
+                            res = on_regist_terminal_req(s, pk);
                         } else {
                             res = on_pack_handle(s, pk);
                         }
@@ -400,8 +400,8 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 on_pong(conn, pk);
                 break;
 
-            case PKID_REG_GW_RSP:
-                on_regist_rsp(conn, pk);
+            case PKID_REG_BKD_RSP:
+                on_regist_backend_rsp(conn, pk);
                 break;
 
             default:
@@ -563,7 +563,7 @@ adam::kcp::Worker::on_pong(tcp::Connector::Ptr, core::Package *pk) noexcept {
 
 
 void
-adam::kcp::Worker::on_regist_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
     if (pk->payload_length() != sizeof(uint32_t)) {
         xERROR("错误的 REGIST_RSP 长度");
         return;
@@ -602,7 +602,7 @@ adam::kcp::Worker::on_s2c(tcp::Connector::Ptr, core::Package *pk) noexcept {
 
 
 int
-adam::kcp::Worker::on_regist_req(Session::Ptr s, core::Package *in) noexcept {
+adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noexcept {
     // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken 明文(116) + sealedbox 头(48)
     constexpr int REGIST_PAYLOAD_LEN = core::RegistTerminalReq::LEN + 48;
 
