@@ -53,7 +53,7 @@ private:
 }; // class ObjPool;
 
 
-} // namespace adam::utils;
+} // namespace adam::utils
 
 
 #endif // __ADAM_UTILS_OBJ_POOL_HPP__

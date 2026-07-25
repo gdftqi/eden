@@ -81,5 +81,4 @@ struct Message {
 } // namespace adam::tcp
 
 
-
 #endif // __ADAM_TCP_MESSAGE_HPP__

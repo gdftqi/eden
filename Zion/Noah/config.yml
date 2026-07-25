@@ -3,7 +3,7 @@ server:
   timeout: 45
   protocol: "tcp"
   name: "public/noah"
-  host: "127.0.0.1:6688"
+  host: "172.31.6.248:6688"
   desc: "noah"
 
 etcd:

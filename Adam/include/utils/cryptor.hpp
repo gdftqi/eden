@@ -122,8 +122,7 @@ int
 ed25519_verify(const uint8_t sig[ED25519_SIGN_LEN], const uint8_t* msg, size_t len, const uint8_t pk[ED25519_PK_LEN]) noexcept;
 
 
-
-} // namespace adam::utils;
+} // namespace adam::utils
 
 
 #endif // __ADAM_UTILS_CRYPTOR_HPP__

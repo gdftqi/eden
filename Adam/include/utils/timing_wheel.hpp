@@ -139,7 +139,7 @@ private:
 }; // class TimingWheel;
 
 
-} // namespace adam::utils;
+} // namespace adam::utils
 
 
 #endif // __ADAM_UTILS_TIMING_WHEEL_HPP__
