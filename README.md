@@ -1,6 +1,6 @@
 # KCP 网关 · MMO / IM 微服务框架
 
-> 工程总代号待定 —— 各服务以「凡人比肩神明」为主题命名(**Adam / Eva / Lilith / Moses / Ark / Zion**),见下「组件」。
+> 工程总代号待定
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
