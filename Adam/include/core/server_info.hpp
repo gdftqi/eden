@@ -53,7 +53,6 @@ struct ServerInfo {
      */
     std::string
     to_json() const noexcept {
-        // 位图 → 稀疏数组(注册时一次性, 6.5 万次位测试不值得优化)
         std::string ps;
         for (size_t i = 0; i < PID_MAX; ++i) {
             if (!pids[i]) {
