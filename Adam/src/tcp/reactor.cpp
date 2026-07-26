@@ -1,5 +1,7 @@
 #include "core/error.hpp"
 #include "core/proto/pkid_terminal_enter.hpp"
+#include "core/proto/pkid_terminal_leave.hpp"
+#include "core/proto/pkid_kick_terminal.hpp"
 #include "tcp/config.hpp"
 #include "tcp/reactor.hpp"
 #include "tcp/server.hpp"
@@ -85,10 +87,7 @@ adam::tcp::Reactor::release() noexcept {
         mfd_ = INVALID_SOCKET;
     }
 
-    // 残留消息只剩 Stop / SessionConnected(arg 是 fd, 无堆内存), 直接 delete
-    mque_.clear([](Message* m) {
-        delete m;
-    });
+    mque_.clear([](Message* m) { delete m; });
 }
 
 
@@ -102,7 +101,44 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
     auto s = itr->second;
     ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
     sesss_.erase(itr);
+
+    // 断连清扫: 该连接名下所有终端删档(网关崩溃/掉线的粗粒度兜底)
+    for (auto itr = ters_.begin(); itr != ters_.end(); ) {
+        auto t = itr->second;
+        ++itr;
+        if (t->sess() == s) { 
+            remove_terminal(t->uid());
+        }
+    }
+
     server_->hook()->on_disconnected(s);
+}
+
+
+int
+adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
+    ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
+
+    uint32_t prev = server_->directory()->exchange(t->uid(), index_);
+    if (prev != Directory::NPOS && prev != index_) {
+        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)0));   // TODO: 顶号原因码待定义
+    } else {
+        // 本 reactor: 旧档挂在别的连接 = 顶号; 同连接 = 重报, 静默覆盖
+        auto old = get_terminal(t->uid());
+        if (old != nullptr && old->sess() != t->sess()) {
+            kick_terminal(t->uid(), 0);   // TODO: 顶号原因码待定义
+        }
+    }
+
+    ters_[t->uid()] = std::move(t);
+    return xOK;
+}
+
+
+void
+adam::tcp::Reactor::remove_terminal(uint32_t uid) noexcept {
+    ters_.erase(uid);
+    server_->directory()->erase_if(uid, index_);
 }
 
 
@@ -153,10 +189,7 @@ adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
         return;
     }
 
-    sesss_.emplace(fd, s);
-    if (session_handle(s) != 0) {
-        remove_session(fd);
-    }
+    add_session(s);
 }
 
 
@@ -214,11 +247,15 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     break;
 
                 case PKID_TER_ENT_REQ:
-                    res = on_terminal_enter(s, pk);
+                    res = on_terminal_enter_req(s, pk);
+                    break;
+
+                case PKID_TER_LEA_NTF:
+                    res = on_terminal_leave_notify(s, pk);
                     break;
 
                 case PKID_TER_LEA_REQ:
-                    res = on_terminal_leave(s, pk);
+                    res = on_terminal_leave_req(s, pk);
                     break;
 
                 default:
@@ -304,7 +341,7 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
 
 
 int
-adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept {
+adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noexcept {
     ASSERT(s->reactor() == this, "terminal enter 不在属主 reactor 线程");
 
     if (!s->authed()) {
@@ -327,17 +364,7 @@ adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcep
     }
 
     if (code == 0) {
-        uint32_t prev = server_->directory()->exchange(req.uid, index_);
-        if (prev != Directory::NPOS && prev != index_) {
-            server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, req.uid));
-        } else {
-            auto itr = terminal_router_.find(req.uid);
-            if (itr != terminal_router_.end() && itr->second->sess() != s) {
-                kick_terminal(req.uid);
-            }
-        }
-
-        terminal_router_[req.uid] = Terminal::create(req.uid, req.conv, req.ip, req.port, s);
+        add_terminal(Terminal::create(req.uid, req.conv, req.ip, req.port, s));
     }
 
     core::TerminalEnterRsp rsp;
@@ -360,37 +387,63 @@ adam::tcp::Reactor::on_terminal_enter(Session::Ptr s, core::Package *pk) noexcep
 
 
 int
-adam::tcp::Reactor::on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept {
+adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package *pk) noexcept {
+    ASSERT(s->reactor() == this, "terminal leave 不在属主 reactor 线程");
+
+    if (!s->authed()) {
+        return xERR;
+    }
+
+    core::TerminalLeaveNotify ntf;
+    if (ntf.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        return xERR;
+    }
+
+    auto t = get_terminal(ntf.uid);
+    if (t == nullptr || t->sess() != s) {
+        return xOK;   // 查无此档 / 迟到讣告(属主已换连接) → 忽略
+    }
+
+    remove_terminal(ntf.uid);
+
+    return xOK;
+}
+
+
+int
+adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package *pk) noexcept {
     return 0;
 }
 
 
 void
-adam::tcp::Reactor::kick_terminal(uint32_t uid) noexcept {
-    auto itr = terminal_router_.find(uid);
-    if (itr == terminal_router_.end()) {
+adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
+    auto t = get_terminal(uid);
+    if (t == nullptr) {
         return;
     }
 
-    auto t = itr->second;
-    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + 8];
+    core::KickTerminalReq req;
+    req.uid  = t->uid();
+    req.code = code;
+
+    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::KickTerminalReq::LEN];
     auto* kpk = (core::Package*)kbuf;
 
-    kpk->meta.len      = core::PKG_HDR_LEN + 8;
+    kpk->meta.len      = core::PKG_HDR_LEN + core::KickTerminalReq::LEN;
     kpk->meta.conv     = t->conv();
     kpk->meta.src_addr = 0;
     kpk->data.id       = PKID_KIC_TER_REQ;
     kpk->data.src_id   = Conf::instance()->server()->id;
     kpk->data.dst_id   = t->sess()->id();
     kpk->data.seq      = 0;
-    *(uint32_t*)(kpk->data.payload)     = core::u32_to_le(t->uid());
-    *(uint32_t*)(kpk->data.payload + 4) = core::u32_to_le(t->conv());
+    req.encode(kpk->data.payload, core::KickTerminalReq::LEN);
 
     if (t->sess()->send(*kpk) < 0) {
         xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());
     }
 
-    terminal_router_.erase(itr);
+    ters_.erase(uid);
 }
 
 
@@ -429,7 +482,7 @@ adam::tcp::Reactor::drain_evque() noexcept {
                 break;
 
             case Message::Type::TerminalKick:
-                kick_terminal(ms[i]->arg.id);
+                kick_terminal(ms[i]->arg.kick.uid, ms[i]->arg.kick.code);
                 break;
 
             default:

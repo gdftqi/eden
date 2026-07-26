@@ -57,6 +57,14 @@ struct Message {
 
 
     explicit
+    Message(Type t, uint32_t uid, uint32_t code)
+        : type(t) {
+        arg.kick.uid  = uid;
+        arg.kick.code = code;
+    }
+
+
+    explicit
     Message(Type t, uint32_t id)
         : type(t) {
         arg.id = id;
@@ -67,6 +75,10 @@ struct Message {
     union {
         SOCKET   fd;
         uint32_t id;
+        struct {
+            uint32_t uid;
+            uint32_t code;
+        } kick;
         void*    ptr;
     } arg;
 

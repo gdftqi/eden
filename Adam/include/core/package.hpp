@@ -46,7 +46,7 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PKID_TER_ENT_RSP    (108)             // 终端进入应答
 #define PKID_TER_LEA_REQ    (109)             // 终端离开请求
 #define PKID_TER_LEA_RSP    (110)             // 终端离开应答
-#define PKID_OFF_TER_NTF    (111)             // 终端下线通知
+#define PKID_TER_LEA_NTF    (111)             // 终端下线通知
 #define PKID_BIND_TER_NTF   (112)             // 终端绑定通知
 #define PKID_UNBD_TER_NTF   (113)             // 终端解绑通知
 #define PKID_CUSTOM         (200)             // 自定义消息ID

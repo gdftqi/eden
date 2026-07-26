@@ -83,6 +83,11 @@ public:
     }
 
 
+    // 踢除终端(发 KIC + 删档); 只允许在本 reactor 线程调用(跨线程走 Terminal::kick 的 notify 路径)
+    void
+    kick_terminal(uint32_t uid, uint32_t code) noexcept;
+
+
 private:
     explicit
     Reactor(Server* server, uint32_t index) noexcept
@@ -100,6 +105,15 @@ private:
 
 
     void
+    add_session(Session::Ptr s) noexcept {
+        sesss_.emplace(s->fd(), s);
+        if (session_handle(s) != 0) {
+            remove_session(s->fd());
+        }
+    }
+
+
+    void
     remove_session(SOCKET fd) noexcept;
 
 
@@ -107,6 +121,21 @@ private:
     get_session(SOCKET fd) noexcept {
         auto itr = sesss_.find(fd);
         return itr == sesss_.end() ? nullptr : itr->second;
+    }
+
+
+    int
+    add_terminal(Terminal::Ptr t) noexcept;
+
+
+    void
+    remove_terminal(uint32_t uid) noexcept;
+
+
+    Terminal::Ptr
+    get_terminal(uint32_t uid) noexcept {
+        auto itr = ters_.find(uid);
+        return itr == ters_.end() ? nullptr : itr->second;
     }
 
 
@@ -140,15 +169,15 @@ private:
 
 
     int
-    on_terminal_enter(Session::Ptr s, core::Package *pk) noexcept;
+    on_terminal_enter_req(Session::Ptr s, core::Package *pk) noexcept;
 
 
     int
-    on_terminal_leave(Session::Ptr s, core::Package *pk) noexcept;
+    on_terminal_leave_notify(Session::Ptr s, core::Package *pk) noexcept;
 
 
-    void
-    kick_terminal(uint32_t uid) noexcept;
+    int
+    on_terminal_leave_req(Session::Ptr s, core::Package *pk) noexcept;
 
 
     int
@@ -169,7 +198,7 @@ private:
     std::atomic_bool         mq_workering_  { false };
     utils::MPSC<Message*>    mque_;
     SessMap                  sesss_;
-    Terminal::Map            terminal_router_;
+    Terminal::Map            ters_;
 }; // class Reactor;
 
 
