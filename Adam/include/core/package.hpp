@@ -33,8 +33,8 @@ constexpr int PKG_DATA_LEN = 14;
 constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 
 
-#define PKID_PING       (100)             // 心跳 PING
-#define PKID_PONG       (101)             // 心跳 PONG
+#define PKID_PING           (100)             // 心跳 PING
+#define PKID_PONG           (101)             // 心跳 PONG
 #define PKID_REG_BKD_REQ    (102)             // 网关注册请求
 #define PKID_REG_BKD_RSP    (103)             // 网关注册应答
 #define PKID_REG_TER_REQ    PKID_REG_BKD_REQ  // 终端注册请求
@@ -46,9 +46,9 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PKID_TER_ENT_RSP    (108)             // 终端进入应答
 #define PKID_TER_LEA_REQ    (109)             // 终端离开请求
 #define PKID_TER_LEA_RSP    (110)             // 终端离开应答
-#define PKID_OFF_TER_NTF    (113)             // 终端下线通知
-#define PKID_BIND_TER_NTF   (114)             // 终端绑定通知
-#define PKID_UNBD_TER_NTF   (115)             // 终端解绑通知
+#define PKID_OFF_TER_NTF    (111)             // 终端下线通知
+#define PKID_BIND_TER_NTF   (112)             // 终端绑定通知
+#define PKID_UNBD_TER_NTF   (113)             // 终端解绑通知
 #define PKID_CUSTOM         (200)             // 自定义消息ID
 
 

@@ -4,7 +4,9 @@
 
 
 void
-adam::core::TerminalEnterReq::encode(uint8_t* buf) noexcept {
+adam::core::TerminalEnterReq::encode(uint8_t* buf, size_t len) noexcept {
+    ASSERT (len >= TerminalEnterReq::LEN, "TerminalEnterReq::encode 缓冲区不足");
+
     uint32_t v32;
     uint16_t v16;
 

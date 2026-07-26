@@ -27,6 +27,12 @@ public:
     typedef absl::flat_hash_map<uint32_t, Ptr> Map;
 
 
+    static Ptr
+    create(uint32_t uid, uint32_t conv, uint32_t ip, uint16_t port, Session::Ptr s) noexcept {
+        return Ptr(new Terminal(uid, conv, ip, port, std::move(s)));
+    }
+
+
     uint32_t
     uid() const noexcept {
         return uid_;
@@ -45,10 +51,11 @@ public:
     }
 
 
-    static Ptr
-    create(uint32_t uid, uint32_t conv, uint32_t ip, uint16_t port, Session::Ptr s) noexcept {
-        return Ptr(new Terminal(uid, conv, ip, port, std::move(s)));
-    }
+    /**
+     * @brief 踢除本终端(位置透明): 属主 reactor == cur 直接踢, 否则投 TerminalKick 给属主
+     */
+    void
+    kick(uint32_t code, Reactor* cur) noexcept;
 
 
 private:

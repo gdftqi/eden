@@ -673,7 +673,7 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     out->data.id     = PKID_REG_TER_RSP;
     out->data.src_id = Conf::instance()->server()->id;
     out->data.dst_id = req.uid;
-    rsp.encode(out->data.payload);
+    rsp.encode(out->data.payload, core::RegistTerminalRsp::LEN);
 
     int res = s->send(out);
     s->set_uid(req.uid);

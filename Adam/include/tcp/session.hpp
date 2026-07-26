@@ -73,7 +73,7 @@ public:
     }
 
 
-    const Reactor*
+    Reactor*
     reactor() const noexcept {
         return reactor_;
     }

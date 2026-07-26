@@ -21,7 +21,7 @@ struct TerminalEnterReq {
 
 
     void
-    encode(uint8_t* buf) noexcept;
+    encode(uint8_t* buf, size_t len) noexcept;
 
 
     int

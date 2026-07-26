@@ -33,7 +33,9 @@ adam::core::RegistTerminalReq::decode(const uint8_t* buf, size_t len) noexcept {
 
 
 void
-adam::core::RegistTerminalRsp::encode(uint8_t* buf) noexcept {
+adam::core::RegistTerminalRsp::encode(uint8_t* buf, size_t len) noexcept {
+    ASSERT(len >= (size_t)LEN, "RegistTerminalRsp::encode 缓冲区不足");
+
     ::memcpy(buf + 0, PK, sizeof(PK));
 }
 
