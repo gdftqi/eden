@@ -4,6 +4,7 @@
 
 #include <cinttypes>
 #include <string>
+#include <bitset>
 #include <format>
 #include <simdjson.h>
 #include <yaml-cpp/yaml.h>
@@ -16,6 +17,25 @@ namespace adam::core {
  * @brief 服务信息
  */
 struct ServerInfo {
+    /**
+     * @brief PID 是 16 位, 位图覆盖其全部取值空间(65536 bit = 8KB)
+     */
+    static constexpr size_t PID_MAX = 1 << 16;
+
+
+    void
+    pid_set(uint16_t pid) noexcept {
+        pids.set(pid);
+        val = to_json();
+    }
+
+
+    bool
+    pid_has(uint16_t pid) const noexcept {
+        return pids[pid];
+    }
+
+
     uint32_t
     get_type() const noexcept {
         return id >> 16;
@@ -33,8 +53,21 @@ struct ServerInfo {
      */
     std::string
     to_json() const noexcept {
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{}}}", 
-            id, protocol, name, host, desc, start_time, nthreads);
+        // 位图 → 稀疏数组(注册时一次性, 6.5 万次位测试不值得优化)
+        std::string ps;
+        for (size_t i = 0; i < PID_MAX; ++i) {
+            if (!pids[i]) {
+                continue;
+            }
+
+            if (!ps.empty()) {
+                ps += ',';
+            }
+            ps += std::to_string(i);
+        }
+
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"pkids\":[{}]}}", 
+            id, protocol, name, host, desc, start_time, nthreads, ps);
     }
 
 
@@ -53,6 +86,18 @@ struct ServerInfo {
 
         if (doc["host"].has_value()) {
             host = std::string(doc["host"].get_string().value_unsafe());
+        }
+
+        if (doc["nthreads"].has_value()) {
+            nthreads = doc["nthreads"].get_uint64().value_unsafe();
+        }
+
+        pids.reset();
+        auto arr = doc["pkids"];
+        if (arr.error() == simdjson::SUCCESS) {
+            for (auto v : arr.get_array()) {
+                pid_set((uint16_t)v.get_uint64().value_unsafe());
+            }
         }
 
         return 0;
@@ -75,9 +120,13 @@ struct ServerInfo {
     std::string desc;            // 描述信息
     ::time_t    start_time;      // 启动时间
 
-    std::string key; // 用于注册 etcd 的 key
-    std::string val; // 用于注册 etcd 的 value
+    // 本服务可受理的 PKID 全集(框架内建系统段 + 业务注册的 handler): 位图, 自动清零, O(1) 查。
+    // 网关按此过滤转发 —— 声明在服务侧, 执行在网关侧, 网关不认识任何具体服务。
+    // 内存位图 / JSON 稀疏数组 两种表示: 前者查得快, 后者在 etcd 里可读可 grep。
+    std::bitset<PID_MAX> pids;
 
+    std::string key; // 用于注册 etcd 的 keys
+    std::string val; // 用于注册 etcd 的 value
 
     ServerInfo() = default;
     ~ServerInfo() = default;

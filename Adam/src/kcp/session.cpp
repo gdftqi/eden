@@ -95,7 +95,7 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
 
     int err = xOK;
 
-    if (pk->data.id == 0) {
+    if (pk->data.pid == 0) {
         err = xERR_PK_ID;
     } else if (pk->data.src_id == 0) {
         err = xERR_PK_SRC; 

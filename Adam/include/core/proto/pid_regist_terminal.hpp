@@ -1,5 +1,5 @@
-#ifndef __ADAM_CORE_PROTO_PKID_REG_TER_HPP__
-#define __ADAM_CORE_PROTO_PKID_REG_TER_HPP__
+#ifndef __ADAM_CORE_PROTO_PID_REG_TER_HPP__
+#define __ADAM_CORE_PROTO_PID_REG_TER_HPP__
 
 
 #include <cinttypes>
@@ -11,7 +11,7 @@ namespace adam::core {
 
 
 /**
- * @brief PKID_REG_TER_REQ 的 payload 数据. 对应 Eva 中的结构是 AccessToken
+ * @brief PID_REG_TER_REQ 的 payload 数据. 对应 Eva 中的结构是 AccessToken
  */
 struct RegistTerminalReq {
     static constexpr int LEN = 116;
@@ -71,4 +71,4 @@ struct RegistTerminalRsp {
 } // namespace adam::core
 
 
-#endif // __ADAM_CORE_PROTO_PKID_REG_TER_HPP__
+#endif // __ADAM_CORE_PROTO_PID_REG_TER_HPP__

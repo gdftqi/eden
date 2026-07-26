@@ -80,7 +80,7 @@ main(int /*argc*/, char** /*argv*/) {
     server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &s);
 
     // PK_ID_PING = 1,跟 test_tcp.py 一致
-    server->regist_handler(1, &echo_handler);
+    server->regist_handler(PID_CUSTOM + 1, &echo_handler);
 
     ::signal(SIGINT,  on_signal);
     ::signal(SIGTERM, on_signal);

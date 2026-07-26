@@ -1,5 +1,5 @@
-#ifndef __ADAM_CORE_PROTO_KIC_TER_HPP__
-#define __ADAM_CORE_PROTO_KIC_TER_HPP__
+#ifndef __ADAM_CORE_PROTO_PID_KIC_TER_HPP__
+#define __ADAM_CORE_PROTO_PID_KIC_TER_HPP__
 
 
 #include <cinttypes>
@@ -75,4 +75,4 @@ struct KickTerminalNotify {
 } // namespace adam::core
 
 
-#endif // __ADAM_CORE_PROTO_KIC_TER_HPP__
+#endif // __ADAM_CORE_PROTO_PID_KIC_TER_HPP__

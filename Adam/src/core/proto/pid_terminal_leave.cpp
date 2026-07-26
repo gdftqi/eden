@@ -1,4 +1,4 @@
-#include "core/proto/pkid_terminal_leave.hpp"
+#include "core/proto/pid_terminal_leave.hpp"
 #include "core/adam.in.hpp"
 #include "core/error.hpp"
 

@@ -144,19 +144,23 @@ public:
 
 
     PackageHandler
-    get_handler(uint16_t pkid) const noexcept {
-        auto itr = handlers.find(pkid);
+    get_handler(uint16_t pid) const noexcept {
+        auto itr = handlers.find(pid);
         return itr == handlers.end() ? nullptr : itr->second;
     }
 
 
     void
-    regist_handler(uint16_t pkid, PackageHandler handler) noexcept {
-        if (handlers[pkid] != nullptr) {
-            xWARN("handler for pk_id {} already exists, will be overwritten", pkid);
+    regist_handler(uint16_t pid, PackageHandler handler) noexcept {
+        ASSERT(pid >= PID_CUSTOM, "PID: {} 无效", pid);
+
+
+        if (handlers[pid] != nullptr) {
+            xWARN("handler for PID {} already exists, will be overwritten", pid);
         }
 
-        handlers[pkid] = handler;
+        handlers[pid] = handler;
+        Conf::instance()->server()->pid_set(pid);
     }
 
 

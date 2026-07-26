@@ -1,7 +1,7 @@
 #include "kcp/worker.hpp"
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
-#include "core/proto/pkid_regist_terminal.hpp"
+#include "core/proto/pid_regist_terminal.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -301,7 +301,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
 
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
-                        if (pk->data.id == PKID_REG_BKD_REQ) {
+                        if (pk->data.pid == PID_REG_BKD_REQ) {
                             res = on_regist_terminal_req(s, pk);
                         } else {
                             res = on_pack_handle(s, pk);
@@ -395,12 +395,12 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
 
         int rc;
         while ((rc = conn->recv(pk, tnow_)) == xOK) {
-            switch (pk->data.id) {
-            case PKID_PONG:
+            switch (pk->data.pid) {
+            case PID_PONG:
                 on_pong(conn, pk);
                 break;
 
-            case PKID_REG_BKD_RSP:
+            case PID_REG_BKD_RSP:
                 on_regist_backend_rsp(conn, pk);
                 break;
 
@@ -670,7 +670,7 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::RegistTerminalRsp::LEN] = {0};
     auto* out = (core::Package*)buf;
     out->meta.len    = core::PKG_HDR_LEN + core::RegistTerminalRsp::LEN;
-    out->data.id     = PKID_REG_TER_RSP;
+    out->data.pid     = PID_REG_TER_RSP;
     out->data.src_id = Conf::instance()->server()->id;
     out->data.dst_id = req.uid;
     rsp.encode(out->data.payload, core::RegistTerminalRsp::LEN);
@@ -709,6 +709,6 @@ adam::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
 
 int
 adam::kcp::Worker::on_pack_handle(Session::Ptr s, core::Package* pk) noexcept {
-    auto handler = server_->get_handler(pk->data.id);
+    auto handler = server_->get_handler(pk->data.pid);
     return handler == nullptr ? -1 : handler(s, pk);
 }

@@ -12,7 +12,7 @@ adam::core::data_encode(uint8_t* buf, const Package* pk) noexcept {
     uint16_t v16;
     uint32_t v32;
 
-    v16 = u16_to_le((uint16_t)pk->data.id);
+    v16 = u16_to_le((uint16_t)pk->data.pid);
     ::memcpy(p, &v16, sizeof(v16));
     p += sizeof(v16);
 
@@ -54,7 +54,7 @@ adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t bufl
     uint32_t v32;
 
     ::memcpy(&v16, p, sizeof(v16));
-    pk->data.id = u16_to_le(v16);
+    pk->data.pid = u16_to_le(v16);
     p += sizeof(v16);
 
     ::memcpy(&v32, p, sizeof(v32));

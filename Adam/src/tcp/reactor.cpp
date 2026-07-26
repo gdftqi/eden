@@ -1,12 +1,11 @@
 #include "core/error.hpp"
-#include "core/proto/pkid_kick_terminal.hpp"
-#include "core/proto/pkid_regist_terminal.hpp"
-#include "core/proto/pkid_terminal_enter.hpp"
-#include "core/proto/pkid_terminal_leave.hpp"
+#include "core/proto/pid_kick_terminal.hpp"
+#include "core/proto/pid_regist_terminal.hpp"
+#include "core/proto/pid_terminal_enter.hpp"
+#include "core/proto/pid_terminal_leave.hpp"
 #include "tcp/config.hpp"
 #include "tcp/reactor.hpp"
 #include "tcp/server.hpp"
-
 
 
 // ET 下单次 recv 的读缓冲(循环读到 EAGAIN 为止), 每 reactor 线程一份
@@ -247,24 +246,24 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
 
             int res;
             while ((res = s->recv(pk)) == xOK) {
-                switch (pk->data.id) {
-                case PKID_PING:
+                switch (pk->data.pid) {
+                case PID_PING:
                     res = on_ping(s, pk);
                     break;
 
-                case PKID_REG_BKD_REQ:
+                case PID_REG_BKD_REQ:
                     res = on_regist(s, pk);
                     break;
 
-                case PKID_TER_ENT_REQ:
+                case PID_TER_ENT_REQ:
                     res = on_terminal_enter_req(s, pk);
                     break;
 
-                case PKID_TER_OFF_NTF:
+                case PID_TER_OFF_NTF:
                     res = on_terminal_leave_notify(s, pk);
                     break;
 
-                case PKID_TER_LEA_REQ:
+                case PID_TER_LEA_REQ:
                     res = on_terminal_leave_req(s, pk);
                     break;
 
@@ -320,7 +319,7 @@ adam::tcp::Reactor::check_timeout() noexcept {
 
 int
 adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
-    pk->data.id = PKID_PONG;
+    pk->data.pid = PID_PONG;
     if (s->send(*pk) < 0) {
         xERROR("发送消息失败");
     }
@@ -334,7 +333,7 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pk->data.id = PKID_REG_BKD_RSP;
+    pk->data.pid = PID_REG_BKD_RSP;
     pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);
     *(uint32_t*)pk->data.payload = core::u32_to_le(0);
 
@@ -384,7 +383,7 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
     rsp.uid  = req.uid;
     rsp.code = code;
 
-    pk->data.id = PKID_TER_ENT_RSP;
+    pk->data.pid = PID_TER_ENT_RSP;
     uint32_t src_id = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
     pk->data.dst_id = src_id;
@@ -438,7 +437,7 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
         remove_terminal(uid, true);
     }
 
-    pk->data.id = PKID_TER_LEA_RSP;
+    pk->data.pid = PID_TER_LEA_RSP;
     uint32_t src_id = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
     pk->data.dst_id = src_id;
@@ -469,7 +468,7 @@ adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
     kpk->meta.len      = core::PKG_HDR_LEN + core::KickTerminalReq::LEN;
     kpk->meta.conv     = t->conv();
     kpk->meta.src_addr = 0;
-    kpk->data.id       = PKID_KIC_TER_REQ;
+    kpk->data.pid       = PID_KIC_TER_REQ;
     kpk->data.src_id   = Conf::instance()->server()->id;
     kpk->data.dst_id   = t->sess()->id();
     kpk->data.seq      = 0;
@@ -490,9 +489,9 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
         return -1;
     }
 
-    auto h = server_->get_handler((uint16_t)pk->data.id);
+    auto h = server_->get_handler((uint16_t)pk->data.pid);
     if (!h) {
-        xWARN("no handler for pk_id {}, from {}", pk->data.id, s->remote_addr());
+        xWARN("no handler for pk_id {}, from {}", pk->data.pid, s->remote_addr());
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
         return 0;
     }

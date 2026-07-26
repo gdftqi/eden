@@ -28,8 +28,8 @@ public:
     load_from_file(const char* fname) noexcept;
 
 
-    const core::ServerInfo*
-    server() const noexcept {
+    core::ServerInfo*
+    server() noexcept {
         return &server_;
     }
 

@@ -1,5 +1,5 @@
-#ifndef __ADAM_CORE_PROTO_PKID_TER_ENT_HPP__
-#define __ADAM_CORE_PROTO_PKID_TER_ENT_HPP__
+#ifndef __ADAM_CORE_PROTO_PID_TER_ENT_HPP__
+#define __ADAM_CORE_PROTO_PID_TER_ENT_HPP__
 
 
 #include <cinttypes>
@@ -65,4 +65,4 @@ struct TerminalEnterRsp {
 } // namespace adam::core
 
 
-#endif // __ADAM_CORE_PROTO_PKID_TER_ENT_HPP__
+#endif // __ADAM_CORE_PROTO_PID_TER_ENT_HPP__

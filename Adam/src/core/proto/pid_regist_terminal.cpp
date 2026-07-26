@@ -1,4 +1,4 @@
-#include "core/proto/pkid_regist_terminal.hpp"
+#include "core/proto/pid_regist_terminal.hpp"
 #include "core/adam.in.hpp"
 #include "core/error.hpp"
 
