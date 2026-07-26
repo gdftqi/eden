@@ -125,11 +125,11 @@ private:
 
 
     int
-    add_terminal(Terminal::Ptr t) noexcept;
+    add_terminal(Terminal::Ptr t, bool bind) noexcept;
 
 
     void
-    remove_terminal(uint32_t uid) noexcept;
+    remove_terminal(uint32_t uid, bool unbind) noexcept;
 
 
     Terminal::Ptr
@@ -161,27 +161,27 @@ private:
 
 
     int
-    on_ping(Session::Ptr s, core::Package *pk) noexcept;
+    on_ping(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int
-    on_regist(Session::Ptr s, core::Package *pk) noexcept;
+    on_regist(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int
-    on_terminal_enter_req(Session::Ptr s, core::Package *pk) noexcept;
+    on_terminal_enter_req(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int
-    on_terminal_leave_notify(Session::Ptr s, core::Package *pk) noexcept;
+    on_terminal_leave_notify(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int
-    on_terminal_leave_req(Session::Ptr s, core::Package *pk) noexcept;
+    on_terminal_leave_req(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int
-    on_package_handle(Session::Ptr s, core::Package *pk) noexcept;
+    on_package_handle(Session::Ptr s, core::Package* pk) noexcept;
 
 
     void

@@ -1,11 +1,12 @@
 #include "core/error.hpp"
+#include "core/proto/pkid_kick_terminal.hpp"
+#include "core/proto/pkid_regist_terminal.hpp"
 #include "core/proto/pkid_terminal_enter.hpp"
 #include "core/proto/pkid_terminal_leave.hpp"
-#include "core/proto/pkid_kick_terminal.hpp"
 #include "tcp/config.hpp"
 #include "tcp/reactor.hpp"
 #include "tcp/server.hpp"
-#include "core/proto/pkid_regist_terminal.hpp"
+
 
 
 // ET 下单次 recv 的读缓冲(循环读到 EAGAIN 为止), 每 reactor 线程一份
@@ -107,7 +108,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         auto t = itr->second;
         ++itr;
         if (t->sess() == s) { 
-            remove_terminal(t->uid());
+            remove_terminal(t->uid(), false);
         }
     }
 
@@ -116,7 +117,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
 
 
 int
-adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
+adam::tcp::Reactor::add_terminal(Terminal::Ptr t, bool bind) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
@@ -131,14 +132,23 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     }
 
     ters_[t->uid()] = std::move(t);
+
+    if (bind) {
+        // TODO SEND BIND
+    }
+
     return xOK;
 }
 
 
 void
-adam::tcp::Reactor::remove_terminal(uint32_t uid) noexcept {
+adam::tcp::Reactor::remove_terminal(uint32_t uid, bool unbind) noexcept {
     ters_.erase(uid);
     server_->directory()->erase_if(uid, index_);
+
+    if (unbind) {
+        // TODO SEND UNBIND
+    }
 }
 
 
@@ -250,7 +260,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     res = on_terminal_enter_req(s, pk);
                     break;
 
-                case PKID_TER_LEA_NTF:
+                case PKID_TER_OFF_NTF:
                     res = on_terminal_leave_notify(s, pk);
                     break;
 
@@ -364,7 +374,10 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
     }
 
     if (code == 0) {
-        add_terminal(Terminal::create(req.uid, req.conv, req.ip, req.port, s));
+        add_terminal(
+            Terminal::create(req.uid, req.conv, req.ip, req.port, s),
+            s->id() != pk->data.src_id
+        );
     }
 
     core::TerminalEnterRsp rsp;
@@ -387,8 +400,8 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
 
 
 int
-adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package *pk) noexcept {
-    ASSERT(s->reactor() == this, "terminal leave 不在属主 reactor 线程");
+adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package* pk) noexcept {
+    ASSERT(s->reactor() == this, "terminal leave notify 不在属主 reactor 线程");
 
     if (!s->authed()) {
         return xERR;
@@ -401,18 +414,41 @@ adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package *pk) 
 
     auto t = get_terminal(ntf.uid);
     if (t == nullptr || t->sess() != s) {
-        return xOK;   // 查无此档 / 迟到讣告(属主已换连接) → 忽略
+        return xOK;
     }
 
-    remove_terminal(ntf.uid);
+    remove_terminal(ntf.uid, false);
 
     return xOK;
 }
 
 
 int
-adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package *pk) noexcept {
-    return 0;
+adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noexcept {
+    ASSERT(s->reactor() == this, "terminal leave req 不在属主 reactor 线程");
+
+    if (!s->authed()) {
+        return xERR;
+    }
+
+    uint32_t uid = pk->data.src_id;
+
+    auto t = get_terminal(uid);
+    if (t != nullptr && t->sess() == s) {
+        remove_terminal(uid, true);
+    }
+
+    pk->data.id = PKID_TER_LEA_RSP;
+    uint32_t src_id = pk->data.src_id;
+    pk->data.src_id = pk->data.dst_id;
+    pk->data.dst_id = src_id;
+    pk->meta.len = core::PKG_HDR_LEN;
+
+    if (s->send(*pk) < 0) {
+        xERROR("TER_LEA_RSP 发送失败: uid = {}", uid);
+    }
+
+    return xOK;
 }
 
 
