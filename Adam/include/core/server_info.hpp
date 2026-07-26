@@ -66,7 +66,7 @@ struct ServerInfo {
             ps += std::to_string(i);
         }
 
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"pkids\":[{}]}}", 
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"pids\":[{}]}}", 
             id, protocol, name, host, desc, start_time, nthreads, ps);
     }
 
@@ -93,7 +93,7 @@ struct ServerInfo {
         }
 
         pids.reset();
-        auto arr = doc["pkids"];
+        auto arr = doc["pids"];
         if (arr.error() == simdjson::SUCCESS) {
             for (auto v : arr.get_array()) {
                 pid_set((uint16_t)v.get_uint64().value_unsafe());
