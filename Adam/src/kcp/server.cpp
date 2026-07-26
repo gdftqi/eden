@@ -273,10 +273,10 @@ adam::kcp::Server::update_serv() noexcept {
         }
 
         for (auto& w: workers_) {
-            auto* arg = new EnsureBackendArg(s.id, s.host.c_str());
-            arg->id = s.id;
-            ::strncpy(arg->host, s.host.c_str(), sizeof(arg->host) - 1);
-            w->notify(new Message(Message::Type::EnsureBackend, arg));
+            w->notify(new Message(
+                Message::Type::EnsureBackend,
+                new EnsureBackendArg(s.id, s.host.c_str(), s.pids))
+            );
         }
     }
 

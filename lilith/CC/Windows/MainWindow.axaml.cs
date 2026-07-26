@@ -11,7 +11,8 @@ namespace CC
     public partial class MainWindow : Window
     {
         // ---- KCP echo 测试参数 ----
-        const ushort ECHO_PKID = 1;
+        // 必须与 Noah 的 regist_handler(PID_CUSTOM + 1) 一致, 否则网关转发过滤会判死连接
+        const ushort ECHO_PID = (ushort)(Package.PID_CUSTOM + 1);
 
         public MainWindow()
         {
@@ -227,7 +228,7 @@ namespace CC
             }
 
             var pkg = Package.Pool.Take();
-            pkg.ID = ECHO_PKID;
+            pkg.PID = ECHO_PID;
             pkg.DstID = 0x10010000;
             pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
             // 所有权移交 Hydra: ioSend 线程发完负责还池, 这里不能再碰 pkg

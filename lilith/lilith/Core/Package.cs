@@ -59,9 +59,9 @@ namespace Lilith.Core
         #region /// 字段偏移
 
         /// <summary>
-        /// Package.ID 偏移量 16 bits
+        /// Package.PID 偏移量 16 bits
         /// </summary>
-        public const int OFFSET_ID = 0;
+        public const int OFFSET_PID = 0;
 
         /// <summary>
         /// Package.SrcID 偏移量 32 bits
@@ -123,29 +123,20 @@ namespace Lilith.Core
         #region /// 消息ID
 
         /// <summary>
-        /// PING 客户端主动发起
+        /// 终端注册请求 客户端主动发起(对应 Adam PID_REG_TER_REQ)
         /// </summary>
-        public const ushort PKID_PING = 100;
+        public const ushort PID_REG_TER_REQ = 102;
 
         /// <summary>
-        /// PONG 服务端响应
+        /// 终端注册应答 服务端响应(对应 Adam PID_REG_TER_RSP, payload = 32B 服务端临时公钥)
         /// </summary>
-        public const ushort PKID_PONG = 101;
+        public const ushort PID_REG_TER_RSP = 103;
 
         /// <summary>
-        /// 终端注册请求 客户端主动发起(对应 Adam PKID_REG_TER_REQ)
+        /// 自定义消息ID起点: 100-199 为系统段(网关/后端专用, 客户端发送会被网关丢弃),
+        /// 业务消息必须 >= 此值; 且目标后端须已声明该 PID, 否则连接会被网关判死。
         /// </summary>
-        public const ushort PKID_REG_TER_REQ = 102;
-
-        /// <summary>
-        /// 终端注册应答 服务端响应(对应 Adam PKID_REG_TER_RSP, payload = 32B 服务端临时公钥)
-        /// </summary>
-        public const ushort PKID_REG_TER_RSP = 103;
-
-        /// <summary>
-        /// 自定义消息ID起点(100-199 为系统段, 网关/后端专用, 客户端业务消息应使用 ≥ 此值)
-        /// </summary>
-        public const ushort PKID_CUSTOM = 200;
+        public const ushort PID_CUSTOM = 200;
 
         #endregion /// 消息ID
 
@@ -155,8 +146,8 @@ namespace Lilith.Core
         /// <summary>
         /// 消息头: 消息ID
         /// </summary>
-        [JsonProperty("id")]
-        public ushort ID;
+        [JsonProperty("pid")]
+        public ushort PID;
 
         /// <summary>
         /// 消息头: 源ID
@@ -233,7 +224,7 @@ namespace Lilith.Core
         /// </summary>
         public void Reset()
         {
-            ID = 0;
+            PID = 0;
             SrcID = DstID = Idempotent = 0;
             PayloadLength = 0;
         }

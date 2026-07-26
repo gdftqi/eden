@@ -18,7 +18,8 @@ class Connector {
 
 
 public:
-    typedef std::shared_ptr<Connector> Ptr;
+    typedef std::shared_ptr<Connector>             Ptr;
+    typedef std::bitset<core::ServerInfo::PID_MAX> PidSet;
 
 
     enum class State : uint8_t {
@@ -29,7 +30,7 @@ public:
 
 
     static Ptr
-    create(uint32_t id, const char* host) noexcept {
+    create(uint32_t id, const char* host, const PidSet& pids) noexcept {
         auto cfd = core::tcp_connect(host);
         if (cfd < 0) {
             int err = errno;
@@ -37,16 +38,17 @@ public:
             xERROR("创建后端连接失败: id = {}, host = {}, err = {}, errstr = {}", id, host, err, ::strerror(err));
             return nullptr;
         }
-        return std::make_shared<Connector>(id, cfd, host);
+        return std::make_shared<Connector>(id, cfd, host, pids);
     }
 
 
     explicit
-    Connector(uint32_t id, SOCKET fd, const char* host) noexcept
+    Connector(uint32_t id, SOCKET fd, const char* host, const PidSet& pids) noexcept
         : id_(id)
         , fd_(fd)
         , host_(host)
-        , desc_(std::format("[{}:{}]", id, host_)) {
+        , desc_(std::format("[{}:{}]", id, host_))
+        , pids_(pids) {
         last_recv_ms_ = last_send_ms_ = utils::systime_ms();
         state_ = State::Connecting;
     }
@@ -92,6 +94,19 @@ public:
     const std::string&
     host() const noexcept {
         return host_;
+    }
+
+
+    // 该后端声明的可受理 PID(转发过滤: 客户端 → 后端 的包必须在此表内)
+    bool
+    pid_has(uint16_t pid) const noexcept {
+        return pids_[pid];
+    }
+
+
+    void
+    set_pids(const PidSet& pids) noexcept {
+        pids_ = pids;
     }
 
 
@@ -150,6 +165,7 @@ private:
     std::string desc_;
     Buffer      rbuf_;
     Buffer      sbuf_;
+    PidSet      pids_;
 }; // class Connector;
 
     

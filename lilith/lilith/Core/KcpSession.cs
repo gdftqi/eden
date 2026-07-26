@@ -341,7 +341,7 @@ namespace Lilith.Core
                 return -1000;
             }
 
-            if (k.State != KcpState.Open && pkg.ID != Package.PKID_REG_TER_REQ)
+            if (k.State != KcpState.Open && pkg.PID != Package.PID_REG_TER_REQ)
             {
                 Log.Write("会话未鉴权时调用 Send");
                 return -1001;
@@ -454,7 +454,7 @@ namespace Lilith.Core
         /// <returns>返回装包之后的 outBuf 长度</returns>
         private int Encode(Package pkg, byte[] outBuf)
         {
-            Package.Encode16LE(outBuf, Package.OFFSET_ID, pkg.ID);
+            Package.Encode16LE(outBuf, Package.OFFSET_PID, pkg.PID);
             Package.Encode32LE(outBuf, Package.OFFSET_SRC_ID, pkg.SrcID);
             Package.Encode32LE(outBuf, Package.OFFSET_DST_ID, pkg.DstID);
             Package.Encode32LE(outBuf, Package.OFFSET_IDEM, pkg.Idempotent);
@@ -496,7 +496,7 @@ namespace Lilith.Core
                 return false;
             }
 
-            Package.Decode16LE(data, Package.OFFSET_ID, out pkg.ID);
+            Package.Decode16LE(data, Package.OFFSET_PID, out pkg.PID);
             Package.Decode32LE(data, Package.OFFSET_SRC_ID, out pkg.SrcID);
             Package.Decode32LE(data, Package.OFFSET_DST_ID, out pkg.DstID);
             Package.Decode32LE(data, Package.OFFSET_IDEM, out pkg.Idempotent);
@@ -545,7 +545,7 @@ namespace Lilith.Core
         private int RegistReq()
         {
             var pkg = Package.Pool.Take();
-            pkg.ID = Package.PKID_REG_TER_REQ;
+            pkg.PID = Package.PID_REG_TER_REQ;
             pkg.DstID = GatewayID;
             Buffer.BlockCopy(accessToken, 0, pkg.Payload, 0, accessToken!.Length);
             pkg.PayloadLength = accessToken.Length;
@@ -583,7 +583,7 @@ namespace Lilith.Core
 
                     foreach (var pkg in pkgList)
                     {
-                        if (sKcp!.State != KcpState.Open && pkg.ID == Package.PKID_REG_TER_RSP && pkg.PayloadLength == 32)
+                        if (sKcp!.State != KcpState.Open && pkg.PID == Package.PID_REG_TER_RSP && pkg.PayloadLength == 32)
                         {
                             Crypto.X25519KxClient(sk, pk, pkg.Payload, out rxKey, out txKey);
                             sKcp!.Open();

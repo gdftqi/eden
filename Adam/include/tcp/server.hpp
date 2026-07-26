@@ -153,7 +153,7 @@ public:
     void
     regist_handler(uint16_t pid, PackageHandler handler) noexcept {
         ASSERT(pid >= PID_CUSTOM, "PID: {} 无效", pid);
-
+        ASSERT(state_.load() == core::State::Stopped, "服务启动之后不允许再次注册 PID句柄");
 
         if (handlers[pid] != nullptr) {
             xWARN("handler for PID {} already exists, will be overwritten", pid);

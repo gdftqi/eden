@@ -36,8 +36,8 @@ public:
      * @param server 所属 KcpServer
      */
     static Ptr
-    create(uint32_t conv, Worker* server, const void* addr, socklen_t addrlen) noexcept {
-        return std::make_shared<Session>(conv, server, addr, addrlen);
+    create(uint32_t conv, Worker* worker, const void* addr, socklen_t addrlen) noexcept {
+        return std::make_shared<Session>(conv, worker, addr, addrlen);
     }
 
 
@@ -54,7 +54,7 @@ public:
      * @brief 构造函数
      */
     explicit
-    Session(uint32_t conv, Worker* server, const void* addr, socklen_t addrlen) noexcept;
+    Session(uint32_t conv, Worker* worker, const void* addr, socklen_t addrlen) noexcept;
 
 
     /**
@@ -106,8 +106,8 @@ public:
      * @brief 所属服务
      */
     Worker*
-    server() noexcept {
-        return server_;
+    worker() noexcept {
+        return worker_;
     }
 
 
@@ -251,7 +251,7 @@ private:
     }
 
 
-    Worker*            server_  { nullptr };
+    Worker*            worker_  { nullptr };
     uint32_t           uid_     { 0 };
     uint32_t           snd_seq_ { 0 };
     uint32_t           rcv_req_ { 0 };

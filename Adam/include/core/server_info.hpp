@@ -120,9 +120,6 @@ struct ServerInfo {
     std::string desc;            // 描述信息
     ::time_t    start_time;      // 启动时间
 
-    // 本服务可受理的 PKID 全集(框架内建系统段 + 业务注册的 handler): 位图, 自动清零, O(1) 查。
-    // 网关按此过滤转发 —— 声明在服务侧, 执行在网关侧, 网关不认识任何具体服务。
-    // 内存位图 / JSON 稀疏数组 两种表示: 前者查得快, 后者在 etcd 里可读可 grep。
     std::bitset<PID_MAX> pids;
 
     std::string key; // 用于注册 etcd 的 keys

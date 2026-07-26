@@ -103,7 +103,7 @@ adam::kcp::Worker::run() noexcept {
 int
 adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
     auto* s   = (Session*)kcpcb->user;
-    auto* svr = s->server();
+    auto* svr = s->worker();
     auto* dg  = svr->dg_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
     svr->dg_que_.emplace_back(dg);
     return 0;
@@ -424,7 +424,7 @@ adam::kcp::Worker::on_ensure_backend(Message* m) noexcept {
     auto* arg = (EnsureBackendArg*)m->arg.ptr;
 
     if (servs_.find(arg->id) == servs_.end()) {
-        auto conn = tcp::Connector::create(arg->id, arg->host);
+        auto conn = tcp::Connector::create(arg->id, arg->host, arg->pids);
         if (conn) {
             add_backend(conn);
         }
@@ -691,6 +691,12 @@ adam::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
     if (sv == nullptr) {
         xERROR("{} 转包: invalid dst_id [{}]", s->to_json(), pk->data.dst_id);
         return xERR_PK_DST;
+    }
+
+    // 目标后端未声明该 PID: 客户端协议错(或版本错位), 判死并留下线索
+    if (!sv->pid_has(pk->data.pid)) {
+        xERROR("{} 转包: {} 未受理 PID [{}]", s->to_json(), sv->id(), pk->data.pid);
+        return xERR_PK_PID;
     }
 
     if (!sv->is_connected() || !sv->authed()) {

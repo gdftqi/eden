@@ -23,11 +23,11 @@ make_nonce(uint8_t nonce[adam::utils::XX20_NONCE_LEN], uint32_t conv, uint32_t s
 
 adam::kcp::Session::Session(
     uint32_t    conv,
-    Worker*     server,
+    Worker*     worker,
     const void* addr,
     socklen_t   addrlen
 ) noexcept
-    : server_(server)
+    : worker_(worker)
     , json_(std::format("{{\"conv\":{},\"remote\":\"{}\"}}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
     kcp_ = ::ikcp_create(conv, this);
 
@@ -96,7 +96,7 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
     int err = xOK;
 
     if (pk->data.pid == 0) {
-        err = xERR_PK_ID;
+        err = xERR_PK_PID;
     } else if (pk->data.src_id == 0) {
         err = xERR_PK_SRC; 
     } else if (pk->data.dst_id == 0) {
