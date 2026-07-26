@@ -20,7 +20,7 @@ adam::core::RegistTerminalReq::decode(const uint8_t* buf, size_t len) noexcept {
     conv = u32_to_le(v32);
 
     ::memcpy(&v32, buf + 12, sizeof(v32));
-    user_id = u32_to_le(v32);
+    uid = u32_to_le(v32);
 
     ::memcpy(&v32, buf + 16, sizeof(v32));
     ip = u32_to_le(v32);

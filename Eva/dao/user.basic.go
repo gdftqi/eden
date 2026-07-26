@@ -9,11 +9,12 @@ type UserBasic struct {
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 	CreateTime int64  `json:"create_time"`
+	LastLogin  int64  `json:"last_login"`
 	State      int64  `json:"state"`
 }
 
 func InsertUserBasic(obj *UserBasic) error {
-	res, err := mid.Mysql.Exec("INSERT INTO db_eva.t_user_basic(f_username, f_password, f_create_time, f_state) VALUES(?,?,?,?)",
+	res, err := mid.Mysql.Exec("INSERT INTO db_eva.t_user_basic(f_username,f_password,f_create_time,f_last_login,f_state) VALUES(?,?,?,0,?)",
 		obj.Username, obj.Password, obj.CreateTime, obj.State)
 	if err != nil {
 		return err
@@ -39,11 +40,11 @@ func CountUserBasicByUsername(username string) (int, error) {
 }
 
 func GetUserBasicByUsername(username string) (*UserBasic, error) {
-	r := mid.Mysql.QueryRow("SELECT f_id, f_username, f_password, f_create_time, f_state FROM db_eva.t_user_basic where f_username = ?",
+	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic where f_username = ?",
 		username)
 
 	obj := &UserBasic{}
-	err := r.Scan(&obj.ID, &obj.Username, &obj.Password, &obj.CreateTime, &obj.State)
+	err := r.Scan(&obj.ID, &obj.Username, &obj.Password, &obj.CreateTime, &obj.LastLogin, &obj.State)
 	if err != nil {
 		return nil, err
 	}
@@ -56,21 +57,26 @@ func GetUserBasicList(where string) ([]*UserBasic, error) {
 }
 
 func UpdateUserBasic(obj *UserBasic) error {
-	old, err := GetUserBasicByUsername(obj.Username)
+	raw, err := GetUserBasicByUsername(obj.Username)
 	if err != nil {
 		return err
 	}
 
 	changed := false
 
-	if len(obj.Password) == 64 && obj.Password != old.Password {
+	if len(obj.Password) == 64 && obj.Password != raw.Password {
 		changed = true
-		old.Password = obj.Password
+		raw.Password = obj.Password
+	}
+
+	if obj.LastLogin > 0 && obj.LastLogin != raw.LastLogin {
+		changed = true
+		raw.LastLogin = obj.LastLogin
 	}
 
 	if obj.State != 0 {
 		changed = true
-		old.State = obj.State
+		raw.State = obj.State
 	}
 
 	if !changed {

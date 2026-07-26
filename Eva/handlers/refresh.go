@@ -91,7 +91,7 @@ func Refresh(c *gin.Context) {
 		return
 	}
 
-	// Step 4, 按 userID 选网关(与登录同一套稳定映射), 用该网关的 nthreads 生成新 conv。
+	// Step 4, 按 userID 选网关(与登录同一套稳定映射), 生成新 conv。
 	gwList, err := com.GetServerInfoListFromEtcd()
 	if err != nil {
 		log.Error("GetServerInfoListFromEtcd 失败: %v", err)
@@ -104,9 +104,9 @@ func Refresh(c *gin.Context) {
 	}
 	gw := gwList[userID%uint32(len(gwList))]
 
-	conv, err := com.MakeConv(userID, gw.Nthreads)
+	conv, err := com.GenConv(gw.ID)
 	if err != nil {
-		log.Error("MakeConv 失败: %v", err)
+		log.Error("GenConv 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误2")
 		return
 	}

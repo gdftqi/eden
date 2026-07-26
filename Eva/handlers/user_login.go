@@ -1,18 +1,22 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"math"
 	"net"
 	"time"
 
 	"github.com/eva/com"
 	"github.com/eva/conf"
+	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const USER_LOGIN = "/user_login"
@@ -104,13 +108,35 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	if math.Abs(float64(time.Now().Unix()-info.Time)) > 10 {
+	tnow := time.Now().Unix()
+	if math.Abs(float64(tnow-info.Time)) > 10 {
 		utils.WebResponse(c, -1, "user login expired")
 		return
 	}
 
-	// Step 5, TODO check username & password in database
-	userID := uint32(time.Now().Unix())
+	// Step 5, 账号校验: 查库 + bcrypt 比对(库里是 bcrypt(客户端SHA256))
+	user, err := dao.GetUserBasicByUsername(info.Username)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			utils.WebResponse(c, -1, "用户名不存在s")
+			return
+		}
+		log.Error("GetUserBasicByUsername failed: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误1")
+		return
+	}
+
+	if user.State != 1 {
+		utils.WebResponse(c, -1, "账号已禁用")
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(info.Password)) != nil {
+		utils.WebResponse(c, -1, "密码错误")
+		return
+	}
+
+	userID := uint32(user.ID)
 
 	// Step 6, 获取网关
 	gwList, err := com.GetServerInfoListFromEtcd()
@@ -127,9 +153,9 @@ func UserLogin(c *gin.Context) {
 
 	gw := gwList[userID%uint32(len(gwList))]
 
-	conv, err := com.MakeConv(userID, gw.Nthreads)
+	conv, err := com.GenConv(gw.ID)
 	if err != nil {
-		log.Error("MakeConv 失败: %v", err)
+		log.Error("GenConv 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误3")
 		return
 	}
@@ -146,6 +172,14 @@ func UserLogin(c *gin.Context) {
 	if err != nil {
 		log.Error(err)
 		utils.WebResponse(c, -1, "服务器内部错误4")
+		return
+	}
+
+	user.LastLogin = tnow
+	err = dao.UpdateUserBasic(user)
+	if err != nil {
+		log.Error(err)
+		utils.WebResponse(c, -1, "更新登录时间失败")
 		return
 	}
 

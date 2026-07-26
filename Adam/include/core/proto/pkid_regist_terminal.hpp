@@ -29,7 +29,7 @@ struct RegistTerminalReq {
 
     uint64_t expire;     // 过期时间戳
     uint32_t conv;       // 会话 ID
-    uint32_t user_id;    // 用户 ID
+    uint32_t uid;        // 用户 ID
     uint32_t ip;         // 登录 IP
     uint8_t  cli_pk[32]; // 客户端 X25519 公钥
     uint8_t  sign[64];   // 登录服 Ed25519 签名

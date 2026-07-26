@@ -84,21 +84,21 @@ public:
 
     bool
     authed() const noexcept {
-        return user_id_ > 0;
+        return uid_ > 0;
     }
 
 
     uint32_t
-    user_id() const noexcept {
-        return user_id_;
+    uid() const noexcept {
+        return uid_;
     }
 
 
     void
-    set_user_id(uint32_t user_id) noexcept {
-        user_id_ = user_id;
+    set_uid(uint32_t uid) noexcept {
+        uid_ = uid;
         kcp_->timeout = Conf::instance()->server()->timeout;
-        json_ = std::format("{{\"user_id\":{},\"conv\":{},\"remote\":\"{}\"}}", user_id, kcp_->conv, core::sockaddr_to_string((sockaddr*)&addr_));
+        json_ = std::format("{{\"user_id\":{},\"conv\":{},\"remote\":\"{}\"}}", uid, kcp_->conv, core::sockaddr_to_string((sockaddr*)&addr_));
     }
     
 
@@ -251,15 +251,15 @@ private:
     }
 
 
-    Worker*            server_    { nullptr };
-    uint32_t           user_id_   { 0 };
-    uint32_t           snd_seq_   { 0 };
-    uint32_t           rcv_req_   { 0 };
-    ::ikcpcb*          kcp_       { nullptr };
-    ::sockaddr_storage addr_      {};
-    ::socklen_t        addrlen_   { sizeof(addr_) };
-    Xx20Key            tx_key_    { 0 };
-    Xx20Key            rx_key_    { 0 };
+    Worker*            server_  { nullptr };
+    uint32_t           uid_     { 0 };
+    uint32_t           snd_seq_ { 0 };
+    uint32_t           rcv_req_ { 0 };
+    ::ikcpcb*          kcp_     { nullptr };
+    ::sockaddr_storage addr_    {};
+    ::socklen_t        addrlen_ { sizeof(addr_) };
+    Xx20Key            tx_key_  { 0 };
+    Xx20Key            rx_key_  { 0 };
     std::string        json_;
 }; // class Kcp;
 

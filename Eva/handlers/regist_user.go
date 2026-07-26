@@ -9,6 +9,7 @@ import (
 	"github.com/eva/log"
 	"github.com/eva/utils"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const REGIST_USER = "/regist_user"
@@ -56,9 +57,16 @@ func RegistUser(c *gin.Context) {
 		return
 	}
 
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Error("bcrypt.GenerateFromPassword failed: %v", err)
+		utils.WebResponse(c, -1, "服务器内部错误, 请稍后重试")
+		return
+	}
+
 	user := dao.UserBasic{
 		Username:   req.Username,
-		Password:   req.Password,
+		Password:   string(hash),
 		CreateTime: tnow,
 		State:      1,
 	}

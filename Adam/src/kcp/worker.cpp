@@ -639,14 +639,8 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
         return xERR_TOKEN_CONV;
     }
 
-    if (req.user_id != in->data.src_id) {
+    if (req.uid != in->data.src_id) {
         return xERR_TOKEN_USER;
-    }
-
-    const uint32_t n = server_->workers()->size();
-    if (req.conv % n != req.user_id % n) {
-        xWARN("conv 不变量违反: conv % N= {} != user_id % N= {}, 拒绝(检查 RA 的 conv 算法或 N 配置)", req.conv % n, req.user_id % n);
-        return xERR_TOKEN_CONV;   // 或专门错误码
     }
 
     // 4. 校验登录服签名: RA 签的是明文前 ACCESS_TOKEN_SIGNED_LEN(52) 字节
@@ -678,11 +672,11 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     out->meta.len    = core::PKG_HDR_LEN + core::RegistTerminalRsp::LEN;
     out->data.id     = PKID_REG_TER_RSP;
     out->data.src_id = Conf::instance()->server()->id;
-    out->data.dst_id = req.user_id;
+    out->data.dst_id = req.uid;
     rsp.encode(out->data.payload);
 
-    int res = s->send(out);        // authed 尚为 false → 明文发出
-    s->set_user_id(req.user_id); // 之后才 authed, 后续消息才加密
+    int res = s->send(out);
+    s->set_uid(req.uid);
     return res;
 }
 
