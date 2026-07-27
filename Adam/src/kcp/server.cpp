@@ -234,7 +234,6 @@ adam::kcp::Server::update_serv() noexcept {
         }
 
         put_flag = true;
-        xINFO("{} 注册 etcd 成功", k);
     } else {
         if (adam::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
             put_flag = false;
