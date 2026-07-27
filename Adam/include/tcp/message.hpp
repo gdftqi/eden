@@ -73,7 +73,7 @@ struct Message {
 
     Type type;
     union {
-        SOCKET   fd;
+        SOCKET   fd { (SOCKET)-1 };
         uint32_t id;
         struct {
             uint32_t uid;

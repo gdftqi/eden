@@ -182,21 +182,13 @@ void
 adam::tcp::Server::update_serv() noexcept {
     constexpr uint64_t AUTH_INTERVAL = 120000;
 
-    static const adam::utils::EtcdConfig* etcd   = nullptr;
-    static const adam::core::ServerInfo*  server = nullptr;
+    const adam::utils::EtcdConfig* etcd   = Conf::instance()->etcd();
+    const adam::core::ServerInfo*  server = Conf::instance()->server();
 
-    static bool        put_flag = false;
-    static uint64_t    last_update = 0;
-    static std::string lease;
-    static std::string token;
-
-    if (etcd == nullptr) {
-        etcd = Conf::instance()->etcd();
-    }
-
-    if (server == nullptr) {
-        server = Conf::instance()->server();
-    }
+    bool        put_flag    = false;
+    uint64_t    last_update = 0;
+    std::string lease;
+    std::string token;
 
     adam::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();

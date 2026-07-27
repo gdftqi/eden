@@ -38,12 +38,13 @@ adam::core::data_encode(uint8_t* buf, const Package* pk) noexcept {
 
 int
 adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t buflen) noexcept {
+    ASSERT(pk != nullptr, "无效的入参 pk");
+
     if (buflen < (size_t)PKG_DATA_LEN) {
         return -1;
     }
 
     const size_t plen = buflen - PKG_DATA_LEN;
-    ASSERT(pk != nullptr, "::mi_malloc 分配失败");
 
     pk->meta.len      = PKG_HDR_LEN + (uint32_t)plen;
     pk->meta.conv     = 0;

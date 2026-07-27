@@ -1,6 +1,5 @@
 #include "tcp/connector.hpp"
 #include "core/error.hpp"
-#include "kcp/config.hpp"
 #include <cstring>
 
 
@@ -27,6 +26,8 @@ adam::tcp::Connector::send(uint64_t now) noexcept {
 
 ssize_t
 adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
+    ASSERT(pk.meta.len < core::PKG_MAX_LEN, "最大有效数据不能超过 {} Bytes", core::PKG_MAX_LEN);
+
     // 先把排队残留续发出去(保序)
     ssize_t n = send(now);
     if (n < 0) {
@@ -35,6 +36,7 @@ adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
 
     // 完整帧(meta + data, 小端)序列化到暂存 buf
     thread_local static uint8_t buf[core::PKG_MAX_LEN];
+
     int total = core::frame_encode(buf, &pk);
 
     if (sbuf_.readable() > 0) {
@@ -76,16 +78,16 @@ adam::tcp::Connector::recv(core::Package* pk, uint64_t now) noexcept {
 
 int
 adam::tcp::Connector::update(uint64_t now) noexcept {
-    static uint64_t timeout = 0;
+    static thread_local uint64_t timeout = 0;
     if (timeout == 0) {
-        timeout = kcp::Conf::instance()->server()->timeout / 3;
+        timeout = timeout_ / 3;
     }
 
     if (!is_connected()) {
         return xOK;
     }
 
-    if (now - last_recv_ms_ > kcp::Conf::instance()->server()->timeout) {
+    if (now - last_recv_ms_ > timeout) {
         // 接收超时, 判死
         return xERR;
     }

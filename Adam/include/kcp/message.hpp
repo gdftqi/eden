@@ -9,13 +9,11 @@
 namespace adam::kcp {
 
 
+struct EnsureBackendArg;
+struct ForwardToSessionArg;
+
+
 struct Message {
-    Message(const Message&) = delete;
-    Message& operator=(const Message&) = delete;
-    Message(Message&&) = delete;
-    Message& operator=(Message&&) = delete;
-
-
     enum class Type {
         /**
          * @brief 停止
@@ -35,17 +33,20 @@ struct Message {
 
 
     explicit
-    Message(Type t, void* ptr = nullptr) 
+    Message(Type t, void* ptr = nullptr) noexcept
         : type(t) {
         arg.ptr = ptr;
     }
 
 
     explicit
-    Message(Type t, SOCKET fd)
+    Message(Type t, SOCKET fd) noexcept
         : type(t) {
         arg.fd = fd;
     }
+
+
+    ~Message() noexcept;
 
 
     Type type;
@@ -53,8 +54,13 @@ struct Message {
         SOCKET fd;
         void*  ptr;
     } arg;
-}; // struct Message;
 
+
+    Message(const Message&) = delete;
+    Message& operator=(const Message&) = delete;
+    Message(Message&&) = delete;
+    Message& operator=(Message&&) = delete;
+}; // struct Message;
 
 
 /**
@@ -72,7 +78,7 @@ struct EnsureBackendArg {
         : id(id)
         , router(router)
         , pids(pids) {
-        ::memcpy(this->host, host, sizeof(this->host));
+        ::strncpy(this->host, host, sizeof(this->host) - 1);
     }
 
 
@@ -95,9 +101,10 @@ struct ForwardToSessionArg {
 
     explicit
     ForwardToSessionArg(uint8_t* raw, size_t len) noexcept
-        : raw(raw)
+        : raw(nullptr)
         , len(len) {
         this->raw = (uint8_t*)::mi_malloc(len);
+        ASSERT(this->raw, "::mi_malloc 分配内存失败");
         ::memcpy(this->raw, raw, len);
     }
 

@@ -91,10 +91,12 @@ struct ServerInfo {
             nthreads = doc["nthreads"].get_uint64().value_unsafe();
         }
 
+        router = false;
         if (doc["router"].has_value()) {
             router = doc["router"].get_bool().value_unsafe();
         }
 
+        pids.reset();
         if (doc["pids"].has_value()) {
             for (auto v : doc["pids"].get_array()) {
                 pid_set((uint16_t)v.get_uint64().value_unsafe());

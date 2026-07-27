@@ -55,6 +55,13 @@ adam::tcp::Reactor::run() noexcept {
         }
     }
 
+    mque_.clear([](Message* m) {
+        if (m->type == Message::Type::SessionConnected) {
+            ::close(m->arg.fd);
+        }
+
+        delete m; 
+    });
     release();
     state_.store(core::State::Stopped);
 }
@@ -86,8 +93,6 @@ adam::tcp::Reactor::release() noexcept {
         ::close(mfd_);
         mfd_ = INVALID_SOCKET;
     }
-
-    mque_.clear([](Message* m) { delete m; });
 }
 
 

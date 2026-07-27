@@ -109,20 +109,6 @@ public:
     }
 
 
-    bool
-    empty() const noexcept {
-        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
-    }
-
-
-    size_t
-    size() const noexcept {
-        const size_t head = head_.load(std::memory_order_acquire);
-        const size_t tail = tail_.load(std::memory_order_acquire);
-        return head - tail;
-    }
-
-
     static constexpr size_t
     capacity() noexcept {
         return N;

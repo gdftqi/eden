@@ -30,7 +30,7 @@ public:
 
 
     static Ptr
-    create(uint32_t id, const char* host, const PidSet& pids) noexcept {
+    create(uint32_t id, const char* host, uint64_t timeout, const PidSet& pids) noexcept {
         auto cfd = core::tcp_connect(host);
         if (cfd < 0) {
             int err = errno;
@@ -38,14 +38,15 @@ public:
             xERROR("创建后端连接失败: id = {}, host = {}, err = {}, errstr = {}", id, host, err, ::strerror(err));
             return nullptr;
         }
-        return std::make_shared<Connector>(id, cfd, host, pids);
+        return std::make_shared<Connector>(id, cfd, host, timeout, pids);
     }
 
 
     explicit
-    Connector(uint32_t id, SOCKET fd, const char* host, const PidSet& pids) noexcept
+    Connector(uint32_t id, SOCKET fd, const char* host, uint64_t timeout, const PidSet& pids) noexcept
         : id_(id)
         , fd_(fd)
+        , timeout_(timeout)
         , host_(host)
         , desc_(std::format("[{}:{}]", id, host_))
         , pids_(pids) {
@@ -161,6 +162,7 @@ private:
     State       state_        { State::Disconnected };
     uint64_t    last_recv_ms_ { 0 };
     uint64_t    last_send_ms_ { 0 };
+    uint64_t    timeout_      { 0 };
     std::string host_;
     std::string desc_;
     Buffer      rbuf_;

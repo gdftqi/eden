@@ -93,13 +93,7 @@ adam::kcp::Worker::run() noexcept {
     }
     dg_que_.clear();
 
-    mque_.clear([](Message* qe) {
-        if (qe->type == Message::Type::EnsureBackend) {
-            ::mi_free(qe->arg.ptr);
-        }
-        delete qe; 
-    });
-
+    mque_.clear([](Message* qe) { delete qe; });
     release();
     state_.store(core::State::Stopped);
 }
@@ -464,13 +458,11 @@ adam::kcp::Worker::on_ensure_backend(Message* m) noexcept {
     }
 
     if (servs_.find(arg->id) == servs_.end()) {
-        auto conn = tcp::Connector::create(arg->id, arg->host, arg->pids);
+        auto conn = tcp::Connector::create(arg->id, arg->host, Conf::instance()->server()->timeout, arg->pids);
         if (conn) {
             add_backend(conn);
         }
     }
-
-    delete arg;
 }
 
 
@@ -484,8 +476,6 @@ adam::kcp::Worker::on_forward_to_session(Message* m) noexcept {
     if (s != nullptr && s->send(pk) < 0) {
         xERROR("{} 发送失败", s->to_json());
     }
-
-    delete arg;
 }
 
 
