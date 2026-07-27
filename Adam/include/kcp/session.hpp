@@ -2,6 +2,7 @@
 #define __ADAM_KCP_SESSION_HPP__
 
 
+#include <absl/container/flat_hash_set.h>
 #include "core/adam.in.hpp"
 #include "core/package.hpp"
 #include "core/error.hpp"
@@ -28,6 +29,7 @@ class Session {
 public:
     typedef std::shared_ptr<Session> Ptr;
     typedef uint8_t Xx20Key[utils::XX20_KEY_LEN];
+    typedef absl::flat_hash_set<uint32_t> BindSet;
 
 
     /**
@@ -151,6 +153,29 @@ public:
         ::ikcp_open(kcp_);
     }
 
+
+    const BindSet&
+    binds() const noexcept {
+        return binds_;
+    }
+
+
+    /**
+     * @brief 绑定集: 已接管本终端的后端服务 id 集合(BIND/UNBD 维护)。
+     *        本终端下线时, 需逐个通知它们 OFF; 幂等(重复 BIND 无副作用)。
+     */
+    void
+    bind(uint32_t sid) noexcept {
+        binds_.insert(sid);
+    }
+
+
+    void
+    unbind(uint32_t sid) noexcept {
+        binds_.erase(sid);
+    }
+
+
     /**
      * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据。
      *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
@@ -260,6 +285,7 @@ private:
     ::socklen_t        addrlen_ { sizeof(addr_) };
     Xx20Key            tx_key_  { 0 };
     Xx20Key            rx_key_  { 0 };
+    BindSet            binds_;  // 已接管本终端的后端服务 id
     std::string        json_;
 }; // class Kcp;
 

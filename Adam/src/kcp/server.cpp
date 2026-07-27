@@ -272,10 +272,12 @@ adam::kcp::Server::update_serv() noexcept {
             continue;
         }
 
+        // 服务自报家门(router=true 即终端路由服务), 随发现结果下发给各 worker;
+        // 网关不认识任何具体服务实例(名字/id 都不关心)。
         for (auto& w: workers_) {
             w->notify(new Message(
                 Message::Type::EnsureBackend,
-                new EnsureBackendArg(s.id, s.host.c_str(), s.pids))
+                new EnsureBackendArg(s.id, s.host.c_str(), s.pids, s.router))
             );
         }
     }

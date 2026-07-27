@@ -68,14 +68,16 @@ struct EnsureBackendArg {
 
 
     explicit
-    EnsureBackendArg(uint32_t id, const char* host, const tcp::Connector::PidSet& pids)
+    EnsureBackendArg(uint32_t id, const char* host, const tcp::Connector::PidSet& pids, bool router)
         : id(id)
+        , router(router)
         , pids(pids) {
         ::memcpy(this->host, host, sizeof(this->host));
     }
 
 
     uint32_t                id       { 0 };
+    bool                    router   { false };   // 是否终端路由服务
     char                    host[32] { 0 };
     tcp::Connector::PidSet  pids;   // 后端声明的可受理 PID(随发现结果一路带到 worker)
 }; // struct EnsureBackendArg;

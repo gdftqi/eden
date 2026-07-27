@@ -65,8 +65,8 @@ struct ServerInfo {
             ps += std::to_string(i);
         }
 
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"pids\":[{}]}}", 
-            id, protocol, name, host, desc, start_time, nthreads, ps);
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"router\":{},\"pids\":[{}]}}", 
+            id, protocol, name, host, desc, start_time, nthreads, router ? "true" : "false", ps);
     }
 
 
@@ -91,10 +91,12 @@ struct ServerInfo {
             nthreads = doc["nthreads"].get_uint64().value_unsafe();
         }
 
-        pids.reset();
-        auto arr = doc["pids"];
-        if (arr.error() == simdjson::SUCCESS) {
-            for (auto v : arr.get_array()) {
+        if (doc["router"].has_value()) {
+            router = doc["router"].get_bool().value_unsafe();
+        }
+
+        if (doc["pids"].has_value()) {
+            for (auto v : doc["pids"].get_array()) {
                 pid_set((uint16_t)v.get_uint64().value_unsafe());
             }
         }
@@ -110,14 +112,15 @@ struct ServerInfo {
     from_yaml(const YAML::Node& root) noexcept;
 
 
-    uint32_t    id        { 0 }; // 服务IDs
-    uint32_t    nthreads  { 0 }; // 工作线程数
-    uint64_t    timeout   { 0 }; // 超时值
-    std::string protocol;        // 协议
-    std::string name;            // 服务名称
-    std::string host;            // 监听地址
-    std::string desc;            // 描述信息
-    ::time_t    start_time;      // 启动时间
+    uint32_t    id          { 0 };     // 服务IDs
+    uint32_t    nthreads    { 0 };     // 工作线程数
+    uint64_t    timeout     { 0 };     // 超时值
+    std::string protocol;              // 协议
+    std::string name;                  // 服务名称
+    std::string host;                  // 监听地址
+    std::string desc;                  // 描述信息
+    ::time_t    start_time;            // 启动时间
+    bool        router      { false }; // 本服务是否为终端路由服务(网关按此挑选 ENT 的收件人)
 
     std::bitset<PID_MAX> pids;
 

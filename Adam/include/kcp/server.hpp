@@ -143,7 +143,7 @@ public:
      * @brief 事件
      */
     IHook*
-    event() noexcept {
+    hook() noexcept {
         return hook_;
     }
 

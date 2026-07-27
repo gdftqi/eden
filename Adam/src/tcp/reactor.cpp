@@ -277,9 +277,11 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
             if (errno == EINTR) {
                 continue;
             }
+
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
                 return 0;
             }
+            
             xERROR("recv failed: fd = {}, errno = {}, errstr = {}", s->fd(), errno, ::strerror(errno));
             return -1;
         }
@@ -291,8 +293,8 @@ void
 adam::tcp::Reactor::check_timeout() noexcept {
     const auto to = Conf::instance()->server()->timeout;
 
-    // remove_session 会 erase, 不能边遍历边删 —— 先收集超时 fd, 再统一摘除。
-    // thread_local vector 复用, 稳态无 per-call 分配。
+    // remove_session 会 erase, 不能边遍历边删 —— 先收集超时 fd, 再统一摘除
+    // thread_local vector 复用, 稳态无 per-call 分配
     static thread_local std::vector<SOCKET> expired;
     expired.clear();
 
@@ -452,21 +454,22 @@ adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
         return;
     }
 
-    core::TerminalKickReq req;
-    req.uid  = t->uid();
-    req.code = code;
+    // 踢人是单向指令(网关无需回执), 用 NTF 而非 REQ
+    core::TerminalKickNotify ntf;
+    ntf.uid  = t->uid();
+    ntf.code = code;
 
-    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::TerminalKickReq::LEN];
+    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::TerminalKickNotify::LEN];
     auto* kpk = (core::Package*)kbuf;
 
-    kpk->meta.len      = core::PKG_HDR_LEN + core::TerminalKickReq::LEN;
+    kpk->meta.len      = core::PKG_HDR_LEN + core::TerminalKickNotify::LEN;
     kpk->meta.conv     = t->conv();
     kpk->meta.src_addr = 0;
-    kpk->data.pid      = PID_TER_KIC_REQ;
+    kpk->data.pid      = PID_TER_KIC_NTF;
     kpk->data.src_id   = Conf::instance()->server()->id;
     kpk->data.dst_id   = t->sess()->id();
     kpk->data.seq      = 0;
-    req.encode(kpk->data.payload, core::TerminalKickReq::LEN);
+    ntf.encode(kpk->data.payload, core::TerminalKickNotify::LEN);
 
     if (t->sess()->send(*kpk) < 0) {
         xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());

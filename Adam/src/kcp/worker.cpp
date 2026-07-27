@@ -2,6 +2,11 @@
 #include "kcp/server.hpp"
 #include "tcp/connector.hpp"
 #include "core/proto/pid_terminal_regist.hpp"
+#include "core/proto/pid_terminal_enter.hpp"
+#include "core/proto/pid_terminal_leave.hpp"
+#include "core/proto/pid_terminal_kick.hpp"
+#include "core/proto/pid_terminal_bind.hpp"
+#include "core/proto/pid_terminal_unbind.hpp"
 
 
 static constexpr int MAX_EVENTS    = 64;
@@ -13,7 +18,7 @@ adam::kcp::Worker::Worker(Server* s, int idx) noexcept
     : server_(s)
     , index_(idx) {
     ASSERT(server_ != nullptr && idx >= 0, "invalid server or idx");
-    event_ = server_->event();
+    event_ = server_->hook();
 
     for (int i = 0; i < MAX_RECV; ++i) {
         auto hdr = &rmsgs_[i].msg_hdr;
@@ -168,6 +173,7 @@ adam::kcp::Worker::remove_session(uint32_t conv) noexcept {
     if (itr != sesss_.end()) {
         auto sess = itr->second;
         sesss_.erase(itr);
+        terminal_off(sess);   // 先通知绑定集里的后端清档, 再回调业务
         event_->on_sess_disconnected(sess);
     }
 }
@@ -176,7 +182,7 @@ adam::kcp::Worker::remove_session(uint32_t conv) noexcept {
 void
 adam::kcp::Worker::remove_serv(tcp::Connector::Ptr c) noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-    server_->event()->on_serv_disconnected(c);
+    server_->hook()->on_serv_disconnected(c);
     servs_.erase(c->id());
 }
 
@@ -300,6 +306,15 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                         break;
                     }
 
+                    // 会话级不变量: 鉴权后每个包都必须带本会话的 uid。
+                    // 鉴权前 uid 尚未确立(authed() == uid_ > 0), 故 REGIST 天然豁免, 无需按 PID 特判。
+                    // 少了这道闸, 客户端可伪造 src_id 冒名他人, 或伪装成"网关发起"绕过后端的来源判别。
+                    if (s->authed() && pk->data.src_id != s->uid()) {
+                        xERROR("{} src_id 伪造: [{}]", s->to_json(), pk->data.src_id);
+                        remove_session(s->conv());
+                        break;
+                    }
+
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
                         if (pk->data.pid == PID_REG_BKD_REQ) {
                             res = on_regist_terminal_req(s, pk);
@@ -404,8 +419,24 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 on_regist_backend_rsp(conn, pk);
                 break;
 
+            case PID_TER_KIC_NTF:
+                on_terminal_kick_notify(conn, pk);
+                break;
+
+            case PID_TER_BIND_NTF:
+                on_terminal_bind_notify(conn, pk);
+                break;
+
+            case PID_TER_UNBD_NTF:
+                on_terminal_unbind_notify(conn, pk);
+                break;
+
+            case PID_TER_ENT_RSP:
+                on_terminal_enter_rsp(conn, pk);
+                break;
+
             default:
-                on_s2c(conn, pk);   // 本地发 / 跨 worker 转(内部拷 KcpSendArg.raw)
+                on_s2c(conn, pk);
                 break;
             }
         } // while;
@@ -422,6 +453,15 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
 void
 adam::kcp::Worker::on_ensure_backend(Message* m) noexcept {
     auto* arg = (EnsureBackendArg*)m->arg.ptr;
+
+    // 路由服务集合(本 worker 私有, 随发现结果更新; 服务自报 router=true), 保持升序
+    auto rit = std::lower_bound(routers_.begin(), routers_.end(), arg->id);
+    bool found = (rit != routers_.end() && *rit == arg->id);
+    if (arg->router && !found) {
+        routers_.insert(rit, arg->id);
+    } else if (!arg->router && found) {
+        routers_.erase(rit);
+    }
 
     if (servs_.find(arg->id) == servs_.end()) {
         auto conn = tcp::Connector::create(arg->id, arg->host, arg->pids);
@@ -532,7 +572,7 @@ adam::kcp::Worker::drain_qevent() noexcept {
             switch (ms[i]->type) {
             case Message::Type::Stop:
                 // 停止事件只为唤醒 epoll(state_ 已在 Worker::stop 里置 Stopping), 消费掉即可;
-                // 本轮 on_event_handle 返回后 while(running()) 会自然退出。
+                // 本轮 on_event_handle 返回后 while(running()) 会自然退出
                 break;
 
             case Message::Type::EnsureBackend:
@@ -575,6 +615,180 @@ adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package
         conn->set_authed(true);
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
+    }
+}
+
+
+// 后端(路由服务)要求踢除某终端: 按信封 conv 定位会话, 校验 uid 后摘除
+void
+adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+    core::TerminalKickNotify ntf;
+    if (ntf.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        xERROR("{} KIC_NTF 解析失败", conn->to_string());
+        return;
+    }
+
+    auto s = get_session(pk->meta.conv);
+    if (s == nullptr) {
+        return;   // 会话已不在(自然下线/已被摘), 无需处理
+    }
+
+    // conv 可能已被新会话复用; uid 对不上说明这是针对旧会话的迟到指令
+    if (s->uid() != ntf.uid) {
+        xWARN("{} KIC_NTF uid 不匹配: {} != {}", conn->to_string(), s->uid(), ntf.uid);
+        return;
+    }
+
+    xINFO("{} 被 {} 踢除, code = {}", s->to_json(), conn->to_string(), ntf.code);
+    remove_session(pk->meta.conv);
+}
+
+
+// 后端声明已接管该终端: 记入绑定集(该终端下线时需通知它)
+void
+adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+    core::TerminalBindNotify ntf;
+    if (ntf.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        xERROR("{} BIND_NTF 解析失败", conn->to_string());
+        return;
+    }
+
+    auto s = get_session(pk->meta.conv);
+    if (s != nullptr && s->uid() == ntf.uid) {
+        s->bind(conn->id());
+        return;
+    }
+
+    // 竞态闭环: BIND 到达时终端已死 → 立刻回 OFF, 让后端清掉这条幽灵档
+    core::TerminalLeaveNotify off;
+    off.uid = ntf.uid;
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalLeaveNotify::LEN];
+    auto* out = (core::Package*)buf;
+
+    out->meta.len      = core::PKG_HDR_LEN + core::TerminalLeaveNotify::LEN;
+    out->meta.conv     = pk->meta.conv;
+    out->meta.src_addr = 0;
+    out->data.pid      = PID_TER_OFF_NTF;
+    out->data.src_id   = Conf::instance()->server()->id;
+    out->data.dst_id   = conn->id();
+    out->data.seq      = 0;
+    off.encode(out->data.payload, core::TerminalLeaveNotify::LEN);
+
+    if (conn->send(*out, tnow_) < 0) {
+        xERROR("{} OFF_NTF 回补失败: uid = {}", conn->to_string(), ntf.uid);
+    }
+}
+
+
+// 后端不再关心该终端: 移出绑定集
+void
+adam::kcp::Worker::on_terminal_unbind_notify(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+    core::TerminalUnbindNotify ntf;
+    if (ntf.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        xERROR("{} UNBD_NTF 解析失败", conn->to_string());
+        return;
+    }
+
+    auto s = get_session(pk->meta.conv);
+    if (s != nullptr && s->uid() == ntf.uid) {
+        s->unbind(conn->id());
+    }
+}
+
+
+// 路由服务登记应答: 成功即隐含"该后端已绑定本终端"(它不再单发 BIND)
+void
+adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
+    core::TerminalEnterRsp rsp;
+    if (rsp.decode(pk->data.payload, pk->payload_length()) != xOK) {
+        xERROR("{} ENT_RSP 解析失败", conn->to_string());
+        return;
+    }
+
+    if (rsp.code != 0) {
+        xERROR("{} 终端登记失败: uid = {}, code = {}", conn->to_string(), rsp.uid, rsp.code);
+        return;
+    }
+
+    auto s = get_session(pk->meta.conv);
+    if (s != nullptr && s->uid() == rsp.uid) {
+        s->bind(conn->id());
+    }
+}
+
+// 终端鉴权成功: 向路由服务登记。按 uid 取模选实例(升序表保证同一 uid 恒定落点)。
+void
+adam::kcp::Worker::terminal_enter(Session::Ptr s) noexcept {
+    if (routers_.empty()) {
+        xWARN("尚未发现路由服务, {} 无法登记", s->to_json());
+        return;
+    }
+
+    uint32_t rid = routers_[s->uid() % routers_.size()];
+    auto sv = get_serv(rid);
+    if (sv == nullptr || !sv->is_connected() || !sv->authed()) {
+        xWARN("路由服务 {} 不可用, {} 登记失败", rid, s->to_json());
+        return;
+    }
+
+    core::TerminalEnterReq req;
+    req.uid  = s->uid();
+    req.conv = s->conv();
+    req.ip   = s->remote_addr_u32();
+    req.port = ::ntohs(((sockaddr_in*)s->addr())->sin_port);
+    req.type = 0;   // TODO: 设备类型待 Eva 的 token 带过来
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalEnterReq::LEN];
+    auto* pk = (core::Package*)buf;
+
+    // 信封由网关盖章: 后端会拿 payload 里的 conv/ip 与之交叉校验
+    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalEnterReq::LEN;
+    pk->meta.conv     = s->conv();
+    pk->meta.src_addr = req.ip;
+    pk->data.pid      = PID_TER_ENT_REQ;
+    pk->data.src_id   = Conf::instance()->server()->id;   // 网关自己发起(后端据此区分终端发起)
+    pk->data.dst_id   = rid;
+    pk->data.seq      = 0;
+    req.encode(pk->data.payload, core::TerminalEnterReq::LEN);
+
+    if (sv->send(*pk, tnow_) < 0) {
+        xERROR("{} 向路由服务 {} 登记失败", s->to_json(), rid);
+    }
+}
+
+
+// 终端下线: 向绑定集里的每个后端发 OFF, 让它们清掉本终端的档案
+void
+adam::kcp::Worker::terminal_off(Session::Ptr s) noexcept {
+    if (s->binds().empty()) {
+        return;
+    }
+
+    core::TerminalLeaveNotify ntf;
+    ntf.uid = s->uid();
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalLeaveNotify::LEN];
+    auto* pk = (core::Package*)buf;
+
+    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalLeaveNotify::LEN;
+    pk->meta.conv     = s->conv();
+    pk->meta.src_addr = s->remote_addr_u32();
+    pk->data.pid      = PID_TER_OFF_NTF;
+    pk->data.src_id   = Conf::instance()->server()->id;
+    pk->data.seq      = 0;
+    ntf.encode(pk->data.payload, core::TerminalLeaveNotify::LEN);
+
+    for (uint32_t sid : s->binds()) {
+        auto sv = get_serv(sid);
+        if (sv == nullptr || !sv->is_connected() || !sv->authed()) {
+            continue;   // 后端已掉线: 它自己的断连清扫会处理这批终端
+        }
+
+        pk->data.dst_id = sid;
+        if (sv->send(*pk, tnow_) < 0) {
+            xERROR("{} 向 {} 发 OFF 失败", s->to_json(), sid);
+        }
     }
 }
 
@@ -670,13 +884,17 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::RegistTerminalRsp::LEN] = {0};
     auto* out = (core::Package*)buf;
     out->meta.len    = core::PKG_HDR_LEN + core::RegistTerminalRsp::LEN;
-    out->data.pid     = PID_TER_REG_RSP;
+    out->data.pid    = PID_TER_REG_RSP;
     out->data.src_id = Conf::instance()->server()->id;
     out->data.dst_id = req.uid;
     rsp.encode(out->data.payload, core::RegistTerminalRsp::LEN);
 
     int res = s->send(out);
     s->set_uid(req.uid);
+
+    // 鉴权通过 → 向路由服务登记(顶号仲裁/下线通知的前提)
+    terminal_enter(s);
+
     return res;
 }
 

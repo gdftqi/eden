@@ -5,6 +5,7 @@ server:
   name: "public/noah"
   host: "172.31.6.248:6688"
   desc: "noah"
+  router: true
 
 etcd:
   url: "http://13.212.159.179:2379"

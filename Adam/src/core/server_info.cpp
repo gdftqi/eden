@@ -14,6 +14,7 @@ adam::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
     host       = root["host"].as<std::string>();
     desc       = root["desc"].as<std::string>();
     start_time = ::time(nullptr);
+    router     = root["router"] ? root["router"].as<bool>() : false;
 
     if (id == 0) {
         return -1;
