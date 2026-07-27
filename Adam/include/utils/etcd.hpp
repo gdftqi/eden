@@ -87,6 +87,22 @@ struct EtcdRsp {
 }; // struct EtcdRsp;
 
 
+struct EtcdTls {
+    uint64_t lease       { 0 };
+    uint64_t last_update { 0 };
+    uint64_t last_auth   { 0 };
+    char     token[512]  { 0 };
+
+
+    EtcdTls() = default;
+    ~EtcdTls() = default;
+    EtcdTls(const EtcdTls&) = delete;
+    EtcdTls(EtcdTls&&) = delete;
+    EtcdTls& operator=(const EtcdTls&) = delete;
+    EtcdTls& operator=(EtcdTls&&) = delete;
+}; // struct EtcdTls;
+
+
 int
 etcd_auth(EtcdRsp* rsp, const char* url, const char* user, const char* pwd) noexcept;
 

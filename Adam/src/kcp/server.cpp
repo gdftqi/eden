@@ -187,63 +187,67 @@ adam::kcp::Server::release() noexcept {
 
 void
 adam::kcp::Server::update_serv() noexcept {
-    // 重新鉴权的时间间隔(120s)
-    constexpr uint64_t AUTH_INTERVAL = 120000;
+    // 重新鉴权的时间间隔(150s)
+    constexpr uint64_t AUTH_INTERVAL = 150000;
 
-    const adam::utils::EtcdConfig* etcd   = Conf::instance()->etcd();
-    const adam::core::ServerInfo*  server = Conf::instance()->server();
-
-    bool        put_flag    = false;
-    uint64_t    last_update = 0;
-    std::string lease;
-    std::string token;
+    static thread_local utils::EtcdTls tls;
 
     if (state_ != core::State::Running) {
         return;
     }
+
+    const adam::utils::EtcdConfig* etcd   = Conf::instance()->etcd();
+    const adam::core::ServerInfo*  server = Conf::instance()->server();
     
     adam::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
-    if (token.empty() || tnow_ - last_update > AUTH_INTERVAL) {
-        if (adam::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
-            token.clear();
-            return;
-        }
-
-        token = rsp.token;
-    }
-
-    if (tnow_ - last_update < INTERVAL_MS) {
+    if (tnow_ - tls.last_update < INTERVAL_MS) {
         return;
     }
 
-    if (!put_flag) {
-        if (adam::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
-            token.clear();
+    if (tls.token[0] == 0 || tnow_ - tls.last_auth > AUTH_INTERVAL) {
+        if (adam::utils::etcd_auth(&rsp, url, etcd->user.c_str(), etcd->pass.c_str()) != 0) {
+            tls.token[0] = 0;
             return;
         }
 
-        lease = rsp.id;
-        auto k = server->key.c_str();
-        auto v = server->val.c_str();
-
-        if (adam::utils::etcd_put(&rsp, url, token.c_str(), k, v, lease.c_str()) != 0) {
-            token.clear();
+        // 截断会导致"鉴权成功但请求全 401"的死循环, 必须显式拒绝
+        if (rsp.token.size() >= sizeof(tls.token)) {
+            xERROR("etcd token 过长: {} 字节, 缓冲区 {} 字节", rsp.token.size(), sizeof(tls.token));
+            tls.token[0] = 0;
             return;
         }
 
-        put_flag = true;
-    } else {
-        if (adam::utils::etcd_keepalive(&rsp, url, token.c_str(), lease.c_str()) != 0) {
-            put_flag = false;
-            token.clear();
-            return;
-        }
+        ::strncpy(tls.token, rsp.token.c_str(), sizeof(tls.token) - 1);
+        tls.last_auth = tnow_;
     }
 
-    if (adam::utils::etcd_get_prefix(&rsp, url, token.c_str(), "/public") != 0) {
-        token.clear();
+    if (tls.lease == 0) {
+        if (adam::utils::etcd_grant(&rsp, url, etcd->ttl) != 0) {
+            tls.token[0] = 0;
+            return;
+        }
+
+        tls.lease = ::strtoull(rsp.id.c_str(), nullptr, 10);
+
+        auto k  = server->key.c_str();
+        auto v  = server->val.c_str();
+        auto ls = std::to_string(tls.lease);
+
+        if (adam::utils::etcd_put(&rsp, url, tls.token, k, v, ls.c_str()) != 0) {
+            tls.lease = 0;
+            return;
+        }
+
+        xINFO("{} 注册 etcd 成功", k);
+    } else if (adam::utils::etcd_keepalive(&rsp, url, tls.token, std::to_string(tls.lease).c_str()) != 0) {
+        tls.lease = 0;
+        return;
+    }
+
+    if (adam::utils::etcd_get_prefix(&rsp, url, tls.token, "/public") != 0) {
+        tls.token[0] = 0;
         return;
     }
 
@@ -274,7 +278,8 @@ adam::kcp::Server::update_serv() noexcept {
         }
     }
 
-    last_update = tnow_;
+    // 完整跑完一轮才推进节流基准; 失败路径提前 return, 下轮立即重试
+    tls.last_update = tnow_;
 }
 
 
