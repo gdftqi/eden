@@ -78,22 +78,15 @@ adam::tcp::Connector::recv(core::Package* pk, uint64_t now) noexcept {
 
 int
 adam::tcp::Connector::update(uint64_t now) noexcept {
-    static thread_local uint64_t timeout = 0;
-    if (timeout == 0) {
-        timeout = timeout_ / 3;
-    }
-
     if (!is_connected()) {
         return xOK;
     }
 
-    if (now - last_recv_ms_ > timeout) {
-        // 接收超时, 判死
+    if (now - last_recv_ms_ > timeout_) {
         return xERR;
     }
 
-    // 心跳: 仅注册确认(authed)后才发。payload = now(8B, 原样回显, 字节序无关)
-    if (authed_ && now - last_send_ms_ > timeout) {
+    if (authed_ && now - last_send_ms_ > timeout_ / 3) {
         alignas(core::Package) uint8_t buf[sizeof(core::Package) + sizeof(uint64_t)] = {0};
         auto* pk = (core::Package*)buf;
         pk->meta.len = core::PKG_HDR_LEN + sizeof(uint64_t);
