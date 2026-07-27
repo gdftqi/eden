@@ -58,7 +58,27 @@ public:
     kick(uint32_t code, Reactor* cur) noexcept;
 
 
+    /**
+     * @brief 告知网关: 本服务已接管该终端, 其下线时请通知我(加入网关的绑定集)
+     */
+    void
+    bind() noexcept;
+
+
+    /**
+     * @brief 告知网关: 本服务不再关心该终端(移出网关的绑定集)
+     */
+    void
+    unbind() noexcept;
+
+
 private:
+    // 只做组帧 + 发送; payload 由各自的 proto 结构编好后传入,
+    // 于是 BIND/UNBD 的载荷可各自独立演进, 而信封约定只有一份。
+    void
+    notify(uint16_t pid, const uint8_t* payload, uint32_t len) noexcept;
+
+
     explicit
     Terminal(uint32_t uid, uint32_t conv, uint32_t ip, uint16_t port, Session::Ptr s) noexcept
         : uid_(uid)

@@ -5,7 +5,7 @@
 
 void
 adam::core::TerminalEnterReq::encode(uint8_t* buf, size_t len) noexcept {
-    ASSERT (len >= TerminalEnterReq::LEN, "TerminalEnterReq::encode 缓冲区不足");
+    ASSERT(len >= TerminalEnterReq::LEN, "TerminalEnterReq::encode 缓冲区不足");
 
     uint32_t v32;
     uint16_t v16;
@@ -57,7 +57,9 @@ adam::core::TerminalEnterReq::decode(const uint8_t* buf, size_t len) noexcept {
 
 
 void
-adam::core::TerminalEnterRsp::encode(uint8_t* buf) noexcept {
+adam::core::TerminalEnterRsp::encode(uint8_t* buf, size_t len) noexcept {
+    ASSERT(len >= TerminalEnterRsp::LEN, "TerminalEnterRsp::encode 缓冲区不足");
+
     uint32_t v32;
 
     v32 = u32_to_le(uid);

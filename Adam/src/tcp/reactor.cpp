@@ -107,7 +107,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         auto t = itr->second;
         ++itr;
         if (t->sess() == s) { 
-            remove_terminal(t->uid(), false);
+            remove_terminal(t->uid());
         }
     }
 
@@ -116,7 +116,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
 
 
 int
-adam::tcp::Reactor::add_terminal(Terminal::Ptr t, bool bind) noexcept {
+adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
@@ -131,23 +131,14 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t, bool bind) noexcept {
     }
 
     ters_[t->uid()] = std::move(t);
-
-    if (bind) {
-        // TODO SEND BIND
-    }
-
     return xOK;
 }
 
 
 void
-adam::tcp::Reactor::remove_terminal(uint32_t uid, bool unbind) noexcept {
+adam::tcp::Reactor::remove_terminal(uint32_t uid) noexcept {
     ters_.erase(uid);
     server_->directory()->erase_if(uid, index_);
-
-    if (unbind) {
-        // TODO SEND UNBIND
-    }
 }
 
 
@@ -373,10 +364,12 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
     }
 
     if (code == 0) {
-        add_terminal(
-            Terminal::create(req.uid, req.conv, req.ip, req.port, s),
-            s->id() != pk->data.src_id
-        );
+        auto t = Terminal::create(req.uid, req.conv, req.ip, req.port, s);
+        add_terminal(t);
+
+        if (s->id() != pk->data.src_id) {
+            t->bind();
+        }
     }
 
     core::TerminalEnterRsp rsp;
@@ -388,7 +381,7 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
     pk->data.src_id = pk->data.dst_id;
     pk->data.dst_id = src_id;
     pk->meta.len = core::PKG_HDR_LEN + core::TerminalEnterRsp::LEN;
-    rsp.encode(pk->data.payload);
+    rsp.encode(pk->data.payload, core::TerminalEnterRsp::LEN);
 
     if (s->send(*pk) < 0) {
         xERROR("TER_ENT_RSP 发送失败: uid = {}", req.uid);
@@ -416,7 +409,7 @@ adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package* pk) 
         return xOK;
     }
 
-    remove_terminal(ntf.uid, false);
+    remove_terminal(ntf.uid);
 
     return xOK;
 }
@@ -434,7 +427,8 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
 
     auto t = get_terminal(uid);
     if (t != nullptr && t->sess() == s) {
-        remove_terminal(uid, true);
+        t->unbind();
+        remove_terminal(uid);
     }
 
     pk->data.pid = PID_TER_LEA_RSP;

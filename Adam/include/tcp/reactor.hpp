@@ -125,11 +125,11 @@ private:
 
 
     int
-    add_terminal(Terminal::Ptr t, bool bind) noexcept;
+    add_terminal(Terminal::Ptr t) noexcept;
 
 
     void
-    remove_terminal(uint32_t uid, bool unbind) noexcept;
+    remove_terminal(uint32_t uids) noexcept;
 
 
     Terminal::Ptr
