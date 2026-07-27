@@ -1,10 +1,10 @@
-#include "core/proto/pid_kick_terminal.hpp"
+#include "core/proto/pid_terminal_kick.hpp"
 #include "core/adam.in.hpp"
 #include "core/error.hpp"
 
 
 void
-adam::core::KickTerminalReq::encode(uint8_t* buf, size_t len) noexcept {
+adam::core::TerminalKickReq::encode(uint8_t* buf, size_t len) noexcept {
     ASSERT(len >= (size_t)LEN, "KickTerminalReq::encode 缓冲区不足");
 
     uint32_t v32;
@@ -18,7 +18,7 @@ adam::core::KickTerminalReq::encode(uint8_t* buf, size_t len) noexcept {
 
 
 int
-adam::core::KickTerminalReq::decode(const uint8_t* buf, size_t len) noexcept {
+adam::core::TerminalKickReq::decode(const uint8_t* buf, size_t len) noexcept {
     if (len < (size_t)LEN) {
         return xERR;
     }
@@ -36,7 +36,7 @@ adam::core::KickTerminalReq::decode(const uint8_t* buf, size_t len) noexcept {
 
 
 void
-adam::core::KickTerminalNotify::encode(uint8_t* buf, size_t len) noexcept {
+adam::core::TerminalKickNotify::encode(uint8_t* buf, size_t len) noexcept {
     ASSERT(len >= (size_t)LEN, "KickTerminalNotify::encode 缓冲区不足");
 
     uint32_t v32;
@@ -50,7 +50,7 @@ adam::core::KickTerminalNotify::encode(uint8_t* buf, size_t len) noexcept {
 
 
 int
-adam::core::KickTerminalNotify::decode(const uint8_t* buf, size_t len) noexcept {
+adam::core::TerminalKickNotify::decode(const uint8_t* buf, size_t len) noexcept {
     if (len < (size_t)LEN) {
         return xERR;
     }

@@ -37,18 +37,18 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PID_PONG           (101)             // 心跳 PONG
 #define PID_REG_BKD_REQ    (102)             // 网关注册请求
 #define PID_REG_BKD_RSP    (103)             // 网关注册应答
-#define PID_REG_TER_REQ    PID_REG_BKD_REQ   // 终端注册请求
-#define PID_REG_TER_RSP    PID_REG_BKD_RSP   // 终端注册应答
-#define PID_KIC_TER_REQ    (104)             // 踢除终端请求
-#define PID_KIC_TER_RSP    (105)             // 踢除终端应答
-#define PID_KIC_TER_NTF    (106)             // 踢除终端通知
+#define PID_TER_REG_REQ    PID_REG_BKD_REQ   // 终端注册请求
+#define PID_TER_REG_RSP    PID_REG_BKD_RSP   // 终端注册应答
+#define PID_TER_KIC_REQ    (104)             // 踢除终端请求
+#define PID_TER_KIC_RSP    (105)             // 踢除终端应答
+#define PID_TER_KIC_NTF    (106)             // 踢除终端通知
 #define PID_TER_ENT_REQ    (107)             // 终端进入请求
 #define PID_TER_ENT_RSP    (108)             // 终端进入应答
 #define PID_TER_LEA_REQ    (109)             // 终端离开请求
 #define PID_TER_LEA_RSP    (110)             // 终端离开应答
 #define PID_TER_OFF_NTF    (111)             // 终端离开通知
-#define PID_BIND_TER_NTF   (112)             // 终端绑定通知
-#define PID_UNBD_TER_NTF   (113)             // 终端解绑通知
+#define PID_TER_BIND_NTF   (112)             // 终端绑定通知
+#define PID_TER_UNBD_NTF   (113)             // 终端解绑通知
 #define PID_CUSTOM         (200)             // 自定义消息ID
 
 

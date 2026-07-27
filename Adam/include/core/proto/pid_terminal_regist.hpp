@@ -1,5 +1,5 @@
-#ifndef __ADAM_CORE_PROTO_PID_REG_TER_HPP__
-#define __ADAM_CORE_PROTO_PID_REG_TER_HPP__
+#ifndef __ADAM_CORE_PROTO_PID_TER_REG_HPP__
+#define __ADAM_CORE_PROTO_PID_TER_REG_HPP__
 
 
 #include <cinttypes>
@@ -71,4 +71,4 @@ struct RegistTerminalRsp {
 } // namespace adam::core
 
 
-#endif // __ADAM_CORE_PROTO_PID_REG_TER_HPP__
+#endif // __ADAM_CORE_PROTO_PID_TER_REG_HPP__

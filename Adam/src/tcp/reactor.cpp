@@ -1,6 +1,6 @@
 #include "core/error.hpp"
-#include "core/proto/pid_kick_terminal.hpp"
-#include "core/proto/pid_regist_terminal.hpp"
+#include "core/proto/pid_terminal_kick.hpp"
+#include "core/proto/pid_terminal_regist.hpp"
 #include "core/proto/pid_terminal_enter.hpp"
 #include "core/proto/pid_terminal_leave.hpp"
 #include "tcp/config.hpp"
@@ -458,21 +458,21 @@ adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
         return;
     }
 
-    core::KickTerminalReq req;
+    core::TerminalKickReq req;
     req.uid  = t->uid();
     req.code = code;
 
-    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::KickTerminalReq::LEN];
+    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::TerminalKickReq::LEN];
     auto* kpk = (core::Package*)kbuf;
 
-    kpk->meta.len      = core::PKG_HDR_LEN + core::KickTerminalReq::LEN;
+    kpk->meta.len      = core::PKG_HDR_LEN + core::TerminalKickReq::LEN;
     kpk->meta.conv     = t->conv();
     kpk->meta.src_addr = 0;
-    kpk->data.pid       = PID_KIC_TER_REQ;
+    kpk->data.pid      = PID_TER_KIC_REQ;
     kpk->data.src_id   = Conf::instance()->server()->id;
     kpk->data.dst_id   = t->sess()->id();
     kpk->data.seq      = 0;
-    req.encode(kpk->data.payload, core::KickTerminalReq::LEN);
+    req.encode(kpk->data.payload, core::TerminalKickReq::LEN);
 
     if (t->sess()->send(*kpk) < 0) {
         xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());
