@@ -124,9 +124,14 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
 }
 
 
-int
+void
 adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
+
+    if (server_->hook()->on_terminal_enter(t) != 0) {
+        kick_terminal(t->uid(), 0);
+        return;
+    }
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
     if (prev != Directory::NPOS && prev != index_) {
@@ -139,12 +144,8 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
         }
     }
 
-    if (server_->hook()->on_terminal_enter(t) != 0) {
-        return xOK;
-    }
-
     ters_[t->uid()] = std::move(t);
-    return xOK;
+    return;
 }
 
 

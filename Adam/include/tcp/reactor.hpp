@@ -124,7 +124,7 @@ private:
     }
 
 
-    int
+    void
     add_terminal(Terminal::Ptr t) noexcept;
 
 
