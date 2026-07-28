@@ -36,7 +36,7 @@ struct TerminalLeaveRsp {
 
 
 struct TerminalOfflineNotify {
-    static constexpr int LEN = sizeof(uint32_t);
+    static constexpr int LEN = 8;
 
 
     void
@@ -47,7 +47,8 @@ struct TerminalOfflineNotify {
     decode(const uint8_t* buf, size_t len) noexcept;
 
 
-    uint32_t uid;
+    uint32_t uid;  // 离线的 terminal
+    uint32_t code; // 离开码
 
 
     TerminalOfflineNotify() = default;

@@ -69,10 +69,12 @@ public:
 
 
         /**
-         * @brief 终端离开本服务(所有删档路径统一回调, 用 Reason 区分来由)
+         * @brief 终端离开本服务(所有删档路径统一回调)
+         * @param code 离开码: 框架 TER_CODE_*(0-99) 或业务自定义(100+),
+         *             业务凭它决定实体是立即销毁还是留宽限期
          */
         virtual void
-        on_terminal_leave(Terminal::Ptr, Terminal::Reason) noexcept {
+        on_terminal_leave(Terminal::Ptr, uint32_t /*code*/) noexcept {
         }
     }; // class IHook;
 

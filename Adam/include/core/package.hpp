@@ -52,6 +52,20 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PID_CUSTOM         (200)             // 自定义消息ID
 
 
+// ---------------------- 终端离开码(OFF/KIC 携带, 框架 0-99, 业务 100+) ----------------------
+#define TER_CODE_LEAVE        (1)   // 客户端主动自离(TER_LEA_REQ)
+#define TER_CODE_DISCONNECTED (2)   // 超时 / 网络断        -> 建议给宽限期
+#define TER_CODE_KICKED       (3)   // 被踢(通用)           -> 建议给宽限期(马上有新会话接管)
+#define TER_CODE_PROTO_ERR    (4)   // 协议违规             -> 立即清
+#define TER_CODE_REJECTED     (5)   // 登记被业务拒绝        -> 立即清
+#define TER_CODE_GW_LOST      (6)   // 网关连接断(后端本地判定, 一批同时消失)
+#define TER_CODE_CUSTOM       (100) // 业务自定义起点: 顶号/封禁/同设备互斥…由 Noah 或业务后端定义
+
+
+const char*
+str_terminal_code(int code) noexcept;
+
+
 /**
  * @brief 客户端 / 网关 之间的应用层消息头
  */

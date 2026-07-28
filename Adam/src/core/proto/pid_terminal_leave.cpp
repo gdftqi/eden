@@ -7,8 +7,13 @@ void
 adam::core::TerminalOfflineNotify::encode(uint8_t* buf, size_t len) noexcept {
     ASSERT(len >= TerminalOfflineNotify::LEN, "TerminalLeaveNotify::encode 缓冲区不足");
 
-    uint32_t v32 = u32_to_le(uid);
+    uint32_t v32;
+
+    v32 = u32_to_le(uid);
     ::memcpy(buf + 0, &v32, sizeof(v32));
+
+    v32 = u32_to_le(code);
+    ::memcpy(buf + 4, &v32, sizeof(v32));
 }
 
 
@@ -19,8 +24,12 @@ adam::core::TerminalOfflineNotify::decode(const uint8_t* buf, size_t len) noexce
     }
 
     uint32_t v32;
+
     ::memcpy(&v32, buf + 0, sizeof(v32));
     uid = u32_to_le(v32);
+
+    ::memcpy(&v32, buf + 4, sizeof(v32));
+    code = u32_to_le(v32);
 
     return xOK;
 }

@@ -1,5 +1,7 @@
 #include "kcp/session.hpp"
 #include "kcp/server.hpp"
+#include "core/proto/pid_terminal_leave.hpp"
+#include "core/proto/pid_terminal_enter.hpp"
 #include <format>
 
 
@@ -119,7 +121,7 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
 int
 adam::kcp::Session::send(core::Package *pk) noexcept  {
     // 发送时最大明文 payload: 客户端线上是 data-only 帧, 整帧 = PKG_DATA_LEN 头 + payload + tag,
-    // 上限 PKG_MAX_LEN。故减的是 PKG_DATA_LEN(14, meta 不上线)再减 tag, 不是 PKG_HDR_LEN。
+    // 上限 PKG_MAX_LEN。故减的是 PKG_DATA_LEN(14, meta 不上线)再减 tag, 不是 PKG_HDR_LEN
     constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN - utils::XX20_TAG_LEN;
 
     // 发送缓冲区
@@ -149,4 +151,81 @@ adam::kcp::Session::send(core::Package *pk) noexcept  {
     }
 
     return core::from_ikcp_send(::ikcp_send(kcp_, (char*)sndbuf, wire));
+}
+
+
+void
+adam::kcp::Session::terminal_enter() noexcept {
+    auto& routers = worker_->router_ids();
+    if (routers.empty()) {
+        xWARN("尚未发现路由服务, {} 无法登记", to_json());
+        return;
+    }
+
+    uint32_t rid = routers[uid_ % routers.size()];
+    auto serv = worker_->get_serv(rid);
+    if (serv == nullptr || !serv->is_connected() || !serv->authed()) {
+        xWARN("路由服务 {} 不可用, {} 登记失败", rid, to_json());
+        return;
+    }
+
+    core::TerminalEnterReq req;
+    req.uid  = uid_;
+    req.conv = conv();
+    req.ip   = remote_addr_u32();
+    req.port = ::ntohs(((sockaddr_in*)&addr_)->sin_port);
+    req.type = 0;   // TODO: 设备类型待 Eva 的 token 带过来
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalEnterReq::LEN];
+    auto* pk = (core::Package*)buf;
+
+    // 信封由网关盖章: 后端会拿 payload 里的 conv/ip 与之交叉校验
+    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalEnterReq::LEN;
+    pk->meta.conv     = conv();
+    pk->meta.src_addr = req.ip;
+    pk->data.pid      = PID_TER_ENT_REQ;
+    pk->data.src_id   = Conf::instance()->server()->id;
+    pk->data.dst_id   = rid;
+    pk->data.seq      = 0;
+    req.encode(pk->data.payload, core::TerminalEnterReq::LEN);
+
+    if (serv->send(*pk, worker_->tnow()) < 0) {
+        xERROR("{} 向路由服务 {} 登记失败", to_json(), rid);
+    }
+}
+
+
+void
+adam::kcp::Session::terminal_off(uint32_t code) noexcept {
+    if (binds_.empty()) {
+        return;
+    }
+
+    core::TerminalOfflineNotify ntf;
+    ntf.uid  = uid_;
+    ntf.code = code;
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalOfflineNotify::LEN];
+    auto* pk = (core::Package*)buf;
+
+    // meta.conv 不只是路由信息, 也是"哪一次会话下线了"的凭据 ——
+    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalOfflineNotify::LEN;
+    pk->meta.conv     = conv();
+    pk->meta.src_addr = remote_addr_u32();
+    pk->data.pid      = PID_TER_OFF_NTF;
+    pk->data.src_id   = Conf::instance()->server()->id;
+    pk->data.seq      = 0;
+    ntf.encode(pk->data.payload, core::TerminalOfflineNotify::LEN);
+
+    for (auto sid : binds_) {
+        auto serv = worker_->get_serv(sid);
+        if (serv == nullptr || !serv->is_connected() || !serv->authed()) {
+            continue;
+        }
+
+        pk->data.dst_id = sid;
+        if (serv->send(*pk, worker_->tnow()) < 0) {
+            xERROR("{} 向 {} 发 OFF 失败", to_json(), sid);
+        }
+    }
 }

@@ -3,7 +3,31 @@
 #include <cstring>
 
 
-// 说明: 这些函数定义在 adam::core 内, 函数体里 PKG_*/Package/u16_to_le 等按 adam::core 就近解析。
+const char*
+adam::core::str_terminal_code(int code) noexcept {
+    switch (code) {
+        case TER_CODE_LEAVE:
+            return "terminal activate leave";
+
+        case TER_CODE_DISCONNECTED:
+            return "terminal disconnected";
+
+        case TER_CODE_KICKED:
+            return "terminal has kicked";
+
+        case TER_CODE_PROTO_ERR:
+            return "invalid protocol data";
+
+        case TER_CODE_REJECTED:
+            return "router rejected";
+
+        case TER_CODE_GW_LOST:
+            return "gateway has losted";
+
+        default:
+            return "unknown terminal code";
+    }
+}
 
 
 int

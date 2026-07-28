@@ -112,7 +112,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         auto t = itr->second;
         ++itr;
         if (t->sess() == s) { 
-            remove_terminal(t->uid(), Terminal::Reason::GatewayLost);
+            remove_terminal(t->uid(), TER_CODE_GW_LOST);
         }
     }
 
@@ -150,10 +150,10 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
 
 
 void
-adam::tcp::Reactor::remove_terminal(uint32_t uid, Terminal::Reason reason) noexcept {
+adam::tcp::Reactor::remove_terminal(uint32_t uid, uint32_t code) noexcept {
     auto t = get_terminal(uid);
     if (t != nullptr) {
-        server_->hook()->on_terminal_leave(t, reason);
+        server_->hook()->on_terminal_leave(t, code);
     }
 
     ters_.erase(uid);
@@ -427,14 +427,12 @@ adam::tcp::Reactor::on_terminal_offline_notify(Session::Ptr s, core::Package* pk
         return xERR;
     }
 
-    // conv 校验不可少: 顶号后同一 uid 已是新档, 若两台设备恰好走同一条网关连接,
-    // 仅比 sess() 会让旧终端的迟到讣告删掉刚上线的新档。conv 每次登录都换, 精确区分。
     auto t = get_terminal(ntf.uid);
     if (t == nullptr || t->sess() != s || t->conv() != pk->meta.conv) {
-        return xOK;   // 查无此档 / 非属主连接 / 迟到讣告
+        return xOK;
     }
 
-    remove_terminal(ntf.uid, Terminal::Reason::Offline);
+    remove_terminal(ntf.uid, ntf.code);
     return xOK;
 }
 
@@ -452,7 +450,7 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
     auto t = get_terminal(uid);
     if (t != nullptr && t->sess() == s && t->conv() == pk->meta.conv) {
         t->unbind();
-        remove_terminal(uid, Terminal::Reason::Leave);
+        remove_terminal(uid, TER_CODE_LEAVE);
     }
 
     pk->data.pid = PID_TER_LEA_RSP;

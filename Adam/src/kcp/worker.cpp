@@ -162,12 +162,12 @@ adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
 
 
 void
-adam::kcp::Worker::remove_session(uint32_t conv) noexcept {
+adam::kcp::Worker::remove_session(uint32_t conv, uint32_t code) noexcept {
     auto itr = sesss_.find(conv);
     if (itr != sesss_.end()) {
         auto sess = itr->second;
         sesss_.erase(itr);
-        terminal_off(sess);   // 先通知绑定集里的后端清档, 再回调业务
+        sess->terminal_off(code);
         event_->on_sess_disconnected(sess);
     }
 }
@@ -296,16 +296,14 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     } else if (res < 0) {
                         // 协议错误
                         // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
-                        remove_session(s->conv());
+                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
                         break;
                     }
 
-                    // 会话级不变量: 鉴权后每个包都必须带本会话的 uid。
-                    // 鉴权前 uid 尚未确立(authed() == uid_ > 0), 故 REGIST 天然豁免, 无需按 PID 特判。
-                    // 少了这道闸, 客户端可伪造 src_id 冒名他人, 或伪装成"网关发起"绕过后端的来源判别。
                     if (s->authed() && pk->data.src_id != s->uid()) {
+                        // 客户端发送的 src_id 必需要于 sess->uid 相等
                         xERROR("{} src_id 伪造: [{}]", s->to_json(), pk->data.src_id);
-                        remove_session(s->conv());
+                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
                         break;
                     }
 
@@ -320,7 +318,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
 
                     if (res < 0) {
-                        remove_session(s->conv());
+                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
                         break;
                     }
                 }
@@ -449,12 +447,12 @@ adam::kcp::Worker::on_ensure_backend(Message* m) noexcept {
     auto* arg = (EnsureBackendArg*)m->arg.ptr;
 
     // 路由服务集合(本 worker 私有, 随发现结果更新; 服务自报 router=true), 保持升序
-    auto rit = std::lower_bound(routers_.begin(), routers_.end(), arg->id);
-    bool found = (rit != routers_.end() && *rit == arg->id);
+    auto rit = std::lower_bound(router_ids_.begin(), router_ids_.end(), arg->id);
+    bool found = (rit != router_ids_.end() && *rit == arg->id);
     if (arg->router && !found) {
-        routers_.insert(rit, arg->id);
+        router_ids_.insert(rit, arg->id);
     } else if (!arg->router && found) {
-        routers_.erase(rit);
+        router_ids_.erase(rit);
     }
 
     if (servs_.find(arg->id) == servs_.end()) {
@@ -483,19 +481,17 @@ void
 adam::kcp::Worker::update() noexcept {
     auto now = tnow_;
 
-    // 全量遍历: 超时则摘除, 否则推动 KCP。有流量时主循环跑得很快,
-    // ts_flush 一到点就被某轮捕获 flush, 延迟接近即时
     for (auto itr = sesss_.begin(); itr != sesss_.end();) {
         auto s = itr->second;
         ++itr;
         if (s->update(now) < 0) {
-            remove_session(s->conv());
+            remove_session(s->conv(), TER_CODE_DISCONNECTED);
         }
     }
 
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
     // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次.
-    // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动. b
+    // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动.
     size_t exp = 0;
     auto timeout = Conf::instance()->server()->timeout / 2;
     while (exp < dg_que_.size() && dg_que_[exp]->time + timeout < now) {
@@ -606,7 +602,7 @@ adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package
 
         // 路由服务(重)连成功: 它那边的档案在连接断开时已被清扫, 必须全量重报,
         // 否则这批终端永久从路由表消失(顶号/下线通知全部失效)
-        if (std::binary_search(routers_.begin(), routers_.end(), conn->id())) {
+        if (std::binary_search(router_ids_.begin(), router_ids_.end(), conn->id())) {
             terminal_reenter(conn->id());
         }
     } else {
@@ -636,11 +632,10 @@ adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Packa
     }
 
     xINFO("{} 被 {} 踢除, code = {}", s->to_json(), conn->to_string(), ntf.code);
-    remove_session(pk->meta.conv);
+    remove_session(pk->meta.conv, ntf.code != 0 ? ntf.code : TER_CODE_KICKED);
 }
 
 
-// 后端声明已接管该终端: 记入绑定集(该终端下线时需通知它)
 void
 adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
     core::TerminalBindNotify ntf;
@@ -712,7 +707,7 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
 
         auto s = get_session(pk->meta.conv);
         if (s != nullptr && s->uid() == rsp.uid) {
-            remove_session(pk->meta.conv);
+            remove_session(pk->meta.conv, TER_CODE_REJECTED);
         }
         return;
     }
@@ -724,85 +719,10 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
     }
 }
 
-// 终端鉴权成功: 向路由服务登记。按 uid 取模选实例(升序表保证同一 uid 恒定落点)。
-void
-adam::kcp::Worker::terminal_enter(Session::Ptr s) noexcept {
-    if (routers_.empty()) {
-        xWARN("尚未发现路由服务, {} 无法登记", s->to_json());
-        return;
-    }
 
-    uint32_t rid = routers_[s->uid() % routers_.size()];
-    auto sv = get_serv(rid);
-    if (sv == nullptr || !sv->is_connected() || !sv->authed()) {
-        xWARN("路由服务 {} 不可用, {} 登记失败", rid, s->to_json());
-        return;
-    }
-
-    core::TerminalEnterReq req;
-    req.uid  = s->uid();
-    req.conv = s->conv();
-    req.ip   = s->remote_addr_u32();
-    req.port = ::ntohs(((sockaddr_in*)s->addr())->sin_port);
-    req.type = 0;   // TODO: 设备类型待 Eva 的 token 带过来
-
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalEnterReq::LEN];
-    auto* pk = (core::Package*)buf;
-
-    // 信封由网关盖章: 后端会拿 payload 里的 conv/ip 与之交叉校验
-    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalEnterReq::LEN;
-    pk->meta.conv     = s->conv();
-    pk->meta.src_addr = req.ip;
-    pk->data.pid      = PID_TER_ENT_REQ;
-    pk->data.src_id   = Conf::instance()->server()->id;   // 网关自己发起(后端据此区分终端发起)
-    pk->data.dst_id   = rid;
-    pk->data.seq      = 0;
-    req.encode(pk->data.payload, core::TerminalEnterReq::LEN);
-
-    if (sv->send(*pk, tnow_) < 0) {
-        xERROR("{} 向路由服务 {} 登记失败", s->to_json(), rid);
-    }
-}
-
-
-// 终端下线: 向绑定集里的每个后端发 OFF, 让它们清掉本终端的档案
-void
-adam::kcp::Worker::terminal_off(Session::Ptr s) noexcept {
-    if (s->binds().empty()) {
-        return;
-    }
-
-    core::TerminalOfflineNotify ntf;
-    ntf.uid = s->uid();
-
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalOfflineNotify::LEN];
-    auto* pk = (core::Package*)buf;
-
-    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalOfflineNotify::LEN;
-    pk->meta.conv     = s->conv();
-    pk->meta.src_addr = s->remote_addr_u32();
-    pk->data.pid      = PID_TER_OFF_NTF;
-    pk->data.src_id   = Conf::instance()->server()->id;
-    pk->data.seq      = 0;
-    ntf.encode(pk->data.payload, core::TerminalOfflineNotify::LEN);
-
-    for (uint32_t sid : s->binds()) {
-        auto sv = get_serv(sid);
-        if (sv == nullptr || !sv->is_connected() || !sv->authed()) {
-            continue;   // 后端已掉线: 它自己的断连清扫会处理这批终端
-        }
-
-        pk->data.dst_id = sid;
-        if (sv->send(*pk, tnow_) < 0) {
-            xERROR("{} 向 {} 发 OFF 失败", s->to_json(), sid);
-        }
-    }
-}
-
-// 把本 worker 名下、按 uid 取模应归属 rid 的终端, 全部重新向它登记
 void
 adam::kcp::Worker::terminal_reenter(uint32_t rid) noexcept {
-    if (routers_.empty()) {
+    if (router_ids_.empty()) {
         return;
     }
 
@@ -812,11 +732,11 @@ adam::kcp::Worker::terminal_reenter(uint32_t rid) noexcept {
             continue;   // 未鉴权的会话还没有 uid, 也就不存在登记
         }
 
-        if (routers_[s->uid() % routers_.size()] != rid) {
+        if (router_ids_[s->uid() % router_ids_.size()] != rid) {
             continue;   // 不归这个实例管
         }
 
-        terminal_enter(s);
+        s->terminal_enter();
         ++n;
     }
 
@@ -926,7 +846,7 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     s->set_uid(req.uid);
 
     // 鉴权通过 -> 向路由服务登记(顶号仲裁/下线通知的前提)
-    terminal_enter(s);
+    s->terminal_enter();
 
     return res;
 }

@@ -161,6 +161,24 @@ public:
 
 
     /**
+     * @brief 终端上线: 向路由服务登记
+     *
+     * @warning 同一个 uid 必需路由到同一个 router 服务中, 否则 顶号将无效
+     */
+    void
+    terminal_enter() noexcept;
+
+
+    /**
+     * @brief 终端下线: 向绑定集里的每个后端发 OFF, 让它们清掉档案
+     *
+     * @param code 离开码
+     */
+    void
+    terminal_off(uint32_t code) noexcept;
+
+
+    /**
      * @brief 绑定集: 已接管本终端的后端服务 id 集合(BIND/UNBD 维护)。
      *        本终端下线时, 需逐个通知它们 OFF; 幂等(重复 BIND 无副作用)。
      */
@@ -178,7 +196,14 @@ public:
 
     /**
      * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据。
-     *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进,
+     *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进。
+     *
+     * @return  0                    正常(本轮可能 flush 了数据, 也可能什么都没做)
+     *         -1 IKCP_STATE_TIMEOUT 超过 kcp_->timeout 未收到对端任何数据 -> 判死
+     *         -2 IKCP_STATE_RST     收到对端 RST, 会话在对端已不存在 -> 判死
+     *
+     * @note 返回负值即会话已死, 调用方应摘除会话(worker::update 里按 < 0 处理)
+     *       首次调用会初始化保活时刻, 不会误判超时
      */
     int
     update(uint64_t current) noexcept {

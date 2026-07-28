@@ -44,6 +44,7 @@ public:
     // 后端服务映射表, 用于根据 id 查找 tcp::Connector, 存放所有后端服务
     typedef absl::flat_hash_map<uint32_t, tcp::Connector::Ptr> ServMap;
     typedef absl::flat_hash_set<uint32_t>                      ServSet;
+    typedef std::vector<uint32_t>                              RouterIDSet;
 
 
     /**
@@ -90,6 +91,21 @@ public:
     uint64_t
     tnow() const noexcept {
         return tnow_;
+    }
+
+
+    // 路由服务 id 集合
+    const RouterIDSet&
+    router_ids() const noexcept {
+        return router_ids_;
+    }
+
+
+    // 按 id 取后端连接
+    tcp::Connector::Ptr
+    get_serv(uint32_t id) const noexcept {
+        auto itr = servs_.find(id);
+        return itr == servs_.end() ? nullptr : itr->second;
     }
 
 
@@ -164,14 +180,7 @@ private:
 
 
     void
-    remove_session(uint32_t conv) noexcept;
-
-
-    tcp::Connector::Ptr
-    get_serv(uint32_t id) const noexcept {
-        auto itr = servs_.find(id);
-        return itr == servs_.end() ? nullptr : itr->second;
-    }
+    remove_session(uint32_t conv, uint32_t code) noexcept;
 
 
     void
@@ -242,16 +251,6 @@ private:
     on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
-    // 终端鉴权成功 → 向路由服务登记(ENT)
-    void
-    terminal_enter(Session::Ptr s) noexcept;
-
-
-    // 终端下线 → 向绑定集里的后端逐个发 OFF
-    void
-    terminal_off(Session::Ptr s) noexcept;
-
-
     // 路由服务(重)注册成功 → 把本 worker 名下、归属该实例的终端全量重报
     void
     terminal_reenter(uint32_t rid) noexcept;
@@ -320,12 +319,9 @@ private:
     // 会话属性
     // ------------------------------------------------------------------
 
-    SessMap sesss_; // 会话侧集合
-    // 已发现的路由服务 id, 本 worker 私有副本(无锁), 保持升序:
-    // ENT 按 uid 取模选实例, 必须是稳定顺序 —— 同一 uid 永远落到同一个路由实例,
-    // 否则两台设备的登记打到不同实例, 互相看不见, 顶号就失效了。
-    std::vector<uint32_t> routers_;
-    ServMap servs_; // 服务侧集合
+    SessMap     sesss_;      // 会话侧集合
+    RouterIDSet router_ids_; // 路由服务集, 这里只存路由服务的id
+    ServMap     servs_;      // 服务侧集合
 }; // class Worker;
 
 
