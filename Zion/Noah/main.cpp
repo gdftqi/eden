@@ -34,17 +34,47 @@ public:
 
 
     int
-    on_connected(adam::tcp::Session::Ptr sess) noexcept override {
-        xINFO("{} connected on {}", sess->remote_addr(), ::pthread_self());
+    on_sess_connected(adam::tcp::Session::Ptr sess) noexcept override {
+        xINFO("{} connected", sess->remote_addr());
         return 0;
     }
 
 
     void
-    on_disconnected(adam::tcp::Session::Ptr sess) noexcept override {
-        xINFO("{} disconnected on {}", sess->remote_addr(), ::pthread_self());
+    on_sess_disconnected(adam::tcp::Session::Ptr sess) noexcept override {
+        xINFO("{} disconnected", sess->remote_addr());
     }
-};
+
+
+    virtual void
+    on_serv_registed(adam::tcp::Session::Ptr s) noexcept override {
+        xINFO("{} has registed", s->id());
+    }
+
+
+    virtual void
+    on_serv_unregisted(adam::tcp::Session::Ptr s) noexcept override {
+        xINFO("{} has unregisted", s->id());
+    }
+
+
+    virtual int
+    on_terminal_enter(adam::tcp::Terminal::Ptr t) noexcept override {
+        xINFO("{} has enter", t->uid());
+        return 0;
+    }
+
+
+    virtual void
+    on_terminal_leave(adam::tcp::Terminal::Ptr t) noexcept override {
+        xINFO("{} has leave", t->uid());
+    }
+
+    virtual void
+    on_terminal_offline(adam::tcp::Terminal::Ptr t) noexcept override {
+        xINFO("{} has offline", t->uid());
+    }
+}; // class Noah;
 
 
 /**
@@ -52,15 +82,15 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static void
-echo_handler(adam::tcp::Session::Ptr sess, adam::core::Package* pk) noexcept {
+echo_handler(adam::tcp::Terminal::Ptr t, adam::core::Package* pk) noexcept {
     // src/dst 对调, 原样回送给对端
     uint32_t src = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
     pk->data.dst_id = src;
 
-    int rc = sess->send(*pk);
+    int rc = t->sess()->send(*pk);
     if (rc < 0) {
-        xWARN("echo send failed: fd={}, rc={}", sess->fd(), rc);
+        xWARN("echo send failed: uid ={}, rc={}", t->uid(), rc);
     }
 }
 

@@ -58,7 +58,7 @@ public:
 
 
         virtual void
-        on_serv_disconnected(Session::Ptr) noexcept {
+        on_serv_unregisted(Session::Ptr) noexcept {
         }
 
 
@@ -70,6 +70,11 @@ public:
 
         virtual void
         on_terminal_leave(Terminal::Ptr) noexcept {
+        }
+
+
+        virtual void
+        on_terminal_offline(Terminal::Ptr) noexcept {
         }
     }; // class IHook;
 

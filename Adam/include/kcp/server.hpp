@@ -63,7 +63,7 @@ public:
      * @brief 后端服务断开事件
      */
     virtual void
-    on_serv_disconnected(tcp::Connector::Ptr) noexcept {
+    on_serv_unregisted(tcp::Connector::Ptr) noexcept {
     }
 
 

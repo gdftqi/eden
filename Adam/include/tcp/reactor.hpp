@@ -173,7 +173,7 @@ private:
 
 
     int
-    on_terminal_leave_notify(Session::Ptr s, core::Package* pk) noexcept;
+    on_terminal_offline_notify(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int

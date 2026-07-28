@@ -176,7 +176,7 @@ adam::kcp::Worker::remove_session(uint32_t conv) noexcept {
 void
 adam::kcp::Worker::remove_serv(tcp::Connector::Ptr c) noexcept {
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_DEL, c->fd(), nullptr) == 0, "epoll_ctl failed: errno = {}, errstr = {}", errno, ::strerror(errno));
-    server_->hook()->on_serv_disconnected(c);
+    server_->hook()->on_serv_unregisted(c);
     servs_.erase(c->id());
 }
 

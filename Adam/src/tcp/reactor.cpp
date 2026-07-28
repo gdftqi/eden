@@ -117,7 +117,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
     }
 
     if (s->id() > 0) {
-        server_->hook()->on_serv_disconnected(s);
+        server_->hook()->on_serv_unregisted(s);
     }
 
     server_->hook()->on_sess_disconnected(s);
@@ -269,7 +269,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     break;
 
                 case PID_TER_OFF_NTF:
-                    res = on_terminal_leave_notify(s, pk);
+                    res = on_terminal_offline_notify(s, pk);
                     break;
 
                 case PID_TER_LEA_REQ:
@@ -412,7 +412,7 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
 
 
 int
-adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_terminal_offline_notify(Session::Ptr s, core::Package* pk) noexcept {
     ASSERT(s->reactor() == this, "terminal leave notify 不在属主 reactor 线程");
 
     if (!s->authed()) {
@@ -424,13 +424,15 @@ adam::tcp::Reactor::on_terminal_leave_notify(Session::Ptr s, core::Package* pk) 
         return xERR;
     }
 
+    // conv 校验不可少: 顶号后同一 uid 已是新档, 若两台设备恰好走同一条网关连接,
+    // 仅比 sess() 会让旧终端的迟到讣告删掉刚上线的新档。conv 每次登录都换, 精确区分。
     auto t = get_terminal(ntf.uid);
-    if (t == nullptr || t->sess() != s) {
-        return xOK;
+    if (t == nullptr || t->sess() != s || t->conv() != pk->meta.conv) {
+        return xOK;   // 查无此档 / 非属主连接 / 迟到讣告
     }
 
     remove_terminal(ntf.uid);
-
+    server_->hook()->on_terminal_offline(t);
     return xOK;
 }
 
@@ -446,7 +448,7 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
     uint32_t uid = pk->data.src_id;
 
     auto t = get_terminal(uid);
-    if (t != nullptr && t->sess() == s) {
+    if (t != nullptr && t->sess() == s && t->conv() == pk->meta.conv) {
         t->unbind();
         remove_terminal(uid);
     }
@@ -490,10 +492,13 @@ adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
     ntf.encode(kpk->data.payload, core::TerminalKickNotify::LEN);
 
     if (t->sess()->send(*kpk) < 0) {
-        xERROR("KIC_TER_REQ 发送失败: uid = {}", t->uid());
+        xERROR("KIC_TER_NTF 发送失败: uid = {}", t->uid());
     }
 
-    ters_.erase(uid);
+    // 只发通知, 不在此删档 —— 删除统一由 OFF / 断连清扫负责:
+    //   业务踢人: 等网关摘掉会话后扇出 OFF 再删, 期间档案仍在(踢失败也不会"提前忘记");
+    //   顶号:     add_terminal 末尾的覆盖写会自然替换旧档(同 reactor),
+    //             跨 reactor 时旧档留在旧 reactor, 同样等它那条连接上的 OFF。
 }
 
 
