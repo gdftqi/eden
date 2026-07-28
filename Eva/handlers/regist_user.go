@@ -29,7 +29,7 @@ func RegistUser(c *gin.Context) {
 		return
 	}
 
-	if len(req.Username) < 8 || len(req.Username) > 16 {
+	if len(req.Username) < 6 || len(req.Username) > 16 {
 		utils.WebResponse(c, -1, "用户名无效")
 		return
 	}

@@ -35,7 +35,7 @@ struct TerminalLeaveRsp {
 }; // struct TerminalLeaveRsp;
 
 
-struct TerminalLeaveNotify {
+struct TerminalOfflineNotify {
     static constexpr int LEN = sizeof(uint32_t);
 
 
@@ -50,12 +50,12 @@ struct TerminalLeaveNotify {
     uint32_t uid;
 
 
-    TerminalLeaveNotify() = default;
-    ~TerminalLeaveNotify() = default;
-    TerminalLeaveNotify(const TerminalLeaveNotify&) = delete;
-    TerminalLeaveNotify& operator=(const TerminalLeaveNotify&) = delete;
-    TerminalLeaveNotify(TerminalLeaveNotify&&) = delete;
-    TerminalLeaveNotify& operator=(TerminalLeaveNotify&&) = delete;
+    TerminalOfflineNotify() = default;
+    ~TerminalOfflineNotify() = default;
+    TerminalOfflineNotify(const TerminalOfflineNotify&) = delete;
+    TerminalOfflineNotify& operator=(const TerminalOfflineNotify&) = delete;
+    TerminalOfflineNotify(TerminalOfflineNotify&&) = delete;
+    TerminalOfflineNotify& operator=(TerminalOfflineNotify&&) = delete;
 }; // struct TerminalLeaveNotify;
 
 

@@ -656,20 +656,20 @@ adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Packa
     }
 
     // 竞态闭环: BIND 到达时终端已死 → 立刻回 OFF, 让后端清掉这条幽灵档
-    core::TerminalLeaveNotify off;
+    core::TerminalOfflineNotify off;
     off.uid = ntf.uid;
 
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalLeaveNotify::LEN];
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalOfflineNotify::LEN];
     auto* out = (core::Package*)buf;
 
-    out->meta.len      = core::PKG_HDR_LEN + core::TerminalLeaveNotify::LEN;
+    out->meta.len      = core::PKG_HDR_LEN + core::TerminalOfflineNotify::LEN;
     out->meta.conv     = pk->meta.conv;
     out->meta.src_addr = 0;
     out->data.pid      = PID_TER_OFF_NTF;
     out->data.src_id   = Conf::instance()->server()->id;
     out->data.dst_id   = conn->id();
     out->data.seq      = 0;
-    off.encode(out->data.payload, core::TerminalLeaveNotify::LEN);
+    off.encode(out->data.payload, core::TerminalOfflineNotify::LEN);
 
     if (conn->send(*out, tnow_) < 0) {
         xERROR("{} OFF_NTF 回补失败: uid = {}", conn->to_string(), ntf.uid);
@@ -772,19 +772,19 @@ adam::kcp::Worker::terminal_off(Session::Ptr s) noexcept {
         return;
     }
 
-    core::TerminalLeaveNotify ntf;
+    core::TerminalOfflineNotify ntf;
     ntf.uid = s->uid();
 
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalLeaveNotify::LEN];
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalOfflineNotify::LEN];
     auto* pk = (core::Package*)buf;
 
-    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalLeaveNotify::LEN;
+    pk->meta.len      = core::PKG_HDR_LEN + core::TerminalOfflineNotify::LEN;
     pk->meta.conv     = s->conv();
     pk->meta.src_addr = s->remote_addr_u32();
     pk->data.pid      = PID_TER_OFF_NTF;
     pk->data.src_id   = Conf::instance()->server()->id;
     pk->data.seq      = 0;
-    ntf.encode(pk->data.payload, core::TerminalLeaveNotify::LEN);
+    ntf.encode(pk->data.payload, core::TerminalOfflineNotify::LEN);
 
     for (uint32_t sid : s->binds()) {
         auto sv = get_serv(sid);

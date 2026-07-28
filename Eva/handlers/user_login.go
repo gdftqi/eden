@@ -98,7 +98,7 @@ func UserLogin(c *gin.Context) {
 	}
 
 	// Step 4, 检查登录信息
-	if len(info.Username) == 0 || len(info.Username) > 16 {
+	if len(info.Username) < 6 || len(info.Username) > 16 {
 		utils.WebResponse(c, -1, "username is invalid")
 		return
 	}

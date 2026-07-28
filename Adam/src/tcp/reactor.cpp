@@ -422,7 +422,7 @@ adam::tcp::Reactor::on_terminal_offline_notify(Session::Ptr s, core::Package* pk
         return xERR;
     }
 
-    core::TerminalLeaveNotify ntf;
+    core::TerminalOfflineNotify ntf;
     if (ntf.decode(pk->data.payload, pk->payload_length()) != xOK) {
         return xERR;
     }
