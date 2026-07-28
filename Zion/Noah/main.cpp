@@ -66,8 +66,8 @@ public:
 
 
     virtual void
-    on_terminal_leave(adam::tcp::Terminal::Ptr t, adam::tcp::Terminal::Reason reason) noexcept override {
-        xINFO("{} has leave {} => {}", t->uid(), reason);
+    on_terminal_leave(adam::tcp::Terminal::Ptr t, adam::tcp::Terminal::Reason r) noexcept override {
+        xINFO("{} has leave => {}", t->uid(), (int)r);
     }
 }; // class Noah;
 
