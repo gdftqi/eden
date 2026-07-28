@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="440" d:DesignHeight="300"
+        x:Class="CC.LoginWindow"
+        Title="登录"
+        Icon="/Resources/app.png"
+        Width="440" Height="300"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+    <Border CornerRadius="8" ClipToBounds="True">
+        <!-- Background -->
+        <Grid RowDefinitions="38,*">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
+                    <GradientStop Color="#1C3A2C" Offset="0"/>
+                    <GradientStop Color="#2E6347" Offset="1"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+
+            <!-- TOP 栏 -->
+            <Grid Grid.Row="0" Background="Transparent" PointerPressed="TopBar_PointerPressed">
+                <Viewbox Width="30" Height="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0">
+                    <Canvas Width="32" Height="32">
+                        <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
+                            <Canvas Width="24" Height="24">
+                                <Path Stroke="White" StrokeThickness="2" StrokeJoin="Round" Data="M12,3 C7,3 3,6.5 3,11 C3,13 3.8,14.8 5.2,16.2 L3,21 L8.2,19.5 C9.3,19.8 10.6,20 12,20 C17,20 21,16.5 21,12 C21,7.5 17,3 12,3 Z"/>
+                                <Path Stroke="White" StrokeThickness="2.2" StrokeLineCap="Round" Data="M9.5,9 L14.5,14 M14.5,9 L9.5,14"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Canvas>
+                </Viewbox>
+                <!-- 关闭按钮 -->
+                <Button Click="Close_Click" HorizontalAlignment="Right" Width="40" Height="38" Padding="0" CornerRadius="0" Background="Transparent">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#E81123"/>
+                        </Style>
+                    </Button.Styles>
+                    <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M1,1 L15,15 M15,1 L1,15"/>
+                </Button>
+            </Grid>
+
+            <!-- 主体 -->
+            <StackPanel x:Name="LoginForm" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="260" Margin="0,0,0,8">
+                <StackPanel.Styles>
+                    <Style Selector="TextBox">
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="CornerRadius" Value="6"/>
+                        <Setter Property="Background" Value="White"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding" Value="10,0"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="FontSize" Value="12"/>
+                    </Style>
+                    <Style Selector="TextBox /template/ Border#PART_BorderElement">
+                        <Setter Property="BorderThickness" Value="1.5"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                    </Style>
+                    <Style Selector="TextBox:focus-within /template/ Border#PART_BorderElement">
+                        <Setter Property="BorderBrush" Value="#43A047"/>
+                    </Style>
+                    <Style Selector="Button.login">
+                        <Setter Property="Height" Value="32"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="CornerRadius" Value="6"/>
+                        <Setter Property="Background" Value="#43A047"/>
+                    </Style>
+                    <Style Selector="Button.login:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="#4CAF50"/>
+                        <Setter Property="Foreground" Value="White"/>
+                    </Style>
+                    <Style Selector="Button.login:pressed /template/ ContentPresenter">
+                        <Setter Property="Background" Value="#2E7D32"/>
+                        <Setter Property="Foreground" Value="White"/>
+                    </Style>
+                    <!-- 记住密码 -->
+                    <Style Selector="StackPanel.remember TextBlock">
+                        <Setter Property="Foreground" Value="#C8D0DA"/>
+                    </Style>
+                    <Style Selector="StackPanel.remember:pointerover TextBlock">
+                        <Setter Property="Foreground" Value="#A5D6A7"/>
+                    </Style>
+                </StackPanel.Styles>
+
+                <!-- 头像 -->
+                <Panel Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <Border CornerRadius="36" ClipToBounds="True">
+                        <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
+                    </Border>
+                    <Ellipse Width="72" Height="72" Stroke="#66FFFFFF" StrokeThickness="2"/>
+                </Panel>
+
+                <StackPanel Spacing="10">
+                    <!-- 用户名 -->
+                    <TextBox x:Name="txtUsername" PlaceholderText="用户名"/>
+                    <!-- 密码 -->
+                    <TextBox x:Name="txtPassword" PlaceholderText="密码" PasswordChar="●"/>
+                </StackPanel>
+
+                <Grid Margin="0,10,0,0">
+                    <StackPanel Classes="remember" Orientation="Horizontal" HorizontalAlignment="Left" Spacing="6">
+                        <!-- 记住密码 -->
+                        <CheckBox VerticalAlignment="Center" Padding="0"/>
+                        <TextBlock Text="记住密码" FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <!-- 错误提示 -->
+                    <TextBlock x:Name="ErrorText" Foreground="#FF6B6B" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" IsVisible="False"/>
+                </Grid>
+
+                <!-- 登录 -->
+                <Button Classes="login" Content="登 录" Click="Login_Click" IsDefault="True" HorizontalAlignment="Center" Width="200" Margin="0,12,0,0"/>
+            </StackPanel>
+
+            <!-- 登录中: 默认隐藏, 点登录后显示转圈; 失败再切回 LoginForm -->
+            <StackPanel x:Name="LoadingPanel" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16" IsVisible="False">
+                <StackPanel.Styles>
+                    <Style Selector="Ellipse.spinner">
+                        <Style.Animations>
+                            <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                                <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                                <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                            </Animation>
+                        </Style.Animations>
+                    </Style>
+                </StackPanel.Styles>
+                <Ellipse Classes="spinner" Width="42" Height="42" Stroke="White" StrokeThickness="3"
+                         StrokeDashArray="30,10" StrokeLineCap="Round"
+                         RenderTransformOrigin="50%,50%" HorizontalAlignment="Center">
+                    <Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform>
+                </Ellipse>
+                <TextBlock Text="登录中..." Foreground="White" FontSize="13" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

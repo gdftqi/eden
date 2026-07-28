@@ -1,0 +1,204 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="using:Avalonia.Data.Converters"
+        xmlns:cc="using:CC"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="CC.MainWindow"
+        Title="cc"
+        Icon="/Resources/app.ico"
+        MinWidth="1000" MinHeight="580"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+    <Border CornerRadius="8" ClipToBounds="True">
+    <Grid>
+        <!-- Main -->
+        <Grid RowDefinitions="38,*" ColumnDefinitions="60,*">
+            <!-- TopBar -->
+            <Grid Grid.Row="0" Grid.ColumnSpan="2" PointerPressed="TopBar_PointerPressed">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#1B5E20" Offset="0"/>
+                        <GradientStop Color="#66BB6A" Offset="1"/>
+                    </LinearGradientBrush>
+                </Grid.Background>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+                    <!-- LOGO -->
+                    <Viewbox Width="34" Height="34">
+                        <Canvas Width="32" Height="32">
+                            <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
+                                <Canvas Width="24" Height="24">
+                                    <Path Stroke="White" StrokeThickness="2" StrokeJoin="Round" Data="M12,3 C7,3 3,6.5 3,11 C3,13 3.8,14.8 5.2,16.2 L3,21 L8.2,19.5 C9.3,19.8 10.6,20 12,20 C17,20 21,16.5 21,12 C21,7.5 17,3 12,3 Z"/>
+                                    <Path Stroke="White" StrokeThickness="2.2" StrokeLineCap="Round" Data="M9.5,9 L14.5,14 M14.5,9 L9.5,14"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Canvas>
+                    </Viewbox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <StackPanel.Styles>
+                        <!-- TopBar 样式 -->
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="CornerRadius" Value="0"/>
+                            <Setter Property="Width" Value="40"/>
+                            <Setter Property="Height" Value="40"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#33FFFFFF"/>
+                        </Style>
+                        <Style Selector="Button.close:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#E81123"/>
+                        </Style>
+                    </StackPanel.Styles>
+                    <!-- 最小化 -->
+                    <Button Click="Minimize_Click">
+                        <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M0,8 H16"/>
+                    </Button>
+                    <!-- 最大化 -->
+                    <Button Click="Maximize_Click">
+                        <Path x:Name="MaxIcon" Width="16" Height="16" Stroke="White" StrokeThickness="1" Fill="Transparent" Data="M1,1 H15 V15 H1 Z"/>
+                    </Button>
+                    <!-- 关闭 -->
+                    <Button Click="Button_Click" Classes="close">
+                        <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M1,1 L15,15 M15,1 L1,15"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <!-- SideBar -->
+            <Border Grid.Row="1" Grid.Column="0">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
+                        <GradientStop Color="#3E3E3E" Offset="0"/>
+                        <GradientStop Color="#1E1E1E" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+
+                <Grid>
+                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="6">
+                    <StackPanel.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="CornerRadius" Value="10"/>
+                            <Setter Property="Width" Value="44"/>
+                            <Setter Property="Height" Value="44"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#22FFFFFF"/>
+                        </Style>
+                    </StackPanel.Styles>
+                    <!-- 聊天 -->
+                    <Button Click="Chat_Click">
+                        <Viewbox Width="24" Height="24">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="ChatIcon" Fill="#66BB6A" Data="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                    <!-- 联系人 -->
+                    <Button Click="Contacts_Click">
+                        <Viewbox Width="24" Height="24">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="ContactsIcon" Fill="White" Data="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                    <!-- 组织架构 -->
+                    <Button Click="Org_Click">
+                        <Viewbox Width="24" Height="24">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="OrgIcon" Fill="White" Data="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+
+                <!-- SideBar: 底部 -->
+                <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" Spacing="12">
+                    <StackPanel.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="CornerRadius" Value="10"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        </Style>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#22FFFFFF"/>
+                        </Style>
+                    </StackPanel.Styles>
+
+                    <!-- 设置 -->
+                    <Button Click="Settings_Click" Width="44" Height="44">
+                        <Viewbox Width="22" Height="22">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="SettingsIcon" Fill="White" Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+
+                    <!-- 用户头像 -->
+                    <Border Width="42" Height="42" CornerRadius="21" ClipToBounds="True">
+                        <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
+                    </Border>
+                </StackPanel>
+                </Grid>
+            </Border>
+            <!-- 页签宿主: 叠放, IsVisible 切换(切走再切回状态原样保留) -->
+            <Grid Grid.Row="1" Grid.Column="1">
+                <cc:ChatTab x:Name="TabChat"/>
+                <cc:ContactTab x:Name="TabContact" IsVisible="False"/>
+                <cc:OrgTab x:Name="TabOrg" IsVisible="False"/>
+                <cc:SettingsTab x:Name="TabSettings" IsVisible="False"/>
+            </Grid>
+        </Grid>
+
+        <!-- 窗体边缘 -->
+        <Rectangle VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth" Tag="North" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="6" Margin="6,0" Fill="Transparent" Cursor="SizeNorthSouth" Tag="South" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="6" Margin="0,6" Fill="Transparent" Cursor="SizeWestEast" Tag="West" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="6" Margin="0,6" Fill="Transparent" Cursor="SizeWestEast" Tag="East" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Top" Width="10" Height="10" Fill="Transparent" Cursor="TopLeftCorner" Tag="NorthWest" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Top" Width="10" Height="10" Fill="Transparent" Cursor="TopRightCorner" Tag="NorthEast" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomLeftCorner" Tag="SouthWest" PointerPressed="Resize_PointerPressed"/>
+        <Rectangle HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="10" Height="10" Fill="Transparent" Cursor="BottomRightCorner" Tag="SouthEast" PointerPressed="Resize_PointerPressed"/>
+
+        <!-- 连接状态提示条: 左下角浮动, 白底黑字, 从左滑出(translateX -180 → 0) -->
+        <Border x:Name="ConnBanner" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="180" Height="38" Margin="0,0,0,14" Background="White" CornerRadius="19" BoxShadow="2 2 12 0 #28000000" IsHitTestVisible="False" RenderTransform="translateX(-180px)">
+            <Border.Transitions>
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.28" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Border.Transitions>
+            <Border.Styles>
+                <!-- spinner 持续旋转 -->
+                <Style Selector="Ellipse.spinner">
+                    <Style.Animations>
+                        <Animation Duration="0:0:0.9" IterationCount="INFINITE">
+                            <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0"/></KeyFrame>
+                            <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360"/></KeyFrame>
+                        </Animation>
+                    </Style.Animations>
+                </Style>
+            </Border.Styles>
+            <Grid Margin="14,0,12,0" ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="ConnText" Grid.Column="0" Text="连接断开" Foreground="#222222" FontSize="13" VerticalAlignment="Center"/>
+                <!-- 断开: 红点 -->
+                <Ellipse x:Name="ConnDot" Grid.Column="1" Width="9" Height="9" Fill="#E53935" VerticalAlignment="Center"/>
+                <!-- 重连: 转圈 (Ellipse 填满 16x16, 几何中心=bounds 中心, 绕 0.5,0.5 旋转必原地; 缺口用 dash) -->
+                <Ellipse x:Name="ConnSpinner" Grid.Column="1" Classes="spinner" Width="16" Height="16" Stroke="#888888" StrokeThickness="2" StrokeDashArray="16.5,5.5" StrokeLineCap="Round" RenderTransformOrigin="50%,50%" IsVisible="False" VerticalAlignment="Center">
+                    <Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform>
+                </Ellipse>
+            </Grid>
+        </Border>
+    </Grid>
+    </Border>
+</Window>

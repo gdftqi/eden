@@ -3,6 +3,8 @@ build
 *.a
 *.so
 .venv
+*.dll
+*.pdb
 
 # romesh 各服务的部署包输出目录(注意锚定全路径, 别误伤同名源码目录)
 /Zion/Moses/moses/
