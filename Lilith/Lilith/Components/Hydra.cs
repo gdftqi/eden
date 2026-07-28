@@ -307,7 +307,8 @@ namespace Lilith.Components
 
         /// <summary>
         /// ioSend 线程: 批量发送 sndQue 中的包, 并以 TICK_MS 周期驱动 KCP Update(重传/ACK/保活)
-        /// Update 返回负值(-1000 除外)即传输层判死 → 关会话并发起重连。
+        /// Update 返回负值(-1000 除外)即传输层判死 → 关会话并发起重连;
+        /// 但 -4(被服务端踢除)例外: 直接 Close 不重连, 避免与顶号者互踢。
         /// </summary>
         private void SndLoop()
         {
@@ -330,6 +331,15 @@ namespace Lilith.Components
                 }
 
                 int res = KcpSession.Instance.Update((uint)Environment.TickCount);
+                if (res == -4)
+                {// 被服务端主动踢除: 绝不能重连 —— 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环。
+                 // 上层收到 Disconnected 后应回登录页, 并按 KickCode 提示原因。
+                    uint code = KcpSession.Instance.KickCode;
+                    Log.Write($"[Hydra] 被服务端踢除: code = {code}, 不再重连");
+                    Close();
+                    continue;
+                }
+
                 if (res < 0 && res != -1000)
                 {// -1 超时 / -2 RST / -3 IO 判死
                     Log.Write($"[Hydra] KCP 判死: {res}, 发起重连");

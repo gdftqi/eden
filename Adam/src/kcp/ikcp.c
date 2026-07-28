@@ -33,6 +33,7 @@ const IUINT32 IKCP_CMD_WINS = 84;		// cmd: window size (tell)
 const IUINT32 IKCP_CMD_PING = 85;		// cmd: keepalive ping
 const IUINT32 IKCP_CMD_PONG = 86;		// cmd: keepalive pong
 const IUINT32 IKCP_CMD_RST  = 87;		// cmd: 复位
+const IUINT32 IKCP_CMD_KICK = 88;		// cmd: 服务端主动踢除(payload = 4 字节原因码)
 const IUINT32 IKCP_ASK_SEND = 1;		// need to send IKCP_CMD_WASK
 const IUINT32 IKCP_ASK_TELL = 2;		// need to send IKCP_CMD_WINS
 const IUINT32 IKCP_WND_SND = 32;
@@ -318,6 +319,21 @@ static int ikcp_send_rst(ikcpcb *kcp)
 	return ikcp_output(kcp, buf, IKCP_OVERHEAD);
 }
 
+// [adam] send kick to peer: 独立控制包, 带 4 字节原因码, 不入发送队列/不重传
+int ikcp_send_kick(ikcpcb *kcp, IUINT32 code)
+{
+	char buf[IKCP_OVERHEAD + 4];
+	char *ptr;
+	IKCPSEG seg;
+	memset(&seg, 0, sizeof(seg));
+	seg.conv = kcp->conv;
+	seg.cmd  = IKCP_CMD_KICK;
+	seg.len  = 4;
+	ptr = ikcp_encode_seg(buf, &seg);
+	ikcp_encode32u(ptr, code);
+	return ikcp_output(kcp, buf, IKCP_OVERHEAD + 4);
+}
+
 // output queue
 void ikcp_qprint(const char*, const struct IQUEUEHEAD*)
 {
@@ -343,6 +359,7 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	if (kcp == NULL) return NULL;
 
 	kcp->state = IKCP_STATE_NONE;
+	kcp->kick_code = 0;
 	kcp->conv = conv;
 	kcp->user = user;
 	kcp->snd_una = 0;
@@ -942,7 +959,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 
 		if ((long)size < (long)len || (int)len < 0) return -2;
 
-		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_RST)
+		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK)
 			return -3;
 
 		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
@@ -1033,6 +1050,13 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		}
 		else if (cmd == IKCP_CMD_RST) {
 			kcp->state = IKCP_STATE_RST;
+		}
+		else if (cmd == IKCP_CMD_KICK) {
+			/* [adam] 被服务端踢除: 记下原因码, 上层 update() 会拿到 -3 */
+			if (len >= 4) {
+				ikcp_decode32u(data, &kcp->kick_code);
+			}
+			kcp->state = IKCP_STATE_KICKED;
 		}
 
 		data += len;

@@ -11,6 +11,8 @@
 
 static constexpr int MAX_EVENTS    = 64;
 static constexpr int INTERVAL_MS   = 10;
+// closing 状态保留时长: 期间对端每发一个包就回一次 KICK(借鉴 QUIC 的 3×PTO)
+static constexpr int CLOSING_MS    = 3000;
 static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
@@ -162,6 +164,34 @@ adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
 
 
 void
+adam::kcp::Worker::kick_session(uint32_t conv, uint32_t code) noexcept {
+    auto s = get_session(conv);
+    if (s == nullptr) {
+        return;
+    }
+
+    // KICK 走 ikcp_output → 本 worker 的 dg_que_ 追加一条完整 wire 报文(含 MAC 信封)。
+    // 取它的快照存入 closing 表: 对端若没收到还会继续发包, 那时原样回一次。
+    size_t before = dg_que_.size();
+    if (s->kick(code) == 0 && dg_que_.size() > before) {
+        auto* dg = dg_que_.back();
+
+        Closing c;
+        if (dg->len <= sizeof(c.buf)) {
+            ::memcpy(&c.addr, &dg->addr, dg->addrlen);
+            ::memcpy(c.buf, dg->buf, dg->len);
+            c.addrlen = dg->addrlen;
+            c.len     = dg->len;
+            c.expire  = tnow_ + CLOSING_MS;
+            closing_[conv] = c;
+        }
+    }
+
+    remove_session(conv, code);
+}
+
+
+void
 adam::kcp::Worker::remove_session(uint32_t conv, uint32_t code) noexcept {
     auto itr = sesss_.find(conv);
     if (itr != sesss_.end()) {
@@ -267,6 +297,17 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 if (conv == 0) {
                     // TODO: 记录攻击行为
                     continue;
+                }
+
+                auto cit = closing_.find(conv);
+                if (cit != closing_.end()) {
+                    auto& c = cit->second;
+                    if (tnow_ < c.expire) {
+                        auto* dg = dg_pool_.acquire(&c.addr, c.addrlen, (const char*)c.buf, c.len, tnow_);
+                        dg_que_.emplace_back(dg);
+                        continue;
+                    }
+                    closing_.erase(cit);
                 }
 
                 auto s = get_session(conv);
@@ -489,6 +530,15 @@ adam::kcp::Worker::update() noexcept {
         }
     }
 
+    // closing 表过期清理(通常为空, 一次 empty 判断即跳过)
+    for (auto it = closing_.begin(); it != closing_.end(); ) {
+        if (now >= it->second.expire) {
+            closing_.erase(it++);
+        } else {
+            ++it;
+        }
+    }
+
     // 移除超时的消息发送缓冲, 避免一直重试发送一个发不出去的包导致 sque_ 堆积过大占内存
     // 一趟搞定: 前段过期的 release 掉(不发), 剩下的 sendmmsg, 最后只 erase 一次.
     // 过期段 [0, exp) 与已发段 [exp, exp+nsnd) 连续, 合并成一次 O(n) 移动.
@@ -632,7 +682,7 @@ adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Packa
     }
 
     xINFO("{} 被 {} 踢除, code = {}", s->to_json(), conn->to_string(), ntf.code);
-    remove_session(pk->meta.conv, ntf.code != 0 ? ntf.code : TER_CODE_KICKED);
+    kick_session(pk->meta.conv, ntf.code != 0 ? ntf.code : TER_CODE_KICKED);
 }
 
 
@@ -707,7 +757,7 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
 
         auto s = get_session(pk->meta.conv);
         if (s != nullptr && s->uid() == rsp.uid) {
-            remove_session(pk->meta.conv, TER_CODE_REJECTED);
+            kick_session(pk->meta.conv, TER_CODE_REJECTED);
         }
         return;
     }

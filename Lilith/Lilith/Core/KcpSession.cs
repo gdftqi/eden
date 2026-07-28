@@ -60,6 +60,18 @@ namespace Lilith.Core
             }
         }
 
+        /// <summary>
+        /// [typhon] 被服务端踢除的原因码(Update 返回 -4 时有效)。
+        /// 框架码见 Adam 的 TER_CODE_*(0-99), 业务码由服务端自定义(100+)。
+        /// </summary>
+        public uint KickCode
+        {
+            get
+            {
+                return sKcp?.KickCode ?? 0;
+            }
+        }
+
 
         /// <summary>
         /// 网关ID
@@ -294,6 +306,8 @@ namespace Lilith.Core
         ///    -1: 超时判死 —— 超过 timeout 未收到对端任何包(KcpState.Timeout)<br/>
         ///    -2: RST 判死 —— 收到对端 RST, 会话已不存在(KcpState.Rst)<br/>
         ///    -3: IO 判死 —— socket 层网络异常, 由 Recv/output 置入(KcpState.Shutdown)<br/>
+        ///    -4: 被踢判死 —— 服务端主动踢除(KcpState.Kicked), 原因见 KickCode。<br/>
+        ///        <b>此码不可自动重连</b>: 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环。<br/>
         /// -1000: 会话未打开(未 Activated)就调用了 Update
         /// </returns>
         public int Update(uint currentMs)

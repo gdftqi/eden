@@ -34,6 +34,13 @@ namespace Lilith.Core.Arq
         /// 网络断开, 由于Kcp 默认是没有集成IO的，所以该状态不可能由 Kcp 设置
         /// </summary>
         Shutdown = -3,
+
+        /// <summary>
+        /// 被服务端主动踢除(顶号/封禁等), KickCode 说明原因。
+        /// 与 Timeout/Rst 的区别: 这是服务端的明确决定, 客户端<b>不应自动重连</b>,
+        /// 否则会和顶掉自己的那台设备互踢, 形成死循环。
+        /// </summary>
+        Kicked = -4,
     }
 
     public class Kcp
@@ -52,6 +59,7 @@ namespace Lilith.Core.Arq
         public const int CMD_PING = 85;            // [typhon] cmd: keepalive ping
         public const int CMD_PONG = 86;            // [typhon] cmd: keepalive pong
         public const int CMD_RST = 87;            // [typhon] cmd: 复位(服务端发, 客户端收到即断线)
+        public const int CMD_KICK = 88;            // [typhon] cmd: 服务端主动踢除(payload = 4 字节原因码)
         public const int ASK_SEND = 1;             // need to send CMD_WASK
         public const int ASK_TELL = 2;             // need to send CMD_WINS
         public const int WND_SND = 32;             // default send window
@@ -104,6 +112,7 @@ namespace Lilith.Core.Arq
         internal bool ping_active;   // 客户端主动发 PING 保活(空闲 timeout/3 触发)
         // volatile: 上层跨线程读它当"就绪/加解密"门限, 需 release/acquire(Open() 前设的密钥随之发布), 同原 authed
         internal volatile KcpState state;   // 会话状态(见 KcpState); 默认 None
+        internal uint kickCode;             // [typhon] 被踢时服务端给的原因码(state == Kicked 时有效)
         internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
         internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
         // snd_buffer needs index removals.
@@ -626,7 +635,7 @@ namespace Lilith.Core.Arq
                     return -2;
 
                 // validate command type
-                if (cmd < CMD_PUSH || cmd > CMD_RST)
+                if (cmd < CMD_PUSH || cmd > CMD_KICK)
                     return -3;
 
                 rmt_wnd = wnd;
@@ -703,6 +712,15 @@ namespace Lilith.Core.Arq
 
                     case CMD_RST:
                         state = KcpState.Rst;
+                        break;
+
+                    case CMD_KICK:
+                        // 被服务端踢除: 记下原因码, 上层 Update() 会拿到 -4
+                        if (len >= 4)
+                        {
+                            Utils.Decode32U(data, offset, out kickCode);
+                        }
+                        state = KcpState.Kicked;
                         break;
 
                     default:
@@ -1160,6 +1178,9 @@ namespace Lilith.Core.Arq
         }
 
         public KcpState State { get { return state; } }
+
+        /// <summary>[typhon] 被踢原因码, State == Kicked 时有效</summary>
+        public uint KickCode { get { return kickCode; } }
 
         public void Open()
         {

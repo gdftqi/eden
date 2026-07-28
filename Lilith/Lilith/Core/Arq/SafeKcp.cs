@@ -18,6 +18,14 @@ namespace Lilith.Core.Arq
         /// <summary>
         /// 状态
         /// </summary>
+        public uint KickCode
+        {
+            get
+            {
+                return kcp.KickCode;
+            }
+        }
+
         public KcpState State
         {
             get

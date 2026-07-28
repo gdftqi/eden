@@ -161,6 +161,26 @@ public:
 
 
     /**
+     * @brief 主动踢除本终端: 发一个独立的 KICK 控制包(带原因码)给客户端。
+     *        该包绕过 sn 窗口/重传队列, 不进 KCP 发送队列 —— 发完即可摘会话。
+     *        客户端 update() 会拿到 -3(IKCP_STATE_KICKED), 据此停止自动重连。
+     */
+    int
+    kick(uint32_t code) noexcept {
+        return ::ikcp_send_kick(kcp_, code);
+    }
+
+
+    /**
+     * @brief 被踢时对端给的原因码(仅客户端侧有意义)
+     */
+    uint32_t
+    kick_code() const noexcept {
+        return kcp_->kick_code;
+    }
+
+
+    /**
      * @brief 终端上线: 向路由服务登记
      *
      * @warning 同一个 uid 必需路由到同一个 router 服务中, 否则 顶号将无效
