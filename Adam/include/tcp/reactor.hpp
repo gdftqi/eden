@@ -129,7 +129,7 @@ private:
 
 
     void
-    remove_terminal(uint32_t uids) noexcept;
+    remove_terminal(uint32_t uid, Terminal::Reason reason) noexcept;
 
 
     Terminal::Ptr

@@ -66,13 +66,8 @@ public:
 
 
     virtual void
-    on_terminal_leave(adam::tcp::Terminal::Ptr t) noexcept override {
-        xINFO("{} has leave", t->uid());
-    }
-
-    virtual void
-    on_terminal_offline(adam::tcp::Terminal::Ptr t) noexcept override {
-        xINFO("{} has offline", t->uid());
+    on_terminal_leave(adam::tcp::Terminal::Ptr t, adam::tcp::Terminal::Reason reason) noexcept override {
+        xINFO("{} has leave {} => {}", t->uid(), reason);
     }
 }; // class Noah;
 

@@ -112,7 +112,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         auto t = itr->second;
         ++itr;
         if (t->sess() == s) { 
-            remove_terminal(t->uid());
+            remove_terminal(t->uid(), Terminal::Reason::GatewayLost);
         }
     }
 
@@ -149,10 +149,10 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
 
 
 void
-adam::tcp::Reactor::remove_terminal(uint32_t uid) noexcept {
+adam::tcp::Reactor::remove_terminal(uint32_t uid, Terminal::Reason reason) noexcept {
     auto t = get_terminal(uid);
     if (t != nullptr) {
-        server_->hook()->on_terminal_leave(t);
+        server_->hook()->on_terminal_leave(t, reason);
     }
 
     ters_.erase(uid);
@@ -413,7 +413,7 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
 
 int
 adam::tcp::Reactor::on_terminal_offline_notify(Session::Ptr s, core::Package* pk) noexcept {
-    ASSERT(s->reactor() == this, "terminal leave notify 不在属主 reactor 线程");
+    ASSERT(s->reactor() == this, "terminal offline notify 不在属主 reactor 线程");
 
     if (!s->authed()) {
         return xERR;
@@ -431,8 +431,7 @@ adam::tcp::Reactor::on_terminal_offline_notify(Session::Ptr s, core::Package* pk
         return xOK;   // 查无此档 / 非属主连接 / 迟到讣告
     }
 
-    remove_terminal(ntf.uid);
-    server_->hook()->on_terminal_offline(t);
+    remove_terminal(ntf.uid, Terminal::Reason::Offline);
     return xOK;
 }
 
@@ -450,7 +449,7 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
     auto t = get_terminal(uid);
     if (t != nullptr && t->sess() == s && t->conv() == pk->meta.conv) {
         t->unbind();
-        remove_terminal(uid);
+        remove_terminal(uid, Terminal::Reason::Leave);
     }
 
     pk->data.pid = PID_TER_LEA_RSP;

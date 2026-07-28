@@ -68,13 +68,11 @@ public:
         }
 
 
+        /**
+         * @brief 终端离开本服务(所有删档路径统一回调, 用 Reason 区分来由)
+         */
         virtual void
-        on_terminal_leave(Terminal::Ptr) noexcept {
-        }
-
-
-        virtual void
-        on_terminal_offline(Terminal::Ptr) noexcept {
+        on_terminal_leave(Terminal::Ptr, Terminal::Reason) noexcept {
         }
     }; // class IHook;
 
