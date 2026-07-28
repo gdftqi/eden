@@ -14,7 +14,6 @@ type ServerInfo struct {
 	Host      string `json:"host"`
 	Desc      string `json:"desc"`
 	StartTime int64  `json:"start_time"`
-	Nthreads  uint32 `json:"nthreads"`
 }
 
 func (this_ *ServerInfo) String() string {

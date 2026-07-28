@@ -40,10 +40,8 @@ adam::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
         return -1;
     }
 
-    nthreads = std::thread::hardware_concurrency() - 2;
-    if (nthreads <= 0) {
-        nthreads = 1;
-    }
+    auto n = std::thread::hardware_concurrency();
+    nthreads = n > 2 ? n - 2 : 1;
 
     // id 十六进制: 高 2 字节 = 类型, 低 2 字节 = 序号(如 0x10000000 → 类型 1000 / 序号 0000)
     key = std::format("/{}/{:08X}", name, id);

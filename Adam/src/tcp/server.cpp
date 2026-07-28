@@ -71,8 +71,7 @@ adam::tcp::Server::init() noexcept {
     ev.data.fd = lfd_;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, lfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
 
-    int n = std::thread::hardware_concurrency();
-    n = n > 2 ? n - 2 : 2;
+    int n = (int)Conf::instance()->server()->nthreads;
 
     for (int i = 0; i < n; ++i) {
         reactors_.emplace_back(Reactor::create(this, i));

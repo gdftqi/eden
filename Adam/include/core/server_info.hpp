@@ -65,8 +65,8 @@ struct ServerInfo {
             ps += std::to_string(i);
         }
 
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"nthreads\":{},\"router\":{},\"pids\":[{}]}}", 
-            id, protocol, name, host, desc, start_time, nthreads, router ? "true" : "false", ps);
+        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"router\":{},\"pids\":[{}]}}", 
+            id, protocol, name, host, desc, start_time, router ? "true" : "false", ps);
     }
 
 
@@ -85,10 +85,6 @@ struct ServerInfo {
 
         if (doc["host"].has_value()) {
             host = std::string(doc["host"].get_string().value_unsafe());
-        }
-
-        if (doc["nthreads"].has_value()) {
-            nthreads = doc["nthreads"].get_uint64().value_unsafe();
         }
 
         router = false;
