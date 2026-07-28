@@ -5,8 +5,8 @@
 #include "tcp/reactor.hpp"
 
 
-// 踢除本终端: 非属主线程则投消息给属主; 属主线程直接组包发出。
-// 注意这里不查 Reactor 的终端表 —— 被业务拒绝的终端尚未落户, 也必须能收到通知。
+// 踢除本终端: 非属主线程则投消息给属主; 属主线程直接组包发出
+// 注意这里不查 Reactor 的终端表 —— 被业务拒绝的终端尚未落户, 也必须能收到通知
 void
 adam::tcp::Terminal::kick(uint32_t code, Reactor* cur) noexcept {
     auto* owner = sess_->reactor();
