@@ -106,7 +106,7 @@ main(int /*argc*/, char** /*argv*/) {
 
     server->regist_handler(PID_CUSTOM + 1, &echo_handler);
 
-    ::signal(SIGINT,  on_signal);
+    ::signal(SIGINT, on_signal);
     ::signal(SIGTERM, on_signal);
 
     server->run();
