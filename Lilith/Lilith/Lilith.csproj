@@ -6,17 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="3rd\" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="BouncyCastle.Cryptography">
-      <HintPath>3rd\BouncyCastle.Cryptography.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
