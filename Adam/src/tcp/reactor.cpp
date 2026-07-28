@@ -124,13 +124,13 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
 }
 
 
-void
+int
 adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
 
     if (server_->hook()->on_terminal_enter(t) != 0) {
-        kick_terminal(t->uid(), 0);
-        return;
+        t->kick(0, this);
+        return -1;
     }
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
@@ -145,7 +145,7 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     }
 
     ters_[t->uid()] = std::move(t);
-    return;
+    return 0;
 }
 
 
@@ -386,10 +386,12 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
 
     if (code == 0) {
         auto t = Terminal::create(req.uid, req.conv, req.ip, req.port, s);
-        add_terminal(t);
-
-        if (s->id() != pk->data.src_id) {
-            t->bind();
+        if (add_terminal(t) == 0) {
+            if (s->id() != pk->data.src_id) {
+                t->bind();
+            }
+        } else {
+            code = 2;
         }
     }
 
@@ -467,38 +469,17 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
 }
 
 
+// 按 uid 找到终端并踢除; 组包发送由 Terminal 自己完成。
+// 只发通知, 不在此删档 —— 删除统一由 OFF / 断连清扫负责:
+//   业务踢人: 等网关摘掉会话后扇出 OFF 再删(踢失败也不会"提前忘记");
+//   顶号:     add_terminal 末尾的覆盖写自然替换旧档(同 reactor),
+//             跨 reactor 时旧档留在旧 reactor, 等它那条连接上的 OFF。
 void
 adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
     auto t = get_terminal(uid);
-    if (t == nullptr) {
-        return;
+    if (t != nullptr) {
+        t->kick(code, this);
     }
-
-    // 踢人是单向指令(网关无需回执), 用 NTF 而非 REQ
-    core::TerminalKickNotify ntf;
-    ntf.uid  = t->uid();
-    ntf.code = code;
-
-    alignas(core::Package) uint8_t kbuf[sizeof(core::Package) + core::TerminalKickNotify::LEN];
-    auto* kpk = (core::Package*)kbuf;
-
-    kpk->meta.len      = core::PKG_HDR_LEN + core::TerminalKickNotify::LEN;
-    kpk->meta.conv     = t->conv();
-    kpk->meta.src_addr = 0;
-    kpk->data.pid      = PID_TER_KIC_NTF;
-    kpk->data.src_id   = Conf::instance()->server()->id;
-    kpk->data.dst_id   = t->sess()->id();
-    kpk->data.seq      = 0;
-    ntf.encode(kpk->data.payload, core::TerminalKickNotify::LEN);
-
-    if (t->sess()->send(*kpk) < 0) {
-        xERROR("KIC_TER_NTF 发送失败: uid = {}", t->uid());
-    }
-
-    // 只发通知, 不在此删档 —— 删除统一由 OFF / 断连清扫负责:
-    //   业务踢人: 等网关摘掉会话后扇出 OFF 再删, 期间档案仍在(踢失败也不会"提前忘记");
-    //   顶号:     add_terminal 末尾的覆盖写会自然替换旧档(同 reactor),
-    //             跨 reactor 时旧档留在旧 reactor, 同样等它那条连接上的 OFF。
 }
 
 

@@ -23,6 +23,7 @@ public:
         Leave,        // 客户端主动自离(TER_LEA_REQ)
         Offline,      // 网关通知该终端已下线(TER_OFF_NTF): 超时/断线/被踢
         GatewayLost,  // 网关连接断开的批量清扫(粗粒度兜底)
+        Rejected,     // 业务 hook 拒绝落户(on_terminal_enter 返回非 0)
     };
 
 

@@ -603,6 +603,12 @@ adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package
     if (res == 0) {
         conn->set_authed(true);
         server_->hook()->on_serv_registed(conn);
+
+        // 路由服务(重)连成功: 它那边的档案在连接断开时已被清扫, 必须全量重报,
+        // 否则这批终端永久从路由表消失(顶号/下线通知全部失效)
+        if (std::binary_search(routers_.begin(), routers_.end(), conn->id())) {
+            terminal_reenter(conn->id());
+        }
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
     }
@@ -699,8 +705,15 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
         return;
     }
 
+    // 登记被拒(业务 hook 拒绝 / 校验不过)= 不许接入, 摘掉会话;
+    // 否则客户端还连着却不在任何路由表里, 拒绝钩子等于没有强制力。
     if (rsp.code != 0) {
         xERROR("{} 终端登记失败: uid = {}, code = {}", conn->to_string(), rsp.uid, rsp.code);
+
+        auto s = get_session(pk->meta.conv);
+        if (s != nullptr && s->uid() == rsp.uid) {
+            remove_session(pk->meta.conv);
+        }
         return;
     }
 
@@ -783,6 +796,32 @@ adam::kcp::Worker::terminal_off(Session::Ptr s) noexcept {
         if (sv->send(*pk, tnow_) < 0) {
             xERROR("{} 向 {} 发 OFF 失败", s->to_json(), sid);
         }
+    }
+}
+
+// 把本 worker 名下、按 uid 取模应归属 rid 的终端, 全部重新向它登记
+void
+adam::kcp::Worker::terminal_reenter(uint32_t rid) noexcept {
+    if (routers_.empty()) {
+        return;
+    }
+
+    int n = 0;
+    for (auto& [conv, s]: sesss_) {
+        if (!s->authed()) {
+            continue;   // 未鉴权的会话还没有 uid, 也就不存在登记
+        }
+
+        if (routers_[s->uid() % routers_.size()] != rid) {
+            continue;   // 不归这个实例管
+        }
+
+        terminal_enter(s);
+        ++n;
+    }
+
+    if (n > 0) {
+        xINFO("路由服务 {} 注册成功, 重报 {} 个终端", rid, n);
     }
 }
 
@@ -886,7 +925,7 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     int res = s->send(out);
     s->set_uid(req.uid);
 
-    // 鉴权通过 → 向路由服务登记(顶号仲裁/下线通知的前提)
+    // 鉴权通过 -> 向路由服务登记(顶号仲裁/下线通知的前提)
     terminal_enter(s);
 
     return res;

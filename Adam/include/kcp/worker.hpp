@@ -252,6 +252,11 @@ private:
     terminal_off(Session::Ptr s) noexcept;
 
 
+    // 路由服务(重)注册成功 → 把本 worker 名下、归属该实例的终端全量重报
+    void
+    terminal_reenter(uint32_t rid) noexcept;
+
+
     void
     on_s2c(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
