@@ -59,9 +59,9 @@ adam::tcp::Reactor::run() noexcept {
         if (m->type == Message::Type::SessionConnected) {
             ::close(m->arg.fd);
         }
-
         delete m; 
     });
+
     release();
     state_.store(core::State::Stopped);
 }
@@ -116,7 +116,11 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         }
     }
 
-    server_->hook()->on_disconnected(s);
+    if (s->id() > 0) {
+        server_->hook()->on_serv_disconnected(s);
+    }
+
+    server_->hook()->on_sess_disconnected(s);
 }
 
 
@@ -135,6 +139,10 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
         }
     }
 
+    if (server_->hook()->on_terminal_enter(t) != 0) {
+        return xOK;
+    }
+
     ters_[t->uid()] = std::move(t);
     return xOK;
 }
@@ -142,6 +150,11 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
 
 void
 adam::tcp::Reactor::remove_terminal(uint32_t uid) noexcept {
+    auto t = get_terminal(uid);
+    if (t != nullptr) {
+        server_->hook()->on_terminal_leave(t);
+    }
+
     ters_.erase(uid);
     server_->directory()->erase_if(uid, index_);
 }
@@ -189,7 +202,7 @@ adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
         return;
     }
 
-    if (server_->hook()->on_connected(s) != 0) {
+    if (server_->hook()->on_sess_connected(s) != 0) {
         ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
         return;
     }
@@ -248,7 +261,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     break;
 
                 case PID_REG_BKD_REQ:
-                    res = on_regist(s, pk);
+                    res = on_serv_regist(s, pk);
                     break;
 
                 case PID_TER_ENT_REQ:
@@ -327,7 +340,7 @@ adam::tcp::Reactor::on_ping(Session::Ptr s, core::Package* pk) noexcept {
 
 
 int
-adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
+adam::tcp::Reactor::on_serv_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
@@ -339,10 +352,10 @@ adam::tcp::Reactor::on_regist(Session::Ptr s, core::Package* pk) noexcept {
 
     if (s->send(*pk) < 0) {
         xERROR("消息发送失败");
-    } else {
-        xINFO("网关 {} 注册成功", id);
+        return 0;
     }
 
+    server_->hook()->on_serv_registed(s);
     return 0;
 }
 
@@ -497,8 +510,13 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
         return 0;
     }
-    h(s, pk);
 
+    auto t = get_terminal(pk->data.src_id);
+    if (t == nullptr) {
+        return 0;
+    }
+
+    h(t, pk);
     return 0;
 }
 

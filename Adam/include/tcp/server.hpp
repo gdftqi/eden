@@ -27,46 +27,57 @@ public:
     class IHook {
     public:
         virtual
-        ~IHook() noexcept
-        {}
+        ~IHook() noexcept {
+        }
 
 
         virtual void
-        on_init(Server*) noexcept
-        {}
+        on_init(Server*) noexcept {
+        }
 
 
         virtual void
-        on_stopped(Server*) noexcept
-        {}
+        on_stopped(Server*) noexcept {
+        }
 
 
         virtual int
-        on_connected(Session::Ptr) noexcept {
+        on_sess_connected(Session::Ptr) noexcept {
             return 0;
         }
 
 
         virtual void
-        on_disconnected(Session::Ptr) noexcept
-        {}
+        on_sess_disconnected(Session::Ptr) noexcept {
+        }
 
 
         virtual void
-        on_terminal_enter(Session::Ptr, core::Package*) noexcept
-        {}
+        on_serv_registed(Session::Ptr) noexcept {
+        }
 
 
         virtual void
-        on_terminal_leave(Session::Ptr, core::Package*) noexcept
-        {}
+        on_serv_disconnected(Session::Ptr) noexcept {
+        }
+
+
+        virtual int
+        on_terminal_enter(Terminal::Ptr) noexcept {
+            return 0;
+        }
+
+
+        virtual void
+        on_terminal_leave(Terminal::Ptr) noexcept {
+        }
     }; // class IHook;
 
 
     static constexpr int MAX_CONN = 2048; ///< 最大连接数
 
 
-    typedef void (*PackageHandler)(Session::Ptr, core::Package*) noexcept;
+    typedef void (*PackageHandler)(Terminal::Ptr, core::Package*) noexcept;
     typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
 
 
@@ -110,12 +121,6 @@ public:
     reactor(uint32_t idx) noexcept {
         ASSERT(idx < (uint32_t)reactors_.size(), "reactor index 越界: {}", idx);
         return reactors_[idx].get();
-    }
-
-
-    int
-    worker_size() const noexcept {
-        return (int)reactors_.size();
     }
 
 

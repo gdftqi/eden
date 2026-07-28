@@ -165,7 +165,7 @@ private:
 
 
     int
-    on_regist(Session::Ptr s, core::Package* pk) noexcept;
+    on_serv_regist(Session::Ptr s, core::Package* pk) noexcept;
 
 
     int

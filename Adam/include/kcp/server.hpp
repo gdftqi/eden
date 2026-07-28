@@ -52,10 +52,10 @@ public:
 
 
     /**
-     * @brief 后端服务连接事件
+     * @brief 后端服务注册成功事件
      */
     virtual void
-    on_serv_connected(tcp::Connector::Ptr) noexcept {
+    on_serv_registed(tcp::Connector::Ptr) noexcept {
     }
 
 
@@ -64,6 +64,16 @@ public:
      */
     virtual void
     on_serv_disconnected(tcp::Connector::Ptr) noexcept {
+    }
+
+
+    virtual void
+    on_terminal_binded(Session::Ptr, uint32_t) noexcept {
+    }
+
+
+    virtual void
+    on_terminal_unbinded(Session::Ptr, uint32_t) noexcept {
     }
 }; // class IEvent;
 

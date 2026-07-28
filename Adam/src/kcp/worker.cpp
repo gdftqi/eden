@@ -601,8 +601,8 @@ adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package
     
     uint32_t res = core::u32_to_le(*((uint32_t*)pk->data.payload));
     if (res == 0) {
-        xINFO("注册服务 {} 成功", conn->id());
         conn->set_authed(true);
+        server_->hook()->on_serv_registed(conn);
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
     }
@@ -620,7 +620,7 @@ adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Packa
 
     auto s = get_session(pk->meta.conv);
     if (s == nullptr) {
-        return;   // 会话已不在(自然下线/已被摘), 无需处理
+        return;
     }
 
     // conv 可能已被新会话复用; uid 对不上说明这是针对旧会话的迟到指令
@@ -668,6 +668,8 @@ adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Packa
     if (conn->send(*out, tnow_) < 0) {
         xERROR("{} OFF_NTF 回补失败: uid = {}", conn->to_string(), ntf.uid);
     }
+
+    server_->hook()->on_terminal_binded(s, conn->id());
 }
 
 
@@ -683,6 +685,7 @@ adam::kcp::Worker::on_terminal_unbind_notify(tcp::Connector::Ptr conn, core::Pac
     auto s = get_session(pk->meta.conv);
     if (s != nullptr && s->uid() == ntf.uid) {
         s->unbind(conn->id());
+        server_->hook()->on_terminal_unbinded(s, conn->id());
     }
 }
 
@@ -704,6 +707,7 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
     auto s = get_session(pk->meta.conv);
     if (s != nullptr && s->uid() == rsp.uid) {
         s->bind(conn->id());
+        server_->hook()->on_terminal_binded(s, conn->id());
     }
 }
 
