@@ -139,7 +139,7 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     } else {
         // 本 reactor: 旧档挂在别的连接 = 顶号; 同连接 = 重报, 静默覆盖
         auto old = get_terminal(t->uid());
-        if (old != nullptr && old->sess() != t->sess()) {
+        if (old != nullptr && old->conv() != t->conv()) {
             kick_terminal(t->uid(), 0);   // TODO: 顶号原因码待定义
         }
     }
