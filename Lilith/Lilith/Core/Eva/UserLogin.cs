@@ -1,17 +1,25 @@
-using Lilith.Utils;
+﻿using Lilith.Utils;
 using Newtonsoft.Json;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace Lilith.Core.Ra
+namespace Lilith.Core.Eva
 {
-    internal class Refresh
+    internal class UserLogin
     {
-        // 当前会话的 refreshToken: 登录成功后由 UserLogin 设置, 每次 /refresh 成功后滚动更新
-        public static string? RefreshToken;
+        class LoginInfo
+        {
+            [JsonProperty("username", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Username { get; set; }
 
-        class RefreshReq
+            [JsonProperty("password", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Password { get; set; }
+
+            [JsonProperty("time", NullValueHandling = NullValueHandling.Ignore)]
+            public Int64? Time { get; set; }
+        }
+
+        class UserLoginReq
         {
             [JsonProperty("hpk", NullValueHandling = NullValueHandling.Ignore)]
             public string? HttpPk { get; set; }
@@ -19,12 +27,11 @@ namespace Lilith.Core.Ra
             [JsonProperty("kpk", NullValueHandling = NullValueHandling.Ignore)]
             public string? KcpPk { get; set; }
 
-            // refreshToken 本身是 RA 加密过的黑盒, 明文放 token 字段即可
-            [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
-            public string? Token { get; set; }
+            [JsonProperty("info", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Info { get; set; }
         }
 
-        class RefreshRsp
+        class UserLoginRsp
         {
             [JsonProperty("conv", NullValueHandling = NullValueHandling.Ignore)]
             public UInt32? Conv { get; set; }
@@ -45,32 +52,27 @@ namespace Lilith.Core.Ra
             public string? AccessToken { get; set; }
 
             [JsonProperty("refresh_token", NullValueHandling = NullValueHandling.Ignore)]
-            public string? NewRefreshToken { get; set; }
+            public string? RefreshToken { get; set; }
         }
 
-        // 用 refreshToken 换一套新会话: 滚动更新 refreshToken + KcpSession.Init。
-        // 失败抛异常(refreshToken 失效/顶号 → 上层应回登录页)。
-        public static async Task POST()
+        public static async Task<int> POST(string username, string password)
         {
-            Log.Write($"[Refresh] POST() 开始, RefreshToken是否为空={string.IsNullOrEmpty(RefreshToken)}");
-
-            if (string.IsNullOrEmpty(RefreshToken))
+            var info = new LoginInfo
             {
-                throw new Exception("no refresh token");
-            }
+                Username = username,
+                Password = Crypto.Sha256(password),
+                Time = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            };
 
-            var req = new RefreshReq
+            var req = new UserLoginReq
             {
                 HttpPk = Crypto.Base64Encode(HttpSession.Instance.PK),
                 KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK),
-                Token = RefreshToken,
+                Info = HttpSession.Instance.Seal(info),
             };
 
-            var sw = Stopwatch.StartNew();
-            var rsp = await HttpSession.Instance.PostSecureAsync<RefreshRsp>("/refresh", req);
-            Log.Write($"[Refresh] POST() HTTP 完成, 耗时={sw.ElapsedMilliseconds}ms, host={rsp.Host}, conv={rsp.Conv}");
-
-            RefreshToken = rsp.NewRefreshToken;
+            var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
+            Refresh.RefreshToken = rsp.RefreshToken;
             KcpSession.Instance
                 .SetHost(rsp.Host!)
                 .SetConv(rsp.Conv!.Value)
@@ -78,7 +80,8 @@ namespace Lilith.Core.Ra
                 .SetGatewayID(rsp.HostID!.Value)
                 .SetMacKey(rsp.MacKey!)
                 .SetAccessToken(rsp.AccessToken!);
-            Log.Write($"[Refresh] POST() 完成, KcpSession 配置已更新");
+
+            return 0;
         }
     }
 }

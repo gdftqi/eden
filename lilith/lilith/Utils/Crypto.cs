@@ -126,7 +126,8 @@ namespace Lilith.Utils
             byte[] inputBytes = Encoding.UTF8.GetBytes(plainText);
             using (SHA256 sha256 = SHA256.Create())
             {
-                return BitConverter.ToString(sha256.ComputeHash(inputBytes)).Replace("-", "").ToLowerInvariant();
+                // 大写 hex: 服务端 bcrypt 比对的是字节串, 两端大小写必须一致
+                return BitConverter.ToString(sha256.ComputeHash(inputBytes)).Replace("-", "").ToUpperInvariant();
             }
         }
 
