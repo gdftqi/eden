@@ -118,7 +118,7 @@ func UserLogin(c *gin.Context) {
 	user, err := dao.GetUserBasicByUsername(info.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			utils.WebResponse(c, -1, "用户名不存在s")
+			utils.WebResponse(c, -1, "用户名不存在")
 			return
 		}
 		log.Error("GetUserBasicByUsername failed: %v", err)

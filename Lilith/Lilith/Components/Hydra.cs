@@ -220,7 +220,7 @@ namespace Lilith.Components
         /// <param name="username">用户名</param>
         /// <param name="password">密码</param>
         /// <returns>成功返回 true, 否则返回 false </returns>
-        public async Task<bool> Login(string username, string password)
+        public async Task<string> Login(string username, string password)
         {
             SetState(HydraState.Connecting);
             try
@@ -228,24 +228,23 @@ namespace Lilith.Components
                 if (await UserLogin.POST(username, password) != 0)
                 {
                     SetState(HydraState.Disconnected);
-                    return false;
+                    return "请检查网络";
                 }
 
                 if (await KcpSession.Instance.Open() != 0)
                 {
                     SetState(HydraState.Disconnected);
-                    return false;
+                    return "请检查网络";
                 }
 
                 Start();
                 SetState(HydraState.Connected);
-                return true;
+                return "";
             }
             catch (Exception ex)
             {
-                Log.Write($"[Hydra] Login 失败: {ex.Message}");
                 SetState(HydraState.Disconnected);
-                return false;
+                return ex.Message;
             }
         }
 

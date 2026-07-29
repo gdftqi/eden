@@ -55,11 +55,11 @@ namespace CC
             SetLoading(true);   // 隐藏表单, 显示转圈
 
             // RA 登录 + KCP 握手全由 Hydra 完成(内部已捕获异常, 只返回是否连上)
-            bool ok = await Hydra.Instance.Login(username, password);
-            if (!ok)
+            string err = await Hydra.Instance.Login(username, password);
+            if (!string.IsNullOrEmpty(err))
             {
                 SetLoading(false);
-                ShowError("登录失败, 请检查账号密码或网络");
+                ShowError(err);
                 return;
             }
 
