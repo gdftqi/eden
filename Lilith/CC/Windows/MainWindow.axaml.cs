@@ -19,9 +19,7 @@ namespace CC
             InitializeComponent();
             TabChat.SendRequested += OnSendText;
             // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
-            Hydra.Instance
-                .SetOnStateChanged(OnHydraState)
-                .SetOnPackage(OnPackage);
+            Hydra.Instance.SetOnStateChanged(OnHydraState).SetOnPackage(OnPackage);
         }
 
 
@@ -143,7 +141,11 @@ namespace CC
         private void BackToLogin()
         {
             // 会话已由 Hydra 关闭; 这里只做窗口切换。新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效。
-            var login = new LoginWindow();
+            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 → 把原因带到登录页显示。
+            uint code = Hydra.Instance.KickCode;
+            string tip = code != 0 ? Package.TerminalCodeText(code) : "";
+
+            var login = new LoginWindow(tip);
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 desktop.MainWindow = login;

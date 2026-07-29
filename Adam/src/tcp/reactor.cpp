@@ -135,12 +135,12 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
     if (prev != Directory::NPOS && prev != index_) {
-        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)0));   // TODO: 顶号原因码待定义
+        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)TER_CODE_TAKEOVER));
     } else {
         // 本 reactor: 旧档挂在别的连接 = 顶号; 同连接 = 重报, 静默覆盖
         auto old = get_terminal(t->uid());
         if (old != nullptr && old->conv() != t->conv()) {
-            kick_terminal(t->uid(), 0);   // TODO: 顶号原因码待定义
+            kick_terminal(t->uid(), TER_CODE_TAKEOVER);
         }
     }
 

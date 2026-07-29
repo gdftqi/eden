@@ -141,6 +141,58 @@ namespace Lilith.Core
         #endregion /// 消息ID
 
 
+        #region /// 终端离开码
+
+        /// <summary>客户端主动自离</summary>
+        public const uint TER_CODE_LEAVE = 1;
+
+        /// <summary>超时 / 网络断</summary>
+        public const uint TER_CODE_DISCONNECTED = 2;
+
+        /// <summary>被踢(通用)</summary>
+        public const uint TER_CODE_KICKED = 3;
+
+        /// <summary>协议违规</summary>
+        public const uint TER_CODE_PROTO_ERR = 4;
+
+        /// <summary>登记被业务拒绝</summary>
+        public const uint TER_CODE_REJECTED = 5;
+
+        /// <summary>网关连接断(后端本地判定)</summary>
+        public const uint TER_CODE_GW_LOST = 6;
+
+        /// <summary>业务自定义起点(本身只作分界)</summary>
+        public const uint TER_CODE_CUSTOM = 100;
+
+        /// <summary>顶号: 账号在其他设备登录, 可重新登录</summary>
+        public const uint TER_CODE_TAKEOVER = TER_CODE_CUSTOM + 1;
+
+        /// <summary>封号: 账号被封禁, 重登也会被拒绝</summary>
+        public const uint TER_CODE_BANNED = TER_CODE_CUSTOM + 2;
+
+        /// <summary>管理员踢下线(未封号), 可立即重新登录</summary>
+        public const uint TER_CODE_ADMIN_KICK = TER_CODE_CUSTOM + 3;
+
+
+        /// <summary>
+        /// 离开码 → 给用户看的提示语(对应 Adam 的 str_terminal_code)
+        /// </summary>
+        public static string TerminalCodeText(uint code)
+        {
+            switch (code)
+            {
+                case TER_CODE_TAKEOVER:   return "您的账号已在其他设备登录";
+                case TER_CODE_BANNED:     return "您的账号已被封禁";
+                case TER_CODE_ADMIN_KICK: return "您已被管理员请下线";
+                case TER_CODE_REJECTED:   return "服务器拒绝了本次登录";
+                case TER_CODE_PROTO_ERR:  return "客户端数据异常, 请更新版本";
+                default:                  return "连接已断开";
+            }
+        }
+
+        #endregion /// 终端离开码
+
+
         #region /// 消息字段
 
         /// <summary>

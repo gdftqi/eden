@@ -90,6 +90,14 @@ namespace Lilith.Components
         /// </summary>
         public HydraState State { get; private set; }
 
+        /// <summary>
+        /// [typhon] 被服务端踢除的原因码; 0 表示"本次断开不是被踢"。
+        /// 上层在 OnStateChanged 收到 Disconnected 时查它, 非 0 就用
+        /// <see cref="Package.TerminalCodeText"/> 给用户提示具体原因。
+        /// 每次发起连接(Login/重连)时清零, 不会串上一次的值。
+        /// </summary>
+        public uint KickCode { get; private set; }
+
 
         /// <summary>
         /// 关闭代理: 停掉收发线程并关闭 KCP 连接。再次 Login 会重新拉起线程。
@@ -222,6 +230,7 @@ namespace Lilith.Components
         /// <returns>成功返回 true, 否则返回 false </returns>
         public async Task<string> Login(string username, string password)
         {
+            KickCode = 0;   // 新一轮连接: 清掉上次的踢人原因
             SetState(HydraState.Connecting);
             try
             {
@@ -333,8 +342,8 @@ namespace Lilith.Components
                 if (res == -4)
                 {// 被服务端主动踢除: 绝不能重连 —— 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环。
                  // 上层收到 Disconnected 后应回登录页, 并按 KickCode 提示原因。
-                    uint code = KcpSession.Instance.KickCode;
-                    Log.Write($"[Hydra] 被服务端踢除: code = {code}, 不再重连");
+                    KickCode = KcpSession.Instance.KickCode;
+                    Log.Write($"[Hydra] 被服务端踢除: code = {KickCode}, 不再重连");
                     Close();
                     continue;
                 }
@@ -397,6 +406,7 @@ namespace Lilith.Components
                 return;
             }
 
+            KickCode = 0;   // 新一轮连接: 清掉上次的踢人原因
             SetState(HydraState.Reconnecting);
             _ = Reconnect();
         }

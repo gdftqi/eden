@@ -10,13 +10,19 @@ namespace CC
 {
     public partial class LoginWindow : Window
     {
-        public LoginWindow()
+        /// <param name="tip">回登录页的原因(如被顶号/被封禁), 空则不显示</param>
+        public LoginWindow(string tip = "")
         {
             InitializeComponent();
             // 登录窗接管 Hydra 的高层回调, 用 no-op 顶掉可能残留的旧 MainWindow 处理器
             Hydra.Instance
                 .SetOnStateChanged((_, _) => { })
                 .SetOnPackage(_ => { });
+
+            if (!string.IsNullOrEmpty(tip))
+            {
+                ShowError(tip);
+            }
         }
 
         private void TopBar_PointerPressed(object? sender, PointerPressedEventArgs e)

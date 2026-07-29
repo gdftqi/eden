@@ -24,6 +24,15 @@ adam::core::str_terminal_code(int code) noexcept {
         case TER_CODE_GW_LOST:
             return "gateway has losted";
 
+        case TER_CODE_TAKEOVER:
+            return "account logged in on another device";
+
+        case TER_CODE_BANNED:
+            return "account banned";
+
+        case TER_CODE_ADMIN_KICK:
+            return "kicked by administrator";
+
         default:
             return "unknown terminal code";
     }

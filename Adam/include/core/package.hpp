@@ -59,7 +59,13 @@ constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define TER_CODE_PROTO_ERR    (4)   // 协议违规             -> 立即清
 #define TER_CODE_REJECTED     (5)   // 登记被业务拒绝        -> 立即清
 #define TER_CODE_GW_LOST      (6)   // 网关连接断(后端本地判定, 一批同时消失)
-#define TER_CODE_CUSTOM       (100) // 业务自定义起点: 顶号/封禁/同设备互斥…由 Noah 或业务后端定义
+#define TER_CODE_CUSTOM       (100) // 业务自定义起点(本身只作分界, 具体码从 +1 开始)
+
+// 业务框架码(100+): 由路由服务发起的账号级处置, 客户端据此给用户不同提示。
+// 与框架码的区别 —— 框架码描述"连接怎么没的", 这些描述"账号被怎么处置了"。
+#define TER_CODE_TAKEOVER     (TER_CODE_CUSTOM + 1)  // 顶号: 账号在其他设备登录, 可重新登录
+#define TER_CODE_BANNED       (TER_CODE_CUSTOM + 2)  // 封号: 账号被封禁, 重登也会被 Eva 拒绝
+#define TER_CODE_ADMIN_KICK   (TER_CODE_CUSTOM + 3)  // 管理员踢下线(未封号), 可立即重新登录
 
 
 const char*
