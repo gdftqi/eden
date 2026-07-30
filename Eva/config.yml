@@ -18,8 +18,6 @@ mysql:
 id: 1
 host: "0.0.0.0:8080"
 ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
-x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
 self_pk: "LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M="
 self_sk: "YnTMQwNokqRO2CRPHb7zcdVg+/3EdHDoZ3k90bLb3O4="
-siphash_key: "XA1,y9Mn]0+iu2Y9"
 refresh_key: "c}>m^%6A!NbrD,GVr1vn!4Y!CPZ@Q,fe"

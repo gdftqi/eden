@@ -171,6 +171,7 @@ public:
 
     /**
      * @brief 主动踢除本终端
+     */
     int
     kick(uint32_t code) noexcept {
         return ::ikcp_send_kick(kcp_, code);
