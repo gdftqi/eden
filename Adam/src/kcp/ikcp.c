@@ -957,9 +957,20 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 
 		size -= IKCP_OVERHEAD;
 
-		if ((long)size < (long)len || (int)len < 0) return -2;
+		if ((long)size < (long)len || (int)len < 0)
+			return -2;
 
-		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK || (!kcp->is_client && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK)))
+		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK)
+			return -3;
+
+		/* [adam] RST/KICK 是服务端发给客户端的单向指令(见 ikcp_send_rst / ikcp_send_kick),
+		 * 服务端收到必是伪造: 信封 MAC 密钥按 conv & (nkeys-1) 分槽共享, 与受害者同槽的客户端
+		 * 能拿自己那把密钥给受害者的 conv 算出合法 MAC 骗过 XDP. 认了的话一个包就能把别人的
+		 * 会话打成 state<0, 上层 update() 当成一次正常判死摘掉, 日志上看不出异样.
+		 *
+		 * 返回错误码而不是改状态, 前提是调用方拿到 input 错误只丢包, 不摘会话
+		 * (见 kcp::Worker::on_udp_handle 里那句 continue). 那句和这里是一对, 改一边前先看另一边. */
+		if (!kcp->is_client && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK))
 			return -3;
 
 		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
