@@ -8,8 +8,6 @@ static constexpr int INTERVAL_MS = 5000;
 
 adam::kcp::Server::Server(IHook* hook) noexcept
     : hook_(hook) {
-    ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
-
     if (host_.empty()) {
         host_ = Conf::instance()->server()->host;
     }
