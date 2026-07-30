@@ -63,14 +63,10 @@ adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
         }
 
         ::close(fd);
+        fd = INVALID_SOCKET;
     }
 
     ::freeaddrinfo(result);
-
-    if (rp == nullptr) {
-        return INVALID_SOCKET;
-    }
-
     return fd;
 }
 
@@ -147,7 +143,6 @@ adam::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept
     }
 
     ::freeaddrinfo(res);
-
     return lfd;
 }
 
