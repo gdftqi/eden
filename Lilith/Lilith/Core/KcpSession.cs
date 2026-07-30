@@ -232,7 +232,7 @@ namespace Lilith.Core
                 kcp.SetSipHash(this.macKey!);
                 kcp.SetNoDelay(1, 100, 3, true);
                 kcp.SetMtu(UDP_MTU - Crypto.ENVELOPE_MAC_LEN);
-                kcp.SetPing(true);
+                kcp.SetClient(true);
                 kcp.SetTimeout(timeoutMs);
 
                 // 创建 safe kcp

@@ -129,7 +129,7 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
 
     if (server_->hook()->on_terminal_enter(t) != 0) {
-        t->kick(0, this);
+        t->kick(TER_CODE_REJECTED, this);
         return -1;
     }
 

@@ -394,7 +394,7 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 	}
 	memset(kcp->siphash, 0, sizeof(kcp->siphash));
 	kcp->last_snd_ms = 0;
-	kcp->ping_active = 0;
+	kcp->is_client = 0;   /* [adam] 默认服务端, 见 ikcp.h 里 is_client 的说明 */
 	kcp->pong = 0;
 
 	iqueue_init(&kcp->snd_queue);
@@ -959,7 +959,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 
 		if ((long)size < (long)len || (int)len < 0) return -2;
 
-		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK)
+		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK || (!kcp->is_client && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK)))
 			return -3;
 
 		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
@@ -1226,8 +1226,8 @@ void ikcp_flush(ikcpcb *kcp)
 		kcp->pong = 0;
 	}
 
-	// [adam] 主动 PING(仅 ping_active 的一端=客户端): 空闲超过 timeout/3 就发, 维持双向保活
-	if (kcp->ping_active && kcp->timeout > 0 &&
+	// [adam] 主动 PING(仅客户端): 空闲超过 timeout/3 就发, 维持双向保活; 服务端只回 PONG
+	if (kcp->is_client && kcp->timeout > 0 &&
 		_itimediff(current, kcp->last_snd_ms) >= (long)(kcp->timeout / 3)) {
 		seg.cmd = IKCP_CMD_PING;
 		size = (int)(ptr - buffer);
@@ -1521,9 +1521,9 @@ void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key)
 }
 
 
-void ikcp_set_ping(ikcpcb *kcp, int active)
+void ikcp_set_client(ikcpcb *kcp, int is_client)
 {
-	kcp->ping_active = active ? 1 : 0;
+	kcp->is_client = is_client ? 1 : 0;
 }
 
 

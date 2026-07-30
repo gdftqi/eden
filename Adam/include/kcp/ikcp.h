@@ -342,7 +342,7 @@ struct IKCPCB
 	IUINT32 incr;
 	IUINT32 last_rcv_ms, timeout;
 	IUINT32 last_snd_ms;
-	IUINT32 ping_active, pong;
+	IUINT32 is_client, pong;
 	IUINT32 kick_code;          /* [adam] 收到 KICK 时对端给的原因码, 供上层读取 */
 	char *mac_buf;
 	IUINT8 siphash[16];
@@ -416,8 +416,8 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current);
 // 设置信封 MAC
 void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 
-// 是否主动发 PING
-void ikcp_set_ping(ikcpcb *kcp, int active);
+// 设置本端角色: 非 0 = 客户端, 0 = 服务端(默认)。决定谁主动发 PING、谁认 RST/KICK
+void ikcp_set_client(ikcpcb *kcp, int is_client);
 
 // 标记是否已接纳对端
 void ikcp_open(ikcpcb *kcp);

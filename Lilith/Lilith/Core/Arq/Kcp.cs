@@ -56,10 +56,10 @@ namespace Lilith.Core.Arq
         public const int CMD_ACK = 82;            // cmd: ack
         public const int CMD_WASK = 83;            // cmd: window probe (ask)
         public const int CMD_WINS = 84;            // cmd: window size (tell/insert)
-        public const int CMD_PING = 85;            // [typhon] cmd: keepalive ping
-        public const int CMD_PONG = 86;            // [typhon] cmd: keepalive pong
-        public const int CMD_RST = 87;            // [typhon] cmd: 复位(服务端发, 客户端收到即断线)
-        public const int CMD_KICK = 88;            // [typhon] cmd: 服务端主动踢除(payload = 4 字节原因码)
+        public const int CMD_PING = 85;            // [adam] cmd: keepalive ping
+        public const int CMD_PONG = 86;            // [adam] cmd: keepalive pong
+        public const int CMD_RST = 87;            // [adam] cmd: 复位(服务端发, 客户端收到即断线)
+        public const int CMD_KICK = 88;            // [adam] cmd: 服务端主动踢除(payload = 4 字节原因码)
         public const int ASK_SEND = 1;             // need to send CMD_WASK
         public const int ASK_TELL = 2;             // need to send CMD_WINS
         public const int WND_SND = 32;             // default send window
@@ -70,7 +70,7 @@ namespace Lilith.Core.Arq
         public const int FRG_MAX = byte.MaxValue;  // kcp encodes 'frg' as byte. so we can only ever send up to 255 fragments.
         public const int THRESH_INIT = 2;
         public const int THRESH_MIN = 2;
-        public const int ENVELOPE_LEN = 8;         // [typhon] 出站信封 SipHash MAC 长度(对齐 C++ IKCP_ENVELOPE_LEN)
+        public const int ENVELOPE_LEN = 8;         // [adam] 出站信封 SipHash MAC 长度(对齐 C++ IKCP_ENVELOPE_LEN)
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
@@ -105,14 +105,14 @@ namespace Lilith.Core.Arq
         internal int fastresend;
         internal int fastlimit;
         internal bool nocwnd;        // congestion control, negated. heavily restricts send/recv window sizes.
-        // [typhon] 保活/超时
+        // [adam] 保活/超时
         internal uint last_rcv_ms;   // 最近收到对端数据的时刻
         internal uint last_snd_ms;   // 最近发出数据的时刻(空闲发 PING 用)
         internal uint timeout;       // 超时阈值 ms (0=禁用)
-        internal bool ping_active;   // 客户端主动发 PING 保活(空闲 timeout/3 触发)
+        internal bool is_client;
         // volatile: 上层跨线程读它当"就绪/加解密"门限, 需 release/acquire(Open() 前设的密钥随之发布), 同原 authed
         internal volatile KcpState state;   // 会话状态(见 KcpState); 默认 None
-        internal uint kickCode;             // [typhon] 被踢时服务端给的原因码(state == Kicked 时有效)
+        internal uint kickCode;             // [adam] 被踢时服务端给的原因码(state == Kicked 时有效)
         internal readonly Queue<Segment> snd_queue = new Queue<Segment>(16); // send queue
         internal readonly Queue<Segment> rcv_queue = new Queue<Segment>(16); // receive queue
         // snd_buffer needs index removals.
@@ -128,7 +128,7 @@ namespace Lilith.Core.Arq
         // MTU can be changed at runtime, which resizes the buffer.
         internal byte[] buffer;
 
-        // [typhon] 出站信封暂存 [8B MAC][datagram] + 信封 SipHash key(16B)
+        // [adam] 出站信封暂存 [8B MAC][datagram] + 信封 SipHash key(16B)
         // 对齐 C++ ikcp.c 的 kcp->mac_buf / kcp->siphash; 出站在 KCP 层加 MAC, 入站只剥不验(验在服务端 XDP)
         byte[] macBuffer;
         readonly byte[] siphash = new byte[16];
@@ -166,7 +166,7 @@ namespace Lilith.Core.Arq
             ssthresh = THRESH_INIT;
             fastlimit = FASTACK_LIMIT;
             buffer = new byte[(mtu + OVERHEAD) * 3];
-            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [typhon]
+            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [adam]
         }
 
         // ikcp_segment_new
@@ -598,13 +598,13 @@ namespace Lilith.Core.Arq
             uint latest_ts = 0;
             int flag = 0;
 
-            // [typhon] 入站信封: 至少 8B MAC + 24B KCP 头; 与 C++ ikcp_input 一致 —— 只剥不验。
+            // [adam] 入站信封: 至少 8B MAC + 24B KCP 头; 与 C++ ikcp_input 一致 —— 只剥不验。
             //          (出站才加 MAC; 入站 MAC 校验在服务端 XDP, 客户端无 XDP 故不校验, 靠源地址过滤 + AEAD 兜底)
             if (data == null || size < ENVELOPE_LEN + OVERHEAD) return -1;
             offset += ENVELOPE_LEN;
             size -= ENVELOPE_LEN;
 
-            last_rcv_ms = current;   // [typhon] 收到对端数据 → 刷新保活时刻
+            last_rcv_ms = current;   // [adam] 收到对端数据 → 刷新保活时刻
 
             while (true)
             {
@@ -766,7 +766,7 @@ namespace Lilith.Core.Arq
             return 0;
         }
 
-        // [typhon] 出站信封: 在 KCP datagram 前拼 8B SipHash MAC(覆盖前 OVERHEAD 字节), 与 C++ ikcp_output 一致。
+        // [adam] 出站信封: 在 KCP datagram 前拼 8B SipHash MAC(覆盖前 OVERHEAD 字节), 与 C++ ikcp_output 一致。
         //          datagram 可能含多个 segment, 但 MAC 只覆盖第一个 segment 的 24B 头(和服务端 XDP 校验范围一致)。
         void Output(int size)
         {
@@ -883,8 +883,8 @@ namespace Lilith.Core.Arq
 
             probe = 0;
 
-            // [typhon] 主动 PING(客户端): 空闲超过 timeout/3 就发, 维持保活
-            if (ping_active && timeout > 0 &&
+            // [adam] 主动 PING(仅客户端): 空闲超过 timeout/3 就发, 维持保活; 服务端只回 PONG
+            if (is_client && timeout > 0 &&
                 Utils.TimeDiff(current, last_snd_ms) >= (int)(timeout / 3))
             {
                 seg.cmd = CMD_PING;
@@ -1054,11 +1054,11 @@ namespace Lilith.Core.Arq
             {
                 updated = true;
                 ts_flush = current;
-                last_rcv_ms = current;   // [typhon] 初始化保活时刻, 防首次 update 误判超时
+                last_rcv_ms = current;   // [adam] 初始化保活时刻, 防首次 update 误判超时
                 last_snd_ms = current;
             }
 
-            // [typhon] 判死: state<0(Rst=-2 / Timeout=-1)直接返回该状态码(int 契约: 0=健康)
+            // [adam] 判死: state<0(Rst=-2 / Timeout=-1)直接返回该状态码(int 契约: 0=健康)
             if ((int)state < 0)
             {
                 return (int)state;
@@ -1157,7 +1157,7 @@ namespace Lilith.Core.Arq
                 throw new ArgumentException("MTU must be higher than 50 and higher than OVERHEAD");
 
             buffer = new byte[(mtu + OVERHEAD) * 3];
-            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [typhon]
+            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [adam]
             this.mtu = mtu;
             mss = mtu - OVERHEAD;
         }
@@ -1170,9 +1170,9 @@ namespace Lilith.Core.Arq
             Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
         }
 
-        public void SetPing(bool active)
-        {// 是否主动发 PING(客户端 true; 服务端 false 只回 PONG)
-            ping_active = active;
+        public void SetClient(bool isClient)
+        {// 设置本端角色 客户端 true —— 主动发 PING、接收 RST/KICK
+            is_client = isClient;
         }
 
         public void SetTimeout(uint ms)
@@ -1182,7 +1182,7 @@ namespace Lilith.Core.Arq
 
         public KcpState State { get { return state; } }
 
-        /// <summary>[typhon] 被踢原因码, State == Kicked 时有效</summary>
+        /// <summary>[adam] 被踢原因码, State == Kicked 时有效</summary>
         public uint KickCode { get { return kickCode; } }
 
         public void Open()
