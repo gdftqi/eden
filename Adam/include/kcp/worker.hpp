@@ -48,9 +48,9 @@ public:
 
 
     /**
-     * @brief closing 状态
+     * @brief 会话已销毁, 但那次 KICK 还没确认送达
      */
-    struct Closing {
+    struct Lingering {
         ::sockaddr_storage addr    {};
         ::socklen_t        addrlen { 0 };
         uint32_t           len     { 0 };   // KICK 报文长度(含 8B MAC 信封)
@@ -58,7 +58,7 @@ public:
         uint8_t            buf[core::ENVELOPE_MAC_LEN + 64] {};
     };
 
-    typedef absl::flat_hash_map<uint32_t, Closing> ClosingMap;
+    typedef absl::flat_hash_map<uint32_t, Lingering> LingeringMap;
 
 
     /**
@@ -197,7 +197,7 @@ private:
     remove_session(uint32_t conv, uint32_t code) noexcept;
 
 
-    // 踢除会话: 发 KICK 给客户端 → 快照报文进 closing 表 → 摘会话
+    // 踢除会话: 发 KICK 给客户端 → 快照报文进 lingering 表 → 摘会话
     void
     kick_session(uint32_t conv, uint32_t code) noexcept;
 
@@ -338,10 +338,10 @@ private:
     // 会话属性
     // ------------------------------------------------------------------
 
-    SessMap     sesss_;      // 会话侧集合
-    RouterIDSet router_ids_; // 路由服务集, 这里只存路由服务的id
-    ClosingMap  closing_;    // conv → 待重发的 KICK 报文(见 Closing 注释)
-    ServMap     servs_;      // 服务侧集合
+    SessMap      sesss_;      // 会话侧集合
+    RouterIDSet  router_ids_; // 路由服务集, 这里只存路由服务的id
+    LingeringMap lingering_;  // 待重发的 KICK 报文
+    ServMap      servs_;      // 服务侧集合
 }; // class Worker;
 
 

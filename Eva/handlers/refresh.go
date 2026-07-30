@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/base64"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/eva/com"
@@ -82,6 +84,14 @@ func Refresh(c *gin.Context) {
 	}
 
 	userID := refreshToken.UserID
+
+	okID := strconv.FormatUint(uint64(userID), 10)
+	if sec, err := com.RateHit("ok", okID, conf.Instance.LoginOk); err != nil {
+		log.Error("限速记账失败: %v", err)
+	} else if sec > 0 {
+		utils.WebResponse(c, -1, fmt.Sprintf("操作过于频繁, 请 %d 秒后再试", sec))
+		return
+	}
 
 	// Step 3, 交换密钥(加密应答用)
 	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/eva/com"
 	"github.com/eva/mid"
 	"github.com/eva/utils"
 	"gopkg.in/yaml.v3"
@@ -21,6 +22,8 @@ type config struct {
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
 	Etcd         *mid.EtcdConfig  `yaml:"etcd"`        // etcd 配置
 	Mysql        *mid.MysqlConfig `yaml:"mysql"`       // mysql 配置
+	LoginOk      *com.RateRule    `yaml:"login_ok"`
+	LoginFail    *com.RateRule    `yaml:"login_fail"`
 
 	Ed25519Sk []byte `yaml:"-"` // ed25519 签名私钥, 网关会用公钥验签
 	SelfSk    []byte `yaml:"-"` // 自己的X25519私钥
@@ -78,6 +81,15 @@ func Init(fname string) error {
 
 	if len(tmp.RefreshKey) != utils.XX20KeyLen {
 		return errors.New("refresh_key is invalid")
+	}
+
+	// 限速配置写错(比如 max 填 0)会把所有人挡在门外, 所以宁可启动就失败, 别等线上才发现
+	if err = tmp.LoginOk.Check("login_ok"); err != nil {
+		return err
+	}
+
+	if err = tmp.LoginFail.Check("login_fail"); err != nil {
+		return err
 	}
 
 	if tmp.Redis == nil {

@@ -21,3 +21,21 @@ ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJd
 self_pk: "LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M="
 self_sk: "YnTMQwNokqRO2CRPHb7zcdVg+/3EdHDoZ3k90bLb3O4="
 refresh_key: "c}>m^%6A!NbrD,GVr1vn!4Y!CPZ@Q,fe"
+
+# 成功发放凭据(登录成功 / refresh)的限速, 按【账号】计。
+# 目的: 每成功一次就拿到一个新 conv + 一把 SipHash 密钥, 不限速就能刷齐全部 256 把。
+login_ok:
+  win: 300        # 5 分钟
+  max: 5          # 窗口内最多 5 次
+  ban: 600        # 超了封 10 分钟
+  day_max: 100    # 24 小时最多 100 次
+  day_ban: 86400  # 超了封 24 小时
+
+# 登录失败的限速, 按【IP + 账号】计。
+# 带 IP 是为了不让别人拿你的用户名故意输错来封你的号。
+login_fail:
+  win: 300
+  max: 5
+  ban: 600
+  day_max: 20
+  day_ban: 86400

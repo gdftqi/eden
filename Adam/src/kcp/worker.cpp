@@ -9,10 +9,6 @@
 #include "core/proto/pid_terminal_unbind.hpp"
 
 
-// closing 状态保留时长: 期间对端每发一个包就回一次 KICK(借鉴 QUIC 的 3×PTO)
-static constexpr int CLOSING_MS    = 3000;
-
-
 adam::kcp::Worker::Worker(Server* s, int idx) noexcept
     : server_(s)
     , index_(idx) {
@@ -170,20 +166,21 @@ adam::kcp::Worker::kick_session(uint32_t conv, uint32_t code) noexcept {
         return;
     }
 
-    // KICK 走 ikcp_output → 本 worker 的 dg_que_ 追加一条完整 wire 报文(含 MAC 信封)。
-    // 取它的快照存入 closing 表: 对端若没收到还会继续发包, 那时原样回一次。
+    // KICK 之后的逗留时长: 期间对端每发一个包就回一次 KICK(借鉴 QUIC 的 3 × PTO)
+    constexpr int LINGERING_MS  = 3000;
+
     size_t before = dg_que_.size();
     if (s->kick(code) == 0 && dg_que_.size() > before) {
         auto* dg = dg_que_.back();
 
-        Closing c;
+        Lingering c;
         if (dg->len <= sizeof(c.buf)) {
             ::memcpy(&c.addr, &dg->addr, dg->addrlen);
             ::memcpy(c.buf, dg->buf, dg->len);
             c.addrlen = dg->addrlen;
             c.len     = dg->len;
-            c.expire  = tnow_ + CLOSING_MS;
-            closing_[conv] = c;
+            c.expire  = tnow_ + LINGERING_MS;
+            lingering_[conv] = c;
         }
     }
 
@@ -299,15 +296,15 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     continue;
                 }
 
-                auto cit = closing_.find(conv);
-                if (cit != closing_.end()) {
+                auto cit = lingering_.find(conv);
+                if (cit != lingering_.end()) {
                     auto& c = cit->second;
                     if (tnow_ < c.expire) {
                         auto* dg = dg_pool_.acquire(&c.addr, c.addrlen, (const char*)c.buf, c.len, tnow_);
                         dg_que_.emplace_back(dg);
                         continue;
                     }
-                    closing_.erase(cit);
+                    lingering_.erase(cit);
                 }
 
                 auto s = get_session(conv);
@@ -541,10 +538,10 @@ adam::kcp::Worker::update() noexcept {
         }
     }
 
-    // closing 表过期清理(通常为空, 一次 empty 判断即跳过)
-    for (auto it = closing_.begin(); it != closing_.end(); ) {
+    // lingering 表过期清理(通常为空, 一次 empty 判断即跳过)
+    for (auto it = lingering_.begin(); it != lingering_.end(); ) {
         if (now >= it->second.expire) {
-            closing_.erase(it++);
+            lingering_.erase(it++);
         } else {
             ++it;
         }

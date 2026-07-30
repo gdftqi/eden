@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/eva/com"
@@ -131,12 +133,31 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	userID := uint32(user.ID)
+	okID := strconv.FormatUint(uint64(userID), 10)
+	failID := c.ClientIP() + "|" + okID
+
+	if sec, err := com.RateBanned(com.RateBanKey("ok", okID), com.RateBanKey("fail", failID)); err != nil {
+		log.Error("限速查询失败: %v", err)
+	} else if sec > 0 {
+		utils.WebResponse(c, -1, fmt.Sprintf("登录过于频繁, 请 %d 秒后再试", sec))
+		return
+	}
+
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(info.Password)) != nil {
+		if _, err := com.RateHit("fail", failID, conf.Instance.LoginFail); err != nil {
+			log.Error("限速记账失败: %v", err)
+		}
 		utils.WebResponse(c, -1, "密码错误")
 		return
 	}
 
-	userID := uint32(user.ID)
+	if sec, err := com.RateHit("ok", okID, conf.Instance.LoginOk); err != nil {
+		log.Error("限速记账失败: %v", err)
+	} else if sec > 0 {
+		utils.WebResponse(c, -1, fmt.Sprintf("登录过于频繁, 请 %d 秒后再试", sec))
+		return
+	}
 
 	// Step 6, 获取网关
 	gwList, err := com.GetMosesListFromEtcd()
