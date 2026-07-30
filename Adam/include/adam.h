@@ -18,6 +18,7 @@ using TcpConf = adam::tcp::Conf;
 #define KCP_SERVER_MAIN(name, config, ...) \
     static adam::kcp::Server::Ptr server; static void on_signal(int) { if (server) server->stop(); } \
     int main(int /* argc */, char** /* argv */) { \
+        ASSERT(::sodium_init() == 0, "libsodium 初始化失败"); \
         if (!adam::utils::lock_pid(#name ".pid")) { xERROR("程序已启动"); return EXIT_FAILURE; } \
         KcpConf::instance()->load_from_file(config); \
         adam::utils::init_log(KcpConf::instance()->log_path()); \

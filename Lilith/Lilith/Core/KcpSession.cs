@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -61,8 +60,7 @@ namespace Lilith.Core
         }
 
         /// <summary>
-        /// [typhon] 被服务端踢除的原因码(Update 返回 -4 时有效)。
-        /// 框架码见 Adam 的 TER_CODE_*(0-99), 业务码由服务端自定义(100+)。
+        /// [Adam] 被服务端踢除的原因码(Update 返回 -4 时有效)
         /// </summary>
         public uint KickCode
         {
@@ -170,11 +168,11 @@ namespace Lilith.Core
         /// <summary>
         /// 设置 Envelope MAC KEY
         /// </summary>
-        /// <param name="macKey"></param>
+        /// <param name="macKey">base64 编码的 16 字节 MAC 密钥</param>
         /// <returns></returns>
         public KcpSession SetMacKey(string macKey)
         {
-            this.macKey = Encoding.ASCII.GetBytes(macKey);
+            this.macKey = Crypto.Base64DecodeToBytes(macKey);
             return this;
         }
 

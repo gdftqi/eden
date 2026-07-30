@@ -6,7 +6,6 @@
 #include "bpf/envelope_filter.hpp"
 #include "core/adam.in.hpp"
 #include "utils/cryptor.hpp"
-#include "utils/string_ex.hpp"
 #include "utils/etcd.hpp"
 #include "utils/log.hpp"
 
@@ -27,7 +26,7 @@ class Conf {
 public:
     typedef uint8_t X25519Key[utils::X25519_KEY_LEN];
     typedef uint8_t ED25519PK[utils::ED25519_PK_LEN];
-    typedef bpf::EnvelopeFilter::SipHashKey SipHashKey;
+    using SipHashKey = bpf::EnvelopeFilter::SipHashKey;
 
 
     static Conf*
@@ -38,6 +37,21 @@ public:
 
 
     ~Conf() noexcept {
+        if (siphashs_ != nullptr) {
+            ::mi_free(siphashs_);
+        }
+    }
+
+
+    const char*
+    etcd_key() const noexcept {
+        return server_.key.c_str();
+    }
+
+
+    const char*
+    etcd_value() const noexcept {
+        return json_.c_str();
     }
 
 
@@ -125,12 +139,20 @@ public:
 
 
     /**
-     * @brief 协议密钥 (16 字节), 该密钥用于加密协议头, 防止被攻击者轻易伪造数据包
-     *        
+     * @brief 协议密钥表(每把 16 字节)
      */
-    const SipHashKey&
-    siphash() const noexcept {
-        return siphash_;
+    const SipHashKey*
+    siphashs() const noexcept {
+        return siphashs_;
+    }
+
+
+    /**
+     * @brief 协议密钥数量(2 的幂)
+     */
+    int
+    nsiphash() const noexcept {
+        return nsiphash_;
     }
 
 
@@ -182,7 +204,7 @@ public:
     /**
      * @brief 网卡接口名称, 用于 XDP 验证
      */
-    std::string
+    const std::string&
     ifname() const noexcept {
         return ifname_;
     }
@@ -191,7 +213,7 @@ public:
     /**
      * @brief kcp bpf 文件路径
      */
-    std::string
+    const std::string&
     kcp_bpf_path() const noexcept {
         return kcp_bpf_path_;
     }
@@ -200,7 +222,7 @@ public:
     /**
      * @brief bpf xdp 文件路径
      */
-    std::string
+    const std::string&
     envelope_bpf_path() const noexcept {
         return envelope_bpf_path_;
     }
@@ -209,7 +231,7 @@ public:
     /**
      * @brief 日志文件存放路径
      */
-    std::string
+    const std::string&
     log_path() const noexcept {
         return log_path_;
     }
@@ -218,7 +240,7 @@ public:
     /**
      * @brief 火焰图路径
      */
-    std::string
+    const std::string&
     prof_path() const noexcept {
         return prof_path_;
     }
@@ -226,7 +248,7 @@ public:
 
 private:
     explicit
-    Conf() noexcept 
+    Conf() noexcept
     {}
 
 
@@ -237,18 +259,20 @@ private:
     int               nodelay_      { 1 };          // 是否开启低延迟模式
     int               interval_     { 10 };         // update 间隔
     int               resend_       { 3 };          // 快速重传, 表示连接跳过3个包的时候就会重传
-    int               nc_           { 1 };          // 是否关闭拥塞控制, 1为关闭, 0为不关闭ss
-    SipHashKey        siphash_      {};             // 协议密钥
-    X25519Key         x25519_pk_    {};             // LOGIN 服务用来作 sealedbox 加密
-    X25519Key         x25519_sk_    {};             // 用于 鉴权时的 sealedbox 解密
-    ED25519PK         ed25519_pk_   {};             // LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
-    core::ServerInfo  server_;
-    utils::EtcdConfig etcd_;
-    std::string       ifname_;
-    std::string       kcp_bpf_path_;
-    std::string       envelope_bpf_path_;
-    std::string       log_path_;
-    std::string       prof_path_;
+    int               nc_           { 1 };          // 是否关闭拥塞控制, 1为关闭, 0为不关闭
+    X25519Key         x25519_pk_    { 0 };          // LOGIN 服务用来作 sealedbox 加密
+    X25519Key         x25519_sk_    { 0 };          // 用于 鉴权时的 sealedbox 解密
+    ED25519PK         ed25519_pk_   { 0 };          // LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
+    core::ServerInfo  server_;                      // 服务信息
+    utils::EtcdConfig etcd_;                        // etcd 连接配置
+    std::string       ifname_;                      // ifconfig 接口名称
+    std::string       kcp_bpf_path_;                // kcp bpf 路径, 用于路由选择
+    std::string       envelope_bpf_path_;           // envelope bpf 路径, 用于消息过滤
+    std::string       log_path_;                    // 日志路径
+    std::string       prof_path_;                   // prof 路径
+    int               nsiphash_     { 256 };        // siphash key 的数量
+    SipHashKey*       siphashs_     { nullptr };    // sip hash keys
+    std::string       json_;
 }; // class Conf;
 
     

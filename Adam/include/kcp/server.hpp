@@ -242,7 +242,7 @@ private:
      * @brief 定时更新后台服务状态, 每次 epoll_wait 超时后调用
      */
     void
-    update_serv() noexcept;
+    update() noexcept;
 
 
     /**

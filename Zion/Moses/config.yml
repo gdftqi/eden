@@ -32,8 +32,6 @@ interval: 10
 resend: 3
 nc: 1
 
-siphash: "XA1,y9Mn]0+iu2Y9"
-x25519_pk: "33GrMPexOmZIe+q8+yUN3p+k2FkjHezAMWnpmWswu0w="
-x25519_sk: "MLCRzqZTtmEIerqQeJKiIMgNOpEZOKH3f/ehhle6bhA="
+nsiphash: 256
 ed25519_pk: "OjvxWlrli0k+EDeNwWDMMTyXWpXtizQyifq8tn+bBck="
 # ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="

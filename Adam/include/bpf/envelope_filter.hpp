@@ -48,7 +48,7 @@ public:
      * @return 成功返回 0, 否则表示错误(-EINVAL / libbpf 错误码)
      */
     int
-    init(const char* obj_path, uint16_t udp_port, const SipHashKey key) noexcept;
+    init(const char* obj_path, uint16_t udp_port, const SipHashKey* keys, int keys_count) noexcept;
 
 
     /**
@@ -71,21 +71,12 @@ public:
     detach() noexcept;
 
 
-    /**
-     * @brief 切换 SipHash key
-     *
-     * @param new_key 新的 16 字节 key
-     */
-    int
-    rotate_key(const SipHashKey new_key) noexcept;
-
-
 private:
     ::bpf_object* obj_         { nullptr };
-    int           prog_fd_     { -1 };      ///< XDP program fd
-    int           key_map_fd_  { -1 };      ///< envelope_key map fd
-    int           if_index_    { -1 };      ///< attached interface index, -1 表示未 attach
-    unsigned int  xdp_flags_   { 0 };       ///< 实际 attach 用的模式 (用于 detach)
+    int           prog_fd_     { -1 };      // XDP program fd
+    int           key_map_fd_  { -1 };      // envelope_key map fd
+    int           if_index_    { -1 };      // attached interface index, -1 表示未 attach
+    unsigned int  xdp_flags_   { 0 };       // 实际 attach 用的模式 (用于 detach)
 
 
     EnvelopeFilter(const EnvelopeFilter&) = delete;

@@ -92,7 +92,6 @@ public:
         , host_(host) {
         host_ = host_.substr(host_.find(':'));
         ASSERT(hook_ != nullptr, "hook handler cannot be null");
-        ASSERT(::sodium_init() == 0, "libsodium 初始化失败");
     }
 
 

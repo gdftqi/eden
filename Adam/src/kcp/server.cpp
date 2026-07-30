@@ -51,7 +51,8 @@ adam::kcp::Server::run() noexcept {
         int port = ::atoi(host_.c_str() + colon + 1);
         ASSERT(port > 0 && port <= 65535, "invalid port in host {}", host_);
 
-        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, adam::kcp::Conf::instance()->siphash());
+        auto* cf = adam::kcp::Conf::instance();
+        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, cf->siphashs(), cf->nsiphash());
         if (rc != 0) {
             xERROR("envelope filter init failed: rc = {}", rc);
             state_.store(adam::core::State::Stopped);
@@ -120,7 +121,7 @@ adam::kcp::Server::run() noexcept {
             on_event_handle(evs[i]);
         }
 
-        update_serv();
+        update();
     }
 
     // -------------------------------------- 停止步骤 --------------------------------------
@@ -186,7 +187,7 @@ adam::kcp::Server::release() noexcept {
 
 
 void
-adam::kcp::Server::update_serv() noexcept {
+adam::kcp::Server::update() noexcept {
     // 重新鉴权的时间间隔(150s)
     constexpr uint64_t AUTH_INTERVAL = 150000;
 
@@ -196,9 +197,7 @@ adam::kcp::Server::update_serv() noexcept {
         return;
     }
 
-    const adam::utils::EtcdConfig* etcd   = Conf::instance()->etcd();
-    const adam::core::ServerInfo*  server = Conf::instance()->server();
-    
+    const adam::utils::EtcdConfig* etcd = Conf::instance()->etcd();
     adam::utils::EtcdRsp rsp;
     auto* url = etcd->url.c_str();
 
@@ -231,8 +230,8 @@ adam::kcp::Server::update_serv() noexcept {
 
         tls.lease = ::strtoull(rsp.id.c_str(), nullptr, 10);
 
-        auto k  = server->key.c_str();
-        auto v  = server->val.c_str();
+        auto k  = Conf::instance()->etcd_key();
+        auto v  = Conf::instance()->etcd_value();
         auto ls = std::to_string(tls.lease);
 
         if (adam::utils::etcd_put(&rsp, url, tls.token, k, v, ls.c_str()) != 0) {

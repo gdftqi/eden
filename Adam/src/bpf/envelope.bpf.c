@@ -41,15 +41,21 @@
 //                             BPF maps
 // =============================================================================
 
+// 密钥表
+#define ENVELOPE_KEY_SLOTS 256
+
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 2);
+    __uint(max_entries, ENVELOPE_KEY_SLOTS);
     __type(key, __u32);
     __type(value, __u8[16]);
 } envelope_key SEC(".maps");
 
 
 const volatile __u16 target_port = 0;
+
+// 密钥数量(2 的幂), 由用户态在加载前写入 .rodata; 0 表示未配置 -> 退化成单把(下标 0)
+const volatile __u32 nkeys = 0;
 
 
 // =============================================================================
@@ -60,6 +66,19 @@ static __always_inline __u64
 rotl64(__u64 x, int b) {
     return (x << b) | (x >> (64 - b));
 }
+
+
+// little-endian load 32-bit. 调用方保证 p[0..4) in-bounds.
+static __always_inline __u32
+load_le32(const __u8* p) {
+    __u32 v = 0;
+    v |= (__u32)p[0];
+    v |= (__u32)p[1] << 8;
+    v |= (__u32)p[2] << 16;
+    v |= (__u32)p[3] << 24;
+    return v;
+}
+
 
 
 // little-endian load 64-bit. 调用方保证 p[0..8) in-bounds.
@@ -75,6 +94,12 @@ load_le64(const __u8* p) {
     v |= (__u64)p[6] << 48;
     v |= (__u64)p[7] << 56;
     return v;
+}
+
+
+static __always_inline int
+key_is_zero(const __u8* k) {
+    return (load_le64(k) | load_le64(k + 8)) == 0;
 }
 
 
@@ -189,28 +214,31 @@ filter_envelope(struct xdp_md* ctx) {
     // 现在 payload[0..32) 全部 in-bounds, verifier 知道
     // - payload[0..8) = MAC
     // - payload[8..32) = KCP frame 前 24 字节 (= ENVELOPE_MAC_HASH_LEN)
-
     __u64 tag_wire = load_le64(payload);
 
-    __u32 key_idx = 0;
+    // conv 是 KCP 头的前 4 字节(小端), 紧跟在 8 字节 MAC 之后
+    // 用它选密钥槽位: 攻击者手里只有自己 conv 对应的那一把, 伪造不了其他同余类
+    __u32 conv = load_le32(payload + ENVELOPE_MAC_LEN);
+
+    // nkeys 是 2 的幂(用户态已断言), 用 & 代替 % —— eBPF 里除法慢且 verifier 挑剔
+    __u32 n = nkeys;
+    if (n == 0) {
+        return XDP_DROP;
+    }
+
+    __u32 key_idx = conv % n;
+    if (key_idx >= ENVELOPE_KEY_SLOTS) {
+        return XDP_DROP;
+    }
+
     __u8* key = bpf_map_lookup_elem(&envelope_key, &key_idx);
-    if (!key) {
-        return XDP_PASS;     // dev 模式 key 未初始化, 不阻断
+    if (!key || key_is_zero(key)) {
+        return XDP_DROP;
     }
 
     __u64 tag_calc = siphash24_xdp_fixed24(payload + ENVELOPE_MAC_LEN, key);
     if (tag_wire == tag_calc) {
         return XDP_PASS;
-    }
-
-    // 尝试 previous key (rotate 过渡期)
-    key_idx = 1;
-    key = bpf_map_lookup_elem(&envelope_key, &key_idx);
-    if (key) {
-        tag_calc = siphash24_xdp_fixed24(payload + ENVELOPE_MAC_LEN, key);
-        if (tag_wire == tag_calc) {
-            return XDP_PASS;
-        }
     }
 
     return XDP_DROP;

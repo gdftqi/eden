@@ -1164,6 +1164,9 @@ namespace Lilith.Core.Arq
 
         public void SetSipHash(byte[] key)
         {// 设置出站信封 SipHash key(16B, 对齐 C++ ikcp_set_siphash)
+            if (key == null || key.Length != siphash.Length)
+                throw new ArgumentException($"SipHash key 必须是 {siphash.Length} 字节, 实际 {key?.Length ?? 0}", nameof(key));
+
             Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
         }
 

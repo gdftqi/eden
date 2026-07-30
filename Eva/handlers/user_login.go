@@ -139,9 +139,9 @@ func UserLogin(c *gin.Context) {
 	userID := uint32(user.ID)
 
 	// Step 6, 获取网关
-	gwList, err := com.GetServerInfoListFromEtcd()
+	gwList, err := com.GetMosesListFromEtcd()
 	if err != nil {
-		log.Error("GetServerInfoListFromEtcd 失败: %v", err)
+		log.Error("GetMosesListFromEtcd 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误2")
 		return
 	}
@@ -153,7 +153,7 @@ func UserLogin(c *gin.Context) {
 
 	gw := gwList[userID%uint32(len(gwList))]
 
-	conv, err := com.GenConv(gw.ID)
+	conv, err := com.GenConv(gw.Server.ID)
 	if err != nil {
 		log.Error("GenConv 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误3")
@@ -192,7 +192,7 @@ func UserLogin(c *gin.Context) {
 	}
 	copy(accessToken.CliPK[:], kpk)
 
-	sealed, err := accessToken.SealeaBoxAndSign(conf.Instance.Ed25519Sk, conf.Instance.X25519Pk)
+	sealed, err := accessToken.SealeaBoxAndSign(conf.Instance.Ed25519Sk, gw.X25519Pk)
 	if err != nil {
 		log.Error("token seal 失败: %v", err)
 		utils.WebResponse(c, -1, "服务器内部错误5")
@@ -223,9 +223,9 @@ func UserLogin(c *gin.Context) {
 	rsp := userLoginRsp{
 		Conv:         conv,
 		UserID:       userID,
-		Host:         gw.Host,
-		HostID:       gw.ID,
-		MacKey:       conf.Instance.SipHashKey,
+		Host:         gw.Server.Host,
+		HostID:       gw.Server.ID,
+		MacKey:       base64.StdEncoding.EncodeToString(gw.MacKeyByConv(conv)),
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,
 	}

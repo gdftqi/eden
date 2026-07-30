@@ -11,10 +11,10 @@ int
 main(int, char**) {
     ASSERT(::sodium_init() == xOK, "libsodium 初始化失败");
 
-    uint8_t pk[typhon::utils::ED25519_PK_LEN];   // 32B, 网关内置验签
-    uint8_t sk[typhon::utils::ED25519_SK_LEN];   // 64B, 登录服保管签 token
+    uint8_t pk[adam::utils::ED25519_PK_LEN];   // 32B, 网关内置验签
+    uint8_t sk[adam::utils::ED25519_SK_LEN];   // 64B, 登录服保管签 token
 
-    if (typhon::utils::ed25519_keygen(pk, sk) != 0) {
+    if (adam::utils::ed25519_keygen(pk, sk) != 0) {
         xERROR("生成密钥对失败");
         ::exit(EXIT_FAILURE);
     }
