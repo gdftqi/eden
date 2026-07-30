@@ -161,10 +161,16 @@ public:
 
 
     /**
-     * @brief 主动踢除本终端: 发一个独立的 KICK 控制包(带原因码)给客户端。
-     *        该包绕过 sn 窗口/重传队列, 不进 KCP 发送队列 —— 发完即可摘会话。
-     *        客户端 update() 会拿到 -3(IKCP_STATE_KICKED), 据此停止自动重连。
+     * @brief 连续解密失败次数(收到任何一条可解密的包即清零)
      */
+    uint32_t
+    decode_fail() const noexcept {
+        return dec_fail_;
+    }
+
+
+    /**
+     * @brief 主动踢除本终端
     int
     kick(uint32_t code) noexcept {
         return ::ikcp_send_kick(kcp_, code);
@@ -199,8 +205,7 @@ public:
 
 
     /**
-     * @brief 绑定集: 已接管本终端的后端服务 id 集合(BIND/UNBD 维护)。
-     *        本终端下线时, 需逐个通知它们 OFF; 幂等(重复 BIND 无副作用)。
+     * @brief 绑定集
      */
     void
     bind(uint32_t sid) noexcept {
@@ -215,8 +220,8 @@ public:
 
 
     /**
-     * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据。
-     *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进。
+     * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据.
+     *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进.
      *
      * @return  0                    正常(本轮可能 flush 了数据, 也可能什么都没做)
      *         -1 IKCP_STATE_TIMEOUT 超过 kcp_->timeout 未收到对端任何数据 -> 判死
@@ -294,7 +299,7 @@ public:
     /**
      * @brief 把一条应用层 Package 交给 KCP 发出: 填充发送幂等序号(seq), authed 且有 payload 时
      *        用 tx_key_ 做 ChaCha20-Poly1305 加密(nonce = conv|seq|DIR_S2C), 未 authed / 空 payload
-     *        走明文, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成)。
+     *        走明文, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成).
      *
      * @param[in,out] pk 待发送包(host 序); 本方法会覆写 pk->seq; 明文分支会把头翻成 net 序。
      *                   pk 所指缓冲可能是共享的(如 Connector rbuf_), 加密分支不原地改它。
@@ -321,16 +326,28 @@ private:
     }
 
 
-    Worker*            worker_  { nullptr };
-    uint32_t           uid_     { 0 };
-    uint32_t           snd_seq_ { 0 };
-    uint32_t           rcv_req_ { 0 };
-    ::ikcpcb*          kcp_     { nullptr };
-    ::sockaddr_storage addr_    {};
-    ::socklen_t        addrlen_ { sizeof(addr_) };
-    Xx20Key            tx_key_  { 0 };
-    Xx20Key            rx_key_  { 0 };
-    BindSet            binds_;  // 已接管本终端的后端服务 id
+    /**
+     * @brief 判定"这段字节不是对端发的": 累计一次并返回 xERR_PK_DEC.
+     *        调用方(Worker)看到该码只丢包, 连续超过阈值才摘会话.
+     */
+    int
+    reject() noexcept {
+        ++dec_fail_;
+        return xERR_PK_DEC;
+    }
+
+
+    Worker*            worker_   { nullptr };
+    uint32_t           uid_      { 0 };
+    uint32_t           snd_seq_  { 0 };
+    uint32_t           rcv_req_  { 0 };
+    uint32_t           dec_fail_ { 0 };             // 连续解密失败次数, 收到合法包即清零
+    ::ikcpcb*          kcp_      { nullptr };
+    ::sockaddr_storage addr_     {};
+    ::socklen_t        addrlen_  { sizeof(addr_) };
+    Xx20Key            tx_key_   { 0 };
+    Xx20Key            rx_key_   { 0 };
+    BindSet            binds_;                      // 已接管本终端的后端服务 id
     std::string        json_;
 }; // class Kcp;
 

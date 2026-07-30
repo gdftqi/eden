@@ -48,9 +48,6 @@ adam::kcp::Session::Session(
 
 int
 adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
-    // rbuf: 原始线上字节的暂存(thread_local, 非 per-message 分配)。解码目标 pk 由调用方提供,
-    // data_decode 只往 pk 里填、绝不分配 —— 所以 wire 输入和 Package 输出必须是两块, 不能原地
-    // (wire 是 data-only 14B 头, 内存态 Package 是 28B 头, 更宽且首部重叠, 原地会自我覆盖)。
     thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
 
     int res = ::ikcp_recv(kcp_, (char*)rbuf, sizeof(rbuf));
@@ -58,17 +55,17 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
         return core::from_ikcp_recv(res);
     }
 
+    const bool trusted = authed();
     if (res < core::PKG_DATA_LEN || res > core::PKG_MAX_LEN) {
-        return xERR_PK_LEN;
+        return trusted ? reject() : xERR_PK_LEN;
     }
 
-    bool encrypted = authed() && res > core::PKG_DATA_LEN;
+    bool encrypted = trusted && res > core::PKG_DATA_LEN;
     if (encrypted && res < core::PKG_DATA_LEN + (int)utils::XX20_TAG_LEN) {
-        return xERR_PK_LEN;
+        return reject();
     }
 
     size_t datalen = res;
-
     if (encrypted) {
         uint32_t seq;
         ::memcpy(&seq, rbuf + core::PKG_DATA_LEN - sizeof(uint32_t), sizeof(seq));
@@ -81,15 +78,14 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
         uint8_t nonce[utils::XX20_NONCE_LEN];
         make_nonce(nonce, conv(), seq, DIR_C2S);
         if (utils::xx20_decrypt(cipher, clen, cipher, tag, rx_key_, nonce)) {
-            return xERR_PK_DEC;
+            return reject();
         }
 
         datalen = core::PKG_DATA_LEN + clen;
     }
 
-    // 客户端侧 data-only, meta 是本地合成: conv=会话 conv, src_addr=客户端地址
     if (core::data_decode(pk, rbuf, datalen) < 0) {
-        return xERR_PK_LEN;
+        return trusted ? reject() : xERR_PK_LEN;
     }
 
     pk->meta.conv     = conv();
@@ -110,9 +106,13 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
     }
 
     if (err != xOK) {
+        if (err != xDUP && trusted && !encrypted) {
+            return reject();
+        }
         return err;
     }
 
+    dec_fail_ = 0;
     rcv_req_ = pk->data.seq;
     return xOK;
 }
@@ -174,7 +174,8 @@ adam::kcp::Session::terminal_enter() noexcept {
     req.conv = conv();
     req.ip   = remote_addr_u32();
     req.port = ::ntohs(((sockaddr_in*)&addr_)->sin_port);
-    req.type = 0;   // TODO: 设备类型待 Eva 的 token 带过来
+    // TODO: 设备类型待 Eva 的 token 带过来
+    req.type = 0;
 
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::TerminalEnterReq::LEN];
     auto* pk = (core::Package*)buf;

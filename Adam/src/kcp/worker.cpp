@@ -9,11 +9,8 @@
 #include "core/proto/pid_terminal_unbind.hpp"
 
 
-static constexpr int MAX_EVENTS    = 64;
-static constexpr int INTERVAL_MS   = 10;
 // closing 状态保留时长: 期间对端每发一个包就回一次 KICK(借鉴 QUIC 的 3×PTO)
 static constexpr int CLOSING_MS    = 3000;
-static constexpr int TCP_RBUF_SIZE = 8 * 1024;
 
 
 adam::kcp::Worker::Worker(Server* s, int idx) noexcept
@@ -55,6 +52,9 @@ adam::kcp::Worker::run() noexcept {
     }
 
     init();
+
+    constexpr int MAX_EVENTS  = 64;
+    constexpr int INTERVAL_MS = 10;
 
     int i, n;
     ::epoll_event events[MAX_EVENTS];
@@ -334,6 +334,15 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     } else if (res == xDUP) {
                         // 幂等重复, 跳过
                         continue;
+                    } else if (res == xERR_PK_DEC) {
+                        constexpr uint32_t MAX_DEC_FAIL = 16;
+
+                        if (s->decode_fail() > MAX_DEC_FAIL) {
+                            xWARN("{} 连续 {} 次解密失败, 判死", s->to_json(), s->decode_fail());
+                            remove_session(s->conv(), TER_CODE_PROTO_ERR);
+                            break;
+                        }
+                        continue;
                     } else if (res < 0) {
                         // 协议错误
                         // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
@@ -372,6 +381,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
 void
 adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
     auto conn = get_serv(((tcp::Connector*)ev.data.ptr)->id());
+    ASSERT(conn != nullptr, "框架出现错误, 出现了无效的 Backend 连接对象");
 
     if (ev.events & (EPOLLERR | EPOLLHUP)) {
         xWARN("后端连接错误/断开: id = {}, host = {}", conn->id(), conn->host());
@@ -410,6 +420,7 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
     }
 
     if (ev.events & EPOLLIN) {
+        constexpr int TCP_RBUF_SIZE = 8 * 1024;
         thread_local static uint8_t rbuf[TCP_RBUF_SIZE];
 
         while (1) {
@@ -697,10 +708,11 @@ adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Packa
     auto s = get_session(pk->meta.conv);
     if (s != nullptr && s->uid() == ntf.uid) {
         s->bind(conn->id());
+        server_->hook()->on_terminal_binded(s, conn->id());
         return;
     }
 
-    // 竞态闭环: BIND 到达时终端已死 → 立刻回 OFF, 让后端清掉这条幽灵档
+    // 竞态闭环: BIND 到达时终端已死 -> 立刻回 OFF, 让后端清掉这条幽灵档
     core::TerminalOfflineNotify off;
     off.uid = ntf.uid;
 
@@ -719,8 +731,6 @@ adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Packa
     if (conn->send(*out, tnow_) < 0) {
         xERROR("{} OFF_NTF 回补失败: uid = {}", conn->to_string(), ntf.uid);
     }
-
-    server_->hook()->on_terminal_binded(s, conn->id());
 }
 
 
