@@ -479,10 +479,12 @@ namespace Lilith.Core
                 return -1000;
             }
 
-            if (k.State == KcpState.Open && plen > 0)
+            // 鉴权之后一律加密, 空 payload 也不例外(密文 0 字节, 只余 16 字节 tag)
+            if (k.State == KcpState.Open)
             {// 加密
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_C2S);
-                int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE);
+                int clen = Crypto.Encrypt(txKey!, nonce, pkg.Payload, 0, plen, outBuf, Package.HEADER_SIZE,
+                                          outBuf, 0, Package.HEADER_SIZE);
                 return Package.HEADER_SIZE + clen;
             }
 
@@ -526,11 +528,13 @@ namespace Lilith.Core
                 return false;
             }
 
-            if (k.State == KcpState.Open && plen > 0)
+            // 鉴权之后每个包都带 tag(空 payload 也是), 装不下 tag 就一定不是网关发的
+            if (k.State == KcpState.Open)
             {
                 var nonce = Crypto.MakeNonce(conv, pkg.Idempotent, Crypto.DIR_S2C);
-                // 解密
-                int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0);
+                // 解密; AAD 必须与发送侧一致 = 14 字节头
+                int m = Crypto.Decrypt(rxKey!, nonce, data, Package.HEADER_SIZE, plen, pkg.Payload, 0,
+                                       data, 0, Package.HEADER_SIZE);
                 if (m < 0)
                 {
                     Log.Write($"接收到来自服务端错误的消息, 消息解密失败");

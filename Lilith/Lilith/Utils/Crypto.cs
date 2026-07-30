@@ -57,16 +57,23 @@ namespace Lilith.Utils
             return n;
         }
 
-        public static int Encrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff)
+        /// <param name="aad">附加认证数据(只认证不加密, 如 Package 头); 收发两侧必须完全一致</param>
+        public static int Encrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff,
+                                  byte[]? aad = null, int aadOff = 0, int aadLen = 0)
         {// ChaCha20-Poly1305 加密
             var aead = new ChaCha20Poly1305();
             aead.Init(true, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
+            // 用 ProcessAadBytes 而不是 AeadParameters 的 associatedText, 免去一次数组拷贝
+            if (aad != null && aadLen > 0)
+                aead.ProcessAadBytes(aad, aadOff, aadLen);
             int len = aead.ProcessBytes(inBuf, inOff, inLen, outBuf, outOff);
             len += aead.DoFinal(outBuf, outOff + len);
             return len;
         }
 
-        public static int Decrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff)
+        /// <param name="aad">必须与加密侧传的完全一致, 否则验签失败</param>
+        public static int Decrypt(byte[] key, byte[] nonce, byte[] inBuf, int inOff, int inLen, byte[] outBuf, int outOff,
+                                  byte[]? aad = null, int aadOff = 0, int aadLen = 0)
         {// ChaCha20-Poly1305 解密
             if (inLen < XX20_TAG_LEN)
             {
@@ -77,6 +84,8 @@ namespace Lilith.Utils
             aead.Init(false, new AeadParameters(new KeyParameter(key), XX20_TAG_LEN * 8, nonce, null));
             try
             {
+                if (aad != null && aadLen > 0)
+                    aead.ProcessAadBytes(aad, aadOff, aadLen);
                 int len = aead.ProcessBytes(inBuf, inOff, inLen, outBuf, outOff);
                 len += aead.DoFinal(outBuf, outOff + len);
                 return len;

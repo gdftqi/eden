@@ -60,7 +60,7 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
         return trusted ? reject() : xERR_PK_LEN;
     }
 
-    bool encrypted = trusted && res > core::PKG_DATA_LEN;
+    bool encrypted = trusted;
     if (encrypted && res < core::PKG_DATA_LEN + (int)utils::XX20_TAG_LEN) {
         return reject();
     }
@@ -77,7 +77,10 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
 
         uint8_t nonce[utils::XX20_NONCE_LEN];
         make_nonce(nonce, conv(), seq, DIR_C2S);
-        if (utils::xx20_decrypt(cipher, clen, cipher, tag, rx_key_, nonce)) {
+
+        // AAD 必须与发送侧一致: 14 字节头. 少传或多传都会让验签失败
+        if (utils::xx20_decrypt(cipher, clen, cipher, tag, rx_key_, nonce,
+                                rbuf, core::PKG_DATA_LEN)) {
             return reject();
         }
 
@@ -106,9 +109,6 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
     }
 
     if (err != xOK) {
-        if (err != xDUP && trusted && !encrypted) {
-            return reject();
-        }
         return err;
     }
 
@@ -135,15 +135,20 @@ adam::kcp::Session::send(core::Package *pk) noexcept  {
     pk->data.seq = next_snd_seq();
 
     int wire;
-    if (plen > 0 && authed()) {
+
+    // 鉴权之后一律加密, 空 payload 也不例外(此时密文 0 字节, 只余 16 字节 tag)
+    if (authed()) {
         core::data_encode(sndbuf, pk);
 
         uint8_t nonce[utils::XX20_NONCE_LEN];
         make_nonce(nonce, conv(), pk->data.seq, DIR_S2C);
+
+        // 14 字节头作 AAD: 只认证、不加密
         ASSERT(utils::xx20_encrypt(sndbuf + core::PKG_DATA_LEN, plen,
                                    sndbuf + core::PKG_DATA_LEN,
                                    sndbuf + core::PKG_DATA_LEN + plen,
-                                   tx_key_, nonce) == 0, "加密失败");
+                                   tx_key_, nonce,
+                                   sndbuf, core::PKG_DATA_LEN) == 0, "加密失败");
 
         wire = core::PKG_DATA_LEN + plen + (int)utils::XX20_TAG_LEN;
     } else {
