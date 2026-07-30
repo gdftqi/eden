@@ -1,6 +1,55 @@
 #include "core/server_info.hpp"
 
 
+std::string
+adam::core::ServerInfo::to_json() const noexcept {
+    std::string ps;
+    for (size_t i = 0; i < PID_MAX; ++i) {
+        if (!pids[i]) {
+            continue;
+        }
+
+        if (!ps.empty()) {
+            ps += ',';
+        }
+        ps += std::to_string(i);
+    }
+
+    return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"router\":{},\"pids\":[{}]}}", 
+        id, protocol, name, host, desc, start_time, router ? "true" : "false", ps);
+}
+
+
+int
+adam::core::ServerInfo::from_json(const std::string& json) noexcept {
+    simdjson::ondemand::parser parser;
+    auto j = simdjson::padded_string(json);
+    auto doc = parser.iterate(j);
+
+    if (doc["id"].has_value()) {
+        id = doc["id"].get_uint32().value_unsafe();
+    }
+
+    if (doc["host"].has_value()) {
+        host = std::string(doc["host"].get_string().value_unsafe());
+    }
+
+    router = false;
+    if (doc["router"].has_value()) {
+        router = doc["router"].get_bool().value_unsafe();
+    }
+
+    pids.reset();
+    if (doc["pids"].has_value()) {
+        for (auto v : doc["pids"].get_array()) {
+            pid_set((uint16_t)v.get_uint64().value_unsafe());
+        }
+    }
+
+    return 0;
+}
+
+
 int
 adam::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
     if (!root["id"] || !root["timeout"] || !root["name"] || !root["host"] || !root["desc"] || !root["protocol"]) {

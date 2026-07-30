@@ -20,8 +20,6 @@ adam::tcp::Server::run() noexcept {
     ::epoll_event events[MAX_EVENTS];
 
     state_.store(core::State::Running);
-
-    ASSERT(::listen(lfd_, SOMAXCONN) == 0, "监听 TCP fd 失败: errno = {}, errstr = {}", errno, ::strerror(errno));
     while (running()) {
         n = ::epoll_wait(epfd_, events, MAX_EVENTS, INTERVAL_MS);
         if (n == -1) {

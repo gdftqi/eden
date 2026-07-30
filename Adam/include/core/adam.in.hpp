@@ -34,12 +34,6 @@
 #include "utils/sys.hpp"
 
 
-#ifdef SOMAXCONN
-#undef SOMAXCONN
-#define SOMAXCONN 65535
-#endif
-
-
 typedef int SOCKET;
 constexpr SOCKET INVALID_SOCKET = -1;
 
@@ -73,10 +67,10 @@ constexpr int KCP_HDR_LEN = 24;
  * @brief 服务状态
  */
 enum class State: uint8_t {
-    Stopped,    ///< 已停止
-    Stopping,   ///< 正在停止
-    Starting,   ///< 正在启动
-    Running,    ///< 运行时
+    Stopped,    // 已停止
+    Stopping,   // 正在停止
+    Starting,   // 正在启动
+    Running,    // 运行时
 }; // enum class State;
 
 

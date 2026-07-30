@@ -2,6 +2,12 @@
 #include "utils/string_ex.hpp"
 
 
+#ifdef SOMAXCONN
+#undef SOMAXCONN
+#define SOMAXCONN 65535 // 
+#endif
+
+
 SOCKET
 adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
     if (host.empty()) {
@@ -48,6 +54,7 @@ adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
             ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
             ::close(fd);
+            fd = INVALID_SOCKET;
             continue;
         }
 
@@ -125,7 +132,13 @@ adam::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept
             }
         }
 
-        if (!::bind(lfd, rp->ai_addr, rp->ai_addrlen)) {
+        if (::bind(lfd, rp->ai_addr, rp->ai_addrlen) < 0) {
+            ::close(lfd);
+            lfd = INVALID_SOCKET;
+            continue;
+        }
+
+        if (::listen(lfd, SOMAXCONN) == 0) {
             break;
         }
 

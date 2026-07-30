@@ -9,6 +9,9 @@
 namespace adam::core {
 
 
+/**
+ * @brief 终端离开 backend 请求
+ */
 struct TerminalLeaveReq {
     static constexpr int LEN = 0;
 
@@ -22,6 +25,9 @@ struct TerminalLeaveReq {
 }; // struct TerminalLeaveReq;
 
 
+/**
+ * @brief 终端离开 backend 响应
+ */
 struct TerminalLeaveRsp {
     static constexpr int LEN = 0;
 
@@ -33,31 +39,6 @@ struct TerminalLeaveRsp {
     TerminalLeaveRsp(TerminalLeaveRsp&&) = delete;
     TerminalLeaveRsp& operator=(TerminalLeaveRsp&&) = delete;
 }; // struct TerminalLeaveRsp;
-
-
-struct TerminalOfflineNotify {
-    static constexpr int LEN = 8;
-
-
-    void
-    encode(uint8_t* buf, size_t len) noexcept;
-
-
-    int
-    decode(const uint8_t* buf, size_t len) noexcept;
-
-
-    uint32_t uid;  // 离线的 terminal
-    uint32_t code; // 离开码
-
-
-    TerminalOfflineNotify() = default;
-    ~TerminalOfflineNotify() = default;
-    TerminalOfflineNotify(const TerminalOfflineNotify&) = delete;
-    TerminalOfflineNotify& operator=(const TerminalOfflineNotify&) = delete;
-    TerminalOfflineNotify(TerminalOfflineNotify&&) = delete;
-    TerminalOfflineNotify& operator=(TerminalOfflineNotify&&) = delete;
-}; // struct TerminalLeaveNotify;
 
 
 } // namespace adam::core

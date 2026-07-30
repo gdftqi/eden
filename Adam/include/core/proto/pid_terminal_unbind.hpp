@@ -9,6 +9,10 @@
 namespace adam::core {
 
 
+/**
+ * @brief 解绑通知, 当 terminal 从该 backend 离开之后,
+ *        该 backend 会向网关发送解绑通知
+ */
 struct TerminalUnbindNotify {
     static constexpr int LEN = sizeof(uint32_t);
 
@@ -21,7 +25,7 @@ struct TerminalUnbindNotify {
     decode(const uint8_t* buf, size_t len) noexcept;
 
 
-    uint32_t uid;
+    uint32_t uid; // 解绑的 terminal uid
 
 
     TerminalUnbindNotify() = default;

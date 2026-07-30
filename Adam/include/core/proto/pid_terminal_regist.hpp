@@ -11,7 +11,7 @@ namespace adam::core {
 
 
 /**
- * @brief PID_REG_TER_REQ 的 payload 数据. 对应 Eva 中的结构是 AccessToken
+ * @brief 端终注册请求. 对应 Eva 中的结构是 AccessToken
  */
 struct RegistTerminalReq {
     static constexpr int LEN = 116;
@@ -44,11 +44,11 @@ struct RegistTerminalReq {
 }; // struct RegistTerminalReq;
 
 
+/**
+ * @brief 端终注册响应, 返回的是 网关的 public key, 用于客户端生成读/写密钥
+ */
 struct RegistTerminalRsp {
     static constexpr int LEN = utils::X25519_KEY_LEN;
-
-
-    uint8_t PK[utils::X25519_KEY_LEN];
 
 
     void
@@ -57,6 +57,9 @@ struct RegistTerminalRsp {
 
     int
     decode(const uint8_t* buf, size_t len) noexcept;
+
+
+    uint8_t PK[utils::X25519_KEY_LEN]; // kcp server 的 public key
 
 
     RegistTerminalRsp() = default;

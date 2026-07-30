@@ -9,6 +9,10 @@
 namespace adam::core {
 
 
+/**
+ * @brief 绑定通知, 当 terminal enter 某个backend 成功时,
+ *        该 backend 会给 网关发送 bind 通知
+ */
 struct TerminalBindNotify {
     static constexpr int LEN = sizeof(uint32_t);
 
@@ -21,6 +25,9 @@ struct TerminalBindNotify {
     decode(const uint8_t* buf, size_t len) noexcept;
 
 
+    /**
+     * @brief 绑定的 terminal uid
+     */
     uint32_t uid;
 
 

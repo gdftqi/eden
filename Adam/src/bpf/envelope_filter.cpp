@@ -40,7 +40,7 @@ adam::bpf::EnvelopeFilter::~EnvelopeFilter() noexcept {
 
 
 int
-adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const uint8_t key[utils::SIPHASH_KEY_LEN]) noexcept {
+adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const SipHashKey key) noexcept {
     if (!obj_path || !key) {
         return -EINVAL;
     }
@@ -173,7 +173,7 @@ adam::bpf::EnvelopeFilter::detach() noexcept {
 
 
 int
-adam::bpf::EnvelopeFilter::rotate_key(const uint8_t new_key[utils::SIPHASH_KEY_LEN]) noexcept {
+adam::bpf::EnvelopeFilter::rotate_key(const SipHashKey new_key) noexcept {
     if (!new_key || key_map_fd_ < 0) {
         return -EINVAL;
     }

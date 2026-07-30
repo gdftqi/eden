@@ -9,15 +9,12 @@
 namespace adam::core {
 
 
+/**
+ * @brief 终端进入 Backend 请求. 
+ *        由客户端或网关发起.
+ */
 struct TerminalEnterReq {
     static constexpr int LEN = 16;
-
-
-    uint32_t uid;
-    uint32_t conv;
-    uint32_t ip;
-    uint32_t port;
-    uint32_t type;
 
 
     void
@@ -26,6 +23,13 @@ struct TerminalEnterReq {
 
     int
     decode(const uint8_t* buf, size_t len) noexcept;
+
+
+    uint32_t uid;   // terminal uid
+    uint32_t conv;  // terminal conv
+    uint32_t ip;    // terminal ip
+    uint32_t port;  // terminal port
+    uint32_t type;  // terminal 类型
 
 
     TerminalEnterReq() = default;
@@ -37,12 +41,11 @@ struct TerminalEnterReq {
 }; // struct TerminalEnterReq;
 
 
+/**
+ * @brief 终端进入 backend 响应
+ */
 struct TerminalEnterRsp {
     static constexpr int LEN = 8;
-
-
-    uint32_t code;
-    uint32_t uid;
 
 
     void
@@ -51,6 +54,10 @@ struct TerminalEnterRsp {
 
     int
     decode(const uint8_t* buf, size_t len) noexcept;
+
+
+    uint32_t code; // 响应码, 0: 成功.
+    uint32_t uid;  // 成功进入的 terminal uid.
 
 
     TerminalEnterRsp() = default;

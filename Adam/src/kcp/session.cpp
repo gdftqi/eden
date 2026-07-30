@@ -1,6 +1,6 @@
 #include "kcp/session.hpp"
 #include "kcp/server.hpp"
-#include "core/proto/pid_terminal_leave.hpp"
+#include "core/proto/pid_terminal_offline.hpp"
 #include "core/proto/pid_terminal_enter.hpp"
 #include <format>
 

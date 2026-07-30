@@ -3,6 +3,7 @@
 
 
 #include <inttypes.h>
+#include "bpf/envelope_filter.hpp"
 #include "core/adam.in.hpp"
 #include "utils/cryptor.hpp"
 #include "utils/string_ex.hpp"
@@ -24,9 +25,9 @@ class Conf {
 
 
 public:
-    typedef uint8_t SipKey[utils::SIPHASH_KEY_LEN];
     typedef uint8_t X25519Key[utils::X25519_KEY_LEN];
     typedef uint8_t ED25519PK[utils::ED25519_PK_LEN];
+    typedef bpf::EnvelopeFilter::SipHashKey SipHashKey;
 
 
     static Conf*
@@ -127,7 +128,7 @@ public:
      * @brief 协议密钥 (16 字节), 该密钥用于加密协议头, 防止被攻击者轻易伪造数据包
      *        
      */
-    const SipKey&
+    const SipHashKey&
     siphash() const noexcept {
         return siphash_;
     }
@@ -229,18 +230,18 @@ private:
     {}
 
 
-    int               sndbuf_       { 16777216 };   ///< 发送缓冲区大小
-    int               rcvbuf_       { 33554432 };   ///< 接收缓冲区大小
-    int               sndwnd_       { 128 };        ///< 发送窗口
-    int               rcvwnd_       { 128 };        ///< 接收窗口
-    int               nodelay_      { 1 };          ///< 是否开启低延迟模式
-    int               interval_     { 10 };         ///< update 间隔
-    int               resend_       { 3 };          ///< 快速重传, 表示连接跳过3个包的时候就会重传
-    int               nc_           { 1 };          ///< 是否关闭拥塞控制, 1为关闭, 0为不关闭ss
-    SipKey            siphash_      {};             ///< 协议密钥
-    X25519Key         x25519_pk_    {};             ///< LOGIN 服务用来作 sealedbox 加密
-    X25519Key         x25519_sk_    {};             ///< 用于 鉴权时的 sealedbox 解密
-    ED25519PK         ed25519_pk_   {};             ///< LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
+    int               sndbuf_       { 16777216 };   // 发送缓冲区大小
+    int               rcvbuf_       { 33554432 };   // 接收缓冲区大小
+    int               sndwnd_       { 128 };        // 发送窗口
+    int               rcvwnd_       { 128 };        // 接收窗口
+    int               nodelay_      { 1 };          // 是否开启低延迟模式
+    int               interval_     { 10 };         // update 间隔
+    int               resend_       { 3 };          // 快速重传, 表示连接跳过3个包的时候就会重传
+    int               nc_           { 1 };          // 是否关闭拥塞控制, 1为关闭, 0为不关闭ss
+    SipHashKey        siphash_      {};             // 协议密钥
+    X25519Key         x25519_pk_    {};             // LOGIN 服务用来作 sealedbox 加密
+    X25519Key         x25519_sk_    {};             // 用于 鉴权时的 sealedbox 解密
+    ED25519PK         ed25519_pk_   {};             // LOGIN服务 ed25519 签名公钥, LOGIN服会有私钥签名
     core::ServerInfo  server_;
     utils::EtcdConfig etcd_;
     std::string       ifname_;

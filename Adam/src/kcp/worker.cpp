@@ -3,7 +3,7 @@
 #include "tcp/connector.hpp"
 #include "core/proto/pid_terminal_regist.hpp"
 #include "core/proto/pid_terminal_enter.hpp"
-#include "core/proto/pid_terminal_leave.hpp"
+#include "core/proto/pid_terminal_offline.hpp"
 #include "core/proto/pid_terminal_kick.hpp"
 #include "core/proto/pid_terminal_bind.hpp"
 #include "core/proto/pid_terminal_unbind.hpp"

@@ -23,6 +23,12 @@ struct ServerInfo {
     static constexpr size_t PID_MAX = 1 << 16;
 
 
+    typedef std::bitset<PID_MAX> PIDSet;
+
+
+    /**
+     * @brief 设置 消息ID
+     */
     void
     pid_set(uint16_t pid) noexcept {
         pids.set(pid);
@@ -30,18 +36,18 @@ struct ServerInfo {
     }
 
 
-    bool
-    pid_has(uint16_t pid) const noexcept {
-        return pids[pid];
-    }
-
-
+    /**
+     * @brief 获取服务类型
+     */
     uint32_t
     get_type() const noexcept {
         return id >> 16;
     }
 
 
+    /**
+     * @brief 获取服务序号
+     */
     uint32_t
     get_seq() const noexcept {
         return 0x0000FFFF & id;
@@ -52,55 +58,14 @@ struct ServerInfo {
      * @brief 转 json 字符串
      */
     std::string
-    to_json() const noexcept {
-        std::string ps;
-        for (size_t i = 0; i < PID_MAX; ++i) {
-            if (!pids[i]) {
-                continue;
-            }
-
-            if (!ps.empty()) {
-                ps += ',';
-            }
-            ps += std::to_string(i);
-        }
-
-        return std::format("{{\"id\":{},\"protocol\":\"{}\",\"name\":\"{}\",\"host\":\"{}\",\"desc\":\"{}\",\"start_time\":{},\"router\":{},\"pids\":[{}]}}", 
-            id, protocol, name, host, desc, start_time, router ? "true" : "false", ps);
-    }
+    to_json() const noexcept;
 
 
     /**
      * @brief 从 json 格式构建对象
      */
     int
-    from_json(const std::string& json) noexcept {
-        simdjson::ondemand::parser parser;
-        auto j = simdjson::padded_string(json);
-        auto doc = parser.iterate(j);
-
-        if (doc["id"].has_value()) {
-            id = doc["id"].get_uint32().value_unsafe();
-        }
-
-        if (doc["host"].has_value()) {
-            host = std::string(doc["host"].get_string().value_unsafe());
-        }
-
-        router = false;
-        if (doc["router"].has_value()) {
-            router = doc["router"].get_bool().value_unsafe();
-        }
-
-        pids.reset();
-        if (doc["pids"].has_value()) {
-            for (auto v : doc["pids"].get_array()) {
-                pid_set((uint16_t)v.get_uint64().value_unsafe());
-            }
-        }
-
-        return 0;
-    }
+    from_json(const std::string& json) noexcept;
 
 
     /**
@@ -119,11 +84,10 @@ struct ServerInfo {
     std::string desc;                  // 描述信息
     ::time_t    start_time;            // 启动时间
     bool        router      { false }; // 本服务是否为终端路由服务(网关按此挑选 ENT 的收件人)
+    PIDSet      pids;                  // PID位
+    std::string key;                   // 用于注册 etcd 的 keys
+    std::string val;                   // 用于注册 etcd 的 value
 
-    std::bitset<PID_MAX> pids;
-
-    std::string key; // 用于注册 etcd 的 keys
-    std::string val; // 用于注册 etcd 的 value
 
     ServerInfo() = default;
     ~ServerInfo() = default;

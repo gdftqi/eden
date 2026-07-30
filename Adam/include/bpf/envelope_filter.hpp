@@ -21,18 +21,13 @@ namespace adam::bpf {
  *
  * @note kernel 要求: Linux >= 5.17.
  *
- * @warning 线程不安全. attach / detach / rotate_key 不能并发调用; 通常在
- *          `adam::Server::run()` 启动期完成 init + attach, key rotate 由独立
- *          的定时线程串行触发.
+ * @warning 线程不安全
  */
 class EnvelopeFilter {
-    EnvelopeFilter(const EnvelopeFilter&) = delete;
-    EnvelopeFilter& operator=(const EnvelopeFilter&) = delete;
-    EnvelopeFilter(EnvelopeFilter&&) = delete;
-    EnvelopeFilter& operator=(EnvelopeFilter&&) = delete;
-
-
 public:
+    typedef uint8_t SipHashKey[utils::SIPHASH_KEY_LEN];
+
+
     explicit
     EnvelopeFilter() noexcept
     {}
@@ -53,7 +48,7 @@ public:
      * @return 成功返回 0, 否则表示错误(-EINVAL / libbpf 错误码)
      */
     int
-    init(const char* obj_path, uint16_t udp_port, const uint8_t key[utils::SIPHASH_KEY_LEN]) noexcept;
+    init(const char* obj_path, uint16_t udp_port, const SipHashKey key) noexcept;
 
 
     /**
@@ -82,7 +77,7 @@ public:
      * @param new_key 新的 16 字节 key
      */
     int
-    rotate_key(const uint8_t new_key[utils::SIPHASH_KEY_LEN]) noexcept;
+    rotate_key(const SipHashKey new_key) noexcept;
 
 
 private:
@@ -91,7 +86,13 @@ private:
     int           key_map_fd_  { -1 };      ///< envelope_key map fd
     int           if_index_    { -1 };      ///< attached interface index, -1 表示未 attach
     unsigned int  xdp_flags_   { 0 };       ///< 实际 attach 用的模式 (用于 detach)
-};
+
+
+    EnvelopeFilter(const EnvelopeFilter&) = delete;
+    EnvelopeFilter& operator=(const EnvelopeFilter&) = delete;
+    EnvelopeFilter(EnvelopeFilter&&) = delete;
+    EnvelopeFilter& operator=(EnvelopeFilter&&) = delete;
+}; // class EnvelopeFilter;
 
 
 } // namespace adam::bpf;

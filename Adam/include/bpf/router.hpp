@@ -17,12 +17,6 @@ namespace adam::bpf {
  * 根据 conv 来分派 kcp server 线程
  */
 class Router {
-    Router(const Router&) = delete;
-    Router& operator=(const Router&) = delete;
-    Router(Router&&) = delete;
-    Router& operator=(Router&&) = delete;
-
-
 public:
     explicit
     Router() noexcept
@@ -68,10 +62,16 @@ public:
 
 
 private:
-    ::bpf_object* obj_      { nullptr }; ///< eBPF 对象
-    int           map_fd_   { -1 };      ///< sock_map 路由表
-    int           prog_fd_  { -1 };      ///< eBPF 程序
-};
+    ::bpf_object* obj_      { nullptr }; // eBPF 对象
+    int           map_fd_   { -1 };      // sock_map 路由表
+    int           prog_fd_  { -1 };      // eBPF 程序
+
+
+    Router(const Router&) = delete;
+    Router& operator=(const Router&) = delete;
+    Router(Router&&) = delete;
+    Router& operator=(Router&&) = delete;
+}; // class Router;
 
 
 } // namespace adam::bpf;

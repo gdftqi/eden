@@ -65,3 +65,26 @@ adam::core::TerminalKickNotify::decode(const uint8_t* buf, size_t len) noexcept 
 
     return xOK;
 }
+
+void
+adam::core::TerminalKickRsp::encode(uint8_t* buf, size_t len) noexcept {
+    ASSERT(len >= (size_t)LEN, "TerminalKickRsp::encode 缓冲区不足");
+
+    // 布局(小端): code@0
+    uint32_t v32 = u32_to_le(code);
+    ::memcpy(buf + 0, &v32, sizeof(v32));
+}
+
+
+int
+adam::core::TerminalKickRsp::decode(const uint8_t* buf, size_t len) noexcept {
+    if (len < (size_t)LEN) {
+        return xERR;
+    }
+
+    uint32_t v32;
+    ::memcpy(&v32, buf + 0, sizeof(v32));
+    code = u32_to_le(v32);
+
+    return xOK;
+}
