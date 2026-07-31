@@ -32,6 +32,8 @@ interval: 10
 resend: 3
 nc: 1
 
+newsess_max: 32 #每个源 IP 每秒允许多少个"新会话尝试", 0 = 不限速
+
 nsiphash: 256
 ed25519_pk: "OjvxWlrli0k+EDeNwWDMMTyXWpXtizQyifq8tn+bBck="
 # ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="

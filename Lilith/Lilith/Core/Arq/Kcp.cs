@@ -31,14 +31,14 @@ namespace Lilith.Core.Arq
         Rst = -2,
 
         /// <summary>
-        /// 网络断开, 由于Kcp 默认是没有集成IO的，所以该状态不可能由 Kcp 设置
+        /// 网络断开, 由于Kcp 默认是没有集成IO的, 所以该状态不可能由 Kcp 设置
         /// </summary>
         Shutdown = -3,
 
         /// <summary>
-        /// 被服务端主动踢除(顶号/封禁等), KickCode 说明原因。
+        /// 被服务端主动踢除(顶号/封禁等), KickCode 说明原因.
         /// 与 Timeout/Rst 的区别: 这是服务端的明确决定, 客户端<b>不应自动重连</b>,
-        /// 否则会和顶掉自己的那台设备互踢, 形成死循环。
+        /// 否则会和顶掉自己的那台设备互踢, 形成死循环.
         /// </summary>
         Kicked = -4,
     }
@@ -70,7 +70,7 @@ namespace Lilith.Core.Arq
         public const int FRG_MAX = byte.MaxValue;  // kcp encodes 'frg' as byte. so we can only ever send up to 255 fragments.
         public const int THRESH_INIT = 2;
         public const int THRESH_MIN = 2;
-        public const int ENVELOPE_LEN = 8;         // [adam] 出站信封 SipHash MAC 长度(对齐 C++ IKCP_ENVELOPE_LEN)
+        // [adam] 信封已下沉到 KcpSession(见那里的 Seal/Open), KCP 层只认裸数据报
         public const int PROBE_INIT = 5000;        // 对齐 C 版 ikcp.c (IKCP_PROBE_INIT=5000); 标准上游 kcp2k 原为 7000
         public const int PROBE_LIMIT = 120000;     // up to 120 secs to probe window
         public const int FASTACK_LIMIT = 5;        // max times to trigger fastack
@@ -128,10 +128,6 @@ namespace Lilith.Core.Arq
         // MTU can be changed at runtime, which resizes the buffer.
         internal byte[] buffer;
 
-        // [adam] 出站信封暂存 [8B MAC][datagram] + 信封 SipHash key(16B)
-        // 对齐 C++ ikcp.c 的 kcp->mac_buf / kcp->siphash; 出站在 KCP 层加 MAC, 入站只剥不验(验在服务端 XDP)
-        byte[] macBuffer;
-        readonly byte[] siphash = new byte[16];
 
         // output function of type <buffer, size>
         readonly Action<byte[], int> output;
@@ -166,7 +162,6 @@ namespace Lilith.Core.Arq
             ssthresh = THRESH_INIT;
             fastlimit = FASTACK_LIMIT;
             buffer = new byte[(mtu + OVERHEAD) * 3];
-            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [adam]
         }
 
         // ikcp_segment_new
@@ -598,11 +593,8 @@ namespace Lilith.Core.Arq
             uint latest_ts = 0;
             int flag = 0;
 
-            // [adam] 入站信封: 至少 8B MAC + 24B KCP 头; 与 C++ ikcp_input 一致 —— 只剥不验。
-            //          (出站才加 MAC; 入站 MAC 校验在服务端 XDP, 客户端无 XDP 故不校验, 靠源地址过滤 + AEAD 兜底)
-            if (data == null || size < ENVELOPE_LEN + OVERHEAD) return -1;
-            offset += ENVELOPE_LEN;
-            size -= ENVELOPE_LEN;
+            // [adam] 进来的已是裸 KCP 数据报, 信封由 KcpSession.Unseal 剥掉
+            if (data == null || size < OVERHEAD) return -1;
 
             last_rcv_ms = current;   // [adam] 收到对端数据 → 刷新保活时刻
 
@@ -766,15 +758,12 @@ namespace Lilith.Core.Arq
             return 0;
         }
 
-        // [adam] 出站信封: 在 KCP datagram 前拼 8B SipHash MAC(覆盖前 OVERHEAD 字节), 与 C++ ikcp_output 一致。
-        //          datagram 可能含多个 segment, 但 MAC 只覆盖第一个 segment 的 24B 头(和服务端 XDP 校验范围一致)。
+        // [adam] 只吐裸 KCP 数据报. 信封(槽位MAC/conv/计数器/AEAD)由 KcpSession.Seal 加 --
+        // 槽位 MAC 现在要盖在密文上, 而 KCP 层既没有会话密钥也看不到密文.
         void Output(int size)
         {
             last_snd_ms = current;
-            byte[] mac = Crypto.SipHashTag(siphash, buffer, 0, OVERHEAD);
-            Buffer.BlockCopy(mac, 0, macBuffer, 0, ENVELOPE_LEN);
-            Buffer.BlockCopy(buffer, 0, macBuffer, ENVELOPE_LEN, size);
-            output(macBuffer, size + ENVELOPE_LEN);
+            output(buffer, size);
         }
 
         // flush helper function
@@ -1021,7 +1010,7 @@ namespace Lilith.Core.Arq
             if (lost)
             {
                 // 对齐 C 版 ikcp.c: ssthresh 用进入 flush 时的拥塞窗口 prior_cwnd (= kcp->cwnd),
-                // 而非局部发送窗口 cwnd_。新版 C 改用 prior_cwnd, kcp2k 旧版用 cwnd_。
+                // 而非局部发送窗口 cwnd_. 新版 C 改用 prior_cwnd, kcp2k 旧版用 cwnd_.
                 ssthresh = prior_cwnd / 2;
                 if (ssthresh < THRESH_MIN)
                     ssthresh = THRESH_MIN;
@@ -1157,21 +1146,12 @@ namespace Lilith.Core.Arq
                 throw new ArgumentException("MTU must be higher than 50 and higher than OVERHEAD");
 
             buffer = new byte[(mtu + OVERHEAD) * 3];
-            macBuffer = new byte[mtu + ENVELOPE_LEN];   // [adam]
             this.mtu = mtu;
             mss = mtu - OVERHEAD;
         }
 
-        public void SetSipHash(byte[] key)
-        {// 设置出站信封 SipHash key(16B, 对齐 C++ ikcp_set_siphash)
-            if (key == null || key.Length != siphash.Length)
-                throw new ArgumentException($"SipHash key 必须是 {siphash.Length} 字节, 实际 {key?.Length ?? 0}", nameof(key));
-
-            Buffer.BlockCopy(key, 0, siphash, 0, siphash.Length);
-        }
-
         public void SetClient(bool isClient)
-        {// 设置本端角色 客户端 true —— 主动发 PING、接收 RST/KICK
+        {// 设置本端角色 客户端 true -- 主动发 PING / 接收 RST/KICK
             is_client = isClient;
         }
 
@@ -1193,11 +1173,11 @@ namespace Lilith.Core.Arq
         // ikcp_nodelay
         // configuration: https://github.com/skywind3000/kcp/blob/master/README.en.md#protocol-configuration
         //   nodelay : Whether nodelay mode is enabled, 0 is not enabled; 1 enabled.
-        //   interval ：Protocol internal work interval, in milliseconds, such as 10 ms or 20 ms.
-        //   resend ：Fast retransmission mode, 0 represents off by default, 2 can be set (2 ACK spans will result in direct retransmission)
-        //   nc ：Whether to turn off flow control, 0 represents “Do not turn off” by default, 1 represents “Turn off”.
+        // interval : Protocol internal work interval, in milliseconds, such as 10 ms or 20 ms.
+        // resend : Fast retransmission mode, 0 represents off by default, 2 can be set (2 ACK spans will result in direct retransmission)
+        // nc : Whether to turn off flow control, 0 represents "Do not turn off" by default, 1 represents "Turn off".
         // Normal Mode: ikcp_nodelay(kcp, 0, 40, 0, 0);
-        // Turbo Mode： ikcp_nodelay(kcp, 1, 10, 2, 1);
+        // Turbo Mode: ikcp_nodelay(kcp, 1, 10, 2, 1);
         public void SetNoDelay(uint nodelay, uint interval = INTERVAL, int resend = 0, bool nocwnd = false)
         {
             this.nodelay = nodelay;

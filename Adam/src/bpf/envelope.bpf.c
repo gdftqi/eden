@@ -1,4 +1,4 @@
-// envelope.bpf.c — XDP 层 DoS 过滤
+// envelope.bpf.c - XDP 层 DoS 过滤
 //
 // 在网卡驱动层校验 UDP payload 前 8 字节的 SipHash-2-4 envelope MAC.
 //   - 通过 → XDP_PASS, 包继续走 sk_reuseport 分流 + userland 处理
@@ -52,10 +52,41 @@ struct {
 } envelope_key SEC(".maps");
 
 
+// 活跃会话的 conv 集合, 由用户态在建/摘会话时维护(见 EnvelopeFilter::conv_add/conv_del).
+// 只存在与否, 不存任何密钥材料 -- XDP 拿它区分"已建立的会话"和"新会话尝试".
+#define ACTIVE_CONV_MAX (1 << 17)
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, ACTIVE_CONV_MAX);
+    __type(key, __u32);
+    __type(value, __u8);
+} active_conv SEC(".maps");
+
+
+// 每源 IP 的"新会话尝试"计数, 固定 1 秒窗口
+struct newsess_win {
+    __u64 start_ns;
+    __u32 count;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __uint(max_entries, 65536);
+    __type(key, __u32);
+    __type(value, struct newsess_win);
+} newsess SEC(".maps");
+
+
+// .rodata 变量按声明顺序排布, 用户态按固定偏移写入(见 envelope_filter.cpp):
+// 偏移 0: target_port(u16) 偏移 4: nkeys(u32) 偏移 8: newsess_max(u32)
 const volatile __u16 target_port = 0;
 
 // 密钥数量(2 的幂), 由用户态在加载前写入 .rodata; 0 表示未配置 -> 退化成单把(下标 0)
 const volatile __u32 nkeys = 0;
+
+// 每个源 IP 每秒允许多少个"新会话尝试"; 0 = 不限速
+const volatile __u32 newsess_max = 0;
 
 
 // =============================================================================
@@ -153,6 +184,42 @@ siphash24_xdp_fixed24(const __u8* frame, const __u8* key) {
 
 
 // =============================================================================
+// 新会话尝试限速
+// =============================================================================
+
+// 固定 1 秒窗口计数, 不是令牌桶 -- 令牌桶要按经过时间按比例补充, 那就得做除法,
+// 而 eBPF 里除法慢且 verifier 挑剔. 固定窗口的代价是跨边界那一瞬最多放行 2 倍,
+// 对"防 4.3KB 分配 churn"这个目的完全无所谓.
+//
+// 注: 多个 RX 队列可能并发读改同一个计数, 这里不加锁 -- 限速本就允许近似,
+// 少算几个远比在 XDP 热路径上背一把 spin lock 划算.
+static __always_inline int
+newsess_allow(__u32 saddr) {
+    __u64 now = bpf_ktime_get_ns();
+
+    struct newsess_win* w = bpf_map_lookup_elem(&newsess, &saddr);
+    if (!w) {
+        struct newsess_win init = { .start_ns = now, .count = 1 };
+        bpf_map_update_elem(&newsess, &saddr, &init, BPF_ANY);
+        return 1;
+    }
+
+    if (now - w->start_ns >= 1000000000ULL) {
+        w->start_ns = now;
+        w->count = 1;
+        return 1;
+    }
+
+    if (w->count >= newsess_max) {
+        return 0;
+    }
+
+    w->count++;
+    return 1;
+}
+
+
+// =============================================================================
 //                             XDP entry
 // =============================================================================
 
@@ -220,7 +287,7 @@ filter_envelope(struct xdp_md* ctx) {
     // 用它选密钥槽位: 攻击者手里只有自己 conv 对应的那一把, 伪造不了其他同余类
     __u32 conv = load_le32(payload + ENVELOPE_MAC_LEN);
 
-    // nkeys 是 2 的幂(用户态已断言), 用 & 代替 % —— eBPF 里除法慢且 verifier 挑剔
+    // nkeys 是 2 的幂(用户态已断言), 用 & 代替 % -- eBPF 里除法慢且 verifier 挑剔
     __u32 n = nkeys;
     if (n == 0) {
         return XDP_DROP;
@@ -237,11 +304,23 @@ filter_envelope(struct xdp_md* ctx) {
     }
 
     __u64 tag_calc = siphash24_xdp_fixed24(payload + ENVELOPE_MAC_LEN, key);
-    if (tag_wire == tag_calc) {
-        return XDP_PASS;
+    if (tag_wire != tag_calc) {
+        return XDP_DROP;
     }
 
-    return XDP_DROP;
+    // MAC 过了, 但这还不代表它属于一个已建立的会话.
+    // conv 不认识的包会让用户态新建一个 Session -- ikcp_create 一次分配约 4.3KB,
+    // 建完发现是垃圾包再析构, 而且未注册会话收到非握手包还会回一个 RST(可被用作反射).
+    // 拿到合法槽位密钥的攻击者在自己的同余类里乱撒 conv, 就能用 32 字节的包换服务端
+    // 4.3KB 的分配 churn -- 这条路信封拦不住(信封校验在 Session 建好之后才发生).
+    //
+    // 只对"新会话尝试"限速, 已建立的会话一律放行: 否则 NAT 后面几十个玩家共用一个
+    // 出口 IP, 会被当成一个来源一起误伤.
+    if (newsess_max != 0 && bpf_map_lookup_elem(&active_conv, &conv) == NULL && !newsess_allow(ip->saddr)) {
+        return XDP_DROP;
+    }
+
+    return XDP_PASS;
 }
 
 

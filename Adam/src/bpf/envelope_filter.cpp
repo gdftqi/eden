@@ -48,7 +48,8 @@ adam::bpf::EnvelopeFilter::~EnvelopeFilter() noexcept {
 
 
 int
-adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const SipHashKey* keys, int keys_count) noexcept {
+adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port,
+                               const SipHashKey* keys, int keys_count, int newsess_max) noexcept {
     if (!obj_path || keys == nullptr || keys_count == 0) {
         return -EINVAL;
     }
@@ -73,12 +74,13 @@ adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const S
         // .rodata 段变量按声明顺序排布(见 envelope.bpf.c):
         //   offset 0: const volatile __u16 target_port
         //   offset 4: const volatile __u32 nkeys   (u32 对齐到 4)
-        constexpr size_t RODATA_MIN = 8;   // 上面两个变量占满的字节数
+        // offset 8: const volatile __u32 newsess_max
+        constexpr size_t RODATA_MIN = 12; // 上面三个变量占满的字节数
 
         size_t rodata_size = ::bpf_map__value_size(rodata);
 
         // 下界同样要查: 选错 map(或 .bpf.c 里删了变量)的表现就是段变小,
-        // 此时下面按固定偏移写就成了越界/无效写, 必须在这里拦住。
+        // 此时下面按固定偏移写就成了越界/无效写, 必须在这里拦住.
         if (rodata_size < RODATA_MIN || rodata_size > 256) {
             ::bpf_object__close(obj_);
             obj_ = nullptr;
@@ -88,8 +90,10 @@ adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const S
 
         uint8_t buf[256] = {};
         uint32_t n = (uint32_t)keys_count;
+        uint32_t ns = (uint32_t)newsess_max;
         std::memcpy(buf + 0, &udp_port, sizeof(udp_port));
         std::memcpy(buf + 4, &n,        sizeof(n));
+        std::memcpy(buf + 8, &ns, sizeof(ns));
         if (::bpf_map__set_initial_value(rodata, buf, rodata_size)) {
             ::bpf_object__close(obj_);
             obj_ = nullptr;
@@ -108,17 +112,18 @@ adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const S
     // filter_envelope: envelope.bpf.c:136 函数签名
     auto* prog = ::bpf_object__find_program_by_name(obj_, "filter_envelope");
 
-    // envelope_key: envelope.bpf.c:49 map 的变量名
     auto* key_map = ::bpf_object__find_map_by_name(obj_, "envelope_key");
-    if (!prog || !key_map) {
+    auto* conv_map = ::bpf_object__find_map_by_name(obj_, "active_conv");
+    if (!prog || !key_map || !conv_map) {
         ::bpf_object__close(obj_);
         obj_ = nullptr;
-        xERROR("查询 filter_envelope 或 envelope_key 失败");
+        xERROR("查询 filter_envelope / envelope_key / active_conv 失败");
         return xERR_BPF_FIND;
     }
 
     prog_fd_    = ::bpf_program__fd(prog);
     key_map_fd_ = ::bpf_map__fd(key_map);
+    conv_map_fd_ = ::bpf_map__fd(conv_map);
 
     for (int i = 0; i < keys_count; ++i) {
         uint32_t idx = (uint32_t)i;
@@ -128,6 +133,7 @@ adam::bpf::EnvelopeFilter::init(const char* obj_path, uint16_t udp_port, const S
             obj_ = nullptr;
             prog_fd_ = -1;
             key_map_fd_ = -1;
+            conv_map_fd_ = -1;
             xERROR("写入第 {} 把 envelope key 失败", i);
             return err;
         }
@@ -188,4 +194,30 @@ adam::bpf::EnvelopeFilter::detach() noexcept {
     if_index_  = -1;
     xdp_flags_ = 0;
     return xOK;
+}
+
+void
+adam::bpf::EnvelopeFilter::conv_add(uint32_t conv) noexcept {
+    if (conv_map_fd_ < 0) {
+        // 没加载 BPF, 空操作 -- 安全属性不依赖这张表, 它只影响限速判据
+        return;
+    }
+
+    uint8_t one = 1;
+    if (::bpf_map_update_elem(conv_map_fd_, &conv, &one, BPF_ANY) != 0) {
+        // 表满或其它错误. 不中断: 最坏结果是这个会话的包被当成新会话尝试限速,
+        // 而不是连接不上 -- 但表满说明 ACTIVE_CONV_MAX 需要调大, 值得留痕
+        xWARN("active_conv 登记失败: conv = {}, errno = {}", conv, errno);
+    }
+}
+
+
+void
+adam::bpf::EnvelopeFilter::conv_del(uint32_t conv) noexcept {
+    if (conv_map_fd_ < 0) {
+        return;
+    }
+
+    // 删不掉通常是本来就不在表里(登记时失败过), 不值得记日志
+    ::bpf_map_delete_elem(conv_map_fd_, &conv);
 }

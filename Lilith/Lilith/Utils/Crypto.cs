@@ -12,8 +12,18 @@ namespace Lilith.Utils
     public static class Crypto
     {
         // ---- envelope MAC ----
+        // 信封布局(与 Adam 的 core/adam.in.hpp 逐字节对应):
+        // 0 8 槽位 SipHash MAC 服务端 XDP 校验, 覆盖 [8,32)
+        // 8 4 conv 明文 XDP 选密钥槽 + sk_reuseport 分流
+        // 12 4 计数器 AEAD nonce + 防重放序号
+        // 16 N AEAD 密文 明文 = 完整 KCP 数据报
+        // .. 16 AEAD tag AAD = [8,16)
         public const int ENVELOPE_MAC_LEN = 8;
         public const int ENVELOPE_MAC_HASH_LEN = 24;
+        public const int ENVELOPE_CONV_OFF = 8;
+        public const int ENVELOPE_CTR_OFF = 12;
+        public const int ENVELOPE_HDR_LEN = 16;
+        public const int ENVELOPE_OVERHEAD = ENVELOPE_HDR_LEN + XX20_TAG_LEN;
 
         // ---- ChaCha20-Poly1305 AEAD (IETF) ----
         public const int AEAD_KEY_LEN = 32;
