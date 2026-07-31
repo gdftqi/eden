@@ -13,7 +13,7 @@
 namespace adam::kcp {
 
 
-/** 
+/**
  * @brief KCP 配置类 (单例)
  */
 class Conf {
@@ -100,9 +100,9 @@ public:
 
     /**
      * @brief 是否开启低延迟模式 (nodelay)
-     * 
+     *
      *        0: 不开启
-     * 
+     *
      *        1: 开启
      */
     int
@@ -153,6 +153,17 @@ public:
     int
     nsiphash() const noexcept {
         return nsiphash_;
+    }
+
+
+    /**
+     * @brief 每个源 IP 每秒允许多少个"新会话尝试"(conv 不在活跃集合里的包).
+     * 0 = 不限速. 只限新会话, 已建立的会话一律放行 -- 否则 NAT 后面
+     * 共用一个出口 IP 的一片玩家会被当成同一个来源一起误伤.
+     */
+    int
+    newsess_max() const noexcept {
+        return newsess_max_;
     }
 
 
@@ -271,6 +282,7 @@ private:
     std::string       log_path_;                    // 日志路径
     std::string       prof_path_;                   // prof 路径
     int               nsiphash_     { 256 };        // siphash key 的数量
+    int               newsess_max_  { 32 };         // 每源 IP 每秒新会话尝试上限, 0=不限
     SipHashKey*       siphashs_     { nullptr };    // sip hash keys
     std::string       json_;
 }; // class Conf;

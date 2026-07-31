@@ -2,7 +2,7 @@
 //
 // KCP - A Better ARQ Protocol Implementation
 // skywind3000 (at) gmail.com, 2010-2011
-//  
+//
 // Features:
 // + Average RTT reduce 30% - 40% vs traditional ARQ like tcp.
 // + Maximum RTT reduce three times vs tcp.
@@ -42,7 +42,6 @@ const IUINT32 IKCP_MTU_DEF = 1400;
 const IUINT32 IKCP_ACK_FAST	= 3;
 const IUINT32 IKCP_INTERVAL	= 100;
 const IUINT32 IKCP_OVERHEAD = 24;
-#define IKCP_ENVELOPE_LEN 8
 const IUINT32 IKCP_THRESH_INIT = 2;
 const IUINT32 IKCP_THRESH_MIN = 2;
 const IUINT32 IKCP_PROBE_INIT = 5000;		// 7 secs to probe window size
@@ -117,7 +116,7 @@ static inline const char *ikcp_decode32u(const char *p, IUINT32 *l)
 	*l = *(const unsigned char*)(p + 2) + (*l << 8);
 	*l = *(const unsigned char*)(p + 1) + (*l << 8);
 	*l = *(const unsigned char*)(p + 0) + (*l << 8);
-#else 
+#else
 	memcpy(l, p, 4);
 #endif
 	p += 4;
@@ -132,12 +131,12 @@ static inline IUINT32 _imax_(IUINT32 a, IUINT32 b) {
 	return a >= b ? a : b;
 }
 
-static inline IUINT32 _ibound_(IUINT32 lower, IUINT32 middle, IUINT32 upper) 
+static inline IUINT32 _ibound_(IUINT32 lower, IUINT32 middle, IUINT32 upper)
 {
 	return _imin_(_imax_(lower, middle), upper);
 }
 
-static inline long _itimediff(IUINT32 later, IUINT32 earlier) 
+static inline long _itimediff(IUINT32 later, IUINT32 earlier)
 {
 	return ((IINT32)(later - earlier));
 }
@@ -152,7 +151,7 @@ static void (*ikcp_free_hook)(void *) = NULL;
 
 // internal malloc
 static void* ikcp_malloc(size_t size) {
-	if (ikcp_malloc_hook) 
+	if (ikcp_malloc_hook)
 		return ikcp_malloc_hook(size);
 	return malloc(size);
 }
@@ -218,74 +217,12 @@ static int ikcp_canlog(const ikcpcb *kcp, int mask)
 }
 
 
-static inline IUINT64
-ikcp_rotl64(IUINT64 x, int b) { 
-	return (x << b) | (x >> (64 - b)); 
-}
 
 
-static inline IUINT64
-ikcp_load_le64(const unsigned char *p) {
-	IUINT64 v; memcpy(&v, p, 8); return v;
-}
-
-
-#define IKCP_SIPROUND \
-	do { \
-		v0 += v1;  v1 = ikcp_rotl64(v1, 13);  v1 ^= v0;  v0 = ikcp_rotl64(v0, 32); \
-		v2 += v3;  v3 = ikcp_rotl64(v3, 16);  v3 ^= v2; \
-		v0 += v3;  v3 = ikcp_rotl64(v3, 21);  v3 ^= v0; \
-		v2 += v1;  v1 = ikcp_rotl64(v1, 17);  v1 ^= v2;  v2 = ikcp_rotl64(v2, 32); \
-	} while (0)
-
-static IUINT64 ikcp_siphash24(const void *data, size_t len, const unsigned char key[16])
-{
-	IUINT64 k0 = ikcp_load_le64(key);
-	IUINT64 k1 = ikcp_load_le64(key + 8);
-	IUINT64 v0 = k0 ^ 0x736f6d6570736575ULL;
-	IUINT64 v1 = k1 ^ 0x646f72616e646f6dULL;
-	IUINT64 v2 = k0 ^ 0x6c7967656e657261ULL;
-	IUINT64 v3 = k1 ^ 0x7465646279746573ULL;
-	const unsigned char *p = (const unsigned char*)data;
-	const unsigned char *end = p + (len - len % 8);
-	IUINT64 b;
-	size_t tail;
-	for (; p != end; p += 8) {
-		IUINT64 m = ikcp_load_le64(p);
-		v3 ^= m;
-		IKCP_SIPROUND;
-		IKCP_SIPROUND;
-		v0 ^= m;
-	}
-	b = (IUINT64)len << 56;
-	tail = len & 7;
-	switch (tail) {
-	case 7: b |= (IUINT64)p[6] << 48; /* fallthrough */
-	case 6: b |= (IUINT64)p[5] << 40; /* fallthrough */
-	case 5: b |= (IUINT64)p[4] << 32; /* fallthrough */
-	case 4: b |= (IUINT64)p[3] << 24; /* fallthrough */
-	case 3: b |= (IUINT64)p[2] << 16; /* fallthrough */
-	case 2: b |= (IUINT64)p[1] <<  8; /* fallthrough */
-	case 1: b |= (IUINT64)p[0];       /* fallthrough */
-	case 0: break;
-	}
-	v3 ^= b;
-	IKCP_SIPROUND;
-	IKCP_SIPROUND;
-	v0 ^= b;
-	v2 ^= 0xFF;
-	IKCP_SIPROUND;
-	IKCP_SIPROUND;
-	IKCP_SIPROUND;
-	IKCP_SIPROUND;
-	return v0 ^ v1 ^ v2 ^ v3;
-}
-
-
+/* [adam] 只吐裸 KCP 数据报. 信封(槽位MAC/conv/计数器/AEAD)由 Session 层统一加 --
+ * 槽位 MAC 现在要盖在密文上, 而 ikcp 既拿不到会话密钥也看不到密文. */
 static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 {
-	IUINT64 mac;
-	int i;
 	assert(kcp);
 	assert(kcp->output);
 	if (ikcp_canlog(kcp, IKCP_LOG_OUTPUT)) {
@@ -294,13 +231,7 @@ static int ikcp_output(ikcpcb *kcp, const void *data, int size)
 	if (size == 0) return 0;
 
 	kcp->last_snd_ms = kcp->current;
-
-	mac = ikcp_siphash24(data, IKCP_OVERHEAD, kcp->siphash);
-	for (i = 0; i < IKCP_ENVELOPE_LEN; i++) {
-		kcp->mac_buf[i] = (char)(mac >> (8 * i));   /* 小端, 等价 htole64 */
-	}
-	memcpy(kcp->mac_buf + IKCP_ENVELOPE_LEN, data, (size_t)size);
-	return kcp->output(kcp->mac_buf, size + IKCP_ENVELOPE_LEN, kcp);
+	return kcp->output((const char*)data, size, kcp);
 }
 
 //---------------------------------------------------------------------
@@ -397,14 +328,6 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user)
 		return NULL;
 	}
 
-	/* [adam] 出向信封暂存 [8B MAC][datagram]; 信封 key 默认全 0, 由 ikcp_set_siphash 设置 */
-	kcp->mac_buf = (char*)ikcp_malloc(kcp->mtu + IKCP_ENVELOPE_LEN);
-	if (kcp->mac_buf == NULL) {
-		ikcp_free(kcp->buffer);
-		ikcp_free(kcp);
-		return NULL;
-	}
-	memset(kcp->siphash, 0, sizeof(kcp->siphash));
 	kcp->last_snd_ms = 0;
 	kcp->is_client = 0;   /* [adam] 默认服务端, 见 ikcp.h 里 is_client 的说明 */
 	kcp->pong = 0;
@@ -481,9 +404,6 @@ void ikcp_release(ikcpcb *kcp)
 		if (kcp->buffer) {
 			ikcp_free(kcp->buffer);
 		}
-		if (kcp->mac_buf) {
-			ikcp_free(kcp->mac_buf);
-		}
 		if (kcp->acklist) {
 			ikcp_free(kcp->acklist);
 		}
@@ -494,7 +414,6 @@ void ikcp_release(ikcpcb *kcp)
 		kcp->nsnd_que = 0;
 		kcp->ackcount = 0;
 		kcp->buffer = NULL;
-		kcp->mac_buf = NULL;
 		kcp->acklist = NULL;
 		kcp->state = IKCP_STATE_NONE;
 		ikcp_free(kcp);
@@ -530,10 +449,10 @@ int ikcp_recv(ikcpcb *kcp, char *buffer, int len)
 
 	peeksize = ikcp_peeksize(kcp);
 
-	if (peeksize < 0) 
+	if (peeksize < 0)
 		return -2;
 
-	if (peeksize > len) 
+	if (peeksize > len)
 		return -3;
 
 	if (kcp->nrcv_que >= kcp->rcv_wnd)
@@ -563,7 +482,7 @@ int ikcp_recv(ikcpcb *kcp, char *buffer, int len)
 			kcp->nrcv_que--;
 		}
 
-		if (fragment == 0) 
+		if (fragment == 0)
 			break;
 	}
 
@@ -669,7 +588,7 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 	else count = (len + kcp->mss - 1) / kcp->mss;
 
 	if (count >= (int)IKCP_WND_RCV) {
-		if (kcp->stream != 0 && sent > 0) 
+		if (kcp->stream != 0 && sent > 0)
 			return sent;
 		return -2;
 	}
@@ -944,9 +863,8 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		ikcp_log(kcp, IKCP_LOG_INPUT, "[RI] %d bytes", (int)size);
 	}
 
-	if (data == NULL || (int)size < (int)(IKCP_ENVELOPE_LEN + IKCP_OVERHEAD)) return -1;
-	data += IKCP_ENVELOPE_LEN;
-	size -= IKCP_ENVELOPE_LEN;
+	/* [adam] 进来的已是裸 KCP 数据报, 信封由 Session::input 剥掉 */
+	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return -1;
 
 	while (1) {
 		IUINT32 ts, sn, len, una, conv;
@@ -1018,15 +936,15 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 				}
 			}
 			if (ikcp_canlog(kcp, IKCP_LOG_IN_ACK)) {
-				ikcp_log(kcp, IKCP_LOG_IN_ACK, 
-					"input ack: sn=%lu rtt=%ld rto=%ld", (unsigned long)sn, 
+				ikcp_log(kcp, IKCP_LOG_IN_ACK,
+					"input ack: sn=%lu rtt=%ld rto=%ld", (unsigned long)sn,
 					(long)_itimediff(kcp->current, ts),
 					(long)kcp->rx_rto);
 			}
 		}
 		else if (cmd == IKCP_CMD_PUSH) {
 			if (ikcp_canlog(kcp, IKCP_LOG_IN_DATA)) {
-				ikcp_log(kcp, IKCP_LOG_IN_DATA, 
+				ikcp_log(kcp, IKCP_LOG_IN_DATA,
 					"input psh: sn=%lu ts=%lu", (unsigned long)sn, (unsigned long)ts);
 			}
 			if (_itimediff(sn, kcp->rcv_nxt + kcp->rcv_wnd) < 0) {
@@ -1094,7 +1012,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		acked_segs = kcp->snd_una - prev_una;
 		prior_in_flight = prev_nsnd_buf;
 		if (kcp->ccops && kcp->ccops->on_ack) {
-			kcp->ccops->on_ack(kcp, acked_segs, kcp->ackedlen, 
+			kcp->ccops->on_ack(kcp, acked_segs, kcp->ackedlen,
 					prior_in_flight);
 		}
 		else {
@@ -1155,7 +1073,7 @@ void ikcp_flush(ikcpcb *kcp)
 	int lost = 0;
 	IKCPSEG seg;
 
-	// 'ikcp_update' hasn't been called yet. 
+	// 'ikcp_update' hasn't been called yet.
 	if (kcp->updated == 0) return;
 
 	if (kcp->ccops && kcp->ccops->on_tick) {
@@ -1196,10 +1114,10 @@ void ikcp_flush(ikcpcb *kcp)
 		if (kcp->probe_wait == 0) {
 			kcp->probe_wait = IKCP_PROBE_INIT;
 			kcp->ts_probe = kcp->current + kcp->probe_wait;
-		}	
+		}
 		else {
 			if (_itimediff(kcp->current, kcp->ts_probe) >= 0) {
-				if (kcp->probe_wait < IKCP_PROBE_INIT) 
+				if (kcp->probe_wait < IKCP_PROBE_INIT)
 					kcp->probe_wait = IKCP_PROBE_INIT;
 				kcp->probe_wait += kcp->probe_wait / 2;
 				if (kcp->probe_wait > IKCP_PROBE_LIMIT)
@@ -1322,7 +1240,7 @@ void ikcp_flush(ikcpcb *kcp)
 			if (kcp->nodelay == 0) {
 				segment->rto += _imax_(segment->rto, (IUINT32)kcp->rx_rto);
 			}	else {
-				IINT32 step = (kcp->nodelay < 2)? 
+				IINT32 step = (kcp->nodelay < 2)?
 					((IINT32)(segment->rto)) : kcp->rx_rto;
 				segment->rto += step / 2;
 			}
@@ -1330,7 +1248,7 @@ void ikcp_flush(ikcpcb *kcp)
 			lost = 1;
 		}
 		else if (segment->fastack >= resent) {
-			if ((int)segment->xmit <= kcp->fastlimit || 
+			if ((int)segment->xmit <= kcp->fastlimit ||
 				kcp->fastlimit <= 0) {
 				needsend = 1;
 				segment->xmit++;
@@ -1385,7 +1303,7 @@ void ikcp_flush(ikcpcb *kcp)
 	// update ssthresh
 	if (change) {
 		if (kcp->ccops && kcp->ccops->on_fast_retransmit) {
-			kcp->ccops->on_fast_retransmit(kcp, (IUINT32)change, 
+			kcp->ccops->on_fast_retransmit(kcp, (IUINT32)change,
 					kcp->nsnd_buf, prior_cwnd);
 		}
 		else {
@@ -1517,31 +1435,18 @@ IUINT32 ikcp_check(const ikcpcb *kcp, IUINT32 current)
 int ikcp_setmtu(ikcpcb *kcp, int mtu)
 {
 	char *buffer;
-	char *macbuf;   /* [adam] */
 	if (mtu < 50 || mtu < (int)IKCP_OVERHEAD)
 		return -1;
 	buffer = (char*)ikcp_malloc((mtu + IKCP_OVERHEAD) * 3);
 	if (buffer == NULL)
 		return -2;
-	macbuf = (char*)ikcp_malloc(mtu + IKCP_ENVELOPE_LEN);   /* [adam] */
-	if (macbuf == NULL) {
-		ikcp_free(buffer);
-		return -2;
-	}
 	kcp->mtu = mtu;
 	kcp->mss = kcp->mtu - IKCP_OVERHEAD;
 	ikcp_free(kcp->buffer);
 	kcp->buffer = buffer;
-	ikcp_free(kcp->mac_buf);   /* [adam] */
-	kcp->mac_buf = macbuf;
 	return 0;
 }
 
-
-void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key)
-{
-	memcpy(kcp->siphash, key, sizeof(kcp->siphash));
-}
 
 
 void ikcp_set_client(ikcpcb *kcp, int is_client)
@@ -1569,8 +1474,8 @@ int ikcp_nodelay(ikcpcb *kcp, int nodelay, int interval, int resend, int nc)
 	if (nodelay >= 0) {
 		kcp->nodelay = nodelay;
 		if (nodelay) {
-			kcp->rx_minrto = IKCP_RTO_NDL;	
-		}	
+			kcp->rx_minrto = IKCP_RTO_NDL;
+		}
 		else {
 			kcp->rx_minrto = IKCP_RTO_MIN;
 		}
@@ -1613,8 +1518,7 @@ int ikcp_waitsnd(const ikcpcb *kcp)
 IUINT32 ikcp_getconv(const void *ptr)
 {
 	IUINT32 conv;
-	/* [adam] ptr 为原始 UDP 报文, conv 在 8B 信封之后 */
-	ikcp_decode32u((const char*)ptr + IKCP_ENVELOPE_LEN, &conv);
+	ikcp_decode32u((const char*)ptr, &conv);
 	return conv;
 }
 

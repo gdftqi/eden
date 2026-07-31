@@ -50,7 +50,7 @@ adam::kcp::Server::run() noexcept {
         ASSERT(port > 0 && port <= 65535, "invalid port in host {}", host_);
 
         auto* cf = adam::kcp::Conf::instance();
-        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, cf->siphashs(), cf->nsiphash());
+        int rc = envelope_.init(envelope_bpf_path_.c_str(), (uint16_t)port, cf->siphashs(), cf->nsiphash(), cf->newsess_max());
         if (rc != 0) {
             xERROR("envelope filter init failed: rc = {}", rc);
             state_.store(adam::core::State::Stopped);
@@ -265,8 +265,7 @@ adam::kcp::Server::update() noexcept {
             continue;
         }
 
-        // 服务自报家门(router=true 即终端路由服务), 随发现结果下发给各 worker;
-        // 网关不认识任何具体服务实例(名字/id 都不关心)。
+        // router=true 即终端路由服务
         for (auto& w: workers_) {
             w->notify(new Message(
                 Message::Type::EnsureBackend,

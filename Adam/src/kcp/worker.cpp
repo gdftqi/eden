@@ -99,9 +99,17 @@ adam::kcp::Worker::run() noexcept {
 
 int
 adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
+    thread_local static uint8_t wire[core::UDP_MTU];
+
     auto* s   = (Session*)kcpcb->user;
     auto* svr = s->worker();
-    auto* dg  = svr->dg_pool_.acquire(s->addr(), s->addrlen(), buf, len, svr->tnow());
+
+    int n = s->sealedbox_encode((const uint8_t*)buf, len, wire);
+    if (n < 0) {
+        return 0;
+    }
+
+    auto* dg = svr->dg_pool_.acquire(s->addr(), s->addrlen(), (const char*)wire, n, svr->tnow());
     svr->dg_que_.emplace_back(dg);
     return 0;
 }
@@ -155,6 +163,8 @@ adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
         sesss_.erase(conv);
         return -1;
     }
+
+    server_->envelope()->conv_add(conv);
     return 0;
 }
 
@@ -194,6 +204,7 @@ adam::kcp::Worker::remove_session(uint32_t conv, uint32_t code) noexcept {
     if (itr != sesss_.end()) {
         auto sess = itr->second;
         sesss_.erase(itr);
+        server_->envelope()->conv_del(conv);
         sess->terminal_off(code);
         event_->on_sess_disconnected(sess);
     }
@@ -280,8 +291,9 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 }
 
                 auto& msg = rmsgs_[i];
+                // 按两种信封格式里较短的那个卡: 握手期是 [8B MAC][裸 KCP 数据报],
+                // 最短 8 + 24 = 32(纯 ACK). 用封装后的 56 会把握手期的 ACK 全丢掉.
                 if (msg.msg_len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
-                    // 如果长KCP协议头 + SIPHASH 长度, 说明这个包不合法
                     // TODO: 记录攻击行为
                     continue;
                 }
@@ -316,6 +328,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 res = s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen);
                 if (res != xOK) {
+                    // TODO: 记录日志
                     continue;
                 }
 
@@ -331,18 +344,12 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     } else if (res == xDUP) {
                         // 幂等重复, 跳过
                         continue;
-                    } else if (res == xERR_PK_DEC) {
-                        constexpr uint32_t MAX_DEC_FAIL = 16;
-
-                        if (s->decode_fail() > MAX_DEC_FAIL) {
-                            xWARN("{} 连续 {} 次解密失败, 判死", s->to_json(), s->decode_fail());
-                            remove_session(s->conv(), TER_CODE_PROTO_ERR);
-                            break;
-                        }
-                        continue;
                     } else if (res < 0) {
-                        // 协议错误
-                        // TODO: 记录攻击行为, 并且封禁对端 IP 一段时间
+                        // 能走到 recv 的字节都过了信封的 AEAD + 防重放(见 Session::input),
+                        // 所以这里的错一定是对端真的发错了, 判死是对的.
+                        // 伪造/重放包在 input 那层就被丢了, 根本到不了这里 --
+                        // 那条路只计数不判死, 否则攻击者连发几个伪造包就能把人踢下线.
+                        // TODO: 记录攻击行为
                         remove_session(s->conv(), TER_CODE_PROTO_ERR);
                         break;
                     }

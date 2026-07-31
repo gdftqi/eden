@@ -47,15 +47,35 @@ namespace adam::core {
  */
 constexpr int UDP_MTU = 1450;
 
-/** 
- * @brief Envelope MAC (SipHash tag) 长度, 用来过滤消息
+/**
+ * @brief 信封布局(UDP 载荷). KCP 数据报被整个 AEAD 封在里面 --
+ * 安全层在最外, 把 KCP 的头也一起裹住, 攻击者改不了 sn/una/wnd/cmd.
+ *
+ * 偏移 长度 内容
+ * 0 8 槽位 SipHash MAC XDP 校验, 覆盖 [8, 32)
+ * 8 4 conv 明文 XDP 选密钥槽 + sk_reuseport 分流
+ * 12 4 计数器 AEAD nonce + 防重放序号, 每次发送 +1(含重传)
+ * 16 N AEAD 密文 明文 = 完整 KCP 数据报(含它自己的 24B 头)
+ * 16+N 16 AEAD tag AAD = [8, 16), 即 conv + 计数器
+ *
+ * @note conv 放在偏移 8 是刻意的: 和改造前 KCP 头里 conv 的位置重合,
+ * 两个 BPF 程序(envelope.bpf.c / kcp.bpf.c)因此一个字节都不用改.
  */
-constexpr int ENVELOPE_MAC_LEN = 8;
+constexpr int ENVELOPE_MAC_LEN = 8; // 槽位 MAC
+constexpr int ENVELOPE_CONV_OFF = 8; // 明文 conv 偏移
+constexpr int ENVELOPE_CTR_OFF = 12; // 计数器偏移
+constexpr int ENVELOPE_HDR_LEN = 16; // 密文开始的偏移 = MAC + conv + 计数器
+
+/**
+ * @brief 信封相对裸 KCP 数据报的总开销 = 头 16 + AEAD tag 16
+ * @note utils::XX20_TAG_LEN 也是 16, 这里不引 utils 头, 用字面量并由 session.cpp 静态断言把关
+ */
+constexpr int ENVELOPE_OVERHEAD = ENVELOPE_HDR_LEN + 16;
 
 /**
  * @brief KCP MTU, 用于 KCP 分片, KCP MTU 指的是 KCP 消息头(24字节) + payload 长度
  */
-constexpr int KCP_MTU = UDP_MTU - ENVELOPE_MAC_LEN;
+constexpr int KCP_MTU = UDP_MTU - ENVELOPE_OVERHEAD;
 
 /**
  * @brief KCP 协议头长度
@@ -76,7 +96,7 @@ enum class State: uint8_t {
 
 /**
  * @brief 为 fd 设置 non_blocking
- * 
+ *
  * @return 成功返回 0, 否则返回 -1
  */
 inline int
@@ -96,7 +116,7 @@ set_nonblocking(int fd) noexcept {
 
 /**
  * @brief 创建 UDP fd
- * 
+ *
  * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
  */
 SOCKET
@@ -105,7 +125,7 @@ udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept;
 
 /**
  * @brief 创建TCP监听 fd
- * 
+ *
  * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
  */
 SOCKET
@@ -114,9 +134,9 @@ tcp_listen(const std::string& host, int sndbuf = 0, int rcvbuf = 0) noexcept;
 
 /**
  * @brief 创建TCP连接 fd
- * 
+ *
  * @return 成功返回 大于 0 值的 fd, 否则返回 INVALID_SOCKET
- * 
+ *
  * @note 该函数为异步连接.
  */
 SOCKET
@@ -132,7 +152,7 @@ writen(SOCKET fd, const void* buf, size_t len) noexcept;
 
 /**
  * @brief sockaddr 转 string 格式
- * 
+ *
  * @return 成功返回 sockaddr 的 string 格式, 否则返回空字符串
  */
 inline std::string

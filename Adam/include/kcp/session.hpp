@@ -33,7 +33,7 @@ public:
 
 
     /**
-     * @brief 创建一个 Kcp 实例(shared_ptr,便于跨 epoll cycle / sque_ 持有)。
+     * @brief 创建一个 Kcp 实例(shared_ptr,便于跨 epoll cycle / sque_ 持有).
      * @param conv   KCP conv ID,客户端 / 服务端必须一致
      * @param server 所属 KcpServer
      */
@@ -44,11 +44,16 @@ public:
 
 
     /**
-     * @brief 获取 conv
+     * @brief 从信封里取 conv
      */
     static uint32_t
-    getconv(const void* data, int len) noexcept {
-        return len < core::ENVELOPE_MAC_LEN + 4 ? 0 : ::ikcp_getconv(data);
+    getconv(const uint8_t* data, int len) noexcept {
+        if (len < core::ENVELOPE_HDR_LEN) {
+            return 0;
+        }
+
+        const uint32_t* p = (const uint32_t*)(data + core::ENVELOPE_CONV_OFF);
+        return core::u32_to_le(*p);
     }
 
 
@@ -221,8 +226,8 @@ public:
 
 
     /**
-     * @brief 推动 KCP 内部状态机: 超时重传、发 ACK、flush 待发数据.
-     *        必须按 ikcp_nodelay() 设的 interval 周期调 —— 不调用 KCP 不会推进.
+     * @brief 推动 KCP 内部状态机: 超时重传 / 发 ACK / flush 待发数据.
+     * 必须按 ikcp_nodelay() 设的 interval 周期调 -- 不调用 KCP 不会推进.
      *
      * @return  0                    正常(本轮可能 flush 了数据, 也可能什么都没做)
      *         -1 IKCP_STATE_TIMEOUT 超过 kcp_->timeout 未收到对端任何数据 -> 判死
@@ -238,34 +243,54 @@ public:
 
 
     /**
-     * @brief 把对端发来的一段 UDP payload 喂给 KCP 状态机:解 KCP 头、放进 rcv_queue、
-     *        触发 ACK / 重传。喂完之后才能用 recv_pk() 取出完整应用层消息。
-     *        成功时同步记录对端地址,后续 output 回调通过 addr() 取到。
+     * @brief 把对端发来的一段 UDP payload 喂给 KCP 状态机:解 KCP 头 / 放进 rcv_queue /
+     * 触发 ACK / 重传. 喂完之后才能用 recv_pk() 取出完整应用层消息.
+     * 成功时同步记录对端地址,后续 output 回调通过 addr() 取到.
      * @param data    UDP payload 起始
      * @param len     payload 字节数
      * @param addr    对端 sockaddr(从 recvmmsg 拿到的 msg_hdr.msg_name)
      * @param addrlen addr 长度
-     * @return  ikcp_input 原始返回码经 core::from_ikcp_input 映射:
-     * 
+     * @return xERR_PK_DEC 信封解不开(伪造/重放), 只丢包不判死
+     *
+     * ikcp_input 原始返回码经 core::from_ikcp_input 映射:
+     *
      *            0  → xOK              成功
-     * 
+     *
      *           -1  → xERR_KCP_CONV    conv 不符 / 包太短
-     * 
+     *
      *           -2  → xERR_KCP_MALFORM len 字段畸形
-     * 
+     *
      *           -3  → xERR_KCP_CMD     未知 cmd
-     * 
+     *
      *           -4  → xERR (IKCP_INPUT_RST: 会话未注册且非握手包, 已回 RST, 上层应摘会话)
+     *
+     * @note 地址重绑定(NAT 漫游)不需要额外判据: 翻转之后能走到 ikcp_input 的包
+     * 都已通过 AEAD + 重放窗口, 本身就是"可证新鲜且来自对端"的凭据.
      */
     int
-    input(const void* data, long len, const void* addr, socklen_t addrlen) noexcept {
-        int res = ::ikcp_input(kcp_, (const char*)data, len);
-        if (res == 0) {
-            ::memcpy(&addr_, addr, addrlen);
-            addrlen_ = addrlen;
-        }
-        return core::from_ikcp_input(res);
-    }
+    input(const uint8_t* data, long len, const void* addr, socklen_t addrlen) noexcept;
+
+
+    /**
+     * @brief 加密
+     */
+    int
+    sealedbox_encode(const uint8_t* dg, int len, uint8_t* out) noexcept;
+
+
+    /**
+     * @brief 解封(seal 的逆): 查重放窗口 -> AEAD 解密 -> 提交窗口. 顺序不能反,
+     * 窗口必须等验签通过才提交(否则伪造包能把窗口推远, 顶掉对端的真包).
+     *
+     * @param wire 线上字节
+     * @param len wire 长度
+     * @param out 输出缓冲, 至少 len 字节(明文一定比密文短)
+     *
+     * @return 裸 KCP 数据报长度; <0 表示这不是一个能解开的信封
+     * (调用方据此决定: 过渡期当明文处理, 已翻转则丢弃)
+     */
+    int
+    sealedbox_decode(const uint8_t* wire, int len, uint8_t* out) noexcept;
 
 
     void
@@ -276,21 +301,21 @@ public:
 
     /**
      * @brief 从 KCP 队列读出一条完整 Package,做协议自检 + 单调性幂等校验,
-     *        并刷新 last_recv_ms_(用于 session 超时判定)。
-     *        相当于 recv() 之上加一层应用协议层处理。
+     * 并刷新 last_recv_ms_(用于 session 超时判定).
+     * 相当于 recv() 之上加一层应用协议层处理.
      *
      * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
      * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
      * @param      len buf 长度
      *
      * @return  xOK    成功(包长度在 *pk 的 len() 里)
-     * 
+     *
      *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
-     * 
+     *
      *          xAGAIN rcv_queue 空 / 无完整包, 当前没有更多消息
-     * 
+     *
      *          xERR_KCP_BUFSMALL buf 太小, 放大后重试
-     * 
+     *
      *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
      */
     int
@@ -302,8 +327,8 @@ public:
      *        用 tx_key_ 做 ChaCha20-Poly1305 加密(nonce = conv|seq|DIR_S2C), 未 authed / 空 payload
      *        走明文, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成).
      *
-     * @param[in,out] pk 待发送包(host 序); 本方法会覆写 pk->seq; 明文分支会把头翻成 net 序。
-     *                   pk 所指缓冲可能是共享的(如 Connector rbuf_), 加密分支不原地改它。
+     * @param[in,out] pk 待发送包(host 序); 本方法会覆写 pk->seq; 明文分支会把头翻成 net 序.
+     * pk 所指缓冲可能是共享的(如 Connector rbuf_), 加密分支不原地改它.
      *
      * @return  xOK               成功入 KCP 发送队列(可靠传输, 但不代表对端已收到)
      *
@@ -338,18 +363,61 @@ private:
     }
 
 
+    /**
+     * @brief 查防重放窗口
+     *
+     * @return true  没见过, 可以收(但要等 AEAD 验过才能 replay_commit)
+     *         false 拒收, 两种情况:
+     *               1. 落在窗口内且对应 bit 已置位 = 重放
+     *               2. 比 rcv_ctr_max_ - 63 还老 = 太旧, 窗口装不下, 一律当重放处理
+     */
+    bool
+    replay_ok(uint32_t ctr) const noexcept {
+        if (ctr > rcv_ctr_max_) {
+            return true;
+        }
+
+        uint32_t back = rcv_ctr_max_ - ctr;
+        return back < 64 && (rcv_ctr_bits_ & (1ULL << back)) == 0;
+    }
+
+
+    /**
+     * @brief 把 ctr 记进窗口
+     */
+    void
+    replay_commit(uint32_t ctr) noexcept {
+        if (ctr > rcv_ctr_max_) {
+            uint32_t shift = ctr - rcv_ctr_max_;
+            rcv_ctr_bits_  = (shift < 64) ? ((rcv_ctr_bits_ << shift) | 1ULL) : 1ULL;
+            rcv_ctr_max_   = ctr;
+            return;
+        }
+
+        rcv_ctr_bits_ |= (1ULL << (rcv_ctr_max_ - ctr));
+    }
+
+
     Worker*            worker_   { nullptr };
     uint32_t           uid_      { 0 };
     uint32_t           snd_seq_  { 0 };
     uint32_t           rcv_req_  { 0 };
-    uint32_t           dec_fail_ { 0 };             // 连续解密失败次数, 收到合法包即清零
+    uint32_t dec_fail_ { 0 };
     ::ikcpcb*          kcp_      { nullptr };
     ::sockaddr_storage addr_     {};
     ::socklen_t        addrlen_  { sizeof(addr_) };
     Xx20Key            tx_key_   { 0 };
     Xx20Key            rx_key_   { 0 };
-    BindSet            binds_;                      // 已接管本终端的后端服务 id
+    BindSet binds_;
     std::string        json_;
+
+    // ---------------- 信封层(见 adam.in.hpp 的布局说明) ----------------
+
+    Conf::SipHashKey slot_key_     { 0 };
+    uint32_t         snd_ctr_      { 0 };
+    uint32_t         rcv_ctr_max_  { 0 };
+    uint64_t         rcv_ctr_bits_ { 1 };
+    bool             env_up_       { false };
 }; // class Kcp;
 
 

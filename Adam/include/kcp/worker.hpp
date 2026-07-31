@@ -53,9 +53,9 @@ public:
     struct Lingering {
         ::sockaddr_storage addr    {};
         ::socklen_t        addrlen { 0 };
-        uint32_t           len     { 0 };   // KICK 报文长度(含 8B MAC 信封)
-        uint64_t           expire  { 0 };   // 到期即丢弃
-        uint8_t            buf[core::ENVELOPE_MAC_LEN + 64] {};
+        uint32_t           len     { 0 };
+        uint64_t           expire  { 0 };
+        uint8_t            buf[96] {};
     };
 
     typedef absl::flat_hash_map<uint32_t, Lingering> LingeringMap;
@@ -132,7 +132,7 @@ public:
     }
 
 
-    /** 
+    /**
      * @brief 启动服务
      */
     void
@@ -270,7 +270,7 @@ private:
     on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
-    // 路由服务(重)注册成功 → 把本 worker 名下、归属该实例的终端全量重报
+    // 路由服务(重)注册成功 → 把本 worker 名下 / 归属该实例的终端全量重报
     void
     terminal_reenter(uint32_t rid) noexcept;
 
@@ -325,14 +325,14 @@ private:
     // ------------------------------------------------------------------
 
     Datagram::Que dg_que_;    // 发送队列
-    DatagramPool  dg_pool_; // 发送缓冲区对象池     s     
+    DatagramPool  dg_pool_;   // 发送缓冲区对象池
 
     // ------------------------------------------------------------------
     // 事件属性
     // ------------------------------------------------------------------
 
     std::atomic_bool mq_workring_ { false };  // event queue 队列发送标识
-    MsgQue           mque_;                   // MPSC 事件队列 
+    MsgQue           mque_;                   // MPSC 事件队列
     
     // ------------------------------------------------------------------
     // 会话属性

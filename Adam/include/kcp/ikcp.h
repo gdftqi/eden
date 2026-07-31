@@ -2,7 +2,7 @@
 //
 // KCP - A Better ARQ Protocol Implementation
 // skywind3000 (at) gmail.com, 2010-2011
-//  
+//
 // Features:
 // + Average RTT reduce 30% - 40% vs traditional ARQ like tcp.
 // + Maximum RTT reduce three times vs tcp.
@@ -18,7 +18,7 @@
 
 
 //=====================================================================
-// 32BIT INTEGER DEFINITION 
+// 32BIT INTEGER DEFINITION
 //=====================================================================
 #ifndef __INTEGER_32_BITS__
 #define __INTEGER_32_BITS__
@@ -49,8 +49,8 @@
 	#include <stdint.h>
 	typedef uint32_t ISTDUINT32;
 	typedef int32_t ISTDINT32;
-#else 
-	typedef unsigned long ISTDUINT32; 
+#else
+	typedef unsigned long ISTDUINT32;
 	typedef long ISTDINT32;
 #endif
 #endif
@@ -119,7 +119,7 @@ typedef unsigned long long IUINT64;
 #elif (defined(_MSC_VER) || defined(__BORLANDC__) || defined(__WATCOMC__))
 #define INLINE __inline
 #else
-#define INLINE 
+#define INLINE
 #endif
 #endif
 
@@ -129,7 +129,7 @@ typedef unsigned long long IUINT64;
 
 
 //=====================================================================
-// QUEUE DEFINITION                                                  
+// QUEUE DEFINITION
 //=====================================================================
 #ifndef __IQUEUE_DEF__
 #define __IQUEUE_DEF__
@@ -142,7 +142,7 @@ typedef struct IQUEUEHEAD iqueue_head;
 
 
 //---------------------------------------------------------------------
-// queue init                                                         
+// queue init
 //---------------------------------------------------------------------
 #define IQUEUE_HEAD_INIT(name) { &(name), &(name) }
 #define IQUEUE_HEAD(name) \
@@ -160,7 +160,7 @@ typedef struct IQUEUEHEAD iqueue_head;
 
 
 //---------------------------------------------------------------------
-// queue operation                     
+// queue operation
 //---------------------------------------------------------------------
 #define IQUEUE_ADD(node, head) ( \
 	(node)->prev = (head), (node)->next = (head)->next, \
@@ -344,8 +344,7 @@ struct IKCPCB
 	IUINT32 last_snd_ms;
 	IUINT32 is_client, pong;
 	IUINT32 kick_code;          /* [adam] 收到 KICK 时对端给的原因码, 供上层读取 */
-	char *mac_buf;
-	IUINT8 siphash[16];
+
 	struct IQUEUEHEAD snd_queue;
 	struct IQUEUEHEAD rcv_queue;
 	struct IQUEUEHEAD snd_buf;
@@ -408,15 +407,14 @@ int ikcp_recv(ikcpcb *kcp, char *buffer, int len);
 // user/upper level send, returns below zero for error
 int ikcp_send(ikcpcb *kcp, const char *buffer, int len);
 
-// update state (call it repeatedly, every 10ms-100ms), or you can ask 
+// update state (call it repeatedly, every 10ms-100ms), or you can ask
 // ikcp_check when to call it again (without ikcp_input/_send calling).
-// 'current' - current timestamp in millisec. 
+// 'current' - current timestamp in millisec.
 int ikcp_update(ikcpcb *kcp, IUINT32 current);
 
 // 设置信封 MAC
-void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 
-// 设置本端角色: 非 0 = 客户端, 0 = 服务端(默认)。决定谁主动发 PING、谁认 RST/KICK
+// 设置本端角色: 非 0 = 客户端, 0 = 服务端(默认). 决定谁主动发 PING / 谁认 RST/KICK
 void ikcp_set_client(ikcpcb *kcp, int is_client);
 
 
@@ -424,9 +422,9 @@ void ikcp_set_client(ikcpcb *kcp, int is_client);
 void ikcp_open(ikcpcb *kcp);
 
 
-/* [adam] 主动踢除对端: 发一个独立的 KICK 控制包(带 4 字节原因码)。
- * 该包绕过 sn 窗口与重传队列, 调用即上线 —— 发完可立即摘除会话。
- * 不重传: 若丢失, 对端退化为超时判死; 需要更强保证时由上层做 closing 状态重发。 */
+/* [adam] 主动踢除对端: 发一个独立的 KICK 控制包(带 4 字节原因码).
+ * 该包绕过 sn 窗口与重传队列, 调用即上线 -- 发完可立即摘除会话.
+ * 不重传: 若丢失, 对端退化为超时判死; 需要更强保证时由上层做 closing 状态重发. */
 int ikcp_send_kick(ikcpcb *kcp, IUINT32 code);
 
 

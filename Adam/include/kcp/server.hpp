@@ -177,6 +177,15 @@ public:
 
 
     /**
+     * @brief XDP 过滤器. 
+     */
+    bpf::EnvelopeFilter*
+    envelope() noexcept {
+        return &envelope_;
+    }
+
+
+    /**
      * @brief 是否运行中
      */
     bool

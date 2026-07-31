@@ -71,6 +71,10 @@ adam::kcp::Conf::load_from_file(const char* fname) noexcept {
         prof_path_ = root["prof_path"].as<std::string>();
     }
 
+    if (root["newsess_max"]) {
+        newsess_max_ = root["newsess_max"].as<int>();
+    }
+
     if (root["nsiphash"]) {
         nsiphash_ = root["nsiphash"].as<int>();
     }
@@ -91,6 +95,7 @@ adam::kcp::Conf::load_from_file(const char* fname) noexcept {
     ASSERT(!::sodium_is_zero(x25519_sk_, sizeof(x25519_sk_)), "x25519_sk is invalid");
 
     ASSERT(nsiphash_ > 0 && (nsiphash_ & (nsiphash_ - 1)) == 0 && nsiphash_ <= 256, "nsiphash 必须是 2 的幂(XDP 侧用 conv & (n-1) 取下标, 避免除法): {}", nsiphash_);
+    ASSERT(newsess_max_ >= 0, "newsess_max 不能为负: {}", newsess_max_);
 
     siphashs_ = (SipHashKey*)::mi_malloc(sizeof(SipHashKey) * nsiphash_);
     ASSERT(siphashs_ != nullptr, "siphash keys 分配失败");
