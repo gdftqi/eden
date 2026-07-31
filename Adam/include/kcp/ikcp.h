@@ -419,6 +419,7 @@ void ikcp_set_siphash(ikcpcb *kcp, const unsigned char *key);
 // 设置本端角色: 非 0 = 客户端, 0 = 服务端(默认)。决定谁主动发 PING、谁认 RST/KICK
 void ikcp_set_client(ikcpcb *kcp, int is_client);
 
+
 // 标记是否已接纳对端
 void ikcp_open(ikcpcb *kcp);
 

@@ -167,6 +167,18 @@ static void ikcp_free(void *ptr) {
 }
 
 
+static __always_inline int
+ikcp_is_client(ikcpcb* kcp) {
+	return kcp->is_client;
+}
+
+
+static __always_inline int
+ikcp_is_server(ikcpcb* kcp) {
+	return !kcp->is_client;
+}
+
+
 // redefine allocator
 void ikcp_allocator(void* (*new_malloc)(size_t), void (*new_free)(void*))
 {
@@ -970,7 +982,7 @@ int ikcp_input(ikcpcb *kcp, const char *data, long size)
 		 *
 		 * 返回错误码而不是改状态, 前提是调用方拿到 input 错误只丢包, 不摘会话
 		 * (见 kcp::Worker::on_udp_handle 里那句 continue). 那句和这里是一对, 改一边前先看另一边. */
-		if (!kcp->is_client && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK))
+		if (ikcp_is_server(kcp) && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK))
 			return -3;
 
 		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
