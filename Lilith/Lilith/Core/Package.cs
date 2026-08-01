@@ -73,11 +73,6 @@ namespace Lilith.Core
         /// </summary>
         public const int OFFSET_DST_ID = 6;
 
-        /// <summary>
-        /// Package.Idempotent 偏移量 32 bits
-        /// </summary>
-        public const int OFFSET_IDEM = 10;
-
         #endregion /// 字段偏移
 
 
@@ -86,7 +81,7 @@ namespace Lilith.Core
         /// <summary>
         /// Package 消息头长度. 共 id(16) + src_id(32) + dst_id(32) + seq(32) 112  bits / 14 Bytes
         /// </summary>
-        public const int HEADER_SIZE = 14;
+        public const int HEADER_SIZE = 10;
 
         /// <summary>
         /// ChaCha20-Poly1305 Tag 长度, 加密后附在 payload 尾部
@@ -101,7 +96,7 @@ namespace Lilith.Core
         /// <summary>
         /// 最大的 Payload 长度
         /// </summary>
-        public const int PAYLOAD_MAX = PACK_MAX_LEN - HEADER_SIZE - TAG_LEN;
+        public const int PAYLOAD_MAX = PACK_MAX_LEN - HEADER_SIZE;
 
         #endregion /// 常量与限制
 
@@ -214,12 +209,6 @@ namespace Lilith.Core
         public uint DstID;
 
         /// <summary>
-        /// 消息头: 幂等
-        /// </summary>
-        [JsonProperty("idempotent")]
-        public uint Idempotent;
-
-        /// <summary>
         /// 消息体
         /// </summary>
         [JsonIgnore]
@@ -277,7 +266,7 @@ namespace Lilith.Core
         public void Reset()
         {
             PID = 0;
-            SrcID = DstID = Idempotent = 0;
+            SrcID = DstID = 0;
             PayloadLength = 0;
         }
     }

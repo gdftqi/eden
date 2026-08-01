@@ -277,12 +277,6 @@ namespace Lilith.Core
             if (Interlocked.CompareExchange(ref activated, 0, 1) != 1)
                 return;
 
-            if (sndSeq != 0)
-                sndSeq = 0;
-
-            if (rcvSeq != 0)
-                rcvSeq = 0;
-
             if (sock != null)
             {
                 sock.Close();
@@ -367,7 +361,6 @@ namespace Lilith.Core
                 return -1001;
             }
 
-            pkg.Idempotent = ++sndSeq;
             pkg.SrcID = userId;
 
             int n = Encode(pkg, sbuf);
@@ -458,13 +451,6 @@ namespace Lilith.Core
                         continue;
                     }
 
-                    if (pk.Idempotent <= rcvSeq)
-                    {
-                        Package.Pool.Return(pk);
-                        continue;
-                    }
-
-                    rcvSeq = pk.Idempotent;
                     pkList.AddLast(pk);
                 } while (true);
 
@@ -502,7 +488,6 @@ namespace Lilith.Core
             Package.Encode16LE(outBuf, Package.OFFSET_PID, pkg.PID);
             Package.Encode32LE(outBuf, Package.OFFSET_SRC_ID, pkg.SrcID);
             Package.Encode32LE(outBuf, Package.OFFSET_DST_ID, pkg.DstID);
-            Package.Encode32LE(outBuf, Package.OFFSET_IDEM, pkg.Idempotent);
 
             int plen = pkg.PayloadLength;
             var k = sKcp;
@@ -539,13 +524,6 @@ namespace Lilith.Core
             Package.Decode16LE(data, Package.OFFSET_PID, out pkg.PID);
             Package.Decode32LE(data, Package.OFFSET_SRC_ID, out pkg.SrcID);
             Package.Decode32LE(data, Package.OFFSET_DST_ID, out pkg.DstID);
-            Package.Decode32LE(data, Package.OFFSET_IDEM, out pkg.Idempotent);
-            if (pkg.Idempotent == 0)
-            {
-                Log.Write($"接收到来自服务端错误的消息, 长度不满足 Package.Idempotent 为 0");
-                return false;
-            }
-
             int plen = n - Package.HEADER_SIZE;
             var k = sKcp;
             if (k == null)
@@ -810,10 +788,8 @@ namespace Lilith.Core
         private byte[] sk;
 
         // 接收序号, 用于接收幂等
-        private uint rcvSeq;
 
         // 发送序号, 用于发送幂等
-        private uint sndSeq;
 
         // 写密钥
         private byte[] txKey = new byte[Crypto.AEAD_KEY_LEN];

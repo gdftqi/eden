@@ -729,7 +729,6 @@ adam::kcp::Worker::on_terminal_bind_notify(tcp::Connector::Ptr conn, core::Packa
     out->data.pid      = PID_TER_OFF_NTF;
     out->data.src_id   = Conf::instance()->server()->id;
     out->data.dst_id   = conn->id();
-    out->data.seq      = 0;
     off.encode(out->data.payload, core::TerminalOfflineNotify::LEN);
 
     if (conn->send(*out, tnow_) < 0) {

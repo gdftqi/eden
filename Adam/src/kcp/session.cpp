@@ -83,7 +83,6 @@ adam::kcp::Session::terminal_enter() noexcept {
     pk->data.pid      = PID_TER_ENT_REQ;
     pk->data.src_id   = Conf::instance()->server()->id;
     pk->data.dst_id   = rid;
-    pk->data.seq      = 0;
     req.encode(pk->data.payload, core::TerminalEnterReq::LEN);
 
     if (serv->send(*pk, worker_->tnow()) < 0) {
@@ -111,7 +110,6 @@ adam::kcp::Session::terminal_off(uint32_t code) noexcept {
     pk->meta.src_addr = remote_addr_u32();
     pk->data.pid      = PID_TER_OFF_NTF;
     pk->data.src_id   = Conf::instance()->server()->id;
-    pk->data.seq      = 0;
     ntf.encode(pk->data.payload, core::TerminalOfflineNotify::LEN);
 
     for (auto sid : binds_) {
@@ -258,10 +256,6 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
         err = xERR_PK_SRC;
     } else if (pk->data.dst_id == 0) {
         err = xERR_PK_DST;
-    } else if (pk->data.seq == 0) {
-        err = xERR_PK_SEQ;
-    } else if (rcv_req_ >= pk->data.seq) {
-        err = xDUP;
     }
 
     if (err != xOK) {
@@ -269,7 +263,6 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
     }
 
     dec_fail_ = 0;
-    rcv_req_ = pk->data.seq;
     return xOK;
 }
 
@@ -287,8 +280,6 @@ adam::kcp::Session::send(core::Package *pk) noexcept  {
     if (plen > SND_MAX_PAYLOAD) {
         return xERR_PK_LEN;
     }
-
-    pk->data.seq = next_snd_seq();
 
     int wire = core::data_encode(sndbuf, pk);
     return core::from_ikcp_send(::ikcp_send(kcp_, sndbuf, wire));

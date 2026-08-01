@@ -344,15 +344,6 @@ public:
 
 private:
     /**
-     * @brief 下一个发送幂等
-     */
-    uint32_t
-    next_snd_seq() noexcept {
-        return ++snd_seq_;
-    }
-
-
-    /**
      * @brief 判定"这段字节不是对端发的": 累计一次并返回 xERR_PK_DEC.
      *        调用方(Worker)看到该码只丢包, 连续超过阈值才摘会话.
      */
@@ -400,8 +391,6 @@ private:
 
     Worker*            worker_   { nullptr };
     uint32_t           uid_      { 0 };
-    uint32_t           snd_seq_  { 0 };
-    uint32_t           rcv_req_  { 0 };
     uint32_t dec_fail_ { 0 };
     ::ikcpcb*          kcp_      { nullptr };
     ::sockaddr_storage addr_     {};

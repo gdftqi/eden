@@ -18,7 +18,6 @@
 // ---- 协议 / 包 (core::Package) ----
 #define xERR_PK_LEN         (-10100)   // 包长度非法
 #define xERR_PK_PID         (-10101)   // pk_id 非法 (0 或越界)
-#define xERR_PK_SEQ         (-10102)   // pk_idem == 0
 #define xERR_PK_DST         (-10103)   // pk_dst_id == 0
 #define xERR_PK_SRC         (-10104)   // pk_src_id == 0
 #define xERR_PK_DEC         (-10105)   // 解密失败

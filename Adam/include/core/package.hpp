@@ -21,7 +21,7 @@ constexpr size_t PKG_META_LEN = 10;
 /**
  * @brief Package::data UDP 消息头长度
  */
-constexpr size_t PKG_DATA_LEN = 14;
+constexpr size_t PKG_DATA_LEN = 10;
 
 
 /**
@@ -84,7 +84,6 @@ struct Package {
         uint32_t pid        { 0 };  // Package ID 16 bits
         uint32_t src_id     { 0 };  // 源ID, 发送者的ID
         uint32_t dst_id     { 0 };  // 目标ID, 接收者的ID
-        uint32_t seq        { 0 };  // Package sequence, 用来确保消息的唯一性
         uint8_t  payload[];         // payload
     } data;
 

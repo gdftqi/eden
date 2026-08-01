@@ -57,10 +57,6 @@ adam::core::data_encode(uint8_t* buf, const Package* pk) noexcept {
     ::memcpy(p, &v32, sizeof(v32));
     p += sizeof(v32);
 
-    v32 = u32_to_le(pk->data.seq);
-    ::memcpy(p, &v32, sizeof(v32));
-    p += sizeof(v32);
-
     size_t plen = pk->payload_length();
     ::memcpy(p, pk->data.payload, plen);
     p += plen;
@@ -97,10 +93,6 @@ adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t bufl
 
     ::memcpy(&v32, p, sizeof(v32));
     pk->data.dst_id = u32_to_le(v32);
-    p += sizeof(v32);
-
-    ::memcpy(&v32, p, sizeof(v32));
-    pk->data.seq = u32_to_le(v32);
     p += sizeof(v32);
 
     ::memcpy(pk->data.payload, p, plen);

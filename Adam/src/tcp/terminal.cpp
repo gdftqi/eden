@@ -64,7 +64,6 @@ adam::tcp::Terminal::notify(uint16_t pid, const uint8_t* payload, uint32_t len) 
     pk->data.pid      = pid;
     pk->data.src_id   = Conf::instance()->server()->id;
     pk->data.dst_id   = sess_->id();
-    pk->data.seq      = 0;
     ::memcpy(pk->data.payload, payload, len);
 
     if (sess_->send(*pk) < 0) {
