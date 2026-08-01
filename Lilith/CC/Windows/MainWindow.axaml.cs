@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Lilith.Components;
 using Lilith.Core;
+using Lilith.Utils;
 using System;
 using System.Threading.Tasks;
 
@@ -143,7 +144,7 @@ namespace CC
             // 会话已由 Hydra 关闭; 这里只做窗口切换。新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效。
             // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 → 把原因带到登录页显示。
             uint code = Hydra.Instance.KickCode;
-            string tip = code != 0 ? Package.TerminalCodeText(code) : "";
+            string tip = code != 0 ? Package.ErrorText(code) : "";
 
             var login = new LoginWindow(tip);
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -217,6 +218,17 @@ namespace CC
         // 服务端 echo 回来(Hydra 主线程回调)
         private void OnPackage(Package pkg)
         {
+            // 框架消息必须先分流: 它们的 payload 是二进制, 当文本解会显示成乱码
+            if (pkg.PID == Package.PID_TER_ERROR)
+            {
+                if (Package.DecodeError(pkg, out uint code, out uint dstId, out uint pid))
+                {
+                    Log.Write($"[CC] 请求未送达: code = {code}, dst_id = {dstId}, pid = {pid}");
+                    TabChat.AddText(false, Package.ErrorText(code), DateTime.Now.ToString("HH:mm"));
+                }
+                return;
+            }
+
             var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
             TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
         }

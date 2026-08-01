@@ -93,7 +93,7 @@ namespace Lilith.Components
         /// <summary>
         /// [typhon] 被服务端踢除的原因码; 0 表示"本次断开不是被踢"。
         /// 上层在 OnStateChanged 收到 Disconnected 时查它, 非 0 就用
-        /// <see cref="Package.TerminalCodeText"/> 给用户提示具体原因。
+        /// <see cref="Package.ErrorText"/> 给用户提示具体原因。
         /// 每次发起连接(Login/重连)时清零, 不会串上一次的值。
         /// </summary>
         public uint KickCode { get; private set; }
