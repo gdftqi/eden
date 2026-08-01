@@ -253,6 +253,9 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
     constexpr int MAX_ROUND = 16;
 
     alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_DATA_LEN)];
+    static_assert(core::PKG_MAX_LEN - core::PKG_DATA_LEN
+                      >= core::PKG_MAX_LEN - core::PKG_META_LEN - core::PKG_DATA_LEN,
+                  "KCP 路径的 Package 缓冲装不下 data_decode 的最大写入量");
     core::Package* pk = (core::Package*)buf;
 
     int res = 0;
@@ -604,7 +607,7 @@ adam::kcp::Worker::update() noexcept {
     dg_que_.erase(dg_que_.begin(), dg_que_.begin() + exp + nsnd);
 
     for (auto itr = servs_.begin(); itr != servs_.end();) {
-        auto& conn = itr->second;
+        auto conn = itr->second;
         ++itr;
         if (conn->update(now) < 0) {
             remove_serv(conn);

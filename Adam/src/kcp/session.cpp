@@ -5,8 +5,16 @@
 #include <format>
 
 
-static_assert(adam::core::ENVELOPE_HDR_LEN == adam::core::ENVELOPE_CTR_OFF + 4, "信封头布局不自洽");
-static_assert(adam::core::ENVELOPE_OVERHEAD == adam::core::ENVELOPE_HDR_LEN + (int)adam::utils::XX20_TAG_LEN, "ENVELOPE_OVERHEAD 与 AEAD tag 长度对不上");
+namespace {
+using namespace adam;
+
+static_assert(core::ENVELOPE_HDR_LEN == core::ENVELOPE_CTR_OFF + 4, "信封头布局不自洽");
+static_assert(core::ENVELOPE_OVERHEAD == core::ENVELOPE_HDR_LEN + utils::XX20_TAG_LEN, "ENVELOPE_OVERHEAD 与 AEAD tag 长度对不上");
+static_assert(core::ENVELOPE_HDR_LEN + core::KCP_MTU + utils::XX20_TAG_LEN <= core::UDP_MTU, "封装后超过 UDP_MTU: KCP_MTU 太大或信封开销变了");
+static_assert(core::ENVELOPE_MAC_LEN + core::KCP_MTU <= core::UDP_MTU, "握手期数据报超过 UDP_MTU");
+static_assert(core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN >= core::ENVELOPE_MAC_LEN + 24,  "最小包长不足以让 XDP 取到 24 字节哈希输入");
+
+} // namespace
 
 
 // client → server (上行, recv 解密用)
@@ -234,10 +242,8 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
         return core::from_ikcp_recv(res);
     }
 
-    // 走到这里的字节已经过信封的 AEAD + 防重放(见 input), 确实来自对端 --
-    // 所以下面的长度/字段校验失败都是"对端真的发错了", 该判死就判死
     size_t dglen = (size_t)res;
-    if (dglen < core::PKG_DATA_LEN || dglen > core::PKG_MAX_LEN) {
+    if (dglen < core::PKG_DATA_LEN || dglen > core::PKG_MAX_LEN - core::PKG_META_LEN) {
         return xERR_PK_LEN;
     }
 
@@ -269,14 +275,12 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
 
 int
 adam::kcp::Session::send(core::Package *pk) noexcept  {
-    // 应用层不再加密 -- 加解密已下沉到信封(见 seal/open), 那里把整个 KCP 数据报
-    // 连头带尾一起裹住. 这里只做明文编码, 交给 KCP 分片, 出网卡前由 seal 封装.
-    constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN;
+    constexpr size_t SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN;
 
     // 发送缓冲区
     thread_local static uint8_t sndbuf[core::PKG_MAX_LEN];
 
-    int plen = (int)pk->payload_length();
+    size_t plen = pk->payload_length();
     if (plen > SND_MAX_PAYLOAD) {
         return xERR_PK_LEN;
     }

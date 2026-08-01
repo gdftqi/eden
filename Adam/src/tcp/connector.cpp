@@ -26,7 +26,10 @@ adam::tcp::Connector::send(uint64_t now) noexcept {
 
 ssize_t
 adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
-    ASSERT(pk.meta.len < core::PKG_MAX_LEN, "最大有效数据不能超过 {} Bytes", core::PKG_MAX_LEN);
+    if (pk.meta.len > core::PKG_MAX_LEN) {
+        xERROR("帧过长: meta.len = {}, 上限 {}", pk.meta.len, core::PKG_MAX_LEN);
+        return xERR_PK_LEN;
+    }
 
     // 先把排队残留续发出去(保序)
     ssize_t n = send(now);
