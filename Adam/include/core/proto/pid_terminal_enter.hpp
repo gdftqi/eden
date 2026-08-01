@@ -14,7 +14,7 @@ namespace adam::core {
  *        由客户端或网关发起.
  */
 struct TerminalEnterReq {
-    static constexpr int LEN = 16;
+    static constexpr size_t LEN = 16;
 
 
     void
@@ -45,7 +45,7 @@ struct TerminalEnterReq {
  * @brief 终端进入 backend 响应
  */
 struct TerminalEnterRsp {
-    static constexpr int LEN = 8;
+    static constexpr size_t LEN = 8;
 
 
     void

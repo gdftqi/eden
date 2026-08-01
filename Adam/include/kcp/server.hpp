@@ -6,9 +6,6 @@
 #include "bpf/envelope_filter.hpp"
 #include "tcp/server.hpp"
 #include "kcp/worker.hpp"
-#include "utils/etcd.hpp"
-
-
 namespace adam::kcp {
 
 

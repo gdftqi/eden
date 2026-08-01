@@ -14,7 +14,7 @@ namespace adam::core {
  *        该 backend 会给 网关发送 bind 通知
  */
 struct TerminalBindNotify {
-    static constexpr int LEN = sizeof(uint32_t);
+    static constexpr size_t LEN = sizeof(uint32_t);
 
 
     void

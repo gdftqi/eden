@@ -9,6 +9,24 @@
 #include "core/proto/pid_terminal_unbind.hpp"
 
 
+int
+adam::kcp::Worker::output(const uint8_t* buf, int len, IKCPCB* kcpcb) noexcept {
+    thread_local static uint8_t wire[core::UDP_MTU];
+
+    auto* s   = (Session*)kcpcb->user;
+    auto* svr = s->worker();
+
+    int n = s->sealedbox_encode(buf, len, wire);
+    if (n < 0) {
+        return 0;
+    }
+
+    auto* dg = svr->dg_pool_.acquire(s->addr(), s->addrlen(), wire, n, svr->tnow());
+    svr->dg_que_.emplace_back(dg);
+    return 0;
+}
+
+
 adam::kcp::Worker::Worker(Server* s, int idx) noexcept
     : server_(s)
     , index_(idx) {
@@ -97,24 +115,6 @@ adam::kcp::Worker::run() noexcept {
 }
 
 
-int
-adam::kcp::Worker::output(const char *buf, int len, IKCPCB* kcpcb) noexcept {
-    thread_local static uint8_t wire[core::UDP_MTU];
-
-    auto* s   = (Session*)kcpcb->user;
-    auto* svr = s->worker();
-
-    int n = s->sealedbox_encode((const uint8_t*)buf, len, wire);
-    if (n < 0) {
-        return 0;
-    }
-
-    auto* dg = svr->dg_pool_.acquire(s->addr(), s->addrlen(), (const char*)wire, n, svr->tnow());
-    svr->dg_que_.emplace_back(dg);
-    return 0;
-}
-
-
 void
 adam::kcp::Worker::init() noexcept {
     epfd_ = ::epoll_create1(0);
@@ -170,6 +170,19 @@ adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
 
 
 void
+adam::kcp::Worker::remove_session(uint32_t conv, uint32_t code) noexcept {
+    auto itr = sesss_.find(conv);
+    if (itr != sesss_.end()) {
+        auto sess = itr->second;
+        sesss_.erase(itr);
+        server_->envelope()->conv_del(conv);
+        sess->terminal_off(code);
+        event_->on_sess_disconnected(sess);
+    }
+}
+
+
+void
 adam::kcp::Worker::kick_session(uint32_t conv, uint32_t code) noexcept {
     auto s = get_session(conv);
     if (s == nullptr) {
@@ -195,19 +208,6 @@ adam::kcp::Worker::kick_session(uint32_t conv, uint32_t code) noexcept {
     }
 
     remove_session(conv, code);
-}
-
-
-void
-adam::kcp::Worker::remove_session(uint32_t conv, uint32_t code) noexcept {
-    auto itr = sesss_.find(conv);
-    if (itr != sesss_.end()) {
-        auto sess = itr->second;
-        sesss_.erase(itr);
-        server_->envelope()->conv_del(conv);
-        sess->terminal_off(code);
-        event_->on_sess_disconnected(sess);
-    }
 }
 
 
@@ -312,7 +312,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 if (cit != lingering_.end()) {
                     auto& c = cit->second;
                     if (tnow_ < c.expire) {
-                        auto* dg = dg_pool_.acquire(&c.addr, c.addrlen, (const char*)c.buf, c.len, tnow_);
+                        auto* dg = dg_pool_.acquire(&c.addr, c.addrlen, c.buf, c.len, tnow_);
                         dg_que_.emplace_back(dg);
                         continue;
                     }

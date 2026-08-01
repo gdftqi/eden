@@ -12,9 +12,6 @@ namespace adam::utils {
 // SipHash key 长度 
 constexpr size_t SIPHASH_KEY_LEN = 16;
 
-// SipHash tag 长度
-constexpr size_t SIPHASH_TAG_LEN = 8;
-
 
 /**
  * @brief SipHash 用于 KCP 的有效性验证

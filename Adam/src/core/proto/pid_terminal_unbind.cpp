@@ -5,7 +5,7 @@
 
 void
 adam::core::TerminalUnbindNotify::encode(uint8_t* buf, size_t len) noexcept {
-    ASSERT(len >= (size_t)LEN, "TerminalUnbindNotify::encode 缓冲区不足");
+    ASSERT(len >= LEN, "TerminalUnbindNotify::encode 缓冲区不足");
 
     // 布局(小端): uid@0
     uint32_t v32 = u32_to_le(uid);
@@ -15,7 +15,7 @@ adam::core::TerminalUnbindNotify::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalUnbindNotify::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 

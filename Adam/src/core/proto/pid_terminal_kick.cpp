@@ -5,7 +5,7 @@
 
 void
 adam::core::TerminalKickReq::encode(uint8_t* buf, size_t len) noexcept {
-    ASSERT(len >= (size_t)LEN, "KickTerminalReq::encode 缓冲区不足");
+    ASSERT(len >= LEN, "KickTerminalReq::encode 缓冲区不足");
 
     uint32_t v32;
 
@@ -19,7 +19,7 @@ adam::core::TerminalKickReq::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalKickReq::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 
@@ -37,7 +37,7 @@ adam::core::TerminalKickReq::decode(const uint8_t* buf, size_t len) noexcept {
 
 void
 adam::core::TerminalKickNotify::encode(uint8_t* buf, size_t len) noexcept {
-    ASSERT(len >= (size_t)LEN, "KickTerminalNotify::encode 缓冲区不足");
+    ASSERT(len >= LEN, "KickTerminalNotify::encode 缓冲区不足");
 
     uint32_t v32;
 
@@ -51,7 +51,7 @@ adam::core::TerminalKickNotify::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalKickNotify::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 
@@ -68,7 +68,7 @@ adam::core::TerminalKickNotify::decode(const uint8_t* buf, size_t len) noexcept 
 
 void
 adam::core::TerminalKickRsp::encode(uint8_t* buf, size_t len) noexcept {
-    ASSERT(len >= (size_t)LEN, "TerminalKickRsp::encode 缓冲区不足");
+    ASSERT(len >= LEN, "TerminalKickRsp::encode 缓冲区不足");
 
     // 布局(小端): code@0
     uint32_t v32 = u32_to_le(code);
@@ -78,7 +78,7 @@ adam::core::TerminalKickRsp::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalKickRsp::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 

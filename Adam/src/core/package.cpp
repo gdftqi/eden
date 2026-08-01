@@ -73,7 +73,7 @@ int
 adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t buflen) noexcept {
     ASSERT(pk != nullptr, "无效的入参 pk");
 
-    if (buflen < (size_t)PKG_DATA_LEN) {
+    if (buflen < PKG_DATA_LEN) {
         return -1;
     }
 
@@ -135,7 +135,7 @@ adam::core::frame_encode(uint8_t* buf, const Package* pk) noexcept {
 
 int
 adam::core::frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept {
-    if (avail < (size_t)PKG_META_LEN) {
+    if (avail < PKG_META_LEN) {
         // 连 len 都读不出 → 半包
         return 0;
     }

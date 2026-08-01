@@ -45,7 +45,7 @@ namespace adam::core {
  * @brief UDP MTU UDP 包的MTU
  * @note  单个UDP 包不能超过 UDP_MTU, 否则需要分片发送
  */
-constexpr int UDP_MTU = 1450;
+constexpr size_t UDP_MTU = 1450;
 
 /**
  * @brief 信封布局(UDP 载荷). KCP 数据报被整个 AEAD 封在里面 --
@@ -61,26 +61,26 @@ constexpr int UDP_MTU = 1450;
  * @note conv 放在偏移 8 是刻意的: 和改造前 KCP 头里 conv 的位置重合,
  * 两个 BPF 程序(envelope.bpf.c / kcp.bpf.c)因此一个字节都不用改.
  */
-constexpr int ENVELOPE_MAC_LEN = 8; // 槽位 MAC
-constexpr int ENVELOPE_CONV_OFF = 8; // 明文 conv 偏移
-constexpr int ENVELOPE_CTR_OFF = 12; // 计数器偏移
-constexpr int ENVELOPE_HDR_LEN = 16; // 密文开始的偏移 = MAC + conv + 计数器
+constexpr size_t ENVELOPE_MAC_LEN = 8; // 槽位 MAC
+constexpr size_t ENVELOPE_CONV_OFF = 8; // 明文 conv 偏移
+constexpr size_t ENVELOPE_CTR_OFF = 12; // 计数器偏移
+constexpr size_t ENVELOPE_HDR_LEN = 16; // 密文开始的偏移 = MAC + conv + 计数器
 
 /**
  * @brief 信封相对裸 KCP 数据报的总开销 = 头 16 + AEAD tag 16
  * @note utils::XX20_TAG_LEN 也是 16, 这里不引 utils 头, 用字面量并由 session.cpp 静态断言把关
  */
-constexpr int ENVELOPE_OVERHEAD = ENVELOPE_HDR_LEN + 16;
+constexpr size_t ENVELOPE_OVERHEAD = ENVELOPE_HDR_LEN + 16;
 
 /**
  * @brief KCP MTU, 用于 KCP 分片, KCP MTU 指的是 KCP 消息头(24字节) + payload 长度
  */
-constexpr int KCP_MTU = UDP_MTU - ENVELOPE_OVERHEAD;
+constexpr size_t KCP_MTU = UDP_MTU - ENVELOPE_OVERHEAD;
 
 /**
  * @brief KCP 协议头长度
  */
-constexpr int KCP_HDR_LEN = 24;
+constexpr size_t KCP_HDR_LEN = 24;
 
 
 /**

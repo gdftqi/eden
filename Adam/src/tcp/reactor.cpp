@@ -15,6 +15,20 @@ static constexpr int MAX_EVENTS = 256;
 
 
 void
+adam::tcp::Reactor::release() noexcept {
+    if (epfd_ != INVALID_SOCKET) {
+        ::close(epfd_);
+        epfd_ = INVALID_SOCKET;
+    }
+
+    if (mfd_ != INVALID_SOCKET) {
+        ::close(mfd_);
+        mfd_ = INVALID_SOCKET;
+    }
+}
+
+
+void
 adam::tcp::Reactor::run() noexcept {
     auto expected = core::State::Stopped;
     if (!state_.compare_exchange_strong(expected, core::State::Starting)) {
@@ -67,6 +81,20 @@ adam::tcp::Reactor::run() noexcept {
 }
 
 
+// 按 uid 找到终端并踢除; 组包发送由 Terminal 自己完成。
+// 只发通知, 不在此删档 —— 删除统一由 OFF / 断连清扫负责:
+//   业务踢人: 等网关摘掉会话后扇出 OFF 再删(踢失败也不会"提前忘记");
+//   顶号:     add_terminal 末尾的覆盖写自然替换旧档(同 reactor),
+//             跨 reactor 时旧档留在旧 reactor, 等它那条连接上的 OFF。
+void
+adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
+    auto t = get_terminal(uid);
+    if (t != nullptr) {
+        t->kick(code, this);
+    }
+}
+
+
 void
 adam::tcp::Reactor::init() noexcept {
     epfd_ = ::epoll_create1(0);
@@ -79,20 +107,6 @@ adam::tcp::Reactor::init() noexcept {
     ev.data.fd = mfd_;
     ev.events = EPOLLIN | EPOLLET;
     ASSERT(::epoll_ctl(epfd_, EPOLL_CTL_ADD, mfd_, &ev) == 0, "errno = {}, errstr = {}", errno, ::strerror(errno));
-}
-
-
-void
-adam::tcp::Reactor::release() noexcept {
-    if (epfd_ != INVALID_SOCKET) {
-        ::close(epfd_);
-        epfd_ = INVALID_SOCKET;
-    }
-
-    if (mfd_ != INVALID_SOCKET) {
-        ::close(mfd_);
-        mfd_ = INVALID_SOCKET;
-    }
 }
 
 
@@ -191,28 +205,6 @@ adam::tcp::Reactor::on_event_handle(const ::epoll_event& ev) noexcept {
 
 
 void
-adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
-    SOCKET fd = m->arg.fd;
-    auto s = Session::create(fd, this);
-
-    ::epoll_event ev;
-    ev.events  = EPOLLIN | EPOLLET | EPOLLOUT;
-    ev.data.fd = fd;
-    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, fd, &ev) != 0) {
-        xERROR("epoll_ctl ADD failed: fd = {}, errno = {}, errstr = {}", fd, errno, ::strerror(errno));
-        return;
-    }
-
-    if (server_->hook()->on_sess_connected(s) != 0) {
-        ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
-        return;
-    }
-
-    add_session(s);
-}
-
-
-void
 adam::tcp::Reactor::on_session_handle(const ::epoll_event& ev) noexcept {
     SOCKET fd = ev.data.fd;
     auto s = get_session(fd);
@@ -305,6 +297,28 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
             return -1;
         }
     }
+}
+
+
+void
+adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
+    SOCKET fd = m->arg.fd;
+    auto s = Session::create(fd, this);
+
+    ::epoll_event ev;
+    ev.events  = EPOLLIN | EPOLLET | EPOLLOUT;
+    ev.data.fd = fd;
+    if (::epoll_ctl(epfd_, EPOLL_CTL_ADD, fd, &ev) != 0) {
+        xERROR("epoll_ctl ADD failed: fd = {}, errno = {}, errstr = {}", fd, errno, ::strerror(errno));
+        return;
+    }
+
+    if (server_->hook()->on_sess_connected(s) != 0) {
+        ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
+        return;
+    }
+
+    add_session(s);
 }
 
 
@@ -464,20 +478,6 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
     }
 
     return xOK;
-}
-
-
-// 按 uid 找到终端并踢除; 组包发送由 Terminal 自己完成。
-// 只发通知, 不在此删档 —— 删除统一由 OFF / 断连清扫负责:
-//   业务踢人: 等网关摘掉会话后扇出 OFF 再删(踢失败也不会"提前忘记");
-//   顶号:     add_terminal 末尾的覆盖写自然替换旧档(同 reactor),
-//             跨 reactor 时旧档留在旧 reactor, 等它那条连接上的 OFF。
-void
-adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
-    auto t = get_terminal(uid);
-    if (t != nullptr) {
-        t->kick(code, this);
-    }
 }
 
 

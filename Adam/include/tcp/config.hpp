@@ -1,7 +1,5 @@
 #ifndef __ADAM_TCP_CONFIG_HPP__
 #define __ADAM_TCP_CONFIG_HPP__
-
-
 #include "core/adam.in.hpp"
 #include "utils/etcd.hpp"
 

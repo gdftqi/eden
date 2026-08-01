@@ -13,7 +13,7 @@ namespace adam::core {
  * @brief 终端离开 backend 请求
  */
 struct TerminalLeaveReq {
-    static constexpr int LEN = 0;
+    static constexpr size_t LEN = 0;
 
 
     TerminalLeaveReq() = default;
@@ -29,7 +29,7 @@ struct TerminalLeaveReq {
  * @brief 终端离开 backend 响应
  */
 struct TerminalLeaveRsp {
-    static constexpr int LEN = 0;
+    static constexpr size_t LEN = 0;
 
 
     TerminalLeaveRsp() = default;

@@ -27,105 +27,6 @@ make_nonce(uint8_t nonce[adam::utils::XX20_NONCE_LEN], uint32_t conv, uint32_t c
 }
 
 
-int
-adam::kcp::Session::sealedbox_encode(const uint8_t* dg, int len, uint8_t* out) noexcept {
-    if (!env_up_) {
-        // 无信封处理
-        ::memcpy(out + core::ENVELOPE_MAC_LEN, dg, (size_t)len);
-
-        uint64_t t = utils::siphash24(out + core::ENVELOPE_MAC_LEN, core::KCP_HDR_LEN, slot_key_);
-        ::memcpy(out, &t, sizeof(t));
-        return core::ENVELOPE_MAC_LEN + len;
-    }
-
-    if (snd_ctr_ == UINT32_MAX) {
-        xERROR("{} 信封计数器耗尽", to_json());
-        return xERR;
-    }
-
-    uint32_t ctr = ++snd_ctr_;
-
-    uint32_t v = core::u32_to_le(conv());
-    ::memcpy(out + core::ENVELOPE_CONV_OFF, &v, sizeof(v));
-
-    v = core::u32_to_le(ctr);
-    ::memcpy(out + core::ENVELOPE_CTR_OFF, &v, sizeof(v));
-
-    uint8_t nonce[utils::XX20_NONCE_LEN];
-    make_nonce(nonce, conv(), ctr, DIR_S2C);
-
-    uint8_t* cipher = out + core::ENVELOPE_HDR_LEN;
-    ASSERT(utils::xx20_encrypt(dg, (size_t)len, cipher, cipher + len, tx_key_, nonce, out + core::ENVELOPE_CONV_OFF, core::ENVELOPE_HDR_LEN - core::ENVELOPE_CONV_OFF) == 0, "加密失败");
-
-    uint64_t tag = utils::siphash24(out + core::ENVELOPE_MAC_LEN, core::KCP_HDR_LEN, slot_key_);
-    ::memcpy(out, &tag, sizeof(tag));
-
-    return core::ENVELOPE_HDR_LEN + len + (int)utils::XX20_TAG_LEN;
-}
-
-
-int
-adam::kcp::Session::input(const uint8_t* data, long len, const void* addr, socklen_t addrlen) noexcept {
-    thread_local static uint8_t dg[core::UDP_MTU];
-
-    if (len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
-        return xERR_KCP_CONV;
-    }
-
-    const uint8_t* kcp_dg = (const uint8_t*)data + core::ENVELOPE_MAC_LEN;
-    long kcp_len = len - core::ENVELOPE_MAC_LEN;
-
-    if (authed()) {
-        // 已鉴权
-        int n = sealedbox_decode((const uint8_t*)data, (int)len, dg);
-        if (n > 0) {
-            env_up_ = true;
-            kcp_dg = dg;
-            kcp_len = n;
-        } else if (env_up_) {
-            return reject();
-        }
-    }
-
-    int res = ::ikcp_input(kcp_, (const char*)kcp_dg, kcp_len);
-    if (res == 0) {
-        ::memcpy(&addr_, addr, addrlen);
-        addrlen_ = addrlen;
-    }
-
-    return core::from_ikcp_input(res);
-}
-
-
-int
-adam::kcp::Session::sealedbox_decode(const uint8_t* wire, int len, uint8_t* out) noexcept {
-    if (len < core::ENVELOPE_OVERHEAD + core::KCP_HDR_LEN) {
-        return xERR;
-    }
-
-    uint32_t* p = (uint32_t*)(wire + core::ENVELOPE_CTR_OFF); 
-    uint32_t ctr = core::u32_to_le(*p);
-
-    // 先查窗口: 重放包不值得浪费一次 AEAD
-    if (!replay_ok(ctr)) {
-        return xERR;
-    }
-
-    size_t cipher_len = (size_t)len - core::ENVELOPE_OVERHEAD;
-    const uint8_t* cipher = wire + core::ENVELOPE_HDR_LEN;
-
-    uint8_t nonce[utils::XX20_NONCE_LEN];
-    make_nonce(nonce, conv(), ctr, DIR_C2S);
-
-    if (utils::xx20_decrypt(cipher, cipher_len, out, cipher + cipher_len, rx_key_, nonce, wire + core::ENVELOPE_CONV_OFF, core::ENVELOPE_HDR_LEN - core::ENVELOPE_CONV_OFF) != 0) {
-        return xERR;
-    }
-
-    replay_commit(ctr);
-    return (int)cipher_len;
-}
-
-
 adam::kcp::Session::Session(uint32_t conv, Worker* worker, const void* addr, socklen_t addrlen) noexcept
     : worker_(worker)
     , json_(std::format("{{\"conv\":{},\"remote\":\"{}\"}}", conv, core::sockaddr_to_string((sockaddr*)addr))) {
@@ -146,73 +47,6 @@ adam::kcp::Session::Session(uint32_t conv, Worker* worker, const void* addr, soc
 
     kcp_->timeout = 5000;
     set_output(Worker::output);
-}
-
-
-int
-adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
-    thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
-
-    int res = ::ikcp_recv(kcp_, (char*)rbuf, sizeof(rbuf));
-    if (res < 0) {
-        return core::from_ikcp_recv(res);
-    }
-
-    // 走到这里的字节已经过信封的 AEAD + 防重放(见 input), 确实来自对端 --
-    // 所以下面的长度/字段校验失败都是"对端真的发错了", 该判死就判死
-    if (res < core::PKG_DATA_LEN || res > core::PKG_MAX_LEN) {
-        return xERR_PK_LEN;
-    }
-
-    if (core::data_decode(pk, rbuf, (size_t)res) < 0) {
-        return xERR_PK_LEN;
-    }
-
-    pk->meta.conv     = conv();
-    pk->meta.src_addr = remote_addr_u32();
-
-    int err = xOK;
-
-    if (pk->data.pid == 0) {
-        err = xERR_PK_PID;
-    } else if (pk->data.src_id == 0) {
-        err = xERR_PK_SRC;
-    } else if (pk->data.dst_id == 0) {
-        err = xERR_PK_DST;
-    } else if (pk->data.seq == 0) {
-        err = xERR_PK_SEQ;
-    } else if (rcv_req_ >= pk->data.seq) {
-        err = xDUP;
-    }
-
-    if (err != xOK) {
-        return err;
-    }
-
-    dec_fail_ = 0;
-    rcv_req_ = pk->data.seq;
-    return xOK;
-}
-
-
-int
-adam::kcp::Session::send(core::Package *pk) noexcept  {
-    // 应用层不再加密 -- 加解密已下沉到信封(见 seal/open), 那里把整个 KCP 数据报
-    // 连头带尾一起裹住. 这里只做明文编码, 交给 KCP 分片, 出网卡前由 seal 封装.
-    constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN;
-
-    // 发送缓冲区
-    thread_local static uint8_t sndbuf[core::PKG_MAX_LEN];
-
-    int plen = (int)pk->payload_length();
-    if (plen > SND_MAX_PAYLOAD) {
-        return xERR_PK_LEN;
-    }
-
-    pk->data.seq = next_snd_seq();
-
-    int wire = core::data_encode(sndbuf, pk);
-    return core::from_ikcp_send(::ikcp_send(kcp_, (char*)sndbuf, wire));
 }
 
 
@@ -291,4 +125,171 @@ adam::kcp::Session::terminal_off(uint32_t code) noexcept {
             xERROR("{} 向 {} 发 OFF 失败", to_json(), sid);
         }
     }
+}
+
+
+int
+adam::kcp::Session::input(const uint8_t* data, size_t len, const void* addr, socklen_t addrlen) noexcept {
+    thread_local static uint8_t dg[core::UDP_MTU];
+
+    if (len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
+        return xERR_KCP_CONV;
+    }
+
+    const uint8_t* kcp_dg = data + core::ENVELOPE_MAC_LEN;
+    size_t kcp_len = len - core::ENVELOPE_MAC_LEN;
+
+    if (authed()) {
+        // 已鉴权
+        int n = sealedbox_decode(data, len, dg);
+        if (n > 0) {
+            env_up_ = true;
+            kcp_dg = dg;
+            kcp_len = n;
+        } else if (env_up_) {
+            return reject();
+        }
+    }
+
+    int res = ::ikcp_input(kcp_, kcp_dg, kcp_len);
+    if (res == 0) {
+        ::memcpy(&addr_, addr, addrlen);
+        addrlen_ = addrlen;
+    }
+
+    return core::from_ikcp_input(res);
+}
+
+
+int
+adam::kcp::Session::sealedbox_encode(const uint8_t* dg, size_t len, uint8_t* out) noexcept {
+    if (!env_up_) {
+        // 无信封处理
+        ::memcpy(out + core::ENVELOPE_MAC_LEN, dg, len);
+
+        uint64_t t = utils::siphash24(out + core::ENVELOPE_MAC_LEN, core::KCP_HDR_LEN, slot_key_);
+        ::memcpy(out, &t, sizeof(t));
+        return core::ENVELOPE_MAC_LEN + len;
+    }
+
+    if (snd_ctr_ == UINT32_MAX) {
+        xERROR("{} 信封计数器耗尽", to_json());
+        return xERR;
+    }
+
+    uint32_t ctr = ++snd_ctr_;
+
+    uint32_t v = core::u32_to_le(conv());
+    ::memcpy(out + core::ENVELOPE_CONV_OFF, &v, sizeof(v));
+
+    v = core::u32_to_le(ctr);
+    ::memcpy(out + core::ENVELOPE_CTR_OFF, &v, sizeof(v));
+
+    uint8_t nonce[utils::XX20_NONCE_LEN];
+    make_nonce(nonce, conv(), ctr, DIR_S2C);
+
+    uint8_t* cipher = out + core::ENVELOPE_HDR_LEN;
+    ASSERT(utils::xx20_encrypt(dg, len, cipher, cipher + len, tx_key_, nonce, out + core::ENVELOPE_CONV_OFF, core::ENVELOPE_HDR_LEN - core::ENVELOPE_CONV_OFF) == 0, "加密失败");
+
+    uint64_t tag = utils::siphash24(out + core::ENVELOPE_MAC_LEN, core::KCP_HDR_LEN, slot_key_);
+    ::memcpy(out, &tag, sizeof(tag));
+
+    return core::ENVELOPE_HDR_LEN + len + (int)utils::XX20_TAG_LEN;
+}
+
+
+int
+adam::kcp::Session::sealedbox_decode(const uint8_t* wire, size_t len, uint8_t* out) noexcept {
+    if (len < core::ENVELOPE_OVERHEAD + core::KCP_HDR_LEN) {
+        return xERR;
+    }
+
+    uint32_t* p = (uint32_t*)(wire + core::ENVELOPE_CTR_OFF); 
+    uint32_t ctr = core::u32_to_le(*p);
+
+    // 先查窗口: 重放包不值得浪费一次 AEAD
+    if (!replay_ok(ctr)) {
+        return xERR;
+    }
+
+    size_t cipher_len = len - core::ENVELOPE_OVERHEAD;
+    const uint8_t* cipher = wire + core::ENVELOPE_HDR_LEN;
+
+    uint8_t nonce[utils::XX20_NONCE_LEN];
+    make_nonce(nonce, conv(), ctr, DIR_C2S);
+
+    if (utils::xx20_decrypt(cipher, cipher_len, out, cipher + cipher_len, rx_key_, nonce, wire + core::ENVELOPE_CONV_OFF, core::ENVELOPE_HDR_LEN - core::ENVELOPE_CONV_OFF) != 0) {
+        return xERR;
+    }
+
+    replay_commit(ctr);
+    return (int)cipher_len;
+}
+
+
+int
+adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
+    thread_local static uint8_t rbuf[core::PKG_MAX_LEN];
+
+    int res = ::ikcp_recv(kcp_, rbuf, sizeof(rbuf));
+    if (res < 0) {
+        return core::from_ikcp_recv(res);
+    }
+
+    // 走到这里的字节已经过信封的 AEAD + 防重放(见 input), 确实来自对端 --
+    // 所以下面的长度/字段校验失败都是"对端真的发错了", 该判死就判死
+    size_t dglen = (size_t)res;
+    if (dglen < core::PKG_DATA_LEN || dglen > core::PKG_MAX_LEN) {
+        return xERR_PK_LEN;
+    }
+
+    if (core::data_decode(pk, rbuf, dglen) < 0) {
+        return xERR_PK_LEN;
+    }
+
+    pk->meta.conv     = conv();
+    pk->meta.src_addr = remote_addr_u32();
+
+    int err = xOK;
+
+    if (pk->data.pid == 0) {
+        err = xERR_PK_PID;
+    } else if (pk->data.src_id == 0) {
+        err = xERR_PK_SRC;
+    } else if (pk->data.dst_id == 0) {
+        err = xERR_PK_DST;
+    } else if (pk->data.seq == 0) {
+        err = xERR_PK_SEQ;
+    } else if (rcv_req_ >= pk->data.seq) {
+        err = xDUP;
+    }
+
+    if (err != xOK) {
+        return err;
+    }
+
+    dec_fail_ = 0;
+    rcv_req_ = pk->data.seq;
+    return xOK;
+}
+
+
+int
+adam::kcp::Session::send(core::Package *pk) noexcept  {
+    // 应用层不再加密 -- 加解密已下沉到信封(见 seal/open), 那里把整个 KCP 数据报
+    // 连头带尾一起裹住. 这里只做明文编码, 交给 KCP 分片, 出网卡前由 seal 封装.
+    constexpr int SND_MAX_PAYLOAD = core::PKG_MAX_LEN - core::PKG_DATA_LEN;
+
+    // 发送缓冲区
+    thread_local static uint8_t sndbuf[core::PKG_MAX_LEN];
+
+    int plen = (int)pk->payload_length();
+    if (plen > SND_MAX_PAYLOAD) {
+        return xERR_PK_LEN;
+    }
+
+    pk->data.seq = next_snd_seq();
+
+    int wire = core::data_encode(sndbuf, pk);
+    return core::from_ikcp_send(::ikcp_send(kcp_, sndbuf, wire));
 }

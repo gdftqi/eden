@@ -16,7 +16,7 @@ adam::core::TerminalBindNotify::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalBindNotify::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 

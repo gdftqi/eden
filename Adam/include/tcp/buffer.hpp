@@ -1,8 +1,5 @@
 #ifndef __ADAM_TCP_BUFFER_HPP__
 #define __ADAM_TCP_BUFFER_HPP__
-
-
-#include "core/adam.in.hpp"
 #include "core/package.hpp"
 
 

@@ -65,7 +65,7 @@ public:
      * @brief ikcp 发送回调
      */
     static int
-    output(const char *buf, int len, struct IKCPCB* kcpcb) noexcept;
+    output(const uint8_t* buf, int len, struct IKCPCB* kcpcb) noexcept;
 
 
     /**

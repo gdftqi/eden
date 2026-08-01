@@ -13,7 +13,7 @@ namespace adam::core {
  * @brief 终端离线通知
  */
 struct TerminalOfflineNotify {
-    static constexpr int LEN = 8;
+    static constexpr size_t LEN = 8;
 
 
     void

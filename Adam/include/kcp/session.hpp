@@ -47,7 +47,7 @@ public:
      * @brief 从信封里取 conv
      */
     static uint32_t
-    getconv(const uint8_t* data, int len) noexcept {
+    getconv(const uint8_t* data, size_t len) noexcept {
         if (len < core::ENVELOPE_HDR_LEN) {
             return 0;
         }
@@ -268,14 +268,14 @@ public:
      * 都已通过 AEAD + 重放窗口, 本身就是"可证新鲜且来自对端"的凭据.
      */
     int
-    input(const uint8_t* data, long len, const void* addr, socklen_t addrlen) noexcept;
+    input(const uint8_t* data, size_t len, const void* addr, socklen_t addrlen) noexcept;
 
 
     /**
      * @brief 加密
      */
     int
-    sealedbox_encode(const uint8_t* dg, int len, uint8_t* out) noexcept;
+    sealedbox_encode(const uint8_t* dg, size_t len, uint8_t* out) noexcept;
 
 
     /**
@@ -290,11 +290,11 @@ public:
      * (调用方据此决定: 过渡期当明文处理, 已翻转则丢弃)
      */
     int
-    sealedbox_decode(const uint8_t* wire, int len, uint8_t* out) noexcept;
+    sealedbox_decode(const uint8_t* wire, size_t len, uint8_t* out) noexcept;
 
 
     void
-    set_output(int (*output)(const char *buf, int len, struct IKCPCB *kcp)) noexcept {
+    set_output(int (*output)(const uint8_t* buf, int len, struct IKCPCB *kcp)) noexcept {
         ::ikcp_setoutput(kcp_, output);
     }
 

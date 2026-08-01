@@ -1,11 +1,6 @@
 #ifndef __ADAM_UTILS_ETCD_HPP__
 #define __ADAM_UTILS_ETCD_HPP__
-
-
-#include <format>
 #include <string>
-#include <string_view>
-
 #include <curl/curl.h>
 #include <yaml-cpp/yaml.h>
 

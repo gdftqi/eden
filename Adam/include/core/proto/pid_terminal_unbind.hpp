@@ -14,7 +14,7 @@ namespace adam::core {
  *        该 backend 会向网关发送解绑通知
  */
 struct TerminalUnbindNotify {
-    static constexpr int LEN = sizeof(uint32_t);
+    static constexpr size_t LEN = sizeof(uint32_t);
 
 
     void

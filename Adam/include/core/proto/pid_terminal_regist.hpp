@@ -14,13 +14,13 @@ namespace adam::core {
  * @brief 端终注册请求. 对应 Eva 中的结构是 AccessToken
  */
 struct RegistTerminalReq {
-    static constexpr int LEN = 116;
+    static constexpr size_t LEN = 116;
 
 
     /**
      * @brief 被 ed25519 签名的前段(expire..cli_pk)
      */
-    static constexpr int SIGNED_LEN = 52;
+    static constexpr size_t SIGNED_LEN = 52;
 
 
     int
@@ -48,7 +48,7 @@ struct RegistTerminalReq {
  * @brief 端终注册响应, 返回的是 网关的 public key, 用于客户端生成读/写密钥
  */
 struct RegistTerminalRsp {
-    static constexpr int LEN = utils::X25519_KEY_LEN;
+    static constexpr size_t LEN = utils::X25519_KEY_LEN;
 
 
     void

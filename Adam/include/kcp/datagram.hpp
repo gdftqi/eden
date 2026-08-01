@@ -32,7 +32,7 @@ struct Datagram {
 
 
     explicit
-    Datagram(const void* addr, ::socklen_t addrlen, const char* b, uint32_t l, uint64_t time) noexcept
+    Datagram(const void* addr, ::socklen_t addrlen, const uint8_t* b, uint32_t l, uint64_t time) noexcept
         : addrlen(addrlen)
         , len(l)
         , time(time) {

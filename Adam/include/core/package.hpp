@@ -3,34 +3,31 @@
 
 
 #include "core/adam.in.hpp"
-#include <type_traits>
-
-
 namespace adam::core {
 
 
 /**
  * @brief Package 最大支持的消息长度
  */
-constexpr int PKG_MAX_LEN  = 65535;
+constexpr size_t PKG_MAX_LEN  = 65535;
 
 
 /**
  * @brief Package::meta 长度, 只在 TCP 传输之间需要用到这个头
  */
-constexpr int PKG_META_LEN = 10;
+constexpr size_t PKG_META_LEN = 10;
 
 
 /**
  * @brief Package::data UDP 消息头长度
  */
-constexpr int PKG_DATA_LEN = 14;
+constexpr size_t PKG_DATA_LEN = 14;
 
 
 /**
  * @brief Package 消息头长度, TCP 之间传输之间的消息头
  */
-constexpr int PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
+constexpr size_t PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 
 
 #define PID_PING           (100)             // 心跳 PING

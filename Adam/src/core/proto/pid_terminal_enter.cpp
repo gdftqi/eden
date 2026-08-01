@@ -29,7 +29,7 @@ adam::core::TerminalEnterReq::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalEnterReq::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 
@@ -72,7 +72,7 @@ adam::core::TerminalEnterRsp::encode(uint8_t* buf, size_t len) noexcept {
 
 int
 adam::core::TerminalEnterRsp::decode(const uint8_t* buf, size_t len) noexcept {
-    if (len < (size_t)LEN) {
+    if (len < LEN) {
         return xERR;
     }
 

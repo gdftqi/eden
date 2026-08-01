@@ -354,14 +354,14 @@ struct IKCPCB
 	IUINT32 ackblock;
 	IUINT32 ackedlen;
 	void *user;
-	char *buffer;
+	IUINT8 *buffer;
 	int fastresend;
 	int fastlimit;
 	int nocwnd, stream;
 	const struct IKCPOPS *ccops;
 	void *congest;
 	int logmask;
-	int (*output)(const char *buf, int len, struct IKCPCB *kcp);
+	int (*output)(const IUINT8 *buf, int len, struct IKCPCB *kcp);
 	void (*writelog)(const char *log, struct IKCPCB *kcp);
 };
 
@@ -399,13 +399,13 @@ ikcpcb* ikcp_create(IUINT32 conv, void *user);
 void ikcp_release(ikcpcb *kcp);
 
 // set output callback, which will be invoked by kcp
-void ikcp_setoutput(ikcpcb *kcp, int (*output)(const char *buf, int len, ikcpcb *kcp));
+void ikcp_setoutput(ikcpcb *kcp, int (*output)(const IUINT8 *buf, int len, ikcpcb *kcp));
 
 // user/upper level recv: returns size, returns below zero for EAGAIN
-int ikcp_recv(ikcpcb *kcp, char *buffer, int len);
+int ikcp_recv(ikcpcb *kcp, IUINT8 *buffer, int len);
 
 // user/upper level send, returns below zero for error
-int ikcp_send(ikcpcb *kcp, const char *buffer, int len);
+int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len);
 
 // update state (call it repeatedly, every 10ms-100ms), or you can ask
 // ikcp_check when to call it again (without ikcp_input/_send calling).
@@ -428,7 +428,6 @@ void ikcp_open(ikcpcb *kcp);
 int ikcp_send_kick(ikcpcb *kcp, IUINT32 code);
 
 
-
 // Determines when you should invoke ikcp_update next:
 // returns the timestamp (in milliseconds) at which you should call
 // ikcp_update, assuming no ikcp_input/_send calls occur in between.
@@ -439,7 +438,7 @@ int ikcp_send_kick(ikcpcb *kcp, IUINT32 code);
 IUINT32 ikcp_check(const ikcpcb *kcp, IUINT32 current);
 
 // when you receive a low-level packet (e.g., UDP packet), call this
-int ikcp_input(ikcpcb *kcp, const char *data, long size);
+int ikcp_input(ikcpcb *kcp, const IUINT8 *data, long size);
 
 // flush pending data
 void ikcp_flush(ikcpcb *kcp);

@@ -13,7 +13,7 @@ namespace adam::core {
  * @brief 踢人请求
  */
 struct TerminalKickReq {
-    static constexpr int LEN = 8;
+    static constexpr size_t LEN = 8;
 
 
     void
@@ -41,7 +41,7 @@ struct TerminalKickReq {
  * @brief 踢人响应
  */
 struct TerminalKickRsp {
-    static constexpr int LEN = sizeof(uint32_t);
+    static constexpr size_t LEN = sizeof(uint32_t);
 
 
     void
@@ -68,7 +68,7 @@ struct TerminalKickRsp {
  * @brief 踢人通知
  */
 struct TerminalKickNotify {
-    static constexpr int LEN = 8;
+    static constexpr size_t LEN = 8;
 
 
     void
