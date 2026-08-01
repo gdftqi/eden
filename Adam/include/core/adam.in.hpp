@@ -97,17 +97,17 @@ enum class State: uint8_t {
 /**
  * @brief 为 fd 设置 non_blocking
  *
- * @return 成功返回 0, 否则返回 -1
+ * @return 成功返回 0, 失败返回 -errno(系统错误段, 可用 strerror(-rc) 取字符串)
  */
 inline int
 set_nonblocking(int fd) noexcept {
     int flags = ::fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
-        return -1;
+        return -errno;
     }
 
     if (::fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-        return -1;
+        return -errno;
     }
 
     return 0;

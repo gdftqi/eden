@@ -32,10 +32,10 @@ constexpr size_t PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 
 #define PID_PING           (100)             // 心跳 PING
 #define PID_PONG           (101)             // 心跳 PONG
-#define PID_REG_BKD_REQ    (102)             // 网关注册请求
-#define PID_REG_BKD_RSP    (103)             // 网关注册应答
-#define PID_TER_REG_REQ    PID_REG_BKD_REQ   // 终端注册请求
-#define PID_TER_REG_RSP    PID_REG_BKD_RSP   // 终端注册应答
+#define PID_BKD_REG_REQ    (102)             // 网关注册请求
+#define PID_BKD_REG_RSP    (103)             // 网关注册应答
+#define PID_TER_REG_REQ    PID_BKD_REG_REQ   // 终端注册请求
+#define PID_TER_REG_RSP    PID_BKD_REG_RSP   // 终端注册应答
 #define PID_TER_KIC_REQ    (104)             // 踢除终端请求
 #define PID_TER_KIC_RSP    (105)             // 踢除终端应答
 #define PID_TER_KIC_NTF    (106)             // 踢除终端通知
@@ -46,27 +46,12 @@ constexpr size_t PKG_HDR_LEN = PKG_META_LEN + PKG_DATA_LEN;
 #define PID_TER_OFF_NTF    (111)             // 终端离开通知
 #define PID_TER_BIND_NTF   (112)             // 终端绑定通知
 #define PID_TER_UNBD_NTF   (113)             // 终端解绑通知
+#define PID_TER_ERROR      (114)             // 请求处理失败通知(网关 -> 客户端)
 #define PID_CUSTOM         (200)             // 自定义消息ID
 
 
-// ---------------------- 终端离开码(OFF/KIC 携带, 框架 0-99, 业务 100+) ----------------------
-#define TER_CODE_LEAVE        (1)   // 客户端主动自离(TER_LEA_REQ)
-#define TER_CODE_DISCONNECTED (2)   // 超时 / 网络断        -> 建议给宽限期
-#define TER_CODE_KICKED       (3)   // 被踢(通用)           -> 建议给宽限期(马上有新会话接管)
-#define TER_CODE_PROTO_ERR    (4)   // 协议违规             -> 立即清
-#define TER_CODE_REJECTED     (5)   // 登记被业务拒绝        -> 立即清
-#define TER_CODE_GW_LOST      (6)   // 网关连接断(后端本地判定, 一批同时消失)
-#define TER_CODE_CUSTOM       (100) // 业务自定义起点(本身只作分界, 具体码从 +1 开始)
-
-// 业务框架码(100+): 由路由服务发起的账号级处置, 客户端据此给用户不同提示。
-// 与框架码的区别 —— 框架码描述"连接怎么没的", 这些描述"账号被怎么处置了"。
-#define TER_CODE_TAKEOVER     (TER_CODE_CUSTOM + 1)  // 顶号: 账号在其他设备登录, 可重新登录
-#define TER_CODE_BANNED       (TER_CODE_CUSTOM + 2)  // 封号: 账号被封禁, 重登也会被 Eva 拒绝
-#define TER_CODE_ADMIN_KICK   (TER_CODE_CUSTOM + 3)  // 管理员踢下线(未封号), 可立即重新登录
-
-
-const char*
-str_terminal_code(int code) noexcept;
+// 上线的错误码(PERR_* / SERR_*)在 core/error.hpp,
+// 本文件只管消息 ID 和包结构.
 
 
 /**

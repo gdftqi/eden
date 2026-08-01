@@ -126,7 +126,7 @@ adam::tcp::Reactor::remove_session(SOCKET fd) noexcept {
         auto t = itr->second;
         ++itr;
         if (t->sess() == s) { 
-            remove_terminal(t->uid(), TER_CODE_GW_LOST);
+            remove_terminal(t->uid(), PERR_TER_GW_LOST);
         }
     }
 
@@ -143,18 +143,19 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
     ASSERT(t->sess()->reactor() == this, "add_terminal 不在属主 reactor 线程");
 
     if (server_->hook()->on_terminal_enter(t) != 0) {
-        t->kick(TER_CODE_REJECTED, this);
-        return -1;
+        xWARN("终端 {} 被业务钩子拒绝进入", t->uid());
+        t->kick(PERR_TER_REJECTED, this);
+        return xERR_REJECTED;
     }
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
     if (prev != Directory::NPOS && prev != index_) {
-        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)TER_CODE_TAKEOVER));
+        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)PERR_TER_TAKEOVER));
     } else {
         // 本 reactor: 旧档挂在别的连接 = 顶号; 同连接 = 重报, 静默覆盖
         auto old = get_terminal(t->uid());
         if (old != nullptr && old->conv() != t->conv()) {
-            kick_terminal(t->uid(), TER_CODE_TAKEOVER);
+            kick_terminal(t->uid(), PERR_TER_TAKEOVER);
         }
     }
 
@@ -242,8 +243,10 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
     while (1) {
         ssize_t n = ::recv(s->fd(), buf, RBUF_SIZE, 0);
         if (n > 0) {
-            if (s->input(buf, (size_t)n) != xOK) {
-                return -1;
+            int rc = s->input(buf, (size_t)n);
+            if (rc != xOK) {
+                xERROR("{} 入缓冲失败, 断开: {}({})", s->remote_addr(), rc, core::str_error(rc));
+                return rc;
             }
 
             int res;
@@ -253,7 +256,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
                     res = on_ping(s, pk);
                     break;
 
-                case PID_REG_BKD_REQ:
+                case PID_BKD_REG_REQ:
                     res = on_serv_regist(s, pk);
                     break;
 
@@ -280,21 +283,23 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
             }
 
             if (res != xAGAIN) {
-                return -1;
+                // 半包(xAGAIN)之外的任何结果都断连: 要么帧非法, 要么某个 handler 报错
+                xERROR("{} 处理消息失败, 断开: {}({})", s->remote_addr(), res, core::str_error(res));
+                return res;
             }
         } else if (n == 0) {
-            return -1;
+            return xERR_TCP_CLOSED;
         } else {
             if (errno == EINTR) {
                 continue;
             }
 
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return 0;
+                return xOK;
             }
-            
+
             xERROR("recv failed: fd = {}, errno = {}, errstr = {}", s->fd(), errno, ::strerror(errno));
-            return -1;
+            return -errno;
         }
     }
 }
@@ -359,7 +364,7 @@ adam::tcp::Reactor::on_serv_regist(Session::Ptr s, core::Package* pk) noexcept {
     // connector 侧 regist 用小端写的 id, 这里按小端读; 结果码同样小端
     uint32_t id = core::u32_to_le(*(uint32_t*)pk->data.payload);
 
-    pk->data.pid = PID_REG_BKD_RSP;
+    pk->data.pid = PID_BKD_REG_RSP;
     pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);
     *(uint32_t*)pk->data.payload = core::u32_to_le(0);
 
@@ -388,24 +393,27 @@ adam::tcp::Reactor::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noe
         return xERR;
     }
 
-    uint32_t code = 0;
+    uint32_t code = SERR_OK;
 
+    // payload 里的 conv/ip 是客户端自报的, meta 里的是网关按自身会话状态填的
+    // (Session::recv 里赋值, 客户端碰不到). 两者对撞, 确认这条登记确实来自
+    // 网关经手的那个会话, 而不是伪造的 uid.
     if (req.conv != pk->meta.conv) {
         xWARN("info.conv: {} != pk->meta.conv: {}", req.conv, pk->meta.conv);
-        code = 1;
+        code = SERR_MISMATCH;
     } else if (req.ip != pk->meta.src_addr) {
         xWARN("info.ip: {} != pk->meta.src_addr: {}", req.ip, pk->meta.src_addr);
-        code = 1;
+        code = SERR_MISMATCH;
     }
 
-    if (code == 0) {
+    if (code == SERR_OK) {
         auto t = Terminal::create(req.uid, req.conv, req.ip, req.port, s);
         if (add_terminal(t) == 0) {
             if (s->id() != pk->data.src_id) {
                 t->bind();
             }
         } else {
-            code = 2;
+            code = SERR_CONFLICT;
         }
     }
 
@@ -464,7 +472,7 @@ adam::tcp::Reactor::on_terminal_leave_req(Session::Ptr s, core::Package* pk) noe
     auto t = get_terminal(uid);
     if (t != nullptr && t->sess() == s && t->conv() == pk->meta.conv) {
         t->unbind();
-        remove_terminal(uid, TER_CODE_LEAVE);
+        remove_terminal(uid, PERR_TER_LEAVE);
     }
 
     pk->data.pid = PID_TER_LEA_RSP;
@@ -485,7 +493,7 @@ int
 adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcept {
     if (!s->authed()) {
         xWARN("{} 网关未鉴权", s->remote_addr());
-        return -1;
+        return xERR_NOT_AUTH;
     }
 
     auto h = server_->get_handler((uint16_t)pk->data.pid);

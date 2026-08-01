@@ -1,4 +1,6 @@
 #include "utils/cryptor.hpp"
+#include "core/error.hpp"
+#include "utils/log.hpp"
 
 #include <cstring>
 #include <sodium.h>
@@ -119,11 +121,13 @@ int
 adam::utils::sealedbox_encrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
                                 const uint8_t pk[X25519_KEY_LEN]) noexcept {
     if (*outlen < inlen + crypto_box_SEALBYTES) {
-        return -1;
+        xERROR("sealedbox_encrypt 输出缓冲不足: outlen = {}, 需要 {}", *outlen, inlen + crypto_box_SEALBYTES);
+        return xERR_PARAM;
     }
 
     if (::crypto_box_seal(out, in, inlen, pk) != 0) {
-        return -1;
+        xERROR("crypto_box_seal 失败: inlen = {}", inlen);
+        return xERR_SEALEDBOX;
     }
 
     *outlen = inlen + crypto_box_SEALBYTES;
@@ -135,11 +139,13 @@ int
 adam::utils::sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t* out, size_t* outlen,
                                 const uint8_t sk[X25519_KEY_LEN], const uint8_t pk[X25519_KEY_LEN]) noexcept {
     if (inlen < crypto_box_SEALBYTES) {
-        return -1;
+        xERROR("sealedbox_decrypt 密文过短: inlen = {}, 下限 {}", inlen, crypto_box_SEALBYTES);
+        return xERR_PARAM;
     }
 
     if (*outlen < inlen - crypto_box_SEALBYTES) {
-        return -1;
+        xERROR("sealedbox_decrypt 输出缓冲不足: outlen = {}, 需要 {}", *outlen, inlen - crypto_box_SEALBYTES);
+        return xERR_PARAM;
     }
 
     uint8_t derived[X25519_KEY_LEN];
@@ -149,7 +155,8 @@ adam::utils::sealedbox_decrypt(const uint8_t* in, size_t inlen, uint8_t* out, si
     }
 
     if (::crypto_box_seal_open(out, in, inlen, pk, sk) != 0) {
-        return -1;
+        // 密文被篡改 / 用错了密钥, 两者密码学上不可区分
+        return xERR_SEALEDBOX;
     }
 
     *outlen = inlen - crypto_box_SEALBYTES;

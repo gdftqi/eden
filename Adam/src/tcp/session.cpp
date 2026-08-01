@@ -24,7 +24,7 @@ adam::tcp::Session::recv(core::Package* pk) noexcept {
         return xAGAIN;   // 半包, 等更多数据
     }
     if (n < 0) {
-        return xERR;     // 帧非法
+        return n;        // 帧非法, 原样上抛 frame_decode 的码
     }
 
     rbuf_.consume((uint32_t)n);

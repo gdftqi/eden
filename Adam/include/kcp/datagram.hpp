@@ -26,9 +26,13 @@ struct Datagram {
 
     ::sockaddr_storage addr;               // 对端地址
     ::socklen_t        addrlen;            // 地址长度
-    uint32_t           len;                // wire 数据报长度(含 8B SipHash 信封, 由 ikcp_output 加好)
+    uint32_t           len;                // wire 数据报长度(已含信封)
     uint64_t           time;               // 缓冲区创建的时间
-    uint8_t            buf[core::UDP_MTU]; // 直接存 ikcp 产出的完整 wire 数据报 [8B MAC][KCP datagram]
+
+    // 已封装好的完整 wire 数据报, 由 Worker::output 调 Session::sealedbox_encode 产出.
+    // 两种形态: 握手期 [8B 槽位MAC][裸 KCP 数据报],
+    //           翻转后   [8B 槽位MAC][conv 4B][计数器 4B][AEAD 密文][tag 16B]
+    uint8_t            buf[core::UDP_MTU];
 
 
     explicit
@@ -40,7 +44,7 @@ struct Datagram {
         ASSERT(l <= core::UDP_MTU, "len = {}, max = {}", l, core::UDP_MTU);
         ::memcpy(this->buf, b, l);
     }
-}; // struct SndBuf;
+}; // struct Datagram;
 
     
 } // namespace adam::kcp

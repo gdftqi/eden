@@ -1,42 +1,7 @@
 #include "core/package.hpp"
+#include "core/error.hpp"
 #include "utils/log.hpp"
 #include <cstring>
-
-
-const char*
-adam::core::str_terminal_code(int code) noexcept {
-    switch (code) {
-        case TER_CODE_LEAVE:
-            return "terminal activate leave";
-
-        case TER_CODE_DISCONNECTED:
-            return "terminal disconnected";
-
-        case TER_CODE_KICKED:
-            return "terminal has kicked";
-
-        case TER_CODE_PROTO_ERR:
-            return "invalid protocol data";
-
-        case TER_CODE_REJECTED:
-            return "router rejected";
-
-        case TER_CODE_GW_LOST:
-            return "gateway has losted";
-
-        case TER_CODE_TAKEOVER:
-            return "account logged in on another device";
-
-        case TER_CODE_BANNED:
-            return "account banned";
-
-        case TER_CODE_ADMIN_KICK:
-            return "kicked by administrator";
-
-        default:
-            return "unknown terminal code";
-    }
-}
 
 
 int
@@ -70,7 +35,7 @@ adam::core::data_decode(adam::core::Package* pk, const uint8_t* buf, size_t bufl
     ASSERT(pk != nullptr, "无效的入参 pk");
 
     if (buflen < PKG_DATA_LEN) {
-        return -1;
+        return xERR_PK_LEN;
     }
 
     const size_t plen = buflen - PKG_DATA_LEN;
@@ -138,7 +103,8 @@ adam::core::frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept
     flen = u16_to_le(flen);
 
     if (flen < PKG_HDR_LEN) {
-        return -1;  // 帧长非法
+        xERROR("帧长非法: flen = {}, 下限 {}", flen, PKG_HDR_LEN);
+        return xERR_PK_LEN;   // 注意: 半包返回 0, 所以调用方必须判 < 0 而不是 != 0
     }
     if (avail < flen) {
         return 0;   // 半包
@@ -155,8 +121,10 @@ adam::core::frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept
     ::memcpy(&src_addr, p, sizeof(src_addr));
     p += sizeof(src_addr);
 
-    if (data_decode(pk, p, (size_t)flen - PKG_META_LEN) < 0) {
-        return -1;
+    int res = data_decode(pk, p, (size_t)flen - PKG_META_LEN);
+    if (res < 0) {
+        xERROR("帧内 data 段解码失败: flen = {}, {}", flen, str_error(res));
+        return res;
     }
 
     pk->meta.conv     = u32_to_le(conv);

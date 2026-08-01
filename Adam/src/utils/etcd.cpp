@@ -12,7 +12,8 @@ adam::utils::EtcdRsp::deserialize(EtcdRsp* out, const std::string& json) noexcep
     auto root = parser.iterate(j);
 
     if (root.error() != simdjson::SUCCESS) {
-        return -1;
+        xERROR("etcd 应答不是合法 JSON: {}", json);
+        return xERR_ETCD_JSON;
     }
 
     if (root["code"].has_value()) {
@@ -95,8 +96,8 @@ adam::utils::etcd_auth(EtcdRsp* rsp, const char* url, const char* user, const ch
     }
 
     if (rsp->code != 0) {
-        xERROR("etcd_auth failed: {}", rsp->message);
-        return -rsp->code;
+        xERROR("etcd_auth failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     return 0;
@@ -119,12 +120,13 @@ adam::utils::etcd_grant(EtcdRsp* rsp, const char* url, int ttl) noexcept {
     }
 
     if (rsp->code != 0) {
-        xERROR("etcd_grant failed: {}", rsp->message);
-        return -rsp->code;
+        xERROR("etcd_grant failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     if (rsp->id.empty()) {
-        return -1;
+        xERROR("etcd_grant 应答里没有 lease id");
+        return xERR_ETCD_RSP;
     }
 
     return 0;
@@ -150,8 +152,8 @@ adam::utils::etcd_put(EtcdRsp* rsp, const char* url, const char* token, const ch
     }
 
     if (rsp->code != 0) {
-        xERROR("etcd_put failed: {}", rsp->message);
-        return -rsp->code;
+        xERROR("etcd_put failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     return 0;
@@ -176,12 +178,13 @@ adam::utils::etcd_keepalive(EtcdRsp* rsp, const char* url, const char* token, co
     }
 
     if (rsp->ttl.empty() || rsp->ttl == "0") {
-        return -1;
+        xERROR("etcd_keepalive: 租约已失效, ttl = '{}'", rsp->ttl);
+        return xERR_ETCD_RSP;
     }
 
     if (rsp->code != 0) {
-        xERROR("etcd_keepalive failed: {}", rsp->message);
-        return -rsp->code;
+        xERROR("etcd_keepalive failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     return 0;
@@ -208,8 +211,8 @@ adam::utils::etcd_delete(EtcdRsp* rsp, const char* url, const char* token, const
     }
 
     if (rsp->code != 0) {
-        xERROR("etcd_delete failed: {}", rsp->message);
-        return -rsp->code;
+        xERROR("etcd_delete failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     return 0;
@@ -222,7 +225,8 @@ adam::utils::etcd_get_prefix(EtcdRsp* rsp, const char* url, const char* token, c
     rsp->reset();
 
     if (prefix == nullptr || ::strlen(prefix) == 0) {
-        return -1;
+        xERROR("etcd_get_prefix: prefix 为空");
+        return xERR_PARAM;
     }
     
     std::string end = prefix;
@@ -243,7 +247,8 @@ adam::utils::etcd_get_prefix(EtcdRsp* rsp, const char* url, const char* token, c
     }
 
     if (rsp->code != 0) {
-        return -rsp->code;
+        xERROR("etcd_get_prefix failed: code = {}, msg = {}", rsp->code, rsp->message);
+        return xERR_ETCD_RSP;
     }
 
     for (auto& [k, v]: rsp->kvs) {

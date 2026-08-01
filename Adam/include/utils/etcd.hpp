@@ -11,6 +11,7 @@
 #pragma pop_macro("INLINE")
 
 #include "utils/log.hpp"
+#include "core/error.hpp"
 
 
 namespace adam::utils {
@@ -25,8 +26,11 @@ struct EtcdConfig {
     
     int
     from_yaml(const YAML::Node& root) noexcept {
-        if (!root["url"] || !root["user"] || !root["pass"]) {
-            return -1;
+        for (const char* k : { "url", "user", "pass" }) {
+            if (!root[k]) {
+                xERROR("etcd 配置缺字段: {}", k);
+                return xERR_CONF_MISSING;
+            }
         }
 
         url  = root["url"].as<std::string>();
@@ -35,22 +39,26 @@ struct EtcdConfig {
         ttl  = root["ttl"].as<int>();
 
         if (url.empty()) {
-            return -1;
+            xERROR("etcd.url 不能为空");
+            return xERR_CONF_VALUE;
         }
 
         if (user.empty()) {
-            return -1;
+            xERROR("etcd.user 不能为空");
+            return xERR_CONF_VALUE;
         }
 
         if (pass.empty()) {
-            return -1;
+            xERROR("etcd.pass 不能为空");
+            return xERR_CONF_VALUE;
         }
 
         if (ttl <= 0) {
-            return -1;
+            xERROR("etcd.ttl 必须为正: {}", ttl);
+            return xERR_CONF_VALUE;
         }
 
-        return 0;
+        return xOK;
     }
 }; // struct EtcdConfig;
 

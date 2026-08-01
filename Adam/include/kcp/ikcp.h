@@ -316,14 +316,62 @@ struct IKCPOPS
 
 
 //---------------------------------------------------------------------
+// [adam] 错误码
+//---------------------------------------------------------------------
+// 全工程的负数返回值按"层越底, 位数越少"分段, 段与段不重叠,
+// 因此任何一个负值都能反查出它是哪一层产生的:
+//
+//     [-99,  -10]   ikcp 层        本文件
+//     [-999, -100]  框架内部        core/error.hpp 的 x*
+//     系统错误 -errno 由框架层在边界上转换, 不与本层混用
+//
+// 本层再按函数分十位, 保证同一个数字在整个 ikcp 里只有一个意思
+// (改造前 -1 在四个函数里有四种含义, -2 有三种).
+//
+//     -1x  通用          -2x  ikcp_input     -3x  ikcp_recv
+//     -4x  ikcp_send     -5x  会话状态        -6x  配置类
+
+/* ---- 通用 ---- */
+/* -11 空着: 框架层的 xAGAIN 取了 -EAGAIN(= -11), 同一个数不给两个名字 */
+#define IKCP_ERR_NOMEM			(-12)	// segment 分配失败
+#define IKCP_ERR_PARAM			(-13)	// 参数非法
+
+/* ---- ikcp_input ---- */
+#define IKCP_ERR_TOOSHORT		(-20)	// data == NULL 或不足一个 KCP 头
+#define IKCP_ERR_CONV			(-21)	// conv 与本会话不符
+#define IKCP_ERR_MALFORM		(-22)	// len 字段畸形(超出剩余字节)
+#define IKCP_ERR_CMD			(-23)	// 未知 cmd, 或服务端不受理的 cmd(RST/KICK)
+#define IKCP_ERR_NOSESS			(-24)	// 会话未接纳且非握手包, 已回 RST
+
+/* ---- ikcp_recv ---- */
+#define IKCP_ERR_EMPTY			(-30)	// 接收队列空
+#define IKCP_ERR_FRAGMENT		(-31)	// 分片未集齐
+#define IKCP_ERR_BUFSMALL		(-32)	// 用户 buf 装不下这条消息
+
+/* ---- ikcp_send ---- */
+#define IKCP_ERR_TOOBIG			(-40)	// 分片数超出接收窗口
+
+/* ---- 会话状态(ikcp_update 返回, 同时是 kcp->state 的取值) ---- */
+#define IKCP_ERR_TIMEOUT		(-50)	// 超过 timeout 未收到对端任何数据
+#define IKCP_ERR_RST			(-51)	// 收到对端 RST, 会话在对端已不存在
+#define IKCP_ERR_KICKED			(-52)	// 收到对端 KICK, 被服务端主动踢除(kick_code 说明原因)
+
+/* ---- 配置类 ---- */
+#define IKCP_ERR_MTU			(-60)	// mtu 太小(< IKCP_OVERHEAD)
+#define IKCP_ERR_CC				(-61)	// 拥塞控制算法不存在
+
+
+//---------------------------------------------------------------------
 // IKCPCB
 //---------------------------------------------------------------------
+// state 的负值即上面的 IKCP_ERR_TIMEOUT/RST/KICKED, ikcp_update 直接返回它,
+// 所以"当前状态"和"死因"是同一个数, 不需要两套码.
 enum IKCP_STATE {
 	IKCP_STATE_NONE = 0,
 	IKCP_STATE_OPEN = 1,		// 已接纳对端, 可收发数据
-	IKCP_STATE_TIMEOUT = -1,    // 会话超时
-	IKCP_STATE_RST = -2,        // 收到对端 RST, 会话已不存在, 上层应摘会话
-	IKCP_STATE_KICKED = -3      // 收到对端 KICK, 被服务端主动踢除(kick_code 说明原因)
+	IKCP_STATE_TIMEOUT = IKCP_ERR_TIMEOUT,
+	IKCP_STATE_RST     = IKCP_ERR_RST,
+	IKCP_STATE_KICKED  = IKCP_ERR_KICKED
 };
 
 
@@ -379,9 +427,6 @@ struct IKCPCB
 #define IKCP_LOG_OUT_PROBE		1024
 #define IKCP_LOG_OUT_WINS		2048
 
-// ikcp_input 返回此码 = 对端未被接纳(查无会话), 上层应回 RST + 摘会话
-#define IKCP_INPUT_RST			(-4)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -389,6 +434,10 @@ extern "C" {
 //---------------------------------------------------------------------
 // interface
 //---------------------------------------------------------------------
+
+// [adam] 把本层的错误码翻成可读字符串(不含尾随标点, 直接拼进日志即可).
+// 参数只接受 ikcp 层的码; 传别的层的值一律得到 "unknown ikcp error".
+const char* ikcp_error(int code);
 
 // create a new kcp control object, 'conv' must be equal in both endpoints
 // of the same connection. 'user' will be passed to the output callback.
@@ -411,8 +460,6 @@ int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len);
 // ikcp_check when to call it again (without ikcp_input/_send calling).
 // 'current' - current timestamp in millisec.
 int ikcp_update(ikcpcb *kcp, IUINT32 current);
-
-// 设置信封 MAC
 
 // 设置本端角色: 非 0 = 客户端, 0 = 服务端(默认). 决定谁主动发 PING / 谁认 RST/KICK
 void ikcp_set_client(ikcpcb *kcp, int is_client);

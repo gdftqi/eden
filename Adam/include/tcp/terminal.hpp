@@ -74,7 +74,7 @@ public:
 
 private:
     // 只做组帧 + 发送; payload 由各自的 proto 结构编好后传入,
-    // 于是 BIND/UNBD 的载荷可各自独立演进, 而信封约定只有一份。
+    // 于是 BIND/UNBD 的载荷可各自独立演进, 而组帧约定只有一份.
     void
     notify(uint16_t pid, const uint8_t* payload, uint32_t len) noexcept;
 

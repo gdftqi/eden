@@ -160,12 +160,13 @@ int
 adam::kcp::Worker::add_session(uint32_t conv, Session::Ptr s) noexcept {
     auto [_, res] = sesss_.emplace(conv, s);
     if (res && event_->on_sess_connected(s)) {
+        xWARN("{} 被业务钩子拒绝接入", s->to_json());
         sesss_.erase(conv);
-        return -1;
+        return xERR_REJECTED;
     }
 
     server_->envelope()->conv_add(conv);
-    return 0;
+    return xOK;
 }
 
 
@@ -331,7 +332,9 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
 
                 res = s->input(raw, msglen, hdr->msg_name, hdr->msg_namelen);
                 if (res != xOK) {
-                    // TODO: 记录日志
+                    // 只丢包不摘会话: 伪造/重放包也走这条路, 判死的话攻击者
+                    // 连发几个包就能把别人踢下线(见 Session::input 的注释)
+                    xWARN("{} 丢包: {}({})", s->to_json(), res, core::str_error(res));
                     continue;
                 }
 
@@ -342,30 +345,29 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                 while (true) {
                     res = s->recv(pk);
                     if (res == xAGAIN) {
-                        // 没有更多消息了
+                        // 没有更多消息了.
+                        // 不需要判"重复包": KCP 的 ikcp_parse_data 已经按 sn 去重,
+                        // 重复段只回 ACK 不入 rcv_queue, 到不了这里.
                         break;
-                    } else if (res == xDUP) {
-                        // 幂等重复, 跳过
-                        continue;
                     } else if (res < 0) {
                         // 能走到 recv 的字节都过了信封的 AEAD + 防重放(见 Session::input),
                         // 所以这里的错一定是对端真的发错了, 判死是对的.
                         // 伪造/重放包在 input 那层就被丢了, 根本到不了这里 --
                         // 那条路只计数不判死, 否则攻击者连发几个伪造包就能把人踢下线.
-                        // TODO: 记录攻击行为
-                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
+                        xERROR("{} 协议违规判死: {}({})", s->to_json(), res, core::str_error(res));
+                        remove_session(s->conv(), PERR_TER_PROTO_ERR);
                         break;
                     }
 
                     if (s->authed() && pk->data.src_id != s->uid()) {
                         // 客户端发送的 src_id 必需要于 sess->uid 相等
                         xERROR("{} src_id 伪造: [{}]", s->to_json(), pk->data.src_id);
-                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
+                        remove_session(s->conv(), PERR_TER_PROTO_ERR);
                         break;
                     }
 
                     if (pk->data.dst_id == Conf::instance()->server()->id) {
-                        if (pk->data.pid == PID_REG_BKD_REQ) {
+                        if (pk->data.pid == PID_BKD_REG_REQ) {
                             res = on_regist_terminal_req(s, pk);
                         } else {
                             res = on_pack_handle(s, pk);
@@ -375,7 +377,7 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                     }
 
                     if (res < 0) {
-                        remove_session(s->conv(), TER_CODE_PROTO_ERR);
+                        remove_session(s->conv(), PERR_TER_PROTO_ERR);
                         break;
                     }
                 }
@@ -445,7 +447,9 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 break;
             }
 
-            if (conn->input(rbuf, n) != xOK) {
+            int rc = conn->input(rbuf, n);
+            if (rc != xOK) {
+                xERROR("{} 入缓冲失败, 摘除后端: {}({})", conn->host(), rc, core::str_error(rc));
                 err = EOF;
                 break;
             }
@@ -466,7 +470,7 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
                 on_pong(conn, pk);
                 break;
 
-            case PID_REG_BKD_RSP:
+            case PID_BKD_REG_RSP:
                 on_regist_backend_rsp(conn, pk);
                 break;
 
@@ -493,7 +497,8 @@ adam::kcp::Worker::on_serv_handle(const ::epoll_event& ev) noexcept {
         } // while;
 
         if (rc != xAGAIN) {
-            // xERR = 帧非法 → 摘掉这个后端连接
+            // 半包(xAGAIN)之外都是帧非法 -> 摘掉这个后端连接
+            xERROR("{} 帧解析失败, 摘除后端: {}({})", conn->host(), rc, core::str_error(rc));
             remove_serv(conn);
             return;
         }
@@ -543,8 +548,11 @@ adam::kcp::Worker::update() noexcept {
     for (auto itr = sesss_.begin(); itr != sesss_.end();) {
         auto s = itr->second;
         ++itr;
-        if (s->update(now) < 0) {
-            remove_session(s->conv(), TER_CODE_DISCONNECTED);
+        int res = s->update(now);
+        if (res < 0) {
+            // res 是 ikcp 层的码(TIMEOUT / RST / KICKED), 直接表死因
+            xINFO("{} 判死: {}({})", s->to_json(), res, core::str_error(res));
+            remove_session(s->conv(), PERR_TER_DISCONNECTED);
         }
     }
 
@@ -700,7 +708,7 @@ adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Packa
     }
 
     xINFO("{} 被 {} 踢除, code = {}", s->to_json(), conn->to_string(), ntf.code);
-    kick_session(pk->meta.conv, ntf.code != 0 ? ntf.code : TER_CODE_KICKED);
+    kick_session(pk->meta.conv, ntf.code != 0 ? ntf.code : PERR_TER_KICKED);
 }
 
 
@@ -768,12 +776,12 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
 
     // 登记被拒(业务 hook 拒绝 / 校验不过)= 不许接入, 摘掉会话;
     // 否则客户端还连着却不在任何路由表里, 拒绝钩子等于没有强制力。
-    if (rsp.code != 0) {
-        xERROR("{} 终端登记失败: uid = {}, code = {}", conn->to_string(), rsp.uid, rsp.code);
+    if (rsp.code != SERR_OK) {
+        xERROR("{} 终端登记失败: uid = {}, code = {}({})", conn->to_string(), rsp.uid, rsp.code, core::str_error((int)rsp.code));
 
         auto s = get_session(pk->meta.conv);
         if (s != nullptr && s->uid() == rsp.uid) {
-            kick_session(pk->meta.conv, TER_CODE_REJECTED);
+            kick_session(pk->meta.conv, PERR_TER_REJECTED);
         }
         return;
     }
@@ -839,27 +847,39 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     // REGIST_REQ 的 payload = sealedbox 密封的 AccessToken 明文(116) + sealedbox 头(48)
     constexpr int REGIST_PAYLOAD_LEN = core::RegistTerminalReq::LEN + 48;
 
+    // 注册只能一次. 能走到这里的包已过 authed / 信封 AEAD / src_id 自洽 / 地址绑定四道关,
+    // 所以确实是真客户端发的, 判死不会被第三方拿来当武器 -- 与上面 src_id 伪造那条一致.
     if (s->authed()) {
-        return xDUP;
+        xWARN("{} 重复注册", s->to_json());
+        return xERR_PK_STATE;
     }
 
     if ((int)in->payload_length() != REGIST_PAYLOAD_LEN) {
+        xWARN("{} REGIST 长度错: {} != {}", s->to_json(), in->payload_length(), REGIST_PAYLOAD_LEN);
         return xERR_PK_LEN;
     }
 
     // 1. 服务端私钥解密 → 116 字节明文
     uint8_t plain[REGIST_PAYLOAD_LEN];
     size_t  plen = sizeof(plain);
-    if (utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk())) {
+
+    // 未鉴权路径, 任何人都能打到这里, 所以只记一行 WARN 不细分原因
+    // (解不开 = 密文被改 或 用错了服务端公钥, 密码学上不可区分)
+    int rc = utils::sealedbox_decrypt(in->data.payload, in->payload_length(), plain, &plen, Conf::instance()->x25519_sk(), Conf::instance()->x25519_pk());
+    if (rc != xOK) {
+        xWARN("{} REGIST 解密失败: {}({})", s->to_json(), rc, core::str_error(rc));
         return xERR_PK_DEC;
     }
+
     if (plen != (size_t)core::RegistTerminalReq::LEN) {
+        xWARN("{} REGIST 明文长度错: {} != {}", s->to_json(), plen, core::RegistTerminalReq::LEN);
         return xERR_PK_DEC;
     }
 
     // 2. 显式解出 token(小端, 不做内存覆盖)
     core::RegistTerminalReq req;
     if (req.decode(plain, plen) != xOK) {
+        xWARN("{} REGIST token 解码失败", s->to_json());
         return xERR_PK_LEN;
     }
 
@@ -924,20 +944,27 @@ adam::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
         return xERR_NOT_AUTH;
     }
 
+    // 转发失败一律回 PID_ERROR, 不判死 --
+    // 能走到这里的包已过四道关(token 验签 / 信封 AEAD / src_id 自洽 / 握手绑定的地址),
+    // 回包是安全的; 而判死会把"网关刚起来还没发现后端"的正常时序变成重连风暴.
     auto sv = get_serv(pk->data.dst_id);
     if (sv == nullptr) {
-        xERROR("{} 转包: invalid dst_id [{}]", s->to_json(), pk->data.dst_id);
-        return xERR_PK_DST;
+        xWARN("{} 转包: 目标 {} 未发现", s->to_json(), pk->data.dst_id);
+        s->send_error(PERR_REQ_UNREACHABLE, pk->data.dst_id, pk->data.pid);
+        return xOK;
     }
 
-    // 目标后端未声明该 PID: 客户端协议错(或版本错位), 判死并留下线索
+    // 未声明该 PID: 协议错或版本错位, 重试也没用 -> 用独立的码让客户端能区分
     if (!sv->pid_has(pk->data.pid)) {
-        xERROR("{} 转包: {} 未受理 PID [{}]", s->to_json(), sv->id(), pk->data.pid);
-        return xERR_PK_PID;
+        xWARN("{} 转包: {} 未受理 PID [{}]", s->to_json(), sv->id(), pk->data.pid);
+        s->send_error(PERR_REQ_NOT_ACCEPT, pk->data.dst_id, pk->data.pid);
+        return xOK;
     }
 
+    // 在表里但没连上/没鉴权 -- 与"未发现"是同一件事(后端没就绪), 给同一个码
     if (!sv->is_connected() || !sv->authed()) {
-        xWARN("后台服务 {} 还未鉴权完成", sv->id());
+        xWARN("{} 转包: 目标 {} 未就绪", s->to_json(), sv->id());
+        s->send_error(PERR_REQ_UNREACHABLE, pk->data.dst_id, pk->data.pid);
         return xOK;
     }
 
@@ -953,5 +980,10 @@ adam::kcp::Worker::on_c2s(Session::Ptr s, core::Package *pk) noexcept {
 int
 adam::kcp::Worker::on_pack_handle(Session::Ptr s, core::Package* pk) noexcept {
     auto handler = server_->get_handler(pk->data.pid);
-    return handler == nullptr ? -1 : handler(s, pk);
+    if (handler == nullptr) {
+        xWARN("{} 无处理器: pid = {}", s->to_json(), pk->data.pid);
+        return xERR_NO_HANDLER;
+    }
+
+    return handler(s, pk);
 }

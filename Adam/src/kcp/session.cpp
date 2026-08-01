@@ -2,6 +2,7 @@
 #include "kcp/server.hpp"
 #include "core/proto/pid_terminal_offline.hpp"
 #include "core/proto/pid_terminal_enter.hpp"
+#include "core/proto/pid_terminal_error.hpp"
 #include <format>
 
 
@@ -134,12 +135,38 @@ adam::kcp::Session::terminal_off(uint32_t code) noexcept {
 }
 
 
+void
+adam::kcp::Session::send_error(uint32_t code, uint32_t dst_id, uint32_t pid) noexcept {
+    if (!authed()) {
+        return;
+    }
+
+    core::ErrorNotify ntf;
+    ntf.code   = code;
+    ntf.dst_id = dst_id;
+    ntf.pid    = pid;
+
+    alignas(core::Package) uint8_t buf[sizeof(core::Package) + core::ErrorNotify::LEN];
+    auto* pk = (core::Package*)buf;
+
+    pk->meta.len    = core::PKG_HDR_LEN + core::ErrorNotify::LEN;
+    pk->data.pid    = PID_TER_ERROR;
+    pk->data.src_id = Conf::instance()->server()->id;
+    pk->data.dst_id = uid_;
+    ntf.encode(pk->data.payload, core::ErrorNotify::LEN);
+
+    if (send(pk) < 0) {
+        xERROR("{} 回 PID_TER_ERROR 失败: code = {}", to_json(), code);
+    }
+}
+
+
 int
 adam::kcp::Session::input(const uint8_t* data, size_t len, const void* addr, socklen_t addrlen) noexcept {
     thread_local static uint8_t dg[core::UDP_MTU];
 
     if (len < core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN) {
-        return xERR_KCP_CONV;
+        return IKCP_ERR_TOOSHORT;
     }
 
     const uint8_t* kcp_dg = data + core::ENVELOPE_MAC_LEN;
@@ -163,7 +190,8 @@ adam::kcp::Session::input(const uint8_t* data, size_t len, const void* addr, soc
         addrlen_ = addrlen;
     }
 
-    return core::from_ikcp_input(res);
+    // ikcp 的码直接上抛: 两位数段与框架的三位数段不重叠, 不会有歧义
+    return res;
 }
 
 
@@ -239,7 +267,13 @@ adam::kcp::Session::recv(adam::core::Package* pk) noexcept {
 
     int res = ::ikcp_recv(kcp_, rbuf, sizeof(rbuf));
     if (res < 0) {
-        return core::from_ikcp_recv(res);
+        // EMPTY/FRAGMENT 是"这轮取完了", 不是错 -- 必须翻成 xAGAIN,
+        // 否则调用方按 res < 0 判死, 每次正常收包都会踢人.
+        if (res == IKCP_ERR_EMPTY || res == IKCP_ERR_FRAGMENT) {
+            return xAGAIN;
+        }
+
+        return res;
     }
 
     size_t dglen = (size_t)res;
@@ -286,5 +320,7 @@ adam::kcp::Session::send(core::Package *pk) noexcept  {
     }
 
     int wire = core::data_encode(sndbuf, pk);
-    return core::from_ikcp_send(::ikcp_send(kcp_, sndbuf, wire));
+
+    int res = ::ikcp_send(kcp_, sndbuf, wire);
+    return res < 0 ? res : xOK;   // 成功时 ikcp_send 返回已入队长度, 上层只关心成败
 }

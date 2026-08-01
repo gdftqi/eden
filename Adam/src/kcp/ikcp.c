@@ -443,17 +443,17 @@ int ikcp_recv(ikcpcb *kcp, IUINT8 *buffer, int len)
 	assert(kcp);
 
 	if (iqueue_is_empty(&kcp->rcv_queue))
-		return -1;
+		return IKCP_ERR_EMPTY;
 
 	if (len < 0) len = -len;
 
 	peeksize = ikcp_peeksize(kcp);
 
 	if (peeksize < 0)
-		return -2;
+		return peeksize;
 
 	if (peeksize > len)
-		return -3;
+		return IKCP_ERR_BUFSMALL;
 
 	if (kcp->nrcv_que >= kcp->rcv_wnd)
 		recover = 1;
@@ -524,12 +524,12 @@ int ikcp_peeksize(const ikcpcb *kcp)
 
 	assert(kcp);
 
-	if (iqueue_is_empty(&kcp->rcv_queue)) return -1;
+	if (iqueue_is_empty(&kcp->rcv_queue)) return IKCP_ERR_EMPTY;
 
 	seg = iqueue_entry(kcp->rcv_queue.next, IKCPSEG, node);
 	if (seg->frg == 0) return seg->len;
 
-	if (kcp->nrcv_que < seg->frg + 1) return -1;
+	if (kcp->nrcv_que < seg->frg + 1) return IKCP_ERR_FRAGMENT;
 
 	for (p = kcp->rcv_queue.next; p != &kcp->rcv_queue; p = p->next) {
 		seg = iqueue_entry(p, IKCPSEG, node);
@@ -551,7 +551,7 @@ int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len)
 	int sent = 0;
 
 	assert(kcp->mss > 0);
-	if (len < 0) return -1;
+	if (len < 0) return IKCP_ERR_PARAM;
 
 	// append to previous segment in streaming mode (if possible)
 	if (kcp->stream != 0) {
@@ -563,7 +563,7 @@ int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len)
 				seg = ikcp_segment_new(kcp, old->len + extend);
 				assert(seg);
 				if (seg == NULL) {
-					return -2;
+					return IKCP_ERR_NOMEM;
 				}
 				iqueue_add_tail(&seg->node, &kcp->snd_queue);
 				memcpy(seg->data, old->data, old->len);
@@ -590,7 +590,7 @@ int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len)
 	if (count >= (int)IKCP_WND_RCV) {
 		if (kcp->stream != 0 && sent > 0)
 			return sent;
-		return -2;
+		return IKCP_ERR_TOOBIG;
 	}
 
 	if (count == 0) count = 1;
@@ -601,7 +601,7 @@ int ikcp_send(ikcpcb *kcp, const IUINT8 *buffer, int len)
 		seg = ikcp_segment_new(kcp, size);
 		assert(seg);
 		if (seg == NULL) {
-			return -2;
+			return IKCP_ERR_NOMEM;
 		}
 		if (buffer && len > 0) {
 			memcpy(seg->data, buffer, size);
@@ -864,7 +864,7 @@ int ikcp_input(ikcpcb *kcp, const IUINT8 *data, long size)
 	}
 
 	/* [adam] 进来的已是裸 KCP 数据报, 信封由 Session::input 剥掉 */
-	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return -1;
+	if (data == NULL || (int)size < (int)IKCP_OVERHEAD) return IKCP_ERR_TOOSHORT;
 
 	while (1) {
 		IUINT32 ts, sn, len, una, conv;
@@ -875,7 +875,7 @@ int ikcp_input(ikcpcb *kcp, const IUINT8 *data, long size)
 		if (size < (int)IKCP_OVERHEAD) break;
 
 		data = ikcp_decode32u(data, &conv);
-		if (conv != kcp->conv) return -1;
+		if (conv != kcp->conv) return IKCP_ERR_CONV;
 
 		data = ikcp_decode8u(data, &cmd);
 		data = ikcp_decode8u(data, &frg);
@@ -888,10 +888,10 @@ int ikcp_input(ikcpcb *kcp, const IUINT8 *data, long size)
 		size -= IKCP_OVERHEAD;
 
 		if ((long)size < (long)len || (int)len < 0)
-			return -2;
+			return IKCP_ERR_MALFORM;
 
 		if (cmd < IKCP_CMD_PUSH || cmd > IKCP_CMD_KICK)
-			return -3;
+			return IKCP_ERR_CMD;
 
 		/* [adam] RST/KICK 是服务端发给客户端的单向指令(见 ikcp_send_rst / ikcp_send_kick),
 		 * 服务端收到必是伪造: 信封 MAC 密钥按 conv & (nkeys-1) 分槽共享, 与受害者同槽的客户端
@@ -901,11 +901,11 @@ int ikcp_input(ikcpcb *kcp, const IUINT8 *data, long size)
 		 * 返回错误码而不是改状态, 前提是调用方拿到 input 错误只丢包, 不摘会话
 		 * (见 kcp::Worker::on_udp_handle 里那句 continue). 那句和这里是一对, 改一边前先看另一边. */
 		if (ikcp_is_server(kcp) && (cmd == IKCP_CMD_RST || cmd == IKCP_CMD_KICK))
-			return -3;
+			return IKCP_ERR_CMD;
 
 		if (kcp->state == IKCP_STATE_NONE && !(cmd == IKCP_CMD_PUSH && sn == 0)) {
 			ikcp_send_rst(kcp);
-			return IKCP_INPUT_RST;
+			return IKCP_ERR_NOSESS;
 		}
 
 		kcp->rmt_wnd = wnd;
@@ -1436,10 +1436,10 @@ int ikcp_setmtu(ikcpcb *kcp, int mtu)
 {
 	IUINT8 *buffer;
 	if (mtu < 50 || mtu < (int)IKCP_OVERHEAD)
-		return -1;
+		return IKCP_ERR_MTU;
 	buffer = (IUINT8*)ikcp_malloc((mtu + IKCP_OVERHEAD) * 3);
 	if (buffer == NULL)
-		return -2;
+		return IKCP_ERR_NOMEM;
 	kcp->mtu = mtu;
 	kcp->mss = kcp->mtu - IKCP_OVERHEAD;
 	ikcp_free(kcp->buffer);
@@ -1534,7 +1534,7 @@ int ikcp_setcc(ikcpcb *kcp, const struct IKCPOPS *ops)
 				kcp->congest = NULL;
 				if (kcp->cwnd < 1) kcp->cwnd = 1;
 				kcp->incr = kcp->cwnd * kcp->mss;
-				return -1;
+				return IKCP_ERR_CC;
 			}
 		}
 	}
@@ -1544,4 +1544,41 @@ int ikcp_setcc(ikcpcb *kcp, const struct IKCPOPS *ops)
 		if (kcp->incr < kcp->mss) kcp->incr = kcp->mss;
 	}
 	return 0;
+}
+
+
+//---------------------------------------------------------------------
+// [adam] 错误码 -> 可读字符串
+//
+// 新增错误码时这里也要补一条, 否则日志里只会打出 "unknown ikcp error".
+//---------------------------------------------------------------------
+const char* ikcp_error(int code)
+{
+	switch (code) {
+	case 0:                 return "ok";
+
+	case IKCP_ERR_PARAM:    return "invalid argument";
+	case IKCP_ERR_NOMEM:    return "segment allocation failed";
+
+	case IKCP_ERR_TOOSHORT: return "datagram shorter than kcp header";
+	case IKCP_ERR_CONV:     return "conv mismatch";
+	case IKCP_ERR_MALFORM:  return "malformed len field";
+	case IKCP_ERR_CMD:      return "unacceptable cmd";
+	case IKCP_ERR_NOSESS:   return "session not accepted, rst sent";
+
+	case IKCP_ERR_EMPTY:    return "recv queue empty";
+	case IKCP_ERR_FRAGMENT: return "fragments incomplete";
+	case IKCP_ERR_BUFSMALL: return "user buffer too small";
+
+	case IKCP_ERR_TOOBIG:   return "too many fragments for recv window";
+
+	case IKCP_ERR_TIMEOUT:  return "session timed out";
+	case IKCP_ERR_RST:      return "peer reset the session";
+	case IKCP_ERR_KICKED:   return "kicked by peer";
+
+	case IKCP_ERR_MTU:      return "mtu too small";
+	case IKCP_ERR_CC:       return "congestion control init failed";
+
+	default:                return "unknown ikcp error";
+	}
 }

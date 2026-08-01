@@ -211,6 +211,20 @@ public:
 
 
     /**
+     * @brief 回一条 PID_ERROR 告知客户端"这条请求没送到"
+     *
+     * @param code   PERR_REQ_*
+     * @param dst_id 原请求的目标服务 id
+     * @param pid    原请求的 PID
+     *
+     * @note 与 kick 的区别 -- 这里连接不结束, 客户端可以重试或换目标.
+     *       只对已鉴权会话有意义: 未鉴权的对端还没有证明自己是谁, 不值得回包.
+     */
+    void
+    send_error(uint32_t code, uint32_t dst_id, uint32_t pid) noexcept;
+
+
+    /**
      * @brief 绑定集
      */
     void
@@ -229,9 +243,12 @@ public:
      * @brief 推动 KCP 内部状态机: 超时重传 / 发 ACK / flush 待发数据.
      * 必须按 ikcp_nodelay() 设的 interval 周期调 -- 不调用 KCP 不会推进.
      *
-     * @return  0                    正常(本轮可能 flush 了数据, 也可能什么都没做)
-     *         -1 IKCP_STATE_TIMEOUT 超过 kcp_->timeout 未收到对端任何数据 -> 判死
-     *         -2 IKCP_STATE_RST     收到对端 RST, 会话在对端已不存在 -> 判死
+     * @return   0                     正常(本轮可能 flush 了数据, 也可能什么都没做)
+     *         -50 IKCP_ERR_TIMEOUT    超过 kcp_->timeout 未收到对端任何数据 -> 判死
+     *         -51 IKCP_ERR_RST        收到对端 RST, 会话在对端已不存在 -> 判死
+     *         -52 IKCP_ERR_KICKED     收到对端 KICK, 被服务端踢除 -> 判死
+     *
+     * 返回值直接是 ikcp 层的码(未经框架层翻译), 打日志用 ikcp_error() 取字符串.
      *
      * @note 返回负值即会话已死, 调用方应摘除会话(worker::update 里按 < 0 处理)
      *       首次调用会初始化保活时刻, 不会误判超时
@@ -250,19 +267,15 @@ public:
      * @param len     payload 字节数
      * @param addr    对端 sockaddr(从 recvmmsg 拿到的 msg_hdr.msg_name)
      * @param addrlen addr 长度
-     * @return xERR_PK_DEC 信封解不开(伪造/重放), 只丢包不判死
+     * @return  xOK          成功
      *
-     * ikcp_input 原始返回码经 core::from_ikcp_input 映射:
+     *          xERR_PK_DEC  信封解不开(伪造/重放)
      *
-     *            0  → xOK              成功
+     *          IKCP_ERR_*   ikcp_input 的码原样上抛, 见 kcp/ikcp.h 的 -2x 段;
+     *                       另外包长不足一个信封头时直接返回 IKCP_ERR_TOOSHORT
      *
-     *           -1  → xERR_KCP_CONV    conv 不符 / 包太短
-     *
-     *           -2  → xERR_KCP_MALFORM len 字段畸形
-     *
-     *           -3  → xERR_KCP_CMD     未知 cmd
-     *
-     *           -4  → xERR (IKCP_INPUT_RST: 会话未注册且非握手包, 已回 RST, 上层应摘会话)
+     * @note 拿到任何 input 错误都只丢包, 不摘会话 -- 与 ikcp.c 里
+     * "返回错误码而不是改状态" 那段注释是一对, 改一边前先看另一边.
      *
      * @note 地址重绑定(NAT 漫游)不需要额外判据: 翻转之后能走到 ikcp_input 的包
      * 都已通过 AEAD + 重放窗口, 本身就是"可证新鲜且来自对端"的凭据.
@@ -300,43 +313,42 @@ public:
 
 
     /**
-     * @brief 从 KCP 队列读出一条完整 Package,做协议自检 + 单调性幂等校验,
-     * 并刷新 last_recv_ms_(用于 session 超时判定).
-     * 相当于 recv() 之上加一层应用协议层处理.
+     * @brief 从 KCP 队列取出一条完整消息, 解码进调用方的 pk 并做字段自检.
      *
-     * @param[out] pk  解析成功时指向 buf 起始(host 字节序,可直接访问字段)
-     * @param      buf 接收缓冲;长度应 >= PKG_MAX_LEN,否则会触发 ikcp_recv 的 -3
-     * @param      len buf 长度
+     * 中转缓冲是本方法内部的 thread_local, 调用方不用管. meta.conv / meta.src_addr
+     * 不在线上传输, 由本方法按会话自身状态补齐.
      *
-     * @return  xOK    成功(包长度在 *pk 的 len() 里)
+     * @param[out] pk 解码目标(host 序); 需能容纳 PKG_MAX_LEN
      *
-     *          xDUP   幂等重复包, 跳过(可继续 recv 下一条)
+     * @return  xOK    成功(长度在 pk->meta.len 里)
      *
-     *          xAGAIN rcv_queue 空 / 无完整包, 当前没有更多消息
+     *          xAGAIN rcv_queue 空 / 分片未集齐, 当前没有更多消息
      *
-     *          xERR_KCP_BUFSMALL buf 太小, 放大后重试
+     *          IKCP_ERR_BUFSMALL  单条消息超过 PKG_MAX_LEN, 装不下
      *
-     *          xERR_PKT_LEN/ID/IDEM/DST/DEC  协议自检失败(见 core/error.hpp)
+     *          xERR_PK_LEN/PID/SRC/DST  字段自检失败(见 core/error.hpp)
+     *
+     * @note 不做重复包判定 -- KCP 的 ikcp_parse_data 已按 sn 去重, 重复段只回 ACK
+     * 不入 rcv_queue, 走不到这里.
      */
     int
     recv(core::Package* pk) noexcept;
 
 
     /**
-     * @brief 把一条应用层 Package 交给 KCP 发出: 填充发送幂等序号(seq), authed 且有 payload 时
-     *        用 tx_key_ 做 ChaCha20-Poly1305 加密(nonce = conv|seq|DIR_S2C), 未 authed / 空 payload
-     *        走明文, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成).
+     * @brief 把一条应用层 Package 交给 KCP 发出: 序列化 Package::data(小端)到内部
+     *        thread_local 缓冲, 再经 ikcp_send 入发送队列(实际上线由 update() 的 flush 完成).
      *
-     * @param[in,out] pk 待发送包(host 序); 本方法会覆写 pk->seq; 明文分支会把头翻成 net 序.
-     * pk 所指缓冲可能是共享的(如 Connector rbuf_), 加密分支不原地改它.
+     * @param pk 待发送包(host 序), 只读, 不会被原地修改
      *
      * @return  xOK               成功入 KCP 发送队列(可靠传输, 但不代表对端已收到)
      *
-     *          xERR_PK_LEN       payload 超限(加密后 wire 会超 PKG_MAX_LEN, 对端收不下)
+     *          xERR_PK_LEN       payload 超限(wire 会超 PKG_MAX_LEN, 对端收不下)
      *
-     *          xERR_PARAM        底层 ikcp_send 返回 -1(len < 0, 正常流程不会出现)
+     *          IKCP_ERR_*        ikcp_send 的码原样上抛(PARAM / TOOBIG / NOMEM)
      *
-     *          xERR_KCP_TOOBIG   包过大 / 分片数超接收窗口(ikcp_send)
+     * @note 这一层不加密. 加解密在信封层(sealedbox_encode), 由 Worker::output
+     * 在数据报真正出网卡时整体套上 -- 包住的是整个 KCP 数据报, 不是单条消息.
      */
     int
     send(core::Package *pk) noexcept;

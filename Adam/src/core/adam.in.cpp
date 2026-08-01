@@ -50,6 +50,7 @@ adam::core::udp_bind(const std::string& host, int sndbuf, int rcvbuf) noexcept {
             ::setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) ||
             ::setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))) {
+            xWARN("udp socket 配置失败, 换下一个候选地址: errno = {}, errstr = {}", errno, ::strerror(errno));
             ::close(fd);
             fd = INVALID_SOCKET;
             continue;
@@ -112,6 +113,7 @@ adam::core::tcp_listen(const std::string& host, int sndbuf, int rcvbuf) noexcept
 
         constexpr int optval = 1;
         if (set_nonblocking(lfd) || ::setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) {
+            xWARN("listen socket 配置失败, 换下一个候选地址: errno = {}, errstr = {}", errno, ::strerror(errno));
             ::close(lfd);
             lfd = INVALID_SOCKET;
             continue;
@@ -185,6 +187,7 @@ adam::core::tcp_connect(const std::string& host, int sndbuf, int rcvbuf) noexcep
 
         constexpr int on = 1;
         if (set_nonblocking(cfd) < 0 || ::setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on))) {
+            xWARN("connect socket 配置失败, 换下一个候选地址: errno = {}, errstr = {}", errno, ::strerror(errno));
             ::close(cfd);
             cfd = INVALID_SOCKET;
             continue;

@@ -1,4 +1,6 @@
 #include "core/server_info.hpp"
+#include "core/error.hpp"
+#include "utils/log.hpp"
 
 
 std::string
@@ -52,8 +54,11 @@ adam::core::ServerInfo::from_json(const std::string& json) noexcept {
 
 int
 adam::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
-    if (!root["id"] || !root["timeout"] || !root["name"] || !root["host"] || !root["desc"] || !root["protocol"]) {
-        return -1;
+    for (const char* k : { "id", "timeout", "name", "host", "desc", "protocol" }) {
+        if (!root[k]) {
+            xERROR("server 配置缺字段: {}", k);
+            return xERR_CONF_MISSING;
+        }
     }
 
     id         = root["id"].as<uint32_t>();
@@ -66,27 +71,33 @@ adam::core::ServerInfo::from_yaml(const YAML::Node& root) noexcept {
     router     = root["router"] ? root["router"].as<bool>() : false;
 
     if (id == 0) {
-        return -1;
+        xERROR("server.id 不能为 0");
+        return xERR_CONF_VALUE;
     }
 
     if (timeout == 0) {
-        return -1;
+        xERROR("server.timeout 不能为 0");
+        return xERR_CONF_VALUE;
     }
 
     if (protocol != "kcp" && protocol != "tcp" && protocol != "udp" && protocol != "ws") {
-        return -1;
+        xERROR("server.protocol 非法: '{}', 只接受 kcp/tcp/udp/ws", protocol);
+        return xERR_CONF_VALUE;
     }
 
     if (name.empty()) {
-        return -1;
+        xERROR("server.name 不能为空");
+        return xERR_CONF_VALUE;
     }
 
     if (host.empty()) {
-        return -1;
+        xERROR("server.host 不能为空");
+        return xERR_CONF_VALUE;
     }
 
     if (desc.empty()) {
-        return -1;
+        xERROR("server.desc 不能为空");
+        return xERR_CONF_VALUE;
     }
 
     auto n = std::thread::hardware_concurrency();
