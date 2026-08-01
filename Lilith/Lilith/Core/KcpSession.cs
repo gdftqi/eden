@@ -700,7 +700,7 @@ namespace Lilith.Core
             {
                 Buffer.BlockCopy(dg, 0, outBuf, Crypto.ENVELOPE_MAC_LEN, len);
 
-                byte[] t = Crypto.SipHashTag(macKey!, outBuf, Crypto.ENVELOPE_MAC_LEN, Kcp.OVERHEAD);
+                byte[] t = Crypto.SipHashTag(macKey!, outBuf, Crypto.ENVELOPE_MAC_LEN, Crypto.ENVELOPE_MAC_HASH_LEN);
                 Buffer.BlockCopy(t, 0, outBuf, 0, Crypto.ENVELOPE_MAC_LEN);
                 return Crypto.ENVELOPE_MAC_LEN + len;
             }
@@ -721,7 +721,7 @@ namespace Lilith.Core
                                       Crypto.ENVELOPE_HDR_LEN - Crypto.ENVELOPE_CONV_OFF);
 
             // 槽位 MAC 覆盖 [8,32), 与服务端 XDP 的取值范围一致. 它盖的是密文, 必须在加密之后算
-            byte[] mac = Crypto.SipHashTag(macKey!, outBuf, Crypto.ENVELOPE_MAC_LEN, Kcp.OVERHEAD);
+            byte[] mac = Crypto.SipHashTag(macKey!, outBuf, Crypto.ENVELOPE_MAC_LEN, Crypto.ENVELOPE_MAC_HASH_LEN);
             Buffer.BlockCopy(mac, 0, outBuf, 0, Crypto.ENVELOPE_MAC_LEN);
 
             return Crypto.ENVELOPE_HDR_LEN + clen;
@@ -816,10 +816,10 @@ namespace Lilith.Core
         private uint sndSeq;
 
         // 写密钥
-        private byte[] txKey = new byte[32];
+        private byte[] txKey = new byte[Crypto.AEAD_KEY_LEN];
 
         // 读密钥
-        private byte[] rxKey = new byte[32];
+        private byte[] rxKey = new byte[Crypto.AEAD_KEY_LEN];
 
         // 接收缓冲区, 在 kcp decode Package 的时候使用
         private byte[] rbuf = new byte[Package.PACK_MAX_LEN + 1];

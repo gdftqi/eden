@@ -108,18 +108,18 @@ namespace Lilith.Utils
 
         public static void X25519KeyGen(out byte[] pk, out byte[] sk)
         {// 生成 X25519 密钥对
-            sk = new byte[32];
+            sk = new byte[AEAD_KEY_LEN];
             RandomNumberGenerator.Fill(sk);
 
-            var basePoint = new byte[32];
+            var basePoint = new byte[AEAD_KEY_LEN];
             basePoint[0] = 9;
-            pk = new byte[32];
+            pk = new byte[AEAD_KEY_LEN];
             X25519.ScalarMult(sk, 0, basePoint, 0, pk, 0);
         }
 
         public static void X25519KxClient(byte[] cliSk, byte[] cliPk, byte[] srvPk, out byte[] rx, out byte[] tx)
         {// X25519 交换密钥(crypto_kx client): 必须传"自己发出去那对"密钥, 否则与对端派生不出同一组 rx/tx
-            var q = new byte[32];
+            var q = new byte[AEAD_KEY_LEN];
             X25519.ScalarMult(cliSk, 0, srvPk, 0, q, 0);
 
             var blake = new Blake2bDigest(512);
@@ -129,8 +129,8 @@ namespace Lilith.Utils
             var h = new byte[64];
             blake.DoFinal(h, 0);
 
-            rx = new byte[32];
-            tx = new byte[32];
+            rx = new byte[AEAD_KEY_LEN];
+            tx = new byte[AEAD_KEY_LEN];
             Array.Copy(h, 0, rx, 0, 32);
             Array.Copy(h, 32, tx, 0, 32);
         }
@@ -157,15 +157,6 @@ namespace Lilith.Utils
                 return string.Empty;
             }
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(plainText));
-        }
-
-        public static string Base64DecodeToString(string base64Text)
-        {
-            if (string.IsNullOrEmpty(base64Text))
-            {
-                return string.Empty;
-            }
-            return Encoding.UTF8.GetString(Convert.FromBase64String(base64Text));
         }
 
         public static string Base64Encode(byte[] bytes)
