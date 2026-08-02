@@ -27,9 +27,6 @@ func (r *createUserReq) ReqTime() int64 {
 
 func CreateUser(c *gin.Context) {
 	req := createUserReq{}
-
-	// 解外层 -> 取会话 -> 用 rx 解密 -> 反序列化 -> 校验时间, 一步到位.
-	// 出错时 Bind 已经回过响应了
 	sess, err := web.Bind(c, &req)
 	if err != nil {
 		web.Response(c, -1, err.Error())
