@@ -2,12 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.SingleChatWindow"
              x:Name="Root">
-    <!-- 单聊窗口.与 MultiChatWindow 的差别只在顶栏:
-         这里有相机/视频/电话, 菜单里有"加为联系人".其余(消息区/输入框)两边一致, 改动要同步. -->
     <Grid RowDefinitions="56,*,Auto">
-
-        <!-- 顶栏: 整条可点, 打开详情.
-             Background 只能写在 Style 里 -- 写成属性就是本地值, 会盖掉 pointerover -->
         <Border Grid.Row="0" Classes="topbar" Cursor="Hand"
                 BorderBrush="#E6E6E6" BorderThickness="0,0,0,1"
                 PointerPressed="TopBar_PointerPressed">

@@ -2,12 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.OrgDetailPanel"
              x:Name="Root">
-    <!-- 群详情(部门).版式参照主流 IM 的群信息页:
-         大头像 / 名称+编辑 / 副标题 / 圆形动作按钮排 / 描述行 / 分隔 / 信息行 / 成员区 -->
     <Grid Background="#F9FAFB" RowDefinitions="56,*">
         <Grid.Styles>
-            <!-- 圆形动作按钮: 与 ContactWindow 的 Button.act 一致.
-                 按钮本身就是那个圆, 文字放在按钮外面 -- 这样 hover 只亮圆, 不会框住文字 -->
             <Style Selector="Button.act">
                 <Setter Property="Width" Value="56"/>
                 <Setter Property="Height" Value="56"/>
