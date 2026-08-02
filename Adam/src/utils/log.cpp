@@ -66,7 +66,7 @@ adam::utils::init_log(const std::string& log_path) {
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     console_sink->set_level(spdlog::level::trace);
     
-    // 为每个日志级别创建日期分割的文件，并用过滤器只输出对应级别
+    // 为每个日志级别创建日期分割的文件,并用过滤器只输出对应级别
     auto debug_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(dir + "DEBUG.log", 0, 0);
     auto info_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(dir + "INFO.log", 0, 0);
     auto warn_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(dir + "WARN.log", 0, 0);

@@ -113,7 +113,7 @@ public:
     }
 
 
-    // 终端全局目录(uid → 属主 reactor), 各 reactor 线程共享
+    // 终端全局目录(uid -> 属主 reactor), 各 reactor 线程共享
     Directory*
     directory() noexcept {
         return &dir_;

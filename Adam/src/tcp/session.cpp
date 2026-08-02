@@ -53,7 +53,7 @@ adam::tcp::Session::send() noexcept {
 }
 
 
-// 发一个包: 先 flush 残留(保序), 再整帧(meta+data, 小端)序列化写出; 部分写存 sbuf_。
+// 发一个包: 先 flush 残留(保序), 再整帧(meta+data, 小端)序列化写出; 部分写存 sbuf_.
 ssize_t
 adam::tcp::Session::send(core::Package& pk) noexcept {
     ssize_t n = send();

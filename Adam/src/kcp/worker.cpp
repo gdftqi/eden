@@ -247,7 +247,7 @@ void
 adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
     // ufd_ 是 EPOLLET, 且和后端 Connector fd / 控制 eventfd 共用同一个 epoll 线程.
     // MAX_ROUND 只是防洪峰的安全阀(没吃完的包留在内核缓冲区, ET 下一有新包到达即自愈,不会丢),
-    // 不是常规吞吐限流。正常流量下应远打不到这个 cap, 真正起作用的场景是攻击/洪峰.
+    // 不是常规吞吐限流.正常流量下应远打不到这个 cap, 真正起作用的场景是攻击/洪峰.
     //
     // 取值公式:
     //   MAX_ROUND = ceil((总QPS / worker数) * INTERVAL_MS(10ms) * 余量系数(5~10) / MAX_RECV(128))
@@ -775,7 +775,7 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
     }
 
     // 登记被拒(业务 hook 拒绝 / 校验不过)= 不许接入, 摘掉会话;
-    // 否则客户端还连着却不在任何路由表里, 拒绝钩子等于没有强制力。
+    // 否则客户端还连着却不在任何路由表里, 拒绝钩子等于没有强制力.
     if (rsp.code != SERR_OK) {
         xERROR("{} 终端登记失败: uid = {}, code = {}({})", conn->to_string(), rsp.uid, rsp.code, core::str_error((int)rsp.code));
 
@@ -859,7 +859,7 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
         return xERR_PK_LEN;
     }
 
-    // 1. 服务端私钥解密 → 116 字节明文
+    // 1. 服务端私钥解密 -> 116 字节明文
     uint8_t plain[REGIST_PAYLOAD_LEN];
     size_t  plen = sizeof(plain);
 

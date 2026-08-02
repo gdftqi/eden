@@ -1358,7 +1358,7 @@ int ikcp_update(ikcpcb *kcp, IUINT32 current)
 		return kcp->state;
 	}
 
-	/* [adam] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 → 返回 -1, 上层据此摘除会话 */
+	/* [adam] 超时判死: timeout==0 关闭; 超过 timeout 未收到对端数据 -> 返回 -1, 上层据此摘除会话 */
 	if (kcp->timeout > 0 && _itimediff(kcp->current, kcp->last_rcv_ms) > (IINT32)kcp->timeout) {
 		kcp->state = IKCP_STATE_TIMEOUT;
 		return kcp->state;

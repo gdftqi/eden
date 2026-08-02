@@ -43,7 +43,7 @@ adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
     int total = core::frame_encode(buf, &pk);
 
     if (sbuf_.readable() > 0) {
-        // 前面还有排队 → 保序追加, 等 EPOLLOUT 续发; append 撞硬顶返回 xERR(背压 → 上抛判死)
+        // 前面还有排队 -> 保序追加, 等 EPOLLOUT 续发; append 撞硬顶返回 xERR(背压 -> 上抛判死)
         return sbuf_.append(buf, (uint32_t)total);
     }
 
@@ -54,7 +54,7 @@ adam::tcp::Connector::send(core::Package& pk, uint64_t now) noexcept {
 
     last_send_ms_ = now;
     if (n < total) {
-        // 部分写, 余下入 sbuf_(同样可能撞硬顶 → 判死)
+        // 部分写, 余下入 sbuf_(同样可能撞硬顶 -> 判死)
         return sbuf_.append(buf + n, (uint32_t)(total - n));
     }
 
@@ -111,7 +111,7 @@ adam::tcp::Connector::regist(uint32_t id, uint64_t now) noexcept {
         return xOK;
     }
 
-    // REGIST_REQ: payload = 服务 id(4B 小端)。后端 on_regist 需按小端读。
+    // REGIST_REQ: payload = 服务 id(4B 小端).后端 on_regist 需按小端读.
     alignas(core::Package) uint8_t buf[sizeof(core::Package) + sizeof(uint32_t)] = {0};
     auto* pk = (core::Package*)buf;
     pk->meta.len = core::PKG_HDR_LEN + sizeof(uint32_t);

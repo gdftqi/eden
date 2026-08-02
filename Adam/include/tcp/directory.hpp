@@ -11,12 +11,12 @@ namespace adam::tcp {
 
 
 /**
- * @brief 终端全局目录: uid → 属主 reactor index
+ * @brief 终端全局目录: uid -> 属主 reactor index
  *
  * 只在终端进入/顶号/下线时读写(控制面低频), 分片锁足够;
  * exchange 把"查旧属主+登记新属主"并成一步原子操作,
- * 两个 reactor 同时处理同一 uid 的 ENT 由此串行化。
- * 热路径(每消息)只走各 reactor 私有的 terminal_router_, 不碰这里。
+ * 两个 reactor 同时处理同一 uid 的 ENT 由此串行化.
+ * 热路径(每消息)只走各 reactor 私有的 terminal_router_, 不碰这里.
  */
 class Directory {
     Directory(const Directory&) = delete;

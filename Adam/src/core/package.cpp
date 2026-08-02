@@ -93,7 +93,7 @@ adam::core::frame_encode(uint8_t* buf, const Package* pk) noexcept {
 int
 adam::core::frame_decode(Package* pk, const uint8_t* buf, size_t avail) noexcept {
     if (avail < PKG_META_LEN) {
-        // 连 len 都读不出 → 半包
+        // 连 len 都读不出 -> 半包
         return 0;
     }
 

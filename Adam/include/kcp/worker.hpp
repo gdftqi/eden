@@ -197,7 +197,7 @@ private:
     remove_session(uint32_t conv, uint32_t code) noexcept;
 
 
-    // 踢除会话: 发 KICK 给客户端 → 快照报文进 lingering 表 → 摘会话
+    // 踢除会话: 发 KICK 给客户端 -> 快照报文进 lingering 表 -> 摘会话
     void
     kick_session(uint32_t conv, uint32_t code) noexcept;
 
@@ -270,7 +270,7 @@ private:
     on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
-    // 路由服务(重)注册成功 → 把本 worker 名下 / 归属该实例的终端全量重报
+    // 路由服务(重)注册成功 -> 把本 worker 名下 / 归属该实例的终端全量重报
     void
     terminal_reenter(uint32_t rid) noexcept;
 

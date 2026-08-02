@@ -69,14 +69,14 @@ x25519_kx_server(uint8_t rx[SESSION_KEY_LEN], uint8_t tx[SESSION_KEY_LEN],
 
 // ---- ChaCha20-Poly1305 AEAD (libsodium, IETF 96-bit nonce) ----
 // 高性能(AVX2 SIMD) + 机密性&完整性一体; key 32B 正好 == SESSION_KEY_LEN,
-// x25519_kx 派生的 rx/tx 可直接用满, 无需截断。
+// x25519_kx 派生的 rx/tx 可直接用满, 无需截断.
 constexpr size_t XX20_KEY_LEN   = 32;
 constexpr size_t XX20_NONCE_LEN = 12;
 constexpr size_t XX20_TAG_LEN   = 16;
 
 
 /**
- * @brief AEAD 加密 (detached): 密文与明文**等长**, 支持原地 (in == out); tag 单独输出。
+ * @brief AEAD 加密 (detached): 密文与明文**等长**, 支持原地 (in == out); tag 单独输出.
  * @param tag    [out] 16B 认证标签
  * @param nonce  12B, 同一 key 下**绝不可复用** (用 conv+seq+dir 构造保证唯一)
  * @param aad    附加认证数据(只认证不加密, 如 Package 头), 可为 nullptr
@@ -91,7 +91,7 @@ xx20_encrypt(const uint8_t* in, size_t inlen, uint8_t* out,
 
 
 /**
- * @brief AEAD 解密 (detached): 验签 + 解密。验签**失败返回 -1 且不输出明文**。
+ * @brief AEAD 解密 (detached): 验签 + 解密.验签**失败返回 -1 且不输出明文**.
  * @return 0 成功; -1 认证失败(被篡改/密钥错/nonce 错)
  */
 int

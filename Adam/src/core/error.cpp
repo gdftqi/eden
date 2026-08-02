@@ -164,7 +164,7 @@ adam::core::str_error(int ec) noexcept {
             break;
     }
 
-    // 没命中具体码: 按号段回一个能定位到"哪一层、是业务码还是根本没同步"的说法.
+    // 没命中具体码: 按号段回一个能定位到"哪一层,是业务码还是根本没同步"的说法.
     // 从高到低判, 命中即返回.
     if (ec >= PERR_REQ_CUSTOM) {
         return "custom request error";

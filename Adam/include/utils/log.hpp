@@ -4,7 +4,7 @@
 
 // 与 adam Makefile 的 -DSPDLOG_COMPILED_LIB 配套:
 // 下游 include 本 header 时自动获得 compiled 模式,避免 header-only inline
-// 与 libadam.a 内的 compiled spdlog 符号产生 weak/strong 混用。
+// 与 libadam.a 内的 compiled spdlog 符号产生 weak/strong 混用.
 #ifndef SPDLOG_COMPILED_LIB
 #define SPDLOG_COMPILED_LIB 1
 #endif

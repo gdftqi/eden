@@ -12,8 +12,8 @@ namespace adam::core {
 /**
  * @brief 请求处理失败通知. 网关 -> 客户端.
  *
- *        连接仍然有效, 只是这一条请求没能送达目标。
- *        dst_id/pid 回带原请求的寻址字段, 客户端据此定位是哪一条失败了。
+ *        连接仍然有效, 只是这一条请求没能送达目标.
+ *        dst_id/pid 回带原请求的寻址字段, 客户端据此定位是哪一条失败了.
  */
 struct ErrorNotify {
     static constexpr size_t LEN = 12;

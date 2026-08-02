@@ -1,8 +1,8 @@
 // envelope.bpf.c - XDP 层 DoS 过滤
 //
 // 在网卡驱动层校验 UDP payload 前 8 字节的 SipHash-2-4 envelope MAC.
-//   - 通过 → XDP_PASS, 包继续走 sk_reuseport 分流 + userland 处理
-//   - 不过 → XDP_DROP, 包根本不进内核 UDP stack, 不占任何 socket 资源
+//   - 通过 -> XDP_PASS, 包继续走 sk_reuseport 分流 + userland 处理
+//   - 不过 -> XDP_DROP, 包根本不进内核 UDP stack, 不占任何 socket 资源
 //
 // wire 布局 (与 src/utils/cryptor.cpp 和 src/core/buffer.hpp 严格对齐):
 //   UDP payload = [MAC 8B (LE)][KCP frame: header 24B + segment data 0~1200B]

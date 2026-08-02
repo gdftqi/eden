@@ -18,10 +18,10 @@ static_assert(core::ENVELOPE_MAC_LEN + core::KCP_HDR_LEN >= core::ENVELOPE_MAC_L
 } // namespace
 
 
-// client → server (上行, recv 解密用)
+// client -> server (上行, recv 解密用)
 static constexpr uint8_t DIR_C2S = 0;
 
-// server → client (下行, send 加密用)
+// server -> client (下行, send 加密用)
 static constexpr uint8_t DIR_S2C = 1;
 
 

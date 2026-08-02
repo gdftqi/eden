@@ -98,7 +98,7 @@ public:
     }
 
 
-    // 该后端声明的可受理 PID(转发过滤: 客户端 → 后端 的包必须在此表内)
+    // 该后端声明的可受理 PID(转发过滤: 客户端 -> 后端 的包必须在此表内)
     bool
     pid_has(uint16_t pid) const noexcept {
         return pids_[pid];
