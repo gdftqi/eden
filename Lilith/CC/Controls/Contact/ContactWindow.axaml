@@ -118,7 +118,7 @@
 
                 <Border Classes="sep" Margin="0,14,0,6"/>
 
-                <!-- 影音内容、链接和文档 -->
+                <!-- 影音内容,链接和文档 -->
                 <Button Classes="opt">
                     <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" MinWidth="360">
                         <Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,18,0">

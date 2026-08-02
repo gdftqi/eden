@@ -42,10 +42,10 @@ namespace Lilith.Components
 
 
     /// <summary>
-    /// Hydra: HTTP(RA) + KCP 的门面。
-    /// 线程模型: 上层(UI)线程 + ioSend(SndLoop: 发包+KCP tick+判死) + ioRecv(RcvLoop: 阻塞收包)。
-    /// 所有对上回调(OnStateChanged/OnPackage)都经 rcv/state 队列由 Update() 派发 ——
-    /// 上层在 OnWakeup 里把 Update() 调度回自己的线程(如 Dispatcher.Post), 回调即落在上层线程。
+    /// Hydra: HTTP(RA) + KCP 的门面.
+    /// 线程模型: 上层(UI)线程 + ioSend(SndLoop: 发包+KCP tick+判死) + ioRecv(RcvLoop: 阻塞收包).
+    /// 所有对上回调(OnStateChanged/OnPackage)都经 rcv/state 队列由 Update() 派发 --
+    /// 上层在 OnWakeup 里把 Update() 调度回自己的线程(如 Dispatcher.Post), 回调即落在上层线程.
     /// </summary>
     public class Hydra
     {
@@ -91,16 +91,16 @@ namespace Lilith.Components
         public HydraState State { get; private set; }
 
         /// <summary>
-        /// [typhon] 被服务端踢除的原因码; 0 表示"本次断开不是被踢"。
+        /// [typhon] 被服务端踢除的原因码; 0 表示"本次断开不是被踢".
         /// 上层在 OnStateChanged 收到 Disconnected 时查它, 非 0 就用
-        /// <see cref="Package.ErrorText"/> 给用户提示具体原因。
-        /// 每次发起连接(Login/重连)时清零, 不会串上一次的值。
+        /// <see cref="Package.ErrorText"/> 给用户提示具体原因.
+        /// 每次发起连接(Login/重连)时清零, 不会串上一次的值.
         /// </summary>
         public uint KickCode { get; private set; }
 
 
         /// <summary>
-        /// 关闭代理: 停掉收发线程并关闭 KCP 连接。再次 Login 会重新拉起线程。
+        /// 关闭代理: 停掉收发线程并关闭 KCP 连接.再次 Login 会重新拉起线程.
         /// </summary>
         public void Close()
         {
@@ -222,8 +222,8 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 用户登录: RA 登录 + KCP 打开(握手), 成功后拉起收发线程。
-        /// 注意: 已在连接中时须先 Close() 再 Login(KcpSession.Open 对活会话返回 1, 这里按失败处理)。
+        /// 用户登录: RA 登录 + KCP 打开(握手), 成功后拉起收发线程.
+        /// 注意: 已在连接中时须先 Close() 再 Login(KcpSession.Open 对活会话返回 1, 这里按失败处理).
         /// </summary>
         /// <param name="username">用户名</param>
         /// <param name="password">密码</param>
@@ -259,8 +259,8 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 发送消息。包的所有权移交给 Hydra: 由 ioSend 线程发出并归还对象池,
-        /// 调用方 Send 之后不得再读写/归还该包。
+        /// 发送消息.包的所有权移交给 Hydra: 由 ioSend 线程发出并归还对象池,
+        /// 调用方 Send 之后不得再读写/归还该包.
         /// </summary>
         /// <param name="pkg"></param>
         public void Send(Package pkg)
@@ -270,8 +270,8 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 事件泵: 把积压的状态变化与业务包派发给上层回调(在调用者线程执行)。
-        /// 上层收到 OnWakeup 后调度本方法; 空转无害。
+        /// 事件泵: 把积压的状态变化与业务包派发给上层回调(在调用者线程执行).
+        /// 上层收到 OnWakeup 后调度本方法; 空转无害.
         /// </summary>
         public void Update()
         {
@@ -289,7 +289,7 @@ namespace Lilith.Components
                     var pk = rcvBatch[i];
                     OnPackage?.Invoke(pk);
                     // 包归 Hydra 还池: pk 只在回调执行期间有效,
-                    // 上层不得留引用、不得自行 Pool.Return(会导致双还池/串包)
+                    // 上层不得留引用,不得自行 Pool.Return(会导致双还池/串包)
                     Package.Pool.Return(pk);
                 }
             } while (n > 0);
@@ -316,7 +316,7 @@ namespace Lilith.Components
         /// <summary>
         /// ioSend 线程: 批量发送 sndQue 中的包, 并以 TICK_MS 周期驱动 KCP Update(重传/ACK/保活)
         /// Update 返回负值(-1000 除外)即传输层判死 → 关会话并发起重连;
-        /// 但 -4(被服务端踢除)例外: 直接 Close 不重连, 避免与顶号者互踢。
+        /// 但 -4(被服务端踢除)例外: 直接 Close 不重连, 避免与顶号者互踢.
         /// </summary>
         private void SndLoop()
         {
@@ -340,8 +340,8 @@ namespace Lilith.Components
 
                 int res = KcpSession.Instance.Update((uint)Environment.TickCount);
                 if (res == -4)
-                {// 被服务端主动踢除: 绝不能重连 —— 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环。
-                 // 上层收到 Disconnected 后应回登录页, 并按 KickCode 提示原因。
+                {// 被服务端主动踢除: 绝不能重连 -- 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环.
+                 // 上层收到 Disconnected 后应回登录页, 并按 KickCode 提示原因.
                     KickCode = KcpSession.Instance.KickCode;
                     Log.Write($"[Hydra] 被服务端踢除: code = {KickCode}, 不再重连");
                     Close();
@@ -361,8 +361,8 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// ioRecv 线程: 阻塞收包 → 入 rcvQue → OnWakeup 通知上层来取。
-        /// 会话不可收(已关/重连中)时退避轮询, 不退出线程 —— 重连成功后自动恢复收包。
+        /// ioRecv 线程: 阻塞收包 → 入 rcvQue → OnWakeup 通知上层来取.
+        /// 会话不可收(已关/重连中)时退避轮询, 不退出线程 -- 重连成功后自动恢复收包.
         /// </summary>
         private void RcvLoop()
         {
@@ -413,8 +413,8 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 重连: 周期性 RA /refresh(换新 conv/token) + KCP Open, 直到成功或超出总预算。
-        /// 成功 → Connected; 预算耗尽 → Disconnected(上层应回登录页)。
+        /// 重连: 周期性 RA /refresh(换新 conv/token) + KCP Open, 直到成功或超出总预算.
+        /// 成功 → Connected; 预算耗尽 → Disconnected(上层应回登录页).
         /// </summary>
         private async Task Reconnect()
         {

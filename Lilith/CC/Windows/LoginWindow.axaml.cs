@@ -85,7 +85,7 @@ namespace CC
             ErrorText.IsVisible = true;
         }
 
-        // loading=true: 隐藏登录表单、显示转圈; false: 切回表单
+        // loading=true: 隐藏登录表单,显示转圈; false: 切回表单
         private void SetLoading(bool loading)
         {
             LoginForm.IsVisible = !loading;

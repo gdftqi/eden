@@ -1,14 +1,29 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="CC.ChatWindow"
+             x:Class="CC.MultiChatWindow"
              x:Name="Root">
+    <!-- 群聊窗口(部门也走这个).与 SingleChatWindow 的差别只在顶栏:
+         没有相机/视频/电话(群里没这三个能力), 菜单里也没有"加为联系人".
+         其余(消息区/输入框)两边一致, 改动要同步. -->
     <Grid RowDefinitions="56,*,Auto">
 
-        <!-- 顶栏 -->
-        <Border Grid.Row="0" Background="White" BorderBrush="#E6E6E6" BorderThickness="0,0,0,1">
+        <!-- 顶栏: 整条可点, 打开详情.
+             Background 只能写在 Style 里 -- 写成属性就是本地值, 会盖掉 pointerover -->
+        <Border Grid.Row="0" Classes="topbar" Cursor="Hand"
+                BorderBrush="#E6E6E6" BorderThickness="0,0,0,1"
+                PointerPressed="TopBar_PointerPressed">
+            <Border.Styles>
+                <Style Selector="Border.topbar">
+                    <Setter Property="Background" Value="White"/>
+                </Style>
+                <Style Selector="Border.topbar:pointerover">
+                    <Setter Property="Background" Value="#F6F7F8"/>
+                </Style>
+            </Border.Styles>
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,0">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                    <Border Width="38" Height="38" CornerRadius="19" ClipToBounds="True">
+                    <!-- 没有头像时整个圆圈隐藏, 免得留一块空白 -->
+                    <Border x:Name="PeerAvatarBox" Width="38" Height="38" CornerRadius="19" ClipToBounds="True">
                         <Image Source="{Binding #Root.PeerAvatar}" Stretch="UniformToFill"/>
                     </Border>
                     <!-- 昵称 -->
@@ -33,32 +48,8 @@
                             <Setter Property="Background" Value="#11000000"/>
                         </Style>
                     </StackPanel.Styles>
-                    <!-- 相机 -->
-                    <Button Classes="icon" Click="CaptureDesktop_Click">
-                        <Viewbox Width="22" Height="22">
-                            <Canvas Width="24" Height="24">
-                                <Path Fill="#555" Data="M12 15.2c1.77 0 3.2-1.43 3.2-3.2s-1.43-3.2-3.2-3.2-3.2 1.43-3.2 3.2 1.43 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <!-- 视频 -->
-                    <Button Classes="icon">
-                        <Viewbox Width="22" Height="22">
-                            <Canvas Width="24" Height="24">
-                                <Path Fill="#555" Data="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM15 16H5V8h10v8z"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
-                    <!-- 电话 -->
-                    <Button Classes="icon">
-                        <Viewbox Width="22" Height="22">
-                            <Canvas Width="24" Height="24">
-                                <Path Fill="#555" Data="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                            </Canvas>
-                        </Viewbox>
-                    </Button>
                     <!-- 搜索 -->
-                    <Button Classes="icon">
+                    <Button Classes="icon" Click="Search_Click">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
                                 <Path Fill="#555" Data="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -69,15 +60,6 @@
                     <Button Classes="icon">
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                <MenuItem Header="加为联系人" Click="AddContact_Click">
-                                    <MenuItem.Icon>
-                                        <Viewbox Width="19" Height="19">
-                                            <Canvas Width="24" Height="24">
-                                                <Path Fill="#555" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                            </Canvas>
-                                        </Viewbox>
-                                    </MenuItem.Icon>
-                                </MenuItem>
                                 <MenuItem Header="清空聊天" Click="ClearChat_Click">
                                     <MenuItem.Icon>
                                         <Viewbox Width="19" Height="19">
@@ -152,7 +134,6 @@
                         </Style>
                     </ControlTheme>
                 </ScrollViewer.Resources>
-                <!-- 消息区 -->
                 <Panel MinHeight="{Binding #MsgScroll.Bounds.Height}">
                     <StackPanel x:Name="MessageList" Spacing="2" VerticalAlignment="Bottom" Margin="16,12"/>
                 </Panel>

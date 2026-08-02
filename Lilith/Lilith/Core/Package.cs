@@ -129,13 +129,13 @@ namespace Lilith.Core
 
         /// <summary>
         /// 请求处理失败通知(网关 -> 客户端, 对应 Adam PID_TER_ERROR).
-        /// 连接仍然有效, 只是这一条请求没送到; payload 见 <see cref="DecodeError"/>。
+        /// 连接仍然有效, 只是这一条请求没送到; payload 见 <see cref="DecodeError"/>.
         /// </summary>
         public const ushort PID_TER_ERROR = 114;
 
         /// <summary>
         /// 自定义消息ID起点: 100-199 为系统段(网关/后端专用, 客户端发送会被网关丢弃),
-        /// 业务消息必须 >= 此值; 且目标后端须已声明该 PID, 否则网关会回 PID_TER_ERROR。
+        /// 业务消息必须 >= 此值; 且目标后端须已声明该 PID, 否则网关会回 PID_TER_ERROR.
         /// </summary>
         public const ushort PID_CUSTOM = 200;
 
@@ -144,7 +144,7 @@ namespace Lilith.Core
 
         #region /// public 错误码
 
-        // 与 Adam core/error.hpp 的 PERR_* 一一对应, 改动必须两边同步。
+        // 与 Adam core/error.hpp 的 PERR_* 一一对应, 改动必须两边同步.
         // 五位数, 万位分表 / 千位分框架与业务:
         //     1xxxx  终端离开码, 由 KICK 携带 -> 连接为什么结束了
         //     2xxxx  请求失败码, 由 PID_TER_ERROR 携带 -> 连接还在, 这条请求没送到
@@ -192,8 +192,8 @@ namespace Lilith.Core
 
 
         /// <summary>
-        /// 错误码 → 给用户看的提示语(对应 Adam 的 str_perr)。
-        /// 两张表合用一个方法: 号段不重叠, 不存在"查错表"这回事。
+        /// 错误码 → 给用户看的提示语(对应 Adam 的 str_perr).
+        /// 两张表合用一个方法: 号段不重叠, 不存在"查错表"这回事.
         /// </summary>
         public static string ErrorText(uint code)
         {
@@ -232,8 +232,8 @@ namespace Lilith.Core
 
 
         /// <summary>
-        /// 解析 PID_TER_ERROR 的载荷。dstId/pid 回带原请求的寻址字段,
-        /// 据此定位是哪一条请求失败了。
+        /// 解析 PID_TER_ERROR 的载荷.dstId/pid 回带原请求的寻址字段,
+        /// 据此定位是哪一条请求失败了.
         /// </summary>
         /// <returns>长度不足返回 false</returns>
         public static bool DecodeError(Package pkg, out uint code, out uint dstId, out uint pid)

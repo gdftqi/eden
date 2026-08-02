@@ -1,72 +1,108 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace CC
 {
-    // 组织架构面板: 标题 + 搜索栏 + 添加部门 + 部门/员工列表;
-    // 点部门(OrgItem)展开/收起它下面的员工(EmployeeItem), 选中员工抛 EmployeeSelected 给宿主
+    // 组织架构面板: 标题 + 搜索栏 + 添加部门 + 部门列表.
+    // 部门是平铺的(不展开人员) -- 一个部门就是一个群聊, 点中即抛 DeptSelected 给宿主开聊天窗.
     public partial class OrgListPanel : UserControl
     {
-        // 选中某个员工时触发(宿主据此打开右侧详情)
-        public event Action<EmployeeItem>? EmployeeSelected;
+        // 选中某个部门时触发(宿主据此打开右侧群聊界面)
+        public event Action<OrgItem>? DeptSelected;
 
-        // 点了"添加部门"时触发(宿主决定弹窗还是切界面)
+        // 点了"创建部门"时触发(宿主决定弹窗还是切界面)
         public event Action? AddOrgRequested;
 
-        // 当前选中的员工项(高亮由 IsSelected 驱动, 不依赖焦点)
-        private EmployeeItem? selectedItem;
+        // 点了"创建成员"时触发
+        public event Action? AddEmployeeRequested;
+
+        // 当前选中的部门项(高亮由 IsSelected 驱动, 不依赖焦点)
+        private OrgItem? selectedItem;
 
         public OrgListPanel()
         {
             InitializeComponent();
-            LoadSampleOrgs();
+            LoadSampleDepts();
         }
 
-        // 临时: 示例部门/员工(以后换成真实数据)
-        private void LoadSampleOrgs()
+        // 临时: 示例部门(以后换成真实数据)
+        private void LoadSampleDepts()
         {
-            var avatar = new Avalonia.Media.Imaging.Bitmap(
-                Avalonia.Platform.AssetLoader.Open(new Uri("avares://CC/Resources/unnamed.jpg")));
-
-            (string dept, (string nick, string sign)[] members)[] data =
+            (string dept, string[] members, string last, string time, int unread)[] data =
             {
-                ("研发部", new[] { ("美女1", "今天也要加油鸭") }),
-                ("市场部", new[] { ("美女2", ""), ("美女3", "忙, 勿扰") }),
-                ("行政部", new[] { ("联系人 1", "这是一条示例签名"), ("联系人 2", "这是一条示例签名") }),
+                ("研发部", new[] { "美女1", "联系人 1", "联系人 2" }, "老王: 今晚的版本先别发", "17:20", 3),
+                ("市场部", new[] { "美女2", "美女3" },                "小李: 方案已经发群里了", "16:02", 0),
+                ("行政部", new[] { "联系人 3" },                      "本周五团建, 记得报名",   "昨天",  0),
             };
 
-            foreach (var (dept, members) in data)
+            foreach (var (dept, members, last, time, unread) in data)
             {
-                AddOrg(avatar, dept, members);
+                AddDept(dept, string.Empty, members, last, time, unread);
             }
         }
 
-        // 建一个部门 + 它的员工子列表(默认收起)
-        private void AddOrg(IImage avatar, string dept, (string nick, string sign)[] members)
-        {
-            var sub = new StackPanel { IsVisible = false };
-            foreach (var (nick, sign) in members)
-            {
-                var emp = new EmployeeItem { Avatar = avatar, Nickname = nick, Sign = sign };
-                emp.PointerPressed += (_, _) => Select(emp);
-                sub.Children.Add(emp);
-            }
 
-            var item = new OrgItem { DeptName = dept };
-            item.PointerPressed += (_, _) =>
+        /// <summary>
+        /// 追加一个部门到列表末尾.供宿主在"创建部门"成功后调用.
+        /// </summary>
+        public OrgItem AddDept(string dept, string remark = "", IEnumerable<string>? members = null,
+                               string last = "", string time = "", int unread = 0)
+        {
+            var item = new OrgItem
             {
-                item.IsExpanded = !item.IsExpanded;
-                sub.IsVisible = item.IsExpanded;
+                DeptName    = dept,
+                Remark      = remark,
+                LastMessage = last,
+                Time        = time,
+                Unread      = unread,
             };
 
+            if (members != null)
+            {
+                foreach (var m in members)
+                {
+                    item.Members.Add(m);
+                }
+            }
+
+            item.PointerPressed += (_, _) => Select(item);
             OrgList.Children.Add(item);
-            OrgList.Children.Add(sub);
+            return item;
         }
 
-        // 切换选中员工: 旧的熄灭, 新的点亮, 再通知宿主
-        private void Select(EmployeeItem item)
+
+        /// <summary>
+        /// 当前所有部门项.列表是这里的私有结构, 外面要用就走这个口.
+        /// </summary>
+        public IEnumerable<OrgItem> Depts()
+        {
+            return OrgList.Children.OfType<OrgItem>();
+        }
+
+
+        /// <summary>
+        /// 部门名列表, 供"创建成员"的部门下拉用.
+        /// </summary>
+        public IEnumerable<string> DeptNames()
+        {
+            return Depts().Select(d => d.DeptName ?? string.Empty).Where(n => n.Length > 0);
+        }
+
+
+        /// <summary>
+        /// 按名字找部门, 找不到返回 null.
+        /// </summary>
+        public OrgItem? FindDept(string name)
+        {
+            return Depts().FirstOrDefault(d => d.DeptName == name);
+        }
+
+
+        // 切换选中部门: 旧的熄灭, 新的点亮, 再通知宿主
+        private void Select(OrgItem item)
         {
             if (selectedItem != null)
             {
@@ -74,12 +110,17 @@ namespace CC
             }
             selectedItem = item;
             item.IsSelected = true;
-            EmployeeSelected?.Invoke(item);
+            DeptSelected?.Invoke(item);
         }
 
         private void AddOrg_Click(object? sender, RoutedEventArgs e)
         {
             AddOrgRequested?.Invoke();
+        }
+
+        private void AddEmployee_Click(object? sender, RoutedEventArgs e)
+        {
+            AddEmployeeRequested?.Invoke();
         }
 
         private void ClearSearch_Click(object? sender, RoutedEventArgs e)

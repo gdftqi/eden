@@ -23,27 +23,12 @@ namespace CC
             LoadSampleContacts();
         }
 
-        // 临时: 示例联系人(以后换成真实数据)
+        // 数据来自 Model.ContactSource -- 与"创建部门-添加人员"共用同一份
         private void LoadSampleContacts()
         {
-            var avatar = new Avalonia.Media.Imaging.Bitmap(
-                Avalonia.Platform.AssetLoader.Open(new Uri("avares://CC/Resources/unnamed.jpg")));
-
-            (string nick, string sign)[] data =
+            foreach (var c in Model.ContactSource.All)
             {
-                ("美女1", "今天也要加油鸭"),
-                ("美女2", ""),
-                ("美女3", "忙, 勿扰"),
-            };
-
-            foreach (var (nick, sign) in data)
-            {
-                AddContact(avatar, nick, sign);
-            }
-
-            for (int i = 1; i <= 15; i++)
-            {
-                AddContact(avatar, $"联系人 {i}", "这是一条示例签名");
+                AddContact(Model.ContactSource.Avatar, c.Nickname, c.Sign);
             }
         }
 

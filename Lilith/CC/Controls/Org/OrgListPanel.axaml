@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="CC.OrgListPanel">
-    <!-- 组织架构面板: 标题 + 搜索栏 + 添加部门 + 部门/员工列表 (视觉对齐 ChatListPanel) -->
-    <Grid Background="White" RowDefinitions="48,Auto,Auto,*">
+    <!-- 组织架构面板: 标题 + 搜索栏 + 创建部门 + 创建成员 + 部门列表 (视觉对齐 ChatListPanel) -->
+    <Grid Background="White" RowDefinitions="48,Auto,Auto,Auto,*">
         <!-- 标题 -->
         <Grid Grid.Row="0" Margin="14,0,8,0">
             <TextBlock Text="组织架构" FontSize="18" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
@@ -64,12 +64,32 @@
                         </Canvas>
                     </Viewbox>
                 </Border>
-                <TextBlock Text="添加部门" FontSize="14" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+                <TextBlock Text="创建部门" FontSize="14" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+
+        <!-- 创建成员: 与上面同款, 只换图标和文字 -->
+        <Button Grid.Row="3" Click="AddEmployee_Click" Background="Transparent" Padding="14,8"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" CornerRadius="0">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="#11000000"/>
+                </Style>
+            </Button.Styles>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="38" Height="38" CornerRadius="19" Background="#43A047">
+                    <Viewbox Width="20" Height="20">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="White" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                <TextBlock Text="创建成员" FontSize="14" Foreground="#1E1E1E" VerticalAlignment="Center"/>
             </StackPanel>
         </Button>
 
         <!-- 部门/员工列表 -->
-        <ScrollViewer Grid.Row="3" Padding="0,0,2,0" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="4" Padding="0,0,2,0" HorizontalScrollBarVisibility="Disabled">
             <ScrollViewer.Resources>
                 <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
                     <Setter Property="Background" Value="Transparent"/>

@@ -2,38 +2,49 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.OrgItem"
              x:Name="Root">
-    <Border x:Name="Body" Classes="item" Height="56" Padding="14,0" Focusable="True" FocusAdorner="{x:Null}">
+    <!-- 部门列表项: 版式与 ChatItem 一致(部门就是一个群聊),
+         只把头像换成楼宇图标, 否则列表里分不出这行是部门还是人 -->
+    <Border x:Name="Body" Classes="item" Height="64" Padding="12,0" Focusable="True" FocusAdorner="{x:Null}">
         <Border.Styles>
             <Style Selector="Border.item">
                 <Setter Property="Background" Value="Transparent"/>
             </Style>
-            <!-- hover 样式 -->
             <Style Selector="Border.item:pointerover">
                 <Setter Property="Background" Value="#F2F3F5"/>
             </Style>
-            <!-- 展开时右侧箭头转 90°(指下) -->
-            <Style Selector="Border.item Path.chev">
-                <Setter Property="RenderTransform" Value="rotate(0deg)"/>
+            <Style Selector="Border.item.selected">
+                <Setter Property="Background" Value="#D9EDDA"/>
             </Style>
-            <Style Selector="Border.item.expanded Path.chev">
-                <Setter Property="RenderTransform" Value="rotate(90deg)"/>
+            <Style Selector="Border.item.selected:pointerover">
+                <Setter Property="Background" Value="#CFE8D1"/>
             </Style>
         </Border.Styles>
-        <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-            <!-- 部门图标 -->
-            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20" Background="#F0F2F5" Margin="0,0,12,0">
-                <Viewbox Width="22" Height="22">
+        <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+            <!-- 部门"头像": 楼宇图标 -->
+            <Border Grid.Column="0" Width="46" Height="46" CornerRadius="23" Background="#E4E7EB" Margin="0,0,10,0">
+                <Viewbox Width="24" Height="24">
                     <Canvas Width="24" Height="24">
-                        <Path Fill="#777" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+                        <Path Fill="#5F6368" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
                     </Canvas>
                 </Viewbox>
             </Border>
-            <!-- 部门名 -->
-            <TextBlock Grid.Column="1" Text="{Binding #Root.DeptName}" FontSize="14.5" Foreground="#1E1E1E" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <!-- 展开箭头 -->
-            <Path Grid.Column="2" Classes="chev" Width="16" Height="16" Stroke="#999" StrokeThickness="1.8" Fill="Transparent"
-                  StrokeLineCap="Round" StrokeJoin="Round" Data="M6,3 L11,8 L6,13"
-                  RenderTransformOrigin="50%,50%" VerticalAlignment="Center"/>
+
+            <Grid Grid.Column="1" RowDefinitions="*,*">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                    <!-- 部门名 -->
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.DeptName}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <!-- 最后一条消息的时间 -->
+                    <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                    <!-- 最后一条消息 -->
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.LastMessage}" FontSize="12.5" Foreground="#8A9099" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <!-- 未读 -->
+                    <Border Grid.Column="1" x:Name="Badge" Background="#F5333F" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="False">
+                        <TextBlock x:Name="BadgeText" FontSize="11" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

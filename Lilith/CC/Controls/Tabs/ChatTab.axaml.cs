@@ -5,7 +5,7 @@ namespace CC
 {
     public partial class ChatTab : UserControl
     {
-        // ChatWindow 里点发送时向外抛文字(网络收发仍在 MainWindow, 这里只管界面)
+        // SingleChatWindow 里点发送时向外抛文字(网络收发仍在 MainWindow, 这里只管界面)
         public event Action<string>? SendRequested;
 
         public ChatTab()

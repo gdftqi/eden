@@ -1,0 +1,254 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CC.OrgMemberEditPanel">
+    <!-- 创建成员.版式与 OrgEditPanel(创建部门)一致:
+         同样的头部 / 480 居中列 / 大头像 / 底部按钮栏, 只是字段不同. -->
+    <Grid Background="#F9FAFB" RowDefinitions="56,*,64">
+        <Grid.Styles>
+            <!-- 字段标题 -->
+            <Style Selector="TextBlock.label">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Foreground" Value="#5A5A5A"/>
+                <Setter Property="Margin" Value="0,18,0,7"/>
+            </Style>
+
+            <!-- 输入框: 与创建部门的输入框同一套配色/圆角/聚焦边框 -->
+            <Style Selector="TextBox.field">
+                <Setter Property="Height" Value="38"/>
+                <Setter Property="FontSize" Value="13.5"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Background" Value="#EBEEF2"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <!-- 边框三态: 常态浅灰(始终看得见轮廓) / 悬停变绿 / 聚焦也是绿 -->
+            <Style Selector="TextBox.field /template/ Border#PART_BorderElement">
+                <Setter Property="BorderThickness" Value="1.5"/>
+                <Setter Property="BorderBrush" Value="#DDE1E7"/>
+            </Style>
+            <Style Selector="TextBox.field:pointerover /template/ Border#PART_BorderElement">
+                <Setter Property="BorderBrush" Value="#43A047"/>
+            </Style>
+            <Style Selector="TextBox.field:focus-within /template/ Border#PART_BorderElement">
+                <Setter Property="BorderBrush" Value="#43A047"/>
+            </Style>
+            <Style Selector="TextBox.field:focus-within">
+                <Setter Property="Background" Value="White"/>
+            </Style>
+
+            <!-- 长得像输入框的"点开选择"行 -->
+            <Style Selector="Border.pick">
+                <Setter Property="Height" Value="38"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Background" Value="#EBEEF2"/>
+                <Setter Property="BorderThickness" Value="1.5"/>
+                <Setter Property="BorderBrush" Value="#DDE1E7"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+            </Style>
+            <Style Selector="Border.pick:pointerover">
+                <Setter Property="Background" Value="#E1E5EA"/>
+                <Setter Property="BorderBrush" Value="#43A047"/>
+            </Style>
+
+            <!-- 手机号行的删除: 红底白横杠的小圆, 平时不显示, 悬停该行才出现 -->
+            <Style Selector="Button.del">
+                <Setter Property="Width" Value="22"/>
+                <Setter Property="Height" Value="22"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="11"/>
+                <Setter Property="Background" Value="#E5484D"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.del:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#C9373C"/>
+            </Style>
+
+            <!-- 标题行右侧的"加一个"小圆 -->
+            <Style Selector="Button.addmini">
+                <Setter Property="Width" Value="24"/>
+                <Setter Property="Height" Value="24"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="12"/>
+                <Setter Property="Background" Value="#43A047"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.addmini:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#4CAF50"/>
+            </Style>
+
+            <Style Selector="Button.primary">
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Width" Value="88"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Background" Value="#43A047"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#4CAF50"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Style>
+            <Style Selector="Button.ghost">
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Width" Value="88"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Background" Value="#F0F2F5"/>
+                <Setter Property="Foreground" Value="#5A5A5A"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#E4E7EB"/>
+                <Setter Property="Foreground" Value="#1E1E1E"/>
+            </Style>
+        </Grid.Styles>
+
+        <!-- 头部 -->
+        <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1" Padding="24,0">
+            <TextBlock Text="创建成员" FontSize="16" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Width="480" HorizontalAlignment="Center" Margin="0,28,0,32">
+
+                <!-- 大头像: 与创建部门同尺寸, 换成人形图标 -->
+                <Border Width="128" Height="128" CornerRadius="64" Background="#DCE9FB" HorizontalAlignment="Center">
+                    <Viewbox Width="62" Height="62">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="#1A73E8" Data="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+
+                <StackPanel Margin="14,10,14,0">
+                    <TextBlock Classes="label" Text="用户名"/>
+                    <TextBox x:Name="NameBox" Classes="field" MaxLength="32" PlaceholderText="用户名"/>
+
+                    <TextBlock Classes="label" Text="密码"/>
+                    <TextBox x:Name="PassBox" Classes="field" MaxLength="64" PasswordChar="●" PlaceholderText="初始密码"/>
+
+                    <!-- 所属部门: 一个人可以属于多个部门, 所以不是下拉单选,
+                         点它从右边推出一个可勾选的抽屉 -->
+                    <TextBlock Classes="label" Text="所属部门"/>
+                    <Border x:Name="DeptPicker" Classes="pick" PointerPressed="OpenDeptPicker_PointerPressed">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" x:Name="DeptSummary" FontSize="13.5"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Path Grid.Column="1" Width="14" Height="14"
+                                  Stroke="#999" StrokeThickness="1.8" Fill="Transparent"
+                                  StrokeLineCap="Round" StrokeJoin="Round" Data="M5,3 L9,7 L5,11"
+                                  VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 手机号: 一个人可能有多个.加号放在标题行右侧, 点一下追加一行 -->
+                    <!-- 加号紧跟标题, 不是钉到最右边: 用横向 StackPanel 而不是 *,Auto 两列 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,18,0,7">
+                        <TextBlock Text="手机号" FontSize="13" Foreground="#5A5A5A"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="AddPhoneBtn" Classes="addmini"
+                                Click="AddPhone_Click" ToolTip.Tip="添加手机号"
+                                VerticalAlignment="Center">
+                            <Path Width="11" Height="11" Stroke="White" StrokeThickness="1.8"
+                                  StrokeLineCap="Round" Fill="Transparent"
+                                  Data="M5.5,1 L5.5,10 M1,5.5 L10,5.5"/>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel x:Name="PhoneList" Spacing="8"/>
+
+                    <!-- 校验提示: 平时不占位 -->
+                    <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935"
+                               Margin="0,14,0,0" IsVisible="False"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部按钮 -->
+        <Border Grid.Row="2" Background="#FAFBFC" BorderBrush="#E4E7EB" BorderThickness="0,1,0,0" Padding="24,0">
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Classes="ghost"   Click="Cancel_Click" Content="取消"/>
+                <Button Classes="primary" Click="Save_Click"   Content="确定"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ================= 选部门抽屉: 从右滑入 =================
+             与 OrgEditPanel 的选人抽屉同一套写法(跨全部行 / translateX / 右上角关闭). -->
+        <Border Grid.Row="0" Grid.RowSpan="3" x:Name="DeptDrawer"
+                HorizontalAlignment="Right" Width="360"
+                Background="White" BorderBrush="#E4E7EB" BorderThickness="1,0,0,0"
+                BoxShadow="-4 0 16 0 #1A000000"
+                IsVisible="False" RenderTransform="translateX(360px)">
+            <Border.Transitions>
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Border.Transitions>
+
+            <Grid RowDefinitions="52,Auto,*">
+                <!-- 抽屉头: 标题 + 右上角关闭 -->
+                <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1" Padding="16,0,8,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="选择部门" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="#1E1E1E" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Click="CloseDeptPicker_Click" Width="32" Height="32" Padding="0"
+                                CornerRadius="16" Background="Transparent" VerticalAlignment="Center"
+                                ToolTip.Tip="关闭">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Background" Value="#11000000"/>
+                                </Style>
+                            </Button.Styles>
+                            <Path Width="12" Height="12" Stroke="#5F6368" StrokeThickness="1.6"
+                                  StrokeLineCap="Round" Data="M1,1 L11,11 M11,1 L1,11"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 搜索框 -->
+                <Border Grid.Row="1" Classes="dsearch" Height="34" Margin="12,10,12,6">
+                    <Border.Styles>
+                        <Style Selector="Border.dsearch">
+                            <Setter Property="Background" Value="#F0F2F5"/>
+                            <Setter Property="BorderBrush" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="1.5"/>
+                            <Setter Property="CornerRadius" Value="17"/>
+                        </Style>
+                        <Style Selector="Border.dsearch:focus-within">
+                            <Setter Property="Background" Value="White"/>
+                            <Setter Property="BorderBrush" Value="#43A047"/>
+                        </Style>
+                        <Style Selector="TextBox.plain /template/ Border#PART_BorderElement">
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                        </Style>
+                    </Border.Styles>
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Viewbox Grid.Column="0" Width="15" Height="15" Margin="11,0,7,0" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#8A9099" Data="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBox x:Name="DeptSearch" Classes="plain" Grid.Column="1"
+                                 PlaceholderText="搜索部门" Background="Transparent" BorderThickness="0"
+                                 FontSize="13" VerticalContentAlignment="Center" Padding="0,0,10,0"
+                                 TextChanged="DeptSearch_TextChanged"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="DeptList" Margin="0,0,0,8"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -141,8 +141,8 @@ namespace CC
 
         private void BackToLogin()
         {
-            // 会话已由 Hydra 关闭; 这里只做窗口切换。新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效。
-            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 → 把原因带到登录页显示。
+            // 会话已由 Hydra 关闭; 这里只做窗口切换.新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效.
+            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 → 把原因带到登录页显示.
             uint code = Hydra.Instance.KickCode;
             string tip = code != 0 ? Package.ErrorText(code) : "";
 
@@ -233,7 +233,7 @@ namespace CC
             TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
         }
 
-        // ChatWindow 发送时触发: 把文字打包成业务 echo 包发给服务端
+        // 聊天窗发送时触发: 把文字打包成业务 echo 包发给服务端
         private void OnSendText(string text)
         {
             if (Hydra.Instance.State != HydraState.Connected)
