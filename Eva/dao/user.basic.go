@@ -83,6 +83,7 @@ func UpdateUserBasic(obj *UserBasic) error {
 		return nil
 	}
 
-	mid.Mysql.Exec("UPDATE................")
-	return nil
+	_, err = mid.Mysql.Exec("UPDATE db_eva.t_user_basic SET f_password=?,f_last_login=?,f_state=? WHERE f_id=?",
+		raw.Password, raw.LastLogin, raw.State, raw.ID)
+	return err
 }

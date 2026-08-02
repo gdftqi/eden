@@ -10,6 +10,7 @@ import (
 	"github.com/eva/conf"
 	"github.com/eva/log"
 	"github.com/eva/utils"
+	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -36,35 +37,35 @@ func Refresh(c *gin.Context) {
 	req := refreshReq{}
 	err := c.BindJSON(&req)
 	if err != nil {
-		utils.WebResponse(c, -1, "无效的参数")
+		web.Response(c, -1, "无效的参数")
 		return
 	}
 
 	// Step 1, 检查入参
 	if len(req.HPK) == 0 {
-		utils.WebResponse(c, -1, "hpk is invalid")
+		web.Response(c, -1, "hpk is invalid")
 		return
 	}
 
 	if len(req.KPK) == 0 {
-		utils.WebResponse(c, -1, "kpk is invalid")
+		web.Response(c, -1, "kpk is invalid")
 		return
 	}
 
 	if len(req.RefreshToken) == 0 {
-		utils.WebResponse(c, -1, "token is invalid")
+		web.Response(c, -1, "token is invalid")
 		return
 	}
 
 	hpk, err := base64.StdEncoding.DecodeString(req.HPK)
 	if err != nil || len(hpk) != utils.X25519KeyLen {
-		utils.WebResponse(c, -1, "hpk is invalid")
+		web.Response(c, -1, "hpk is invalid")
 		return
 	}
 
 	kpk, err := base64.StdEncoding.DecodeString(req.KPK)
 	if err != nil || len(kpk) != utils.X25519KeyLen {
-		utils.WebResponse(c, -1, "kpk is invalid")
+		web.Response(c, -1, "kpk is invalid")
 		return
 	}
 
@@ -72,14 +73,14 @@ func Refresh(c *gin.Context) {
 	refreshToken := com.RefreshToken{}
 	err = refreshToken.XX20Decrypt([]byte(conf.Instance.RefreshKey), req.RefreshToken)
 	if err != nil {
-		utils.WebResponse(c, -1, "无效的Token")
+		web.Response(c, -1, "无效的Token")
 		return
 	}
 
 	err = refreshToken.CheckFromRedis()
 	if err != nil {
 		log.Error("检查 RefreshToken 失败: ", err)
-		utils.WebResponse(c, -1, err.Error())
+		web.Response(c, -1, err.Error())
 		return
 	}
 
@@ -89,7 +90,7 @@ func Refresh(c *gin.Context) {
 	if sec, err := com.RateHit("ok", okID, conf.Instance.LoginOk); err != nil {
 		log.Error("限速记账失败: %v", err)
 	} else if sec > 0 {
-		utils.WebResponse(c, -1, fmt.Sprintf("操作过于频繁, 请 %d 秒后再试", sec))
+		web.Response(c, -1, fmt.Sprintf("操作过于频繁, 请 %d 秒后再试", sec))
 		return
 	}
 
@@ -97,7 +98,7 @@ func Refresh(c *gin.Context) {
 	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)
 	if err != nil {
 		log.Error("交换密钥失败: %v", err)
-		utils.WebResponse(c, -1, "服务内部错误1")
+		web.Response(c, -1, "服务内部错误1")
 		return
 	}
 
@@ -105,11 +106,11 @@ func Refresh(c *gin.Context) {
 	gwList, err := com.GetMosesListFromEtcd()
 	if err != nil {
 		log.Error("GetMosesListFromEtcd 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误1")
+		web.Response(c, -1, "服务器内部错误1")
 		return
 	}
 	if len(gwList) == 0 {
-		utils.WebResponse(c, -1, "无可用网关")
+		web.Response(c, -1, "无可用网关")
 		return
 	}
 	gw := gwList[userID%uint32(len(gwList))]
@@ -117,7 +118,7 @@ func Refresh(c *gin.Context) {
 	conv, err := com.GenConv(gw.Server.ID)
 	if err != nil {
 		log.Error("GenConv 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误2")
+		web.Response(c, -1, "服务器内部错误2")
 		return
 	}
 
@@ -130,7 +131,7 @@ func Refresh(c *gin.Context) {
 	}
 	if err = sess.UpdateToRedis(); err != nil {
 		log.Error(err)
-		utils.WebResponse(c, -1, "服务器内部错误2")
+		web.Response(c, -1, "服务器内部错误2")
 		return
 	}
 
@@ -146,7 +147,7 @@ func Refresh(c *gin.Context) {
 	sealed, err := accessToken.SealeaBoxAndSign(conf.Instance.Ed25519Sk, gw.X25519Pk)
 	if err != nil {
 		log.Error("token seal 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误3")
+		web.Response(c, -1, "服务器内部错误3")
 		return
 	}
 
@@ -155,14 +156,14 @@ func Refresh(c *gin.Context) {
 	refreshToken.Uid = uid[:]
 	if err = refreshToken.UpdateToRedis(); err != nil {
 		log.Error("更新 refresh token 到 redis 失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误4")
+		web.Response(c, -1, "服务器内部错误4")
 		return
 	}
 
 	refreshData, err := refreshToken.XX20Encrypt([]byte(conf.Instance.RefreshKey))
 	if err != nil {
 		log.Error("refreshToken 加密失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误5")
+		web.Response(c, -1, "服务器内部错误5")
 		return
 	}
 
@@ -177,12 +178,5 @@ func Refresh(c *gin.Context) {
 		RefreshToken: refreshData,
 	}
 
-	data, err := utils.Seal(tx, rsp)
-	if err != nil {
-		log.Error("回包加密失败: %v", err)
-		utils.WebResponse(c, -1, "服务器内部错误6")
-		return
-	}
-
-	utils.WebResponse(c, 0, "", data)
+	web.Response(c, 0, "", tx, &rsp)
 }

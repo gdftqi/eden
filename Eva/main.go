@@ -36,9 +36,10 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	eng := gin.Default()
 
-	eng.POST(handlers.REGIST_USER, handlers.RegistUser)
+	eng.POST(handlers.CREATE_USER, handlers.CreateUser)
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
 	eng.POST(handlers.REFRESH, handlers.Refresh)
+	eng.POST(handlers.UPLOAD_FILE, handlers.UploadFile)
 
 	log.Info("开启服务: %v", conf.Instance.Host)
 	eng.Run(conf.Instance.Host)

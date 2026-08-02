@@ -46,7 +46,7 @@ namespace CC
             var username = txtUsername.Text?.Trim() ?? "";
             var password = txtPassword.Text ?? "";
 
-            if (username.Length < 6)
+            if (username.Length < 5)
             {
                 ShowError("无效的用户名");
                 return;

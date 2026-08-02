@@ -52,34 +52,6 @@
                 <Setter Property="BorderBrush" Value="#43A047"/>
             </Style>
 
-            <!-- 手机号行的删除: 红底白横杠的小圆, 平时不显示, 悬停该行才出现 -->
-            <Style Selector="Button.del">
-                <Setter Property="Width" Value="22"/>
-                <Setter Property="Height" Value="22"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="CornerRadius" Value="11"/>
-                <Setter Property="Background" Value="#E5484D"/>
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-            </Style>
-            <Style Selector="Button.del:pointerover /template/ ContentPresenter">
-                <Setter Property="Background" Value="#C9373C"/>
-            </Style>
-
-            <!-- 标题行右侧的"加一个"小圆 -->
-            <Style Selector="Button.addmini">
-                <Setter Property="Width" Value="24"/>
-                <Setter Property="Height" Value="24"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="CornerRadius" Value="12"/>
-                <Setter Property="Background" Value="#43A047"/>
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-            </Style>
-            <Style Selector="Button.addmini:pointerover /template/ ContentPresenter">
-                <Setter Property="Background" Value="#4CAF50"/>
-            </Style>
-
             <Style Selector="Button.primary">
                 <Setter Property="Height" Value="32"/>
                 <Setter Property="Width" Value="88"/>
@@ -151,20 +123,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- 手机号: 一个人可能有多个.加号放在标题行右侧, 点一下追加一行 -->
-                    <!-- 加号紧跟标题, 不是钉到最右边: 用横向 StackPanel 而不是 *,Auto 两列 -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,18,0,7">
-                        <TextBlock Text="手机号" FontSize="13" Foreground="#5A5A5A"
-                                   VerticalAlignment="Center"/>
-                        <Button x:Name="AddPhoneBtn" Classes="addmini"
-                                Click="AddPhone_Click" ToolTip.Tip="添加手机号"
-                                VerticalAlignment="Center">
-                            <Path Width="11" Height="11" Stroke="White" StrokeThickness="1.8"
-                                  StrokeLineCap="Round" Fill="Transparent"
-                                  Data="M5.5,1 L5.5,10 M1,5.5 L10,5.5"/>
-                        </Button>
-                    </StackPanel>
-                    <StackPanel x:Name="PhoneList" Spacing="8"/>
+                    <!-- 手机号: 只支持一个.
+                         t_user_info.f_phone_num 是单列且带 UNIQUE, 存不下多个号码 -->
+                    <TextBlock Classes="label" Text="手机号"/>
+                    <TextBox x:Name="PhoneBox" Classes="field" MaxLength="20" PlaceholderText="选填"/>
 
                     <!-- 校验提示: 平时不占位 -->
                     <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935"

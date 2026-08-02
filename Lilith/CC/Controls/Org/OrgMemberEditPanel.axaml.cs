@@ -23,7 +23,8 @@ namespace CC
         /// <summary>所属部门.一个人可以在多个部门里, 所以是列表不是单值.</summary>
         public IReadOnlyList<string> Departments { get; init; } = Array.Empty<string>();
 
-        public IReadOnlyList<string> Phones { get; init; } = Array.Empty<string>();
+        /// <summary>手机号. 只支持一个 -- t_user_info.f_phone_num 是单列且带 UNIQUE.</summary>
+        public string Phone { get; init; } = string.Empty;
     }
 
 
@@ -36,9 +37,6 @@ namespace CC
 
         // 点"取消"时触发
         public event Action? Cancelled;
-
-        // 手机号最多几个.没有业务依据, 纯粹防止一直点 + 把界面撑爆.
-        private const int MAX_PHONE = 5;
 
         // 抽屉宽度, 必须与 XAML 里 DeptDrawer 的 Width 一致(关闭时要正好平移出右边界)
         private const double DRAWER_W = 360;
@@ -83,9 +81,7 @@ namespace CC
             PassBox.Text = string.Empty;
             ErrorTip.IsVisible = false;
 
-            // 手机号回到"只有一行空的"
-            PhoneList.Children.Clear();
-            AddPhoneRow();
+            PhoneBox.Text = string.Empty;
 
             pickedDepts.Clear();
             DeptSearch.Text = string.Empty;
@@ -263,111 +259,6 @@ namespace CC
         }
 
 
-        // ---------------- 手机号 ----------------
-
-        // 一行 = 输入框 + 删除按钮.只剩一行时不给删, 否则会变成一个也没有.
-        private void AddPhoneRow(string value = "")
-        {
-            // 不设占位文字: 上面已经有"手机号"这个标题, 而且 XAML 里用的
-            // PlaceholderText 与代码侧属性名是否一致我这边没法验证, 不冒这个险.
-            var box = new TextBox
-            {
-                Text = value,
-                MaxLength = 20,
-            };
-            box.Classes.Add("field");
-
-            // 红底白横杠.删除按钮不参与布局(和输入框同格叠着) --
-            // 占一列的话输入框会被挤窄, 就和上面"所属部门"不等宽了.
-            var del = new Button
-            {
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
-                IsVisible = false,
-                Content = new Border
-                {
-                    Width = 10,
-                    Height = 2,
-                    CornerRadius = new CornerRadius(1),
-                    Background = Brushes.White,
-                },
-            };
-            del.Classes.Add("del");
-            ToolTip.SetTip(del, "删除这个号码");
-
-            // 同一格叠放: box 铺满, del 浮在右端
-            var grid = new Grid();
-            grid.Children.Add(box);
-            grid.Children.Add(del);
-
-            // 只有鼠标在这一行上,且不止一行时才露出删除
-            grid.PointerEntered += (_, _) => del.IsVisible = PhoneList.Children.Count > 1;
-            grid.PointerExited  += (_, _) => del.IsVisible = false;
-
-            del.Click += (_, _) =>
-            {
-                PhoneList.Children.Remove(grid);
-                ApplyPhoneState();
-            };
-
-            PhoneList.Children.Add(grid);
-            ApplyPhoneState();
-        }
-
-
-        // 删除按钮平时一律收起(靠 hover 显示).删到只剩一行时也要收 --
-        // 否则鼠标正停在那一行上, 会留着一个按得下去却不该按的删除.
-        private void ApplyPhoneState()
-        {
-            foreach (var child in PhoneList.Children)
-            {
-                if (child is Grid g && g.Children.Count > 1 && g.Children[1] is Button del)
-                {
-                    del.IsVisible = false;
-                }
-            }
-
-            AddPhoneBtn.IsVisible = PhoneList.Children.Count < MAX_PHONE;
-        }
-
-
-        private void AddPhone_Click(object? sender, RoutedEventArgs e)
-        {
-            if (PhoneList.Children.Count >= MAX_PHONE)
-            {
-                return;
-            }
-
-            AddPhoneRow();
-
-            // 新加的那一行直接给焦点, 省一次点击
-            if (PhoneList.Children[^1] is Grid g && g.Children.Count > 0 && g.Children[0] is TextBox box)
-            {
-                box.Focus();
-            }
-        }
-
-
-        // 收集非空的手机号(去掉空行和重复)
-        private List<string> CollectPhones()
-        {
-            var list = new List<string>();
-            foreach (var child in PhoneList.Children)
-            {
-                if (child is Grid g && g.Children.Count > 0 && g.Children[0] is TextBox box)
-                {
-                    var t = (box.Text ?? string.Empty).Trim();
-                    if (t.Length > 0 && !list.Contains(t))
-                    {
-                        list.Add(t);
-                    }
-                }
-            }
-            return list;
-        }
-
-
         // ---------------- 提交 ----------------
 
         private void Save_Click(object? sender, RoutedEventArgs e)
@@ -399,7 +290,7 @@ namespace CC
                 Password    = pass,
                 // 按 allDepts 的顺序输出, 结果与界面上看到的一致
                 Departments = allDepts.Where(pickedDepts.Contains).ToList(),
-                Phones      = CollectPhones(),
+                Phone       = (PhoneBox.Text ?? string.Empty).Trim(),
             });
         }
 
