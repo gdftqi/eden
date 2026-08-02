@@ -134,7 +134,7 @@ namespace CC
                     break;
 
                 case HydraState.Disconnected:
-                    BackToLogin();   // 重连放弃 / 会话失效 → 回登录页
+                    BackToLogin();   // 重连放弃 / 会话失效 -> 回登录页
                     break;
             }
         }
@@ -142,7 +142,7 @@ namespace CC
         private void BackToLogin()
         {
             // 会话已由 Hydra 关闭; 这里只做窗口切换.新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效.
-            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 → 把原因带到登录页显示.
+            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 -> 把原因带到登录页显示.
             uint code = Hydra.Instance.KickCode;
             string tip = code != 0 ? Package.ErrorText(code) : "";
 

@@ -192,7 +192,7 @@ namespace Lilith.Core
 
 
         /// <summary>
-        /// 错误码 → 给用户看的提示语(对应 Adam 的 str_perr).
+        /// 错误码 -> 给用户看的提示语(对应 Adam 的 str_perr).
         /// 两张表合用一个方法: 号段不重叠, 不存在"查错表"这回事.
         /// </summary>
         public static string ErrorText(uint code)

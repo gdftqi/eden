@@ -315,7 +315,7 @@ namespace Lilith.Components
 
         /// <summary>
         /// ioSend 线程: 批量发送 sndQue 中的包, 并以 TICK_MS 周期驱动 KCP Update(重传/ACK/保活)
-        /// Update 返回负值(-1000 除外)即传输层判死 → 关会话并发起重连;
+        /// Update 返回负值(-1000 除外)即传输层判死 -> 关会话并发起重连;
         /// 但 -4(被服务端踢除)例外: 直接 Close 不重连, 避免与顶号者互踢.
         /// </summary>
         private void SndLoop()
@@ -361,7 +361,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// ioRecv 线程: 阻塞收包 → 入 rcvQue → OnWakeup 通知上层来取.
+        /// ioRecv 线程: 阻塞收包 -> 入 rcvQue -> OnWakeup 通知上层来取.
         /// 会话不可收(已关/重连中)时退避轮询, 不退出线程 -- 重连成功后自动恢复收包.
         /// </summary>
         private void RcvLoop()
@@ -376,7 +376,7 @@ namespace Lilith.Components
                 }
 
                 if (KcpSession.Instance.Recv(ref list) < 0)
-                {// -1000 会话已关(等重连/已停) / 其余网络错误(判死交给 SndLoop 的 Update) → 退避
+                {// -1000 会话已关(等重连/已停) / 其余网络错误(判死交给 SndLoop 的 Update) -> 退避
                     Thread.Sleep(IDLE_MS);
                     continue;
                 }
@@ -414,7 +414,7 @@ namespace Lilith.Components
 
         /// <summary>
         /// 重连: 周期性 RA /refresh(换新 conv/token) + KCP Open, 直到成功或超出总预算.
-        /// 成功 → Connected; 预算耗尽 → Disconnected(上层应回登录页).
+        /// 成功 -> Connected; 预算耗尽 -> Disconnected(上层应回登录页).
         /// </summary>
         private async Task Reconnect()
         {
@@ -450,7 +450,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 设置 Hydra 状态: 状态变化入队, 经 OnWakeup → Update() 在上层线程派发
+        /// 设置 Hydra 状态: 状态变化入队, 经 OnWakeup -> Update() 在上层线程派发
         /// </summary>
         /// <param name="s"></param>
         private void SetState(HydraState s)
@@ -488,7 +488,7 @@ namespace Lilith.Components
         // 是否正在重连: 1 重连中(RcvLoop 让路, SndLoop 停 tick)
         private int reconnecting;
 
-        // 重连总预算(毫秒), 超过 → Disconnected
+        // 重连总预算(毫秒), 超过 -> Disconnected
         private uint reconnectMaxMs = 300000;
 
         // 两次重连尝试之间的间隔(毫秒)
@@ -507,13 +507,13 @@ namespace Lilith.Components
         private Thread? sndThread;
         private Thread? rcvThread;
 
-        // 待发队列(上层 → ioSend), 队列里的包所有权归 Hydra
+        // 待发队列(上层 -> ioSend), 队列里的包所有权归 Hydra
         private readonly BlockingQueue<Package> sndQue = new BlockingQueue<Package>();
 
-        // 已收队列(ioRecv → 上层), Update 派发后归还对象池
+        // 已收队列(ioRecv -> 上层), Update 派发后归还对象池
         private readonly BlockingQueue<Package> rcvQue = new BlockingQueue<Package>();
 
-        // 状态变化队列(任意线程 → 上层)
+        // 状态变化队列(任意线程 -> 上层)
         private readonly ConcurrentQueue<(HydraState prev, HydraState cur)> stateQue
             = new ConcurrentQueue<(HydraState, HydraState)>();
 

@@ -596,7 +596,7 @@ namespace Lilith.Core.Arq
             // [adam] 进来的已是裸 KCP 数据报, 信封由 KcpSession.Unseal 剥掉
             if (data == null || size < OVERHEAD) return -1;
 
-            last_rcv_ms = current;   // [adam] 收到对端数据 → 刷新保活时刻
+            last_rcv_ms = current;   // [adam] 收到对端数据 -> 刷新保活时刻
 
             while (true)
             {

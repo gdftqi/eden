@@ -69,7 +69,7 @@ namespace CC
                 return;
             }
 
-            // 连上 → 切主窗
+            // 连上 -> 切主窗
             var main = new MainWindow();
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {

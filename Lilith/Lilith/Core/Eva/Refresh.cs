@@ -49,7 +49,7 @@ namespace Lilith.Core.Eva
         }
 
         // 用 refreshToken 换一套新会话: 滚动更新 refreshToken + KcpSession.Init.
-        // 失败抛异常(refreshToken 失效/顶号 → 上层应回登录页).
+        // 失败抛异常(refreshToken 失效/顶号 -> 上层应回登录页).
         public static async Task POST()
         {
             Log.Write($"[Refresh] POST() 开始, RefreshToken是否为空={string.IsNullOrEmpty(RefreshToken)}");
