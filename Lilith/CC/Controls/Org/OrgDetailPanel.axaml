@@ -40,6 +40,23 @@
                 <Setter Property="Foreground" Value="#8A9099"/>
                 <Setter Property="Margin" Value="0,2,0,0"/>
             </Style>
+            <Style Selector="Button.removeBtn">
+                <Setter Property="Width" Value="26"/>
+                <Setter Property="Height" Value="26"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="13"/>
+                <Setter Property="Background" Value="#E53935"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="IsVisible" Value="False"/>
+            </Style>
+            <Style Selector="Border.row:pointerover Button.removeBtn">
+                <Setter Property="IsVisible" Value="True"/>
+            </Style>
+            <Style Selector="Button.removeBtn:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#C62828"/>
+            </Style>
 
             <!-- 右侧的小铅笔 -->
             <Style Selector="Button.pencil">

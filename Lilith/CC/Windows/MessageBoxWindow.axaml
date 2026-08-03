@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="CC.MessageBoxWindow"
+        Width="400" SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+    <Border CornerRadius="8" ClipToBounds="True" Background="White"
+            BorderBrush="#D8DCE1" BorderThickness="1">
+        <Border.Styles>
+            <Style Selector="Button.btn">
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="MinWidth" Value="88"/>
+                <Setter Property="Padding" Value="14,0"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+
+            <Style Selector="Button.primary">
+                <Setter Property="Background" Value="#43A047"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Style>
+            <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#4CAF50"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Style>
+
+            <!-- 危险操作(删除/移除)用红色, 与普通确认区分开 -->
+            <Style Selector="Button.danger">
+                <Setter Property="Background" Value="#E53935"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </Style>
+            <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#C62828"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Style>
+
+            <Style Selector="Button.ghost">
+                <Setter Property="Background" Value="#F0F2F5"/>
+                <Setter Property="Foreground" Value="#5A5A5A"/>
+            </Style>
+            <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#E4E7EB"/>
+                <Setter Property="Foreground" Value="#1E1E1E"/>
+            </Style>
+        </Border.Styles>
+
+        <Grid RowDefinitions="44,Auto,Auto">
+            <!-- 标题栏: 无边框窗体没有系统标题栏, 拖动要自己接 -->
+            <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1"
+                    Padding="16,0,8,0" PointerPressed="TopBar_PointerPressed">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" x:Name="TitleText" FontSize="14" FontWeight="SemiBold"
+                               Foreground="#1E1E1E" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                    <!-- 右上角的叉等同于"取消" -->
+                    <Button Grid.Column="1" Click="Cancel_Click" Width="30" Height="30" Padding="0"
+                            CornerRadius="15" Background="Transparent" VerticalAlignment="Center">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="#11000000"/>
+                            </Style>
+                        </Button.Styles>
+                        <Path Width="11" Height="11" Stroke="#5F6368" StrokeThickness="1.6"
+                              StrokeLineCap="Round" Data="M1,1 L10,10 M10,1 L1,10"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- 正文 -->
+            <TextBlock Grid.Row="1" x:Name="MessageText" Margin="20,22,20,24"
+                       FontSize="13.5" Foreground="#3C4043" LineHeight="22"
+                       TextWrapping="Wrap"/>
+
+            <!-- 按钮栏 -->
+            <Border Grid.Row="2" Background="#FAFBFC" BorderBrush="#E4E7EB" BorderThickness="0,1,0,0"
+                    Padding="20,12">
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Button x:Name="CancelBtn" Classes="btn ghost" Click="Cancel_Click" IsCancel="True"/>
+                    <Button x:Name="OkBtn"     Classes="btn"       Click="Ok_Click"     IsDefault="True"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

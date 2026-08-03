@@ -137,18 +137,62 @@ namespace CC
                 });
             }
 
+            // 移除按钮: 红圆 + 白横杠.显示/隐藏由 XAML 的 Border.row:pointerover 管
+            var remove = new Button
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Content = new Avalonia.Controls.Shapes.Rectangle
+                {
+                    Width = 12,
+                    Height = 2,
+                    RadiusX = 1,
+                    RadiusY = 1,
+                    Fill = Brushes.White,
+                },
+            };
+            remove.Classes.Add("removeBtn");
+            ToolTip.SetTip(remove, "移出本部门");
+            remove.Click += (_, _) => ConfirmRemove(nickname);
+
             var grid = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             };
             Grid.SetColumn(avatar, 0);
             Grid.SetColumn(texts, 1);
+            Grid.SetColumn(remove, 2);
             grid.Children.Add(avatar);
             grid.Children.Add(texts);
+            grid.Children.Add(remove);
 
             var row = new Border { Child = grid };
             row.Classes.Add("row");   // 复用 XAML 里 Border.row 的高度/hover
             return row;
+        }
+
+
+        // 移人是不可撤销的动作, 先问一句再抛给宿主
+        private async void ConfirmRemove(string nickname)
+        {
+            if (dept == null)
+            {
+                return;
+            }
+
+            // 存一份: 等确认框的这段时间里用户可能已经切到别的部门了
+            var target = dept;
+
+            bool ok = await MessageBoxWindow.Confirm(
+                this,
+                "移除成员",
+                $"确定把 {nickname} 移出 {target.DeptName} 吗?",
+                okText: "移除",
+                danger: true);
+
+            if (ok)
+            {
+                MemberToggled?.Invoke(target, nickname, false);
+            }
         }
 
 
