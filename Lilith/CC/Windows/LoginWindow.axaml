@@ -90,6 +90,9 @@
                     <Style Selector="StackPanel.remember:pointerover TextBlock">
                         <Setter Property="Foreground" Value="#A5D6A7"/>
                     </Style>
+                    <Style Selector="StackPanel.remember CheckBox /template/ Border#NormalRectangle">
+                        <Setter Property="BorderBrush" Value="White"/>
+                    </Style>
                 </StackPanel.Styles>
 
                 <!-- 头像 -->

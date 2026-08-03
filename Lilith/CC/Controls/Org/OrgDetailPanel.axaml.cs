@@ -11,16 +11,17 @@ using System.Linq;
 
 namespace CC
 {
-    // 部门信息(群详情).只负责呈现, 数据由宿主用 Show(item) 灌进来;
-    // 需要改数据的动作一律抛事件, 由宿主决定怎么做.
     public partial class OrgDetailPanel : UserControl
     {
         public event Action? BackRequested;
 
-        // 重命名部门 / 编辑部门描述 / 添加成员 -- 都要落到服务端, 本控件不自己改
+        // 重命名部门 / 编辑部门描述 -- 都要落到服务端, 本控件不自己改
         public event Action<OrgItem>? RenameRequested;
         public event Action<OrgItem>? RemarkEditRequested;
-        public event Action<OrgItem>? AddMemberRequested;
+
+        // 在选人抽屉里勾/取消了一个人: (部门, 昵称, 是否加入).
+        // 同样不自己改 dept.Members -- 这是要发服务端的动作
+        public event Action<OrgItem, string, bool>? MemberToggled;
 
         // 搜索本部门的消息
         public event Action<OrgItem>? SearchRequested;
@@ -31,6 +32,7 @@ namespace CC
         public OrgDetailPanel()
         {
             InitializeComponent();
+            Picker.Toggled += OnPickerToggled;
         }
 
 
@@ -42,12 +44,33 @@ namespace CC
         {
             dept = item;
 
-            DeptTitle.Text = item.DeptName;
-            MemberSummary.Text = $"{item.Members.Count} 位成员";
-            MemberHeader.Text = $"{item.Members.Count} 位成员";
+            // 进页面时抽屉应当是关的: 上次离开时可能正开着
+            Picker.HideNow();
 
-            ApplyRemark(item.Remark);
-            BuildMembers(item.Members);
+            Refresh();
+        }
+
+
+        /// <summary>
+        /// 按当前部门重画, 不动抽屉.宿主改完成员后调它 --
+        /// 走 Show() 会把抽屉一起关掉, 就没法接着勾第二个人了.
+        /// </summary>
+        public void Refresh()
+        {
+            if (dept == null)
+            {
+                return;
+            }
+
+            DeptTitle.Text = dept.DeptName;
+            MemberSummary.Text = $"{dept.Members.Count} 位成员";
+            MemberHeader.Text = $"{dept.Members.Count} 位成员";
+
+            ApplyRemark(dept.Remark);
+            BuildMembers(dept.Members);
+
+            // 抽屉里已经在部门里的人要显示成勾上的
+            Picker.SetChecked(dept.Members);
         }
 
 
@@ -146,14 +169,21 @@ namespace CC
             if (dept != null) RemarkEditRequested?.Invoke(dept);
         }
 
+        // 顶部圆按钮"添加"和成员区的"添加成员"是同一件事: 推出右侧选人抽屉
         private void AddMember_Click(object? sender, RoutedEventArgs e)
         {
-            if (dept != null) AddMemberRequested?.Invoke(dept);
+            if (dept != null) Picker.Toggle();
         }
 
         private void AddMemberRow_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (dept != null) AddMemberRequested?.Invoke(dept);
+            if (dept != null) Picker.Toggle();
+        }
+
+        // 抽屉里勾/取消一个人: 本控件不动数据, 交给宿主去发请求, 成功后由宿主调 Refresh()
+        private void OnPickerToggled(string nickname, bool on)
+        {
+            if (dept != null) MemberToggled?.Invoke(dept, nickname, on);
         }
 
         // 免打扰只是本地开关, 不需要服务端, 所以就地处理

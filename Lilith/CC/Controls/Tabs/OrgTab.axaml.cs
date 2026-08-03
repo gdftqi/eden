@@ -31,6 +31,7 @@ namespace CC
 
             OrgDetailView.BackRequested += BackToChat;
             OrgDetailView.SearchRequested += OpenSearch;
+            OrgDetailView.MemberToggled += OnDeptMemberToggled;
 
             // 搜索是从详情进来的, 返回就回详情
             SearchView.BackRequested += ShowDetail;
@@ -69,6 +70,32 @@ namespace CC
         private void BackToChat()
         {
             ShowOnly(current != null ? ChatView : EmptyState);
+        }
+
+
+        // 详情页的选人抽屉里勾/取消了一个人
+        private void OnDeptMemberToggled(OrgItem dept, string nickname, bool joined)
+        {
+            if (joined)
+            {
+                if (!dept.Members.Contains(nickname))
+                {
+                    dept.Members.Add(nickname);
+                }
+            }
+            else
+            {
+                dept.Members.Remove(nickname);
+            }
+
+            // 只重画详情, 不碰抽屉 -- 用户通常要连着勾好几个
+            OrgDetailView.Refresh();
+
+            // 群聊顶栏那句"N 名成员"也得跟着变
+            if (ReferenceEquals(dept, current))
+            {
+                ChatView.PeerStatus = $"{dept.Members.Count} 名成员";
+            }
         }
 
 

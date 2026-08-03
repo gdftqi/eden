@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:cc="using:CC"
              x:Class="CC.OrgDetailPanel"
              x:Name="Root">
     <Grid Background="#F9FAFB" RowDefinitions="56,*">
@@ -223,5 +224,9 @@
 
             </StackPanel>
         </ScrollViewer>
+
+        <!-- 选人抽屉: 从右滑入, 盖在整个面板上(含头部).
+             与创建部门页共用同一个控件, 实现见 ContactPickerDrawer -->
+        <cc:ContactPickerDrawer x:Name="Picker" Grid.Row="0" Grid.RowSpan="2"/>
     </Grid>
 </UserControl>
