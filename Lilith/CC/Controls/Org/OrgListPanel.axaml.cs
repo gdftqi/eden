@@ -18,18 +18,13 @@ namespace CC
         // 点了"创建成员"时触发
         public event Action? AddEmployeeRequested;
 
-        // 当前选中的部门项(高亮由 IsSelected 驱动, 不依赖焦点)
+        // 当前选中的部门项
         private OrgItem? selectedItem;
 
-        /// <summary>
-        /// "所有成员"这个常驻项占用的 id.真部门的 id 由 MySQL 自增, 从 1 起,
-        /// 所以 0 空着可以拿来当哨兵, 不会和任何真部门撞上.
-        /// </summary>
         public const long AllMembersID = 0;
 
         /// <summary>
-        /// 常驻的"所有成员".不属于任何部门, 也不参与部门列表的加载与刷新.
-        /// </summary>
+        /// 常驻的"所有成员"
         public OrgItem AllMembers => AllMembersItem;
 
         public OrgListPanel()
@@ -54,15 +49,14 @@ namespace CC
 
             foreach (var (id, name, members, last, time, unread) in data)
             {
-                AddDept(new Department { ID = id, Name = name }, members, last, time, unread);
+                AddDept(new Department { ID = id, Name = name },
+                        members.Select(n => new User { Nickname = n }),
+                        last, time, unread);
             }
         }
 
 
-        /// <summary>
-        /// 追加一个部门到列表末尾.供宿主在"创建部门"成功后调用.
-        /// </summary>
-        public OrgItem AddDept(Department dept, IEnumerable<string>? members = null,
+        public OrgItem AddDept(Department dept, IEnumerable<User>? members = null,
                                string last = "", string time = "", int unread = 0)
         {
             var item = new OrgItem
@@ -93,9 +87,6 @@ namespace CC
         }
 
 
-        /// <summary>
-        /// 部门名列表, 供"创建成员"的部门下拉用.
-        /// </summary>
         public IEnumerable<string> DeptNames()
         {
             return Depts().Select(d => d.DeptName).Where(n => n.Length > 0);

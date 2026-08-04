@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using CC.Eva;
+using CC.Model;
 using Lilith.Utils;
 using System;
 using System.Collections.Generic;
@@ -235,10 +236,11 @@ namespace CC
             pass = Crypto.Sha256(pass);
 
             var phoneNum = PhoneBox.Text ?? string.Empty;
+            var nickname = string.Format("成员 {0}", Random.Shared.NextInt64(10000));
 
             try
             {
-                await CreateUser.POST(name, pass, string.Format("成员 {0}", Random.Shared.NextInt64(10000)), phoneNum);
+                await CreateUser.POST(name, pass, nickname, phoneNum);
             }
             catch (Exception ex)
             {
@@ -247,9 +249,8 @@ namespace CC
             }
 
             Tips.Success("添加成员成功");
-
-            // 新成员还不属于任何具体部门, 所以右侧切到常驻的"所有成员"
-            BaseTab.Notify<OrgTab>(new Message(MsgID.MemberCreated, name, this));
+            BaseTab.Notify<OrgTab>(new Message(MsgID.MemberCreated,
+                new User { Username = name, Nickname = nickname, PhoneNum = phoneNum }, this));
 
             Reset();
         }

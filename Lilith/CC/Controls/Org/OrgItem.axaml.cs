@@ -46,7 +46,8 @@ namespace CC
             set => SetValue(IsSelectedProperty, value);
         }
 
-        public IList<string> Members { get; } = new List<string>();
+
+        public IList<User> Members { get; } = new List<User>();
 
         public OrgItem()
         {

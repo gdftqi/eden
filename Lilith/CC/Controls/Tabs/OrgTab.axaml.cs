@@ -2,14 +2,12 @@
 using CC.Model;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CC
 {
-    // 组织架构页: OrgListPanel + 右侧群聊窗.
-    // 一个部门就是一个群聊, 所以右侧用 MultiChatWindow, 与 ChatTab 同构.
     public partial class OrgTab : BaseTab
     {
-        // 群聊里点发送时向外抛文字(网络收发在 MainWindow, 这里只管界面)
         public event Action<string>? SendRequested;
 
         public OrgTab()
@@ -25,18 +23,15 @@ namespace CC
             MemberEditView.Cancelled += ShowEmptyState;
 
             ChatView.DetailRequested += ShowDetail;
-            // 顶栏的搜索按钮: 和详情里的搜索是同一件事
             ChatView.SearchRequested += () => { if (current != null) OpenSearch(current); };
 
             OrgDetailView.BackRequested += BackToChat;
             OrgDetailView.SearchRequested += OpenSearch;
             OrgDetailView.MemberToggled += OnDeptMemberToggled;
 
-            // 搜索是从详情进来的, 返回就回详情
             SearchView.BackRequested += ShowDetail;
         }
 
-        // 当前打开的部门(详情面板要用它的成员/备注)
         private OrgItem? current;
 
 
@@ -49,25 +44,23 @@ namespace CC
                     break;
 
                 case MsgID.MemberCreated:
-                    OnMemberCreated(msg.Param as string);
+                    OnMemberCreated(msg.Param as User);
                     break;
             }
         }
 
 
-        // 成员建好了.新人还没归到任何部门, 所以切到常驻的"所有成员"
-        private void OnMemberCreated(string? username)
+        private void OnMemberCreated(User? user)
         {
-            if (!string.IsNullOrEmpty(username) && !OrgPanel.AllMembers.Members.Contains(username))
+            if (user != null && !OrgPanel.AllMembers.Members.Any(u => u.Username == user.Username))
             {
-                OrgPanel.AllMembers.Members.Add(username);
+                OrgPanel.AllMembers.Members.Add(user);
             }
 
             OrgPanel.Select(OrgPanel.AllMembers);
         }
 
 
-        // 部门建好了(建的动作在 OrgEditPanel 里, 这里只管界面跟上)
         private void OnDeptCreated(Department? dept)
         {
             if (dept == null)
@@ -75,28 +68,20 @@ namespace CC
                 return;
             }
 
-            // 左侧多一行, 右侧直接切进去 -- 这个 OrgItem 只有 AddDept 才给得出来,
-            // 所以两件事必须在同一处做, 不能拆给两个订阅者
             var item = OrgPanel.AddDept(dept);
-
-            // 新建的部门要在左侧显示成选中态, 否则右侧开着它的群聊而左侧没有高亮
             OrgPanel.Select(item);
         }
 
-        // 点中某个部门: 右侧切成该部门的群聊
         private void OpenDept(OrgItem item)
         {
             current = item;
             ChatView.PeerName = item.DeptName;
             ChatView.PeerStatus = $"{item.Members.Count} 名成员";
-
-            // 临时: 还没有真实消息, 先清空(以后换成拉该部门的历史)
             ChatView.ClearMessages();
             ShowOnly(ChatView);
         }
 
 
-        // 点了群聊顶栏: 打开群详情
         private void ShowDetail()
         {
             if (current == null)
@@ -109,32 +94,27 @@ namespace CC
         }
 
 
-        // 详情里点返回: 回到刚才那个群聊(消息还在, 不重建)
         private void BackToChat()
         {
             ShowOnly(current != null ? ChatView : EmptyState);
         }
 
 
-        // 详情页的选人抽屉里勾/取消了一个人
-        private void OnDeptMemberToggled(OrgItem dept, string nickname, bool joined)
+        private void OnDeptMemberToggled(OrgItem dept, User user, bool joined)
         {
             if (joined)
             {
-                if (!dept.Members.Contains(nickname))
+                if (!dept.Members.Any(u => u.Nickname == user.Nickname))
                 {
-                    dept.Members.Add(nickname);
+                    dept.Members.Add(user);
                 }
             }
             else
             {
-                dept.Members.Remove(nickname);
+                dept.Members.Remove(user);
             }
 
-            // 只重画详情, 不碰抽屉 -- 用户通常要连着勾好几个
             OrgDetailView.Refresh();
-
-            // 群聊顶栏那句"N 名成员"也得跟着变
             if (ReferenceEquals(dept, current))
             {
                 ChatView.PeerStatus = $"{dept.Members.Count} 名成员";
@@ -172,7 +152,6 @@ namespace CC
         }
 
 
-        // 右侧六块是叠放的, 统一从这里切 -- 免得漏关其中一块导致两层同时可见
         private void ShowOnly(Control target)
         {
             ChatView.IsVisible       = target == ChatView;
