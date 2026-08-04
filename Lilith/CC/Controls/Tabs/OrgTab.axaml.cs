@@ -1,7 +1,6 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using CC.Model;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace CC
@@ -13,13 +12,16 @@ namespace CC
         public OrgTab()
         {
             InitializeComponent();
-            OrgPanel.DeptSelected += OpenDept;
+
+            OrgPanel.GroupChatSelected += OpenGroupChat;
+            OrgPanel.MemberSelected += OpenSoloChat;
             OrgPanel.AddOrgRequested += OnAddOrg;
+            OrgPanel.AddEmployeeRequested += OnAddEmployee;
+
             ChatView.SendRequested += t => SendRequested?.Invoke(t);
+            SoloView.SendRequested += t => SendRequested?.Invoke(t);
 
             OrgEditView.Cancelled += ShowEmptyState;
-
-            OrgPanel.AddEmployeeRequested += OnAddEmployee;
             MemberEditView.Cancelled += ShowEmptyState;
 
             ChatView.DetailRequested += ShowDetail;
@@ -32,7 +34,8 @@ namespace CC
             SearchView.BackRequested += ShowDetail;
         }
 
-        private OrgItem? current;
+
+        private OrgGroup? current;
 
 
         protected override void OnNotify(Message msg)
@@ -50,17 +53,6 @@ namespace CC
         }
 
 
-        private void OnMemberCreated(User? user)
-        {
-            if (user != null && !OrgPanel.AllMembers.Members.Any(u => u.Username == user.Username))
-            {
-                OrgPanel.AllMembers.Members.Add(user);
-            }
-
-            OrgPanel.Select(OrgPanel.AllMembers);
-        }
-
-
         private void OnDeptCreated(Department? dept)
         {
             if (dept == null)
@@ -68,17 +60,60 @@ namespace CC
                 return;
             }
 
-            var item = OrgPanel.AddDept(dept);
-            OrgPanel.Select(item);
+            var group = OrgPanel.AddDept(dept);
+            group.Expand();
+
+            if (group.GroupChatItem != null)
+            {
+                OrgPanel.Select(group.GroupChatItem);
+                OpenGroupChat(group);
+            }
         }
 
-        private void OpenDept(OrgItem item)
+
+        private void OnMemberCreated(User? user)
         {
-            current = item;
-            ChatView.PeerName = item.DeptName;
-            ChatView.PeerStatus = $"{item.Members.Count} 名成员";
+            if (user == null)
+            {
+                return;
+            }
+
+            var all = OrgPanel.AllMembers;
+            if (!all.Members.Any(u => u.Username == user.Username))
+            {
+                all.Members.Add(user);
+                all.Rebuild();
+            }
+
+            all.Expand();
+
+            var row = all.RowOf(user);
+            if (row != null)
+            {
+                OrgPanel.Select(row);
+            }
+            OpenSoloChat(user);
+        }
+
+
+        private void OpenGroupChat(OrgGroup group)
+        {
+            current = group;
+            ChatView.PeerName = group.Dept?.Name;
+            ChatView.PeerStatus = $"{group.Members.Count} 名成员";
             ChatView.ClearMessages();
             ShowOnly(ChatView);
+        }
+
+
+        private void OpenSoloChat(User user)
+        {
+            current = null;
+            SoloView.PeerName = user.Nickname;
+            SoloView.PeerStatus = user.Username;
+            SoloView.PeerAvatar = ContactSource.Avatar;
+            SoloView.ClearMessages();
+            ShowOnly(SoloView);
         }
 
 
@@ -100,43 +135,49 @@ namespace CC
         }
 
 
-        private void OnDeptMemberToggled(OrgItem dept, User user, bool joined)
+        private void OnDeptMemberToggled(OrgGroup group, User user, bool joined)
         {
             if (joined)
             {
-                if (!dept.Members.Any(u => u.Nickname == user.Nickname))
+                if (!group.Members.Any(u => u.Nickname == user.Nickname))
                 {
-                    dept.Members.Add(user);
+                    group.Members.Add(user);
                 }
             }
             else
             {
-                dept.Members.Remove(user);
+                group.Members.Remove(user);
             }
 
+            group.Rebuild();
             OrgDetailView.Refresh();
-            if (ReferenceEquals(dept, current))
+
+            if (ReferenceEquals(group, current))
             {
-                ChatView.PeerStatus = $"{dept.Members.Count} 名成员";
+                ChatView.PeerStatus = $"{group.Members.Count} 名成员";
             }
         }
 
-        private void OpenSearch(OrgItem item)
+
+        private void OpenSearch(OrgGroup group)
         {
-            SearchView.Show(item.DeptName);
+            SearchView.Show(group.Dept?.Name ?? string.Empty);
             ShowOnly(SearchView);
         }
+
 
         public void AddText(bool mine, string text, string time)
         {
             ChatView.AddText(mine, text, time);
         }
 
+
         private void OnAddOrg()
         {
             OrgEditView.Reset();
             ShowOnly(OrgEditView);
         }
+
 
         private void OnAddEmployee()
         {
@@ -155,6 +196,7 @@ namespace CC
         private void ShowOnly(Control target)
         {
             ChatView.IsVisible       = target == ChatView;
+            SoloView.IsVisible       = target == SoloView;
             OrgEditView.IsVisible    = target == OrgEditView;
             MemberEditView.IsVisible = target == MemberEditView;
             OrgDetailView.IsVisible  = target == OrgDetailView;

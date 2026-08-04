@@ -141,10 +141,9 @@
                 </ControlTheme>
             </ScrollViewer.Resources>
             <StackPanel>
-                <!-- 常驻项"所有成员": 不随部门列表刷新, 所以刻意放在 OrgList 外面.
-                     这样 Depts()/DeptNames()/FindDept 只看得见真部门,
-                     重新拉部门列表时清空 OrgList 也碰不到它 -->
-                <cc:OrgItem x:Name="AllMembersItem"/>
+                <!-- 常驻的"所有成员": 不随部门列表刷新, 所以刻意放在 OrgList 外面.
+                     这样 Groups() 只看得见真部门, 重拉部门时清空 OrgList 也碰不到它 -->
+                <cc:OrgGroup x:Name="AllMembersGroup"/>
                 <StackPanel x:Name="OrgList"/>
             </StackPanel>
         </ScrollViewer>

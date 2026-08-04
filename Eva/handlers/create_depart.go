@@ -14,6 +14,7 @@ type createDepartReq struct {
 	web.BaseRequest
 
 	Name    string  `json:"name"`
+	Avatar  string  `json:"avatar,omitempty"`
 	Desc    string  `json:"desc,omitempty"`
 	UserIDs []int64 `json:"user_ids,omitempty"`
 }

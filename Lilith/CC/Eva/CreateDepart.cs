@@ -15,6 +15,9 @@ namespace CC.Eva
             [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
             public string? Name { get; set; }
 
+            [JsonProperty("avatar", NullValueHandling = NullValueHandling.Ignore)]
+            public string? Avatar { get; set; }
+
             [JsonProperty("desc", NullValueHandling = NullValueHandling.Ignore)]
             public string? Desc { get; set; }
 
@@ -23,7 +26,7 @@ namespace CC.Eva
         }
 
 
-        public static async Task<User> POST(string name, string desc, List<Int64>? userIDs)
+        public static async Task<User> POST(string name, string avatar, string desc, List<Int64>? userIDs)
         {
             if (!HttpSession.Instance.Valid)
             {
@@ -33,6 +36,7 @@ namespace CC.Eva
             var req = new Request
             {
                 Name = name,
+                Avatar = avatar,
                 Desc = desc,
                 UserIDs = userIDs
             };

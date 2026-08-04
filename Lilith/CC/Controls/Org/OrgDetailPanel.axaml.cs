@@ -14,13 +14,13 @@ namespace CC
     public partial class OrgDetailPanel : UserControl
     {
         public event Action? BackRequested;
-        public event Action<OrgItem>? RenameRequested;
-        public event Action<OrgItem>? RemarkEditRequested;
-        public event Action<OrgItem, User, bool>? MemberToggled;
-        public event Action<OrgItem>? SearchRequested;
+        public event Action<OrgGroup>? RenameRequested;
+        public event Action<OrgGroup>? RemarkEditRequested;
+        public event Action<OrgGroup, User, bool>? MemberToggled;
+        public event Action<OrgGroup>? SearchRequested;
 
         // 当前展示的部门
-        private OrgItem? dept;
+        private OrgGroup? dept;
 
         public OrgDetailPanel()
         {
@@ -29,7 +29,7 @@ namespace CC
         }
 
 
-        public void Show(OrgItem item)
+        public void Show(OrgGroup item)
         {
             dept = item;
 
@@ -47,7 +47,7 @@ namespace CC
                 return;
             }
 
-            DeptTitle.Text = dept.DeptName;
+            DeptTitle.Text = dept.Dept?.Name ?? string.Empty;
             MemberSummary.Text = $"{dept.Members.Count} 位成员";
             MemberHeader.Text = $"{dept.Members.Count} 位成员";
 
@@ -167,7 +167,7 @@ namespace CC
             bool ok = await MessageBoxWindow.Confirm(
                 this,
                 "移除成员",
-                $"确定把 {user.Nickname} 移出 {target.DeptName} 吗?",
+                $"确定把 {user.Nickname} 移出 {target.Dept?.Name} 吗?",
                 okText: "移除",
                 danger: true);
 

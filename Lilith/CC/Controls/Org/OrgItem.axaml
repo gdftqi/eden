@@ -2,8 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.OrgItem"
              x:Name="Root">
-    <!-- 部门列表项: 版式与 ChatItem 一致(部门就是一个群聊),
-         只把头像换成楼宇图标, 否则列表里分不出这行是部门还是人 -->
     <Border x:Name="Body" Classes="item" Height="64" Padding="12,0" Focusable="True" FocusAdorner="{x:Null}">
         <Border.Styles>
             <Style Selector="Border.item">
@@ -20,19 +18,23 @@
             </Style>
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
-            <!-- 部门"头像": 楼宇图标 -->
-            <Border Grid.Column="0" Width="46" Height="46" CornerRadius="23" Background="#E4E7EB" Margin="0,0,10,0">
-                <Viewbox Width="24" Height="24">
-                    <Canvas Width="24" Height="24">
-                        <Path Fill="#5F6368" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
-                    </Canvas>
-                </Viewbox>
-            </Border>
+            <Panel Grid.Column="0" Width="46" Height="46" Margin="0,0,10,0">
+                <Border x:Name="DeptAvatar" CornerRadius="23" Background="#E4E7EB">
+                    <Viewbox Width="24" Height="24">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="#5F6368" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                <Border x:Name="UserAvatar" CornerRadius="23" ClipToBounds="True" IsVisible="False">
+                    <Image x:Name="UserAvatarImage" Stretch="UniformToFill"/>
+                </Border>
+            </Panel>
 
             <Grid Grid.Column="1" RowDefinitions="*,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                     <!-- 部门名 -->
-                    <TextBlock Grid.Column="0" Text="{Binding #Root.Dept.Name}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.Title}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <!-- 最后一条消息的时间 -->
                     <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </Grid>

@@ -9,6 +9,7 @@
         <Border Grid.Column="1">
             <Grid>
                 <cc:MultiChatWindow x:Name="ChatView" IsVisible="False"/>
+                <cc:SingleChatWindow x:Name="SoloView" IsVisible="False"/>
                 <cc:OrgEditPanel x:Name="OrgEditView" IsVisible="False"/>
                 <cc:OrgMemberEditPanel x:Name="MemberEditView" IsVisible="False"/>
                 <cc:OrgDetailPanel x:Name="OrgDetailView" IsVisible="False"/>

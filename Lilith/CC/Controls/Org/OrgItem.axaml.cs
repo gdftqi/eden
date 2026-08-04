@@ -9,6 +9,8 @@ namespace CC
     public partial class OrgItem : UserControl
     {
         public static readonly StyledProperty<Department?> DeptProperty = AvaloniaProperty.Register<OrgItem, Department?>("Dept");
+        public static readonly StyledProperty<User?> UserProperty = AvaloniaProperty.Register<OrgItem, User?>("User");
+        public static readonly StyledProperty<string?> TitleProperty = AvaloniaProperty.Register<OrgItem, string?>("Title");
         public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<OrgItem, string?>("LastMessage");
         public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<OrgItem, string?>("Time");
         public static readonly StyledProperty<int> UnreadProperty = AvaloniaProperty.Register<OrgItem, int>("Unread");
@@ -18,6 +20,18 @@ namespace CC
         {
             get => GetValue(DeptProperty);
             set => SetValue(DeptProperty, value);
+        }
+
+        public User? User
+        {
+            get => GetValue(UserProperty);
+            set => SetValue(UserProperty, value);
+        }
+
+        public string? Title
+        {
+            get => GetValue(TitleProperty);
+            set => SetValue(TitleProperty, value);
         }
 
         public string DeptName => Dept?.Name ?? string.Empty;
@@ -66,11 +80,29 @@ namespace CC
             {
                 Body.Classes.Set("selected", IsSelected);
             }
-            else if (change.Property == DeptProperty)
+            else if (change.Property == DeptProperty || change.Property == UserProperty)
             {
-                var desc = Dept?.Desc;
-                ToolTip.SetTip(Body, string.IsNullOrWhiteSpace(desc) ? null : desc);
+                ApplyKind();
             }
+        }
+
+
+        private void ApplyKind()
+        {
+            bool isDept = Dept != null;
+
+            // 群聊行标上 (群): 它和下面的成员行长得一样, 不标看不出这行点开是群聊
+            Title = isDept ? $"{Dept!.Name} (群)" : User?.Nickname;
+
+            DeptAvatar.IsVisible = isDept;
+            UserAvatar.IsVisible = !isDept;
+            if (!isDept)
+            {
+                UserAvatarImage.Source = ContactSource.Avatar;
+            }
+
+            var tip = isDept ? Dept!.Desc : User?.Username;
+            ToolTip.SetTip(Body, string.IsNullOrWhiteSpace(tip) ? null : tip);
         }
 
         private void ApplyUnread()
