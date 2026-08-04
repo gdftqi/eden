@@ -14,8 +14,6 @@ using System.Linq;
 
 namespace CC
 {
-    // 创建成员表单: 用户名 / 密码 / 所属部门 / 手机号.
-    // 校验、发请求、结果提示都在本控件里闭环, 不往宿主抛.
     public partial class OrgMemberEditPanel : UserControl
     {
         // 点"取消"时触发: 关掉本页之后显示什么, 是宿主的事
@@ -27,7 +25,7 @@ namespace CC
         // 与 XAML 里 TransformOperationsTransition 的 Duration 对齐, 略留一点余量
         private static readonly TimeSpan DRAWER_MS = TimeSpan.FromMilliseconds(260);
 
-        // 可选的全部部门(宿主灌进来)
+        // 可选的全部部门
         private readonly List<string> allDepts = new();
 
         // 已勾选的部门
@@ -43,10 +41,6 @@ namespace CC
         }
 
 
-        /// <summary>
-        /// 可选的部门.由宿主在打开面板前灌进来 --
-        /// 部门列表归 OrgListPanel 所有, 本控件不该自己去拿.
-        /// </summary>
         public void SetDepartments(IEnumerable<string> depts)
         {
             allDepts.Clear();
@@ -55,9 +49,6 @@ namespace CC
         }
 
 
-        /// <summary>
-        /// 清空表单.每次打开都调一次, 否则会看到上一次没提交的残留内容.
-        /// </summary>
         public void Reset()
         {
             NameBox.Text = string.Empty;
@@ -256,6 +247,10 @@ namespace CC
             }
 
             Tips.Success("添加成员成功");
+
+            // 新成员还不属于任何具体部门, 所以右侧切到常驻的"所有成员"
+            BaseTab.Notify<OrgTab>(new Message(MsgID.MemberCreated, name, this));
+
             Reset();
         }
 

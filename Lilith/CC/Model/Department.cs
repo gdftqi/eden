@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 
 namespace CC.Model
 {
@@ -16,6 +17,9 @@ namespace CC.Model
 
         [JsonProperty("state", NullValueHandling = NullValueHandling.Ignore)]
         public Int64? State { get; set; }
+
+        [JsonProperty("user_list", NullValueHandling = NullValueHandling.Ignore)]
+        public List<User>? UserList { get; set; }
 
         public override string ToString()
         {

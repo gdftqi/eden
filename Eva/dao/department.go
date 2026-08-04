@@ -10,9 +10,18 @@ type Department struct {
 }
 
 func InsertDepartment(obj *Department) error {
-	_, err := mid.Mysql.Exec("INSERT INTO `db_eva`.`t_department` (`f_name`, `f_desc`, `f_create_time`, `f_state`) VALUES (?, ?, UNIX_TIMESTAMP(), ?)",
+	res, err := mid.Mysql.Exec("INSERT INTO `db_eva`.`t_department` (`f_name`, `f_desc`, `f_create_time`, `f_state`) VALUES (?, ?, UNIX_TIMESTAMP(), ?)",
 		obj.Name, obj.Desc, obj.State)
-	return err
+	if err != nil {
+		return err
+	}
+
+	obj.ID, err = res.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func UpdateDepartment(obj *Department) error {

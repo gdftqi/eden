@@ -32,7 +32,7 @@
             <Grid Grid.Column="1" RowDefinitions="*,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                     <!-- 部门名 -->
-                    <TextBlock Grid.Column="0" Text="{Binding #Root.DeptName}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.Dept.Name}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <!-- 最后一条消息的时间 -->
                     <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </Grid>

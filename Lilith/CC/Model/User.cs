@@ -27,6 +27,9 @@ namespace CC.Model
         [JsonProperty("state", NullValueHandling = NullValueHandling.Ignore)]
         public Int64? State { get; set; }
 
+        [JsonProperty("departments", NullValueHandling = NullValueHandling.Ignore)]
+        public IList<Department>? Departs { get; set; }
+
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);

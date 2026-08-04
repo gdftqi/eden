@@ -13,11 +13,8 @@ using System.Threading.Tasks;
 
 namespace CC
 {
-    // 创建部门表单: 部门名称 / 描述 / 成员.
-    // 校验、发请求、结果提示都在本控件里闭环, 不往宿主抛.
     public partial class OrgEditPanel : UserControl
     {
-        // 点"取消"时触发: 关掉本页之后显示什么, 是宿主的事
         public event Action? Cancelled;
 
         private readonly HashSet<string> selected = new();
@@ -30,10 +27,6 @@ namespace CC
         }
 
 
-        /// <summary>
-        /// 清空表单并把焦点放到部门名称.每次打开都调一次,
-        /// 否则会看到上一次没提交的残留内容.
-        /// </summary>
         public void Reset()
         {
             NameBox.Text = string.Empty;
@@ -177,6 +170,10 @@ namespace CC
             }
 
             Tips.Success("添加部门成功");
+
+            BaseTab.Notify<OrgTab>(new Message(MsgID.DeptCreated,
+                new Department { Name = name, Desc = desc }, this));
+
             Reset();
         }
 

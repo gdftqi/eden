@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -66,7 +66,7 @@ namespace CC
             MemberSummary.Text = $"{dept.Members.Count} 位成员";
             MemberHeader.Text = $"{dept.Members.Count} 位成员";
 
-            ApplyRemark(dept.Remark);
+            ApplyRemark(dept.Dept?.Desc);
             BuildMembers(dept.Members);
 
             // 抽屉里已经在部门里的人要显示成勾上的

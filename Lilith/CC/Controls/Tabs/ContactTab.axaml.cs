@@ -1,9 +1,9 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 namespace CC
 {
     // 联系人页: ContactListPanel + 右侧详情(ContactWindow)
-    public partial class ContactTab : UserControl
+    public partial class ContactTab : BaseTab
     {
         public ContactTab()
         {

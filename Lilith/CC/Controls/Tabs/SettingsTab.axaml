@@ -1,5 +1,6 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<cc:BaseTab xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+            xmlns:cc="using:CC"
              x:Class="CC.SettingsTab">
     <!-- 骨架同 ChatTab: 左 280 列表列 + 右操作区; 内容后期填 -->
     <Grid ColumnDefinitions="280,*">
@@ -10,4 +11,4 @@
             <TextBlock Text="设置" FontSize="15" Foreground="#8A8A8A" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
     </Grid>
-</UserControl>
+</cc:BaseTab>

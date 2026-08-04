@@ -14,6 +14,7 @@ type createDepartReq struct {
 	web.BaseRequest
 
 	Name    string  `json:"name"`
+	Desc    string  `json:"desc,omitempty"`
 	UserIDs []int64 `json:"user_ids,omitempty"`
 }
 
@@ -36,6 +37,7 @@ func CreateDepart(c *gin.Context) {
 
 	dept := &dao.Department{
 		Name:  req.Name,
+		Desc:  req.Desc,
 		State: 1,
 	}
 	err = dao.InsertDepartment(dept)

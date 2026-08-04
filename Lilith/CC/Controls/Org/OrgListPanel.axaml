@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:cc="using:CC"
              x:Class="CC.OrgListPanel">
     <!-- 组织架构面板: 标题 + 搜索栏 + 创建部门 + 创建成员 + 部门列表 (视觉对齐 ChatListPanel) -->
     <Grid Background="White" RowDefinitions="48,Auto,Auto,Auto,*">
@@ -139,7 +140,13 @@
                     </Style>
                 </ControlTheme>
             </ScrollViewer.Resources>
-            <StackPanel x:Name="OrgList"/>
+            <StackPanel>
+                <!-- 常驻项"所有成员": 不随部门列表刷新, 所以刻意放在 OrgList 外面.
+                     这样 Depts()/DeptNames()/FindDept 只看得见真部门,
+                     重新拉部门列表时清空 OrgList 也碰不到它 -->
+                <cc:OrgItem x:Name="AllMembersItem"/>
+                <StackPanel x:Name="OrgList"/>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

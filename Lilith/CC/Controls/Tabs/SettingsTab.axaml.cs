@@ -1,8 +1,8 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 namespace CC
 {
-    public partial class SettingsTab : UserControl
+    public partial class SettingsTab : BaseTab
     {
         public SettingsTab()
         {

@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<cc:BaseTab xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:cc="using:CC"
              x:Class="CC.ContactTab">
@@ -17,4 +17,4 @@
             <cc:ContactWindow x:Name="ContactView" IsVisible="False"/>
         </Grid>
     </Grid>
-</UserControl>
+</cc:BaseTab>

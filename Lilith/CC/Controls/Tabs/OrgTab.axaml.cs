@@ -1,4 +1,5 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
+using CC.Model;
 using System;
 using System.Collections.Generic;
 
@@ -6,7 +7,7 @@ namespace CC
 {
     // 组织架构页: OrgListPanel + 右侧群聊窗.
     // 一个部门就是一个群聊, 所以右侧用 MultiChatWindow, 与 ChatTab 同构.
-    public partial class OrgTab : UserControl
+    public partial class OrgTab : BaseTab
     {
         // 群聊里点发送时向外抛文字(网络收发在 MainWindow, 这里只管界面)
         public event Action<string>? SendRequested;
@@ -37,6 +38,50 @@ namespace CC
 
         // 当前打开的部门(详情面板要用它的成员/备注)
         private OrgItem? current;
+
+
+        protected override void OnNotify(Message msg)
+        {
+            switch (msg.ID)
+            {
+                case MsgID.DeptCreated:
+                    OnDeptCreated(msg.Param as Department);
+                    break;
+
+                case MsgID.MemberCreated:
+                    OnMemberCreated(msg.Param as string);
+                    break;
+            }
+        }
+
+
+        // 成员建好了.新人还没归到任何部门, 所以切到常驻的"所有成员"
+        private void OnMemberCreated(string? username)
+        {
+            if (!string.IsNullOrEmpty(username) && !OrgPanel.AllMembers.Members.Contains(username))
+            {
+                OrgPanel.AllMembers.Members.Add(username);
+            }
+
+            OrgPanel.Select(OrgPanel.AllMembers);
+        }
+
+
+        // 部门建好了(建的动作在 OrgEditPanel 里, 这里只管界面跟上)
+        private void OnDeptCreated(Department? dept)
+        {
+            if (dept == null)
+            {
+                return;
+            }
+
+            // 左侧多一行, 右侧直接切进去 -- 这个 OrgItem 只有 AddDept 才给得出来,
+            // 所以两件事必须在同一处做, 不能拆给两个订阅者
+            var item = OrgPanel.AddDept(dept);
+
+            // 新建的部门要在左侧显示成选中态, 否则右侧开着它的群聊而左侧没有高亮
+            OrgPanel.Select(item);
+        }
 
         // 点中某个部门: 右侧切成该部门的群聊
         private void OpenDept(OrgItem item)
@@ -98,7 +143,7 @@ namespace CC
 
         private void OpenSearch(OrgItem item)
         {
-            SearchView.Show(item.DeptName ?? string.Empty);
+            SearchView.Show(item.DeptName);
             ShowOnly(SearchView);
         }
 

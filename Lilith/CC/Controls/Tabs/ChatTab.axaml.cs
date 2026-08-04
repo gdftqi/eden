@@ -1,11 +1,10 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using System;
 
 namespace CC
 {
-    public partial class ChatTab : UserControl
+    public partial class ChatTab : BaseTab
     {
-        // SingleChatWindow 里点发送时向外抛文字(网络收发仍在 MainWindow, 这里只管界面)
         public event Action<string>? SendRequested;
 
         public ChatTab()
@@ -21,7 +20,6 @@ namespace CC
             ChatView.PeerAvatar = item.Avatar;
             ChatView.PeerStatus = "最后在线 今天 17:20";
 
-            // 临时: 每个会话都用同一组示例消息(以后换成各自的真实消息)
             ChatView.ClearMessages();
             EmptyState.IsVisible = false;
             ChatView.IsVisible = true;
