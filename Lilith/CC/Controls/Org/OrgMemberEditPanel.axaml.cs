@@ -131,7 +131,6 @@ namespace CC
             var check = new CheckBox
             {
                 IsChecked = pickedDepts.Contains(dept),
-                // 只作显示: 点击由整行统一处理, 免得点方框和点空白行为不一致
                 IsHitTestVisible = false,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0),
@@ -208,7 +207,6 @@ namespace CC
         }
 
 
-        // 字段行上显示已选了什么; 一个没选就显示灰色的占位文案
         private void ApplyDeptSummary()
         {
             if (pickedDepts.Count == 0)
@@ -218,7 +216,6 @@ namespace CC
                 return;
             }
 
-            // 按 allDepts 的顺序拼, 免得每次点的顺序不同导致文案跳来跳去
             DeptSummary.Text = string.Join("、", allDepts.Where(pickedDepts.Contains));
             DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#1E1E1E"));
         }
@@ -234,8 +231,6 @@ namespace CC
         {
             DeptDrawer.IsVisible = true;
 
-            // 先让它以"在右边界之外"的状态完成一次布局, 下一帧再平移到位.
-            // 同一帧里既显示又改变换的话, 过渡没有起点, 会直接跳出来而不是滑出来.
             Dispatcher.UIThread.Post(
                 () => DeptDrawer.RenderTransform = TransformOperations.Parse("translateX(0px)"),
                 DispatcherPriority.Render);
@@ -247,8 +242,6 @@ namespace CC
         private void CloseDeptPicker_Click(object? sender, RoutedEventArgs e)
         {
             DeptDrawer.RenderTransform = TransformOperations.Parse($"translateX({DRAWER_W}px)");
-
-            // 等滑出动画播完再隐藏 -- 立刻置 IsVisible=false 是"瞬间消失", 看不到动画
             DispatcherTimer.RunOnce(() => DeptDrawer.IsVisible = false, DRAWER_MS);
         }
 
@@ -300,7 +293,7 @@ namespace CC
                 Departments = allDepts.Where(pickedDepts.Contains).ToList(),
                 Phone = phoneNum,
             });
-            Clear();
+            Reset();
         }
 
 
@@ -314,13 +307,6 @@ namespace CC
         {
             ErrorTip.Text = msg;
             ErrorTip.IsVisible = true;
-        }
-
-
-        private void Clear()
-        {
-            PassBox.Text = NameBox.Text = PhoneBox.Text = "";
-            //DeptPicker.
         }
     }
 }

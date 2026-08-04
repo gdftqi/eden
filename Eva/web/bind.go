@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 请求时间与服务端时间允许的偏差(秒). 超出即拒, 用来限制重放窗口.
-const ReqTimeSkew = 5
+// 请求时间与服务端时间允许的偏差(毫秒). 超出即拒.
+const ReqTimeSkewMs = 5000
 
 var (
 	ErrBadRequest = errors.New("请求格式错误")
@@ -20,8 +20,10 @@ var (
 	ErrExpired    = errors.New("请求已过期, 请重试")
 	ErrIdentity   = errors.New("无效的数据")
 	ErrInternal   = errors.New("服务器内部错误")
+	ErrDuplicate  = errors.New("请求已处理, 请勿重复提交")
 )
 
+// Timed: 请求体必须带时间戳, Bind 用它做时限校验与写请求去重.
 type Timed interface {
 	ReqTime() int64
 }
@@ -30,8 +32,24 @@ type Identified interface {
 	ReqUserID() uint32
 }
 
-func Bind(c *gin.Context, out any) (*com.UserSession, error) {
-	req := HttpRequest{}
+type BaseRequest struct {
+	Time int64 `json:"time"`
+}
+
+func (b *BaseRequest) ReqTime() int64 {
+	return b.Time
+}
+
+func BindR(c *gin.Context, out any) (*com.UserSession, error) {
+	return bind(c, out, false)
+}
+
+func BindW(c *gin.Context, out any) (*com.UserSession, error) {
+	return bind(c, out, true)
+}
+
+func bind(c *gin.Context, out any, once bool) (*com.UserSession, error) {
+	req := httpRequest{}
 	if err := c.BindJSON(&req); err != nil {
 		log.Error("Bind: 请求格式错误: %v", err)
 		return nil, ErrBadRequest
@@ -56,8 +74,9 @@ func Bind(c *gin.Context, out any) (*com.UserSession, error) {
 		return nil, ErrDecrypt
 	}
 
-	if t, ok := out.(Timed); ok {
-		if math.Abs(float64(time.Now().Unix()-t.ReqTime())) > ReqTimeSkew {
+	t, timed := out.(Timed)
+	if timed {
+		if math.Abs(float64(time.Now().UnixMilli()-t.ReqTime())) > ReqTimeSkewMs {
 			return nil, ErrExpired
 		}
 	}
@@ -65,6 +84,24 @@ func Bind(c *gin.Context, out any) (*com.UserSession, error) {
 	if u, ok := out.(Identified); ok && u.ReqUserID() != req.UserID {
 		log.Error("Bind: 身份不一致: 外层 %d, 密文内 %d", req.UserID, u.ReqUserID())
 		return nil, ErrIdentity
+	}
+
+	if !once {
+		return sess, nil
+	}
+
+	if !timed {
+		log.Fatal("BindW: 请求体没有实现 Timed, 无法去重: %T", out)
+	}
+
+	fresh, err := com.MarkRequestOnce(req.UserID, t.ReqTime())
+	if err != nil {
+		log.Error("Bind: 去重占位失败: uid = %d, %v", req.UserID, err)
+		return nil, ErrInternal
+	}
+
+	if !fresh {
+		return nil, ErrDuplicate
 	}
 
 	return sess, nil

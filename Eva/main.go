@@ -40,6 +40,7 @@ func main() {
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
 	eng.POST(handlers.REFRESH, handlers.Refresh)
 	eng.POST(handlers.UPLOAD_FILE, handlers.UploadFile)
+	eng.POST(handlers.CREATE_DEPART, handlers.CreateDepart)
 
 	log.Info("开启服务: %v", conf.Instance.Host)
 	eng.Run(conf.Instance.Host)

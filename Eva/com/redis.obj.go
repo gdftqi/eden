@@ -15,11 +15,9 @@ type UserSession struct {
 	Tx     []byte `json:"tx"`
 }
 
-// 会话在 redis 里的存活时长. 每次成功请求会续期(见 GetUserSession).
+// 会话在 redis 里的存活时长. 每次成功请求会续期(见 GetUserSession)
 const UserSessionTTL = time.Minute * 20
 
-// 一个用户只有一份会话: 同账号第二处登录会覆盖前一处的 rx/tx,
-// 前一处之后的请求全部解不开 -- 这是刻意的单设备约束, 与网关的顶号一致.
 func userSessionKey(userID uint32) string {
 	return fmt.Sprintf("USER_SESSION_%d", userID)
 }
@@ -33,8 +31,17 @@ func (this_ *UserSession) UpdateToRedis() error {
 	return mid.RedisSetEx(userSessionKey(this_.UserID), this_.String(), UserSessionTTL)
 }
 
-// GetUserSession 取会话并续期. 取不到返回 (nil, nil) --
-// 会话过期是正常状态(用户很久没动), 不是错误, 调用方据此让客户端重登.
+// ---------------------------- 写请求去重 ----------------------------
+
+// 去重记录的存活时长
+const ReqOnceTTL = time.Second * 15
+
+// MarkRequestOnce 用 (用户, 毫秒时间戳) 给一次写请求占位
+func MarkRequestOnce(userID uint32, ms int64) (bool, error) {
+	return mid.RedisSetNx(fmt.Sprintf("REQ_ONCE_%d_%d", userID, ms), 1, ReqOnceTTL)
+}
+
+// GetUserSession 取会话并续期
 func GetUserSession(userID uint32) (*UserSession, error) {
 	key := userSessionKey(userID)
 

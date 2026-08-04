@@ -7,6 +7,7 @@ import (
 type UserBasic struct {
 	ID         int64  `json:"id"`
 	Username   string `json:"username"`
+	Avatar     string `json:"avatar"`
 	Password   string `json:"password"`
 	CreateTime int64  `json:"create_time"`
 	LastLogin  int64  `json:"last_login"`
@@ -14,8 +15,8 @@ type UserBasic struct {
 }
 
 func InsertUserBasic(obj *UserBasic) error {
-	res, err := mid.Mysql.Exec("INSERT INTO db_eva.t_user_basic(f_username,f_password,f_create_time,f_last_login,f_state) VALUES(?,?,?,0,?)",
-		obj.Username, obj.Password, obj.CreateTime, obj.State)
+	res, err := mid.Mysql.Exec("INSERT INTO db_eva.t_user_basic(f_username,f_avatar,f_password,f_create_time,f_last_login,f_state) VALUES(?,?,?,?,?,?)",
+		obj.Username, obj.Avatar, obj.Password, obj.CreateTime, obj.LastLogin, obj.State)
 	if err != nil {
 		return err
 	}
@@ -40,11 +41,11 @@ func CountUserBasicByUsername(username string) (int, error) {
 }
 
 func GetUserBasicByUsername(username string) (*UserBasic, error) {
-	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic where f_username = ?",
+	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic where f_username = ?",
 		username)
 
 	obj := &UserBasic{}
-	err := r.Scan(&obj.ID, &obj.Username, &obj.Password, &obj.CreateTime, &obj.LastLogin, &obj.State)
+	err := r.Scan(&obj.ID, &obj.Username, &obj.Avatar, &obj.Password, &obj.CreateTime, &obj.LastLogin, &obj.State)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,25 @@ func GetUserBasicByUsername(username string) (*UserBasic, error) {
 }
 
 func GetUserBasicList(where string) ([]*UserBasic, error) {
-	return nil, nil
+	rows, err := mid.Mysql.Query("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic " + where)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	dataList := []*UserBasic{}
+	for rows.Next() {
+		obj := &UserBasic{}
+		err = rows.Scan(&obj.ID, &obj.Username, &obj.Avatar, &obj.Password, &obj.CreateTime, &obj.LastLogin, &obj.State)
+		if err != nil {
+			return nil, err
+		}
+
+		dataList = append(dataList, obj)
+	}
+
+	return dataList, nil
 }
 
 func UpdateUserBasic(obj *UserBasic) error {
@@ -63,6 +82,11 @@ func UpdateUserBasic(obj *UserBasic) error {
 	}
 
 	changed := false
+
+	if len(obj.Avatar) > 0 && obj.Avatar != raw.Avatar {
+		changed = true
+		raw.Avatar = obj.Avatar
+	}
 
 	if len(obj.Password) == 64 && obj.Password != raw.Password {
 		changed = true

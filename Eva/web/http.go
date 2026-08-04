@@ -12,12 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type HttpRequest struct {
+type httpRequest struct {
 	UserID uint32 `json:"user_id"`
 	Data   string `json:"data"`
 }
 
-type HttpResponse struct {
+type httpResponse struct {
 	Code  int32  `json:"code"`
 	Error string `json:"error,omitempty"`
 	Data  any    `json:"data,omitempty"`
@@ -40,28 +40,34 @@ func Response(c *gin.Context, code int32, err string, data ...any) {
 
 	case n == 2:
 		d = data[1]
-		tx = data[0].([]byte)
+
+		key, ok := data[0].([]byte)
+		if !ok {
+			log.Fatal("Response: 两个参数时第一个必须是 tx key")
+		}
+		tx = key
 
 	default:
 		log.Fatal("Response: invalid data count: %d", n)
 	}
 
 	if tx != nil {
-		data, err := Encrypt(tx, d)
-		if err != nil {
-			log.Fatal("Seal failed: %v", err)
+		enc, e := Encrypt(tx, d)
+		if e != nil {
+			log.Fatal("Encrypt failed: %v", e)
 		}
 
-		d = data
+		d = enc
 	}
 
-	c.JSON(http.StatusOK, HttpResponse{
+	c.JSON(http.StatusOK, httpResponse{
 		Code:  code,
 		Error: err,
 		Data:  d,
 	})
 }
 
+// Encrypt 序列化 obj -> base64( nonce(12) || 密文+tag )
 func Encrypt(tx []byte, obj any) (string, error) {
 	plain, err := json.Marshal(obj)
 	if err != nil {
@@ -81,7 +87,7 @@ func Encrypt(tx []byte, obj any) (string, error) {
 	return base64.StdEncoding.EncodeToString(append(nonce, cipher...)), nil
 }
 
-// Open base64( nonce(12) || 密文+tag )
+// Decrypt base64( nonce(12) || 密文+tag )
 func Decrypt(key []byte, b64 string, out any) error {
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
