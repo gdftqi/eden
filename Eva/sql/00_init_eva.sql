@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_basic` (
 
 
 CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_info` (
-    `f_id`          BIGINT      NOT NULL COMMENT '',
-    `f_nickname`    VARCHAR(16) NOT NULL COMMENT '',
-    `f_phone_num`   VARCHAR(16) NOT NULL COMMENT '',
-    `f_create_time` BIGINT      NOT NULL COMMENT '',
+    `f_id`          BIGINT      NOT NULL              COMMENT '',
+    `f_nickname`    VARCHAR(16) NOT NULL              COMMENT '',
+    `f_phone_num`   VARCHAR(16) NULL     DEFAULT NULL COMMENT '',
+    `f_create_time` BIGINT      NOT NULL              COMMENT '',
 
     PRIMARY KEY pk_id(`f_id`),
     UNIQUE KEY uk_phone_num(`f_phone_num`),
@@ -77,11 +77,10 @@ VALUES ('admin', '$2a$10$obW/1/ZuMl4g/dczG.Qqi.5R0yw4LlRolpAnRO6kBoGBO9ZXRUITC',
 ON DUPLICATE KEY UPDATE `f_password` = new.`f_password`, `f_state` = new.`f_state`;
 
 
-INSERT INTO `db_eva`.`t_user_info` (`f_id`, `f_nickname`, `f_phone_num`, `f_create_time`)
+INSERT INTO `db_eva`.`t_user_info` (`f_id`, `f_nickname`, `f_create_time`)
 SELECT * FROM (
     SELECT `f_id`,
            '管理员'          AS `f_nickname`,
-           ''                AS `f_phone_num`,
            UNIX_TIMESTAMP()  AS `f_create_time`
     FROM `db_eva`.`t_user_basic` WHERE `f_username` = 'admin'
 ) AS new

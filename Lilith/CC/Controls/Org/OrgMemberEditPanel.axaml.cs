@@ -6,6 +6,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Threading;
+using CC.Eva;
+using Lilith.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -261,37 +263,44 @@ namespace CC
 
         // ---------------- 提交 ----------------
 
-        private void Save_Click(object? sender, RoutedEventArgs e)
+        private async void Save_Click(object? sender, RoutedEventArgs e)
         {
             var name = (NameBox.Text ?? string.Empty).Trim();
-            if (name.Length == 0)
+            if (name.Length < 5 || name.Length > 16)
             {
                 ShowError("请填写用户名");
                 return;
             }
 
             var pass = PassBox.Text ?? string.Empty;
-            if (pass.Length == 0)
+            if (pass.Length < 8 || pass.Length > 16)
             {
                 ShowError("请填写密码");
                 return;
             }
+            pass = Crypto.Sha256(pass);
 
-            if (pickedDepts.Count == 0)
+            var phoneNum = PhoneBox.Text ?? string.Empty;
+
+            try
             {
-                ShowError("请选择所属部门");
+                await CreateUser.POST(name, pass, string.Format("成员 {0}", Random.Shared.NextInt64(10000)), phoneNum);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
                 return;
             }
 
             ErrorTip.IsVisible = false;
             Saved?.Invoke(new MemberDraft
             {
-                Username    = name,
-                Password    = pass,
-                // 按 allDepts 的顺序输出, 结果与界面上看到的一致
+                Username = name,
+                Password = pass,
                 Departments = allDepts.Where(pickedDepts.Contains).ToList(),
-                Phone       = (PhoneBox.Text ?? string.Empty).Trim(),
+                Phone = phoneNum,
             });
+            Clear();
         }
 
 
@@ -301,14 +310,17 @@ namespace CC
         }
 
 
-        /// <summary>
-        /// 显示一条错误提示.公开出去是为了让宿主也能用 --
-        /// "用户名已存在"这类只有服务端知道的错误要回显在同一个位置.
-        /// </summary>
         public void ShowError(string msg)
         {
             ErrorTip.Text = msg;
             ErrorTip.IsVisible = true;
+        }
+
+
+        private void Clear()
+        {
+            PassBox.Text = NameBox.Text = PhoneBox.Text = "";
+            //DeptPicker.
         }
     }
 }

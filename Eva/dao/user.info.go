@@ -10,8 +10,16 @@ type UserInfo struct {
 }
 
 func InsertUserInfo(obj *UserInfo) error {
-	_, err := mid.Mysql.Exec("INSERT INTO `db_eva`.`t_user_info` (`f_id`, `f_nickname`, `f_phone_num`, `f_create_time`) VALUES (?, ?, ?, ?)",
-		obj.ID, obj.Nickname, obj.PhoneNum, obj.CreateTime)
+	var err error
+
+	if len(obj.PhoneNum) > 0 {
+		_, err = mid.Mysql.Exec("INSERT INTO `db_eva`.`t_user_info` (`f_id`, `f_nickname`, `f_phone_num`, `f_create_time`) VALUES (?, ?, ?, ?)",
+			obj.ID, obj.Nickname, obj.PhoneNum, obj.CreateTime)
+	} else {
+		_, err = mid.Mysql.Exec("INSERT INTO `db_eva`.`t_user_info` (`f_id`, `f_nickname`, `f_create_time`) VALUES (?, ?, ?)",
+			obj.ID, obj.Nickname, obj.CreateTime)
+	}
+
 	return err
 }
 

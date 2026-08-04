@@ -232,6 +232,52 @@ namespace CC
             }
         }
 
+        // ============ 操作结果提示(Toast) ============
+
+        private static readonly Avalonia.Media.Geometry ToastOkGlyph =
+            Avalonia.Media.Geometry.Parse("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z");
+        private static readonly Avalonia.Media.Geometry ToastFailGlyph =
+            Avalonia.Media.Geometry.Parse("M11 7h2v6h-2zm0 8h2v2h-2z");
+
+        private static readonly Avalonia.Media.IBrush ToastOkBg = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#43A047"));
+        private static readonly Avalonia.Media.IBrush ToastFailBg = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E53935"));
+
+        // 与 connStateGen 同样的用意: 连着来两条时, 后一条不该被前一条的定时器收掉
+        private int toastGen;
+
+        /// <summary>
+        /// 顶部弹一条一闪即收的提示.用于"刚才那步成没成"这类事后反馈,
+        /// 不打断操作 -- 需要用户点一下才继续的场合请用 MessageBoxWindow.
+        /// </summary>
+        public void ShowToast(string text, bool ok = true)
+        {
+            int gen = ++toastGen;
+
+            ToastText.Text = text;
+            ToastIcon.Background = ok ? ToastOkBg : ToastFailBg;
+            ToastGlyph.Data = ok ? ToastOkGlyph : ToastFailGlyph;
+
+            ToastBanner.Opacity = 1;
+            ToastBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(0px)");
+
+            AutoHideToast(gen);
+        }
+
+
+        private async void AutoHideToast(int gen)
+        {
+            await Task.Delay(2200);
+
+            // 期间又来了新的一条: 收起交给那一条负责, 这里撒手
+            if (gen != toastGen)
+            {
+                return;
+            }
+
+            ToastBanner.Opacity = 0;
+            ToastBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(-60px)");
+        }
+
         // 服务端 echo 回来(Hydra 主线程回调)
         private void OnPackage(Package pkg)
         {

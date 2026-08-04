@@ -122,15 +122,9 @@
                                   VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
-
-                    <!-- 手机号: 只支持一个.
-                         t_user_info.f_phone_num 是单列且带 UNIQUE, 存不下多个号码 -->
                     <TextBlock Classes="label" Text="手机号"/>
                     <TextBox x:Name="PhoneBox" Classes="field" MaxLength="20" PlaceholderText="选填"/>
-
-                    <!-- 校验提示: 平时不占位 -->
-                    <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935"
-                               Margin="0,14,0,0" IsVisible="False"/>
+                    <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935" Margin="0,14,0,0" IsVisible="False"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
@@ -143,8 +137,6 @@
             </StackPanel>
         </Border>
 
-        <!-- ================= 选部门抽屉: 从右滑入 =================
-             与 OrgEditPanel 的选人抽屉同一套写法(跨全部行 / translateX / 右上角关闭). -->
         <Border Grid.Row="0" Grid.RowSpan="3" x:Name="DeptDrawer"
                 HorizontalAlignment="Right" Width="360"
                 Background="White" BorderBrush="#E4E7EB" BorderThickness="1,0,0,0"
@@ -160,18 +152,15 @@
                 <!-- 抽屉头: 标题 + 右上角关闭 -->
                 <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1" Padding="16,0,8,0">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="选择部门" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="#1E1E1E" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Click="CloseDeptPicker_Click" Width="32" Height="32" Padding="0"
-                                CornerRadius="16" Background="Transparent" VerticalAlignment="Center"
+                        <TextBlock Grid.Column="0" Text="选择部门" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Click="CloseDeptPicker_Click" Width="32" Height="32" Padding="0" CornerRadius="16" Background="Transparent" VerticalAlignment="Center"
                                 ToolTip.Tip="关闭">
                             <Button.Styles>
                                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                                     <Setter Property="Background" Value="#11000000"/>
                                 </Style>
                             </Button.Styles>
-                            <Path Width="12" Height="12" Stroke="#5F6368" StrokeThickness="1.6"
-                                  StrokeLineCap="Round" Data="M1,1 L11,11 M11,1 L1,11"/>
+                            <Path Width="12" Height="12" Stroke="#5F6368" StrokeThickness="1.6" StrokeLineCap="Round" Data="M1,1 L11,11 M11,1 L1,11"/>
                         </Button>
                     </Grid>
                 </Border>
@@ -200,10 +189,7 @@
                                 <Path Fill="#8A9099" Data="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                             </Canvas>
                         </Viewbox>
-                        <TextBox x:Name="DeptSearch" Classes="plain" Grid.Column="1"
-                                 PlaceholderText="搜索部门" Background="Transparent" BorderThickness="0"
-                                 FontSize="13" VerticalContentAlignment="Center" Padding="0,0,10,0"
-                                 TextChanged="DeptSearch_TextChanged"/>
+                        <TextBox x:Name="DeptSearch" Classes="plain" Grid.Column="1" PlaceholderText="搜索部门" Background="Transparent" BorderThickness="0" FontSize="13" VerticalContentAlignment="Center" Padding="0,0,10,0" TextChanged="DeptSearch_TextChanged"/>
                     </Grid>
                 </Border>
 

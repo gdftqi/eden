@@ -13,21 +13,21 @@ import (
 const CREATE_USER = "/create_user"
 
 type createUserReq struct {
+	web.BaseRequest
+
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Nickname string `json:"nickname"`
 	PhoneNum string `json:"phone_num"`
-	Time     int64  `json:"time"`
 }
 
-// 实现 web.Timed: 时间戳在密文里, 由 Bind 统一校验
-func (r *createUserReq) ReqTime() int64 {
-	return r.Time
+type createUserRsp struct {
+	dao.User
 }
 
 func CreateUser(c *gin.Context) {
 	req := createUserReq{}
-	sess, err := web.Bind(c, &req)
+	sess, err := web.BindW(c, &req)
 	if err != nil {
 		web.Response(c, -1, err.Error())
 		return
@@ -40,6 +40,16 @@ func CreateUser(c *gin.Context) {
 
 	if len(req.Password) != 64 {
 		web.Response(c, -1, "密码无效")
+		return
+	}
+
+	if len(req.Nickname) == 0 || len(req.Nickname) > 16 {
+		web.Response(c, -1, "昵称无效")
+		return
+	}
+
+	if len(req.PhoneNum) > 15 {
+		web.Response(c, -1, "手机号无效")
 		return
 	}
 
@@ -91,5 +101,15 @@ func CreateUser(c *gin.Context) {
 	}
 
 	// 响应用会话的 tx 加密; 新建的 user_id 回给客户端
-	web.Response(c, 0, "", sess.Tx, gin.H{"user_id": ub.ID})
+	rsp := createUserRsp{
+		User: dao.User{
+			ID:         ub.ID,
+			Username:   ub.Username,
+			CreateTime: ub.CreateTime,
+			Nickname:   req.Nickname,
+			PhoneNum:   req.PhoneNum,
+			State:      ub.State,
+		},
+	}
+	web.Response(c, 0, "", sess.Tx, &rsp)
 }

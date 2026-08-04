@@ -170,6 +170,19 @@ namespace CC
             {
                 OpenDept(first);
             }
+
+            // 页面已经跳走, 表单里那行提示用户根本来不及看见, 所以结果反馈交给顶部 Toast.
+            // 只跳了第一个部门, 带上总数免得以为其余几个没加上
+            int n = draft.Departments.Count;
+            Toast(n > 1 ? $"已创建 {draft.Username}, 已加入 {n} 个部门" : $"已创建 {draft.Username}");
+        }
+
+
+        // 顶部那条一闪即收的提示归主窗所有, 沿用 MessageBoxWindow.Confirm 的反查写法.
+        // 拿不到主窗就算了 -- 少一条提示而已, 不值得为它中断流程
+        private void Toast(string text, bool ok = true)
+        {
+            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(text, ok);
         }
 
 

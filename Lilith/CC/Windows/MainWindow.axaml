@@ -199,6 +199,38 @@
                 </Ellipse>
             </Grid>
         </Border>
+
+        <!-- 操作结果提示(Toast).与左下那条 ConnBanner 刻意错开位置和方向:
+             那条讲的是"连接状态"(左下, 横向滑入, 可常驻), 这条讲的是"刚才那步成没成"
+             (顶部居中, 纵向落下, 一闪即收).两者同时出现时不会叠在一起, 也不会被看成同一个东西.
+
+             不用 IsVisible 切换, 而是常驻 + 靠 Opacity/位移进出: 元素一直在树里,
+             过渡才有起点; 否则同一帧里既显示又改变换, 会直接跳出来而不是滑出来.
+             IsHitTestVisible=False, 所以平时透明地待着不挡任何点击. -->
+        <Border x:Name="ToastBanner" HorizontalAlignment="Center" VerticalAlignment="Top"
+                Margin="0,50,0,0" Height="38" Padding="16,0"
+                Background="White" CornerRadius="19" BoxShadow="0 2 12 0 #28000000"
+                IsHitTestVisible="False" Opacity="0" RenderTransform="translateY(-60px)">
+            <Border.Transitions>
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.24"/>
+                </Transitions>
+            </Border.Transitions>
+            <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                <Border x:Name="ToastIcon" Width="18" Height="18" CornerRadius="9" Background="#43A047"
+                        VerticalAlignment="Center">
+                    <!-- Material 图标是 24x24 坐标系, 必须 Viewbox+Canvas 缩放 -->
+                    <Viewbox Width="12" Height="12">
+                        <Canvas Width="24" Height="24">
+                            <Path x:Name="ToastGlyph" Fill="White"
+                                  Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                <TextBlock x:Name="ToastText" FontSize="13" Foreground="#222222" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
     </Grid>
     </Border>
 </Window>

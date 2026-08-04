@@ -8,6 +8,40 @@ using Lilith.Utils;
 
 namespace Lilith.Core
 {
+    public class HttpBaseRequest
+    {
+        [JsonProperty("user_id", NullValueHandling = NullValueHandling.Ignore)]
+        public Int64? UserID;
+
+        [JsonProperty("time", NullValueHandling = NullValueHandling.Ignore)]
+        public Int64? Time;
+
+        public HttpBaseRequest()
+        {
+            UserID = HttpSession.Instance.UserID!;
+            Time = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        }
+
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+    }
+
+    public class HttpReq
+    {
+        [JsonProperty("user_id", NullValueHandling = NullValueHandling.Ignore)]
+        public Int64? UserID;
+
+        [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Data;
+
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+    }
+
     public class HttpResp
     {
         [JsonProperty("code")]
@@ -39,6 +73,9 @@ namespace Lilith.Core
         public byte[] SK { get { return sk!; } }
         public byte[] Tx { get { return tx!; } }
         public byte[] Rx { get { return rx!; } }
+        public bool Valid { get { return tx != null && tx != null; } }
+
+        public Int64? UserID { get; set; }
 
 
         public void SetBaseUrl(string baseUrl)
@@ -112,7 +149,7 @@ namespace Lilith.Core
         }
 
 
-        public string Seal(object obj)
+        public string Encrypt(object obj)
         {// 密封, 加密 + 防篡改(认证)
             if (tx == null)
             {
@@ -131,7 +168,7 @@ namespace Lilith.Core
         }
 
         
-        public T Open<T>(string b64)
+        public T Decrypt<T>(string b64)
         {// base64( nonce(12) || 密文+tag )
             if (rx == null)
             {
@@ -147,7 +184,7 @@ namespace Lilith.Core
             var nonce = new byte[Crypto.AEAD_NONCE_LEN];
             Buffer.BlockCopy(data, 0, nonce, 0, nonce.Length);
             int clen = data.Length - nonce.Length;
-            var plain = new byte[clen];   // 明文 ≤ 密文长
+            var plain = new byte[clen];
             int dlen = Crypto.Decrypt(rx, nonce, data, nonce.Length, clen, plain, 0);
             if (dlen < 0)
             {
@@ -159,18 +196,31 @@ namespace Lilith.Core
             {
                 throw new InvalidOperationException("反序列化失败");
             }
+
             return obj;
         }
 
 
-        public async Task<TRsp> PostSecureAsync<TRsp>(string url, object req, CancellationToken cancellationToken = default)
+        public async Task<TRsp> PostSecureAsync<TRsp>(string url, object req, bool encrypt = false, CancellationToken cancellationToken = default)
         {// 加解密版 POST
-            var rsp = await PostAynsc(url, req, cancellationToken);
+            object request = req;
+
+            if (encrypt && UserID.HasValue)
+            {
+                request = new HttpReq
+                {
+                    UserID = UserID.Value,
+                    Data = Encrypt(req),
+                };
+            }
+
+            var rsp = await PostAynsc(url, request, cancellationToken);
             if (rsp.Code != 0 || rsp.Data == null)
             {
                 throw new Exception(rsp.Error ?? "request failed");
             }
-            return Open<TRsp>(rsp.Data);
+
+            return Decrypt<TRsp>(rsp.Data);
         }
 
         private HttpClient hc;

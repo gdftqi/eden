@@ -68,7 +68,7 @@ namespace Lilith.Core.Eva
             {
                 HttpPk = Crypto.Base64Encode(HttpSession.Instance.PK),
                 KcpPk = Crypto.Base64Encode(KcpSession.Instance.PK),
-                Info = HttpSession.Instance.Seal(info),
+                Info = HttpSession.Instance.Encrypt(info),
             };
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
@@ -80,6 +80,8 @@ namespace Lilith.Core.Eva
                 .SetGatewayID(rsp.HostID!.Value)
                 .SetMacKey(rsp.MacKey!)
                 .SetAccessToken(rsp.AccessToken!);
+
+            HttpSession.Instance.UserID = rsp.UserID!.Value;
 
             return 0;
         }
