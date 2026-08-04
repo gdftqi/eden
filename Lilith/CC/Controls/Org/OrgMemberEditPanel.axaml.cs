@@ -14,30 +14,11 @@ using System.Linq;
 
 namespace CC
 {
-    /// <summary>
-    /// 新建成员的表单内容.字段先按界面需要定, 等 Eva 的注册接口出来再对齐.
-    /// </summary>
-    public sealed class MemberDraft
-    {
-        public string Username { get; init; } = string.Empty;
-        public string Password { get; init; } = string.Empty;
-
-        /// <summary>所属部门.一个人可以在多个部门里, 所以是列表不是单值.</summary>
-        public IReadOnlyList<string> Departments { get; init; } = Array.Empty<string>();
-
-        /// <summary>手机号. 只支持一个 -- t_user_info.f_phone_num 是单列且带 UNIQUE.</summary>
-        public string Phone { get; init; } = string.Empty;
-    }
-
-
-    // 创建成员表单: 用户名 / 密码 / 所属部门 / 多个手机号.
-    // 与 OrgEditPanel 同样的分工: 只管收集与校验, 存到哪去由宿主(OrgTab)决定.
+    // 创建成员表单: 用户名 / 密码 / 所属部门 / 手机号.
+    // 校验、发请求、结果提示都在本控件里闭环, 不往宿主抛.
     public partial class OrgMemberEditPanel : UserControl
     {
-        // 点"确定"且校验通过时触发
-        public event Action<MemberDraft>? Saved;
-
-        // 点"取消"时触发
+        // 点"取消"时触发: 关掉本页之后显示什么, 是宿主的事
         public event Action? Cancelled;
 
         // 抽屉宽度, 必须与 XAML 里 DeptDrawer 的 Width 一致(关闭时要正好平移出右边界)
@@ -81,15 +62,12 @@ namespace CC
         {
             NameBox.Text = string.Empty;
             PassBox.Text = string.Empty;
-            ErrorTip.IsVisible = false;
-
             PhoneBox.Text = string.Empty;
 
             pickedDepts.Clear();
             DeptSearch.Text = string.Empty;
             BuildDeptList();
             ApplyDeptSummary();
-            HideDeptDrawerNow();
 
             NameBox.Focus();
         }
@@ -246,14 +224,6 @@ namespace CC
         }
 
 
-        // 不带动画地收起, 用于 Reset()
-        private void HideDeptDrawerNow()
-        {
-            DeptDrawer.RenderTransform = TransformOperations.Parse($"translateX({DRAWER_W}px)");
-            DeptDrawer.IsVisible = false;
-        }
-
-
         // ---------------- 提交 ----------------
 
         private async void Save_Click(object? sender, RoutedEventArgs e)
@@ -261,14 +231,14 @@ namespace CC
             var name = (NameBox.Text ?? string.Empty).Trim();
             if (name.Length < 5 || name.Length > 16)
             {
-                ShowError("请填写用户名");
+                Tips.Error("请填写用户名");
                 return;
             }
 
             var pass = PassBox.Text ?? string.Empty;
             if (pass.Length < 8 || pass.Length > 16)
             {
-                ShowError("请填写密码");
+                Tips.Error("请填写密码");
                 return;
             }
             pass = Crypto.Sha256(pass);
@@ -281,18 +251,11 @@ namespace CC
             }
             catch (Exception ex)
             {
-                ShowError(ex.Message);
+                Tips.Error(ex.Message);
                 return;
             }
 
-            ErrorTip.IsVisible = false;
-            Saved?.Invoke(new MemberDraft
-            {
-                Username = name,
-                Password = pass,
-                Departments = allDepts.Where(pickedDepts.Contains).ToList(),
-                Phone = phoneNum,
-            });
+            Tips.Success("添加成员成功");
             Reset();
         }
 
@@ -300,13 +263,6 @@ namespace CC
         private void Cancel_Click(object? sender, RoutedEventArgs e)
         {
             Cancelled?.Invoke();
-        }
-
-
-        public void ShowError(string msg)
-        {
-            ErrorTip.Text = msg;
-            ErrorTip.IsVisible = true;
         }
     }
 }

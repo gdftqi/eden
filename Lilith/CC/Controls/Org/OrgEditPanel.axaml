@@ -2,12 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:cc="using:CC"
              x:Class="CC.OrgEditPanel">
-    <!-- 创建部门.版式刻意与 OrgDetailPanel 一致:
-         同样的头部 / 480 居中列 / 大头像 / Border.row 行式成员列表,
-         只是名称从只读文字换成输入框, 底部多一条按钮栏. -->
     <Grid Background="#F9FAFB" RowDefinitions="56,*,64">
         <Grid.Styles>
-            <!-- 列表行: 与 OrgDetailPanel 同一套(高度/内边距/hover 都一致) -->
             <Style Selector="Border.row">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Height" Value="60"/>
@@ -23,32 +19,41 @@
                 <Setter Property="Foreground" Value="#1E1E1E"/>
             </Style>
 
-            <!-- 部门名输入: 居中, 呼应详情页那个居中的大标题 -->
-            <Style Selector="TextBox.name">
+            <Style Selector="TextBox.fld">
                 <Setter Property="Width" Value="320"/>
-                <Setter Property="Height" Value="44"/>
-                <Setter Property="FontSize" Value="18"/>
                 <Setter Property="CornerRadius" Value="8"/>
                 <Setter Property="Background" Value="#EBEEF2"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="12,0"/>
-                <Setter Property="TextAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="HorizontalAlignment" Value="Center"/>
             </Style>
-            <!-- 边框三态: 常态浅灰(始终看得见轮廓) / 悬停变绿 / 聚焦也是绿 -->
-            <Style Selector="TextBox.name /template/ Border#PART_BorderElement">
+            <Style Selector="TextBox.fld /template/ Border#PART_BorderElement">
                 <Setter Property="BorderThickness" Value="1.5"/>
                 <Setter Property="BorderBrush" Value="#DDE1E7"/>
             </Style>
-            <Style Selector="TextBox.name:pointerover /template/ Border#PART_BorderElement">
+            <Style Selector="TextBox.fld:pointerover /template/ Border#PART_BorderElement">
                 <Setter Property="BorderBrush" Value="#43A047"/>
             </Style>
-            <Style Selector="TextBox.name:focus-within /template/ Border#PART_BorderElement">
+            <Style Selector="TextBox.fld:focus-within /template/ Border#PART_BorderElement">
                 <Setter Property="BorderBrush" Value="#43A047"/>
             </Style>
-            <Style Selector="TextBox.name:focus-within">
+            <Style Selector="TextBox.fld:focus-within">
                 <Setter Property="Background" Value="White"/>
+            </Style>
+
+            <Style Selector="TextBox.name">
+                <Setter Property="Height" Value="44"/>
+                <Setter Property="FontSize" Value="18"/>
+                <Setter Property="Padding" Value="12,0"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+
+            <Style Selector="TextBox.desc">
+                <Setter Property="MinHeight" Value="38"/>
+                <Setter Property="MaxHeight" Value="92"/>
+                <Setter Property="FontSize" Value="13.5"/>
+                <Setter Property="Padding" Value="12,9"/>
+                <Setter Property="VerticalContentAlignment" Value="Top"/>
             </Style>
 
             <Style Selector="Button.primary">
@@ -84,7 +89,6 @@
             </Style>
         </Grid.Styles>
 
-        <!-- 头部: 与详情页同款 -->
         <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1" Padding="24,0">
             <TextBlock Text="创建部门" FontSize="16" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
         </Border>
@@ -92,7 +96,6 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Width="480" HorizontalAlignment="Center" Margin="0,28,0,32">
 
-                <!-- 大头像: 与详情页同尺寸同配色 -->
                 <Border Width="128" Height="128" CornerRadius="64" Background="#DCE9FB" HorizontalAlignment="Center">
                     <Viewbox Width="60" Height="60">
                         <Canvas Width="24" Height="24">
@@ -101,20 +104,11 @@
                     </Viewbox>
                 </Border>
 
-                <!-- 部门名称: 详情页这个位置是居中的大标题, 这里换成居中输入框 -->
-                <TextBox x:Name="NameBox" Classes="name" Margin="0,20,0,0"
-                         MaxLength="32" PlaceholderText="部门名称"/>
-
-                <!-- 校验提示: 平时不占位 -->
-                <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935"
-                           HorizontalAlignment="Center" Margin="0,8,0,0" IsVisible="False"/>
+                <TextBox x:Name="NameBox" Classes="fld name" Margin="0,20,0,0" MaxLength="32" PlaceholderText="部门名称"/>
+                <TextBox x:Name="DescBox" Classes="fld desc" Margin="0,10,0,0" MaxLength="200" TextWrapping="Wrap" AcceptsReturn="False" PlaceholderText="部门描述(选填)"/>
 
                 <Border Height="1" Background="#E8EAED" Margin="0,24,0,0"/>
-
-                <!-- 成员区: 结构与详情页一致(标题 + 添加成员行 + 成员行) -->
                 <TextBlock x:Name="MemberHeader" FontSize="13" Foreground="#8A9099" Margin="14,18,0,6"/>
-
-                <!-- 添加成员(绿圆), 点它展开/收起联系人勾选列表 -->
                 <Border Classes="row" PointerPressed="TogglePicker_PointerPressed">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#43A047" Margin="0,0,14,0">
@@ -125,17 +119,9 @@
                             </Viewbox>
                         </Border>
                         <TextBlock Grid.Column="1" Classes="rowTitle" Text="添加成员" VerticalAlignment="Center"/>
-                        <!-- 右向箭头: 提示"点开会从右边推出一个面板", 不是就地展开 -->
-                        <Path Grid.Column="2" Width="14" Height="14"
-                              Stroke="#999" StrokeThickness="1.8" Fill="Transparent"
-                              StrokeLineCap="Round" StrokeJoin="Round" Data="M5,3 L9,7 L5,11"
-                              VerticalAlignment="Center"/>
+                        <Path Grid.Column="2" Width="14" Height="14" Stroke="#999" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" StrokeJoin="Round" Data="M5,3 L9,7 L5,11" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
-
-                <!-- 已选成员列在这里; 选人的列表不在这一列, 见下面的右侧抽屉 -->
-
-                <!-- 已选成员(行式, 与详情页一致) -->
                 <StackPanel x:Name="MemberList"/>
 
             </StackPanel>
@@ -149,8 +135,6 @@
             </StackPanel>
         </Border>
 
-        <!-- 选人抽屉: 从右滑入, 盖在整个面板上.
-             跨全部行, 关闭时整块平移到右边界之外; 实现见 ContactPickerDrawer -->
         <cc:ContactPickerDrawer x:Name="Picker" Grid.Row="0" Grid.RowSpan="3"/>
 
     </Grid>

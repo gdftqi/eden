@@ -124,7 +124,6 @@
                     </Border>
                     <TextBlock Classes="label" Text="手机号"/>
                     <TextBox x:Name="PhoneBox" Classes="field" MaxLength="20" PlaceholderText="选填"/>
-                    <TextBlock x:Name="ErrorTip" Text="" FontSize="12" Foreground="#E53935" Margin="0,14,0,0" IsVisible="False"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

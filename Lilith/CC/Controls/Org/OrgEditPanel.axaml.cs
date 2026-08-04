@@ -4,27 +4,22 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using CC.Eva;
 using CC.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace CC
 {
-    // 创建部门表单: 部门名称 + 分割线 + 添加人员(从右侧抽屉里勾选).
-    // 版式与 OrgDetailPanel 保持一致, 成员行的构建方式也刻意与那边相同 --
-    // 两个面板前后脚出现在同一个位置, 长得不一样会很跳.
-    // 与 OrgListPanel 同样的分工: 本控件只管收集与校验, 存到哪去由宿主(OrgTab)决定.
+    // 创建部门表单: 部门名称 / 描述 / 成员.
+    // 校验、发请求、结果提示都在本控件里闭环, 不往宿主抛.
     public partial class OrgEditPanel : UserControl
     {
-        // 点"确定"且校验通过时触发: (部门名称, 成员昵称列表)
-        public event Action<string, IReadOnlyList<string>>? Saved;
-
-        // 点"取消"时触发
+        // 点"取消"时触发: 关掉本页之后显示什么, 是宿主的事
         public event Action? Cancelled;
 
-        // 已勾选的成员(按昵称去重).这是待提交的草稿, 抽屉只是选人的界面.
-        // 以后接服务端换成 uid.
         private readonly HashSet<string> selected = new();
 
         public OrgEditPanel()
@@ -42,7 +37,7 @@ namespace CC
         public void Reset()
         {
             NameBox.Text = string.Empty;
-            ErrorTip.IsVisible = false;
+            DescBox.Text = string.Empty;
 
             selected.Clear();
             Picker.SetChecked(selected);
@@ -77,7 +72,6 @@ namespace CC
         }
 
 
-        // 在下面的已选列表里点叉移除.抽屉那边的勾要跟着灭, 否则两处对不上
         private void RemoveMember(string nickname)
         {
             selected.Remove(nickname);
@@ -86,9 +80,6 @@ namespace CC
         }
 
 
-        // ---------------- 已选成员(行式, 与 OrgDetailPanel 一致) ----------------
-
-        // 全量重建.成员通常只有几个, 比增量维护简单且不会错位.
         private void RefreshMembers()
         {
             MemberList.Children.Clear();
@@ -103,7 +94,6 @@ namespace CC
 
         private Control BuildMemberRow(string nickname)
         {
-            // 签名从联系人表里查; 查不到就留空, 不编造内容
             var sign = ContactSource.All.FirstOrDefault(c => c.Nickname == nickname)?.Sign ?? string.Empty;
 
             var avatar = new Border
@@ -136,7 +126,6 @@ namespace CC
                 });
             }
 
-            // 右侧一个"移除"的叉, 不用滚回勾选列表里找
             var remove = new Avalonia.Controls.Shapes.Path
             {
                 Width = 12,
@@ -157,43 +146,44 @@ namespace CC
             grid.Children.Add(remove);
 
             var row = new Border { Child = grid };
-            row.Classes.Add("row");   // 复用 XAML 里 Border.row 的高度/内边距/hover
+            row.Classes.Add("row");
             ToolTip.SetTip(row, "点击移除");
             row.PointerPressed += (_, _) => RemoveMember(nickname);
             return row;
         }
 
 
-        // ---------------- 提交 ----------------
-
-        private void Save_Click(object? sender, RoutedEventArgs e)
+        private async void Save_Click(object? sender, RoutedEventArgs e)
         {
             var name = (NameBox.Text ?? string.Empty).Trim();
             if (name.Length == 0)
             {
-                ShowError("请填写部门名称");
+                Tips.Error("请填写部门名称");
                 return;
             }
 
-            ErrorTip.IsVisible = false;
-            Saved?.Invoke(name, selected.ToList());
+            // 描述选填, 不做校验; Trim 后为空就是"没填"
+            var desc = (DescBox.Text ?? string.Empty).Trim();
+
+            // TODO 获取 UserList
+            try
+            {
+                await CreateDepart.POST(name, desc, null);
+            }
+            catch (Exception ex)
+            {
+                Tips.Error(ex.Message);
+                return;
+            }
+
+            Tips.Success("添加部门成功");
+            Reset();
         }
 
 
         private void Cancel_Click(object? sender, RoutedEventArgs e)
         {
             Cancelled?.Invoke();
-        }
-
-
-        /// <summary>
-        /// 显示一条错误提示.公开出去是为了让宿主也能用 --
-        /// 以后接服务端时, "部门已存在"这类只有服务端知道的错误要回显在同一个位置.
-        /// </summary>
-        public void ShowError(string msg)
-        {
-            ErrorTip.Text = msg;
-            ErrorTip.IsVisible = true;
         }
     }
 }

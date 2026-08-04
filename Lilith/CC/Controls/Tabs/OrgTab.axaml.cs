@@ -18,11 +18,9 @@ namespace CC
             OrgPanel.AddOrgRequested += OnAddOrg;
             ChatView.SendRequested += t => SendRequested?.Invoke(t);
 
-            OrgEditView.Saved += OnDeptCreated;
             OrgEditView.Cancelled += ShowEmptyState;
 
             OrgPanel.AddEmployeeRequested += OnAddEmployee;
-            MemberEditView.Saved += OnMemberCreated;
             MemberEditView.Cancelled += ShowEmptyState;
 
             ChatView.DetailRequested += ShowDetail;
@@ -98,91 +96,28 @@ namespace CC
             }
         }
 
-
-        // 详情里点搜索: 搜本部门的消息
         private void OpenSearch(OrgItem item)
         {
             SearchView.Show(item.DeptName ?? string.Empty);
             ShowOnly(SearchView);
         }
 
-        // 服务端来的消息进当前群聊(MainWindow 转发过来)
         public void AddText(bool mine, string text, string time)
         {
             ChatView.AddText(mine, text, time);
         }
 
-        // 点了左侧"添加部门": 右侧切成创建界面
         private void OnAddOrg()
         {
-            OrgEditView.Reset();   // 清掉上次的残留
+            OrgEditView.Reset();
             ShowOnly(OrgEditView);
         }
 
-
-        // 创建界面提交
-        private void OnDeptCreated(string name, IReadOnlyList<string> members)
-        {
-            // TODO: 服务端还没有组织架构接口, 先只加到本地列表.
-            // 接上之后这里改成: 发请求 -> 成功再 AddDept, 失败调 OrgEditView.ShowError(...)
-            var item = OrgPanel.AddDept(name, string.Empty, members);
-
-            // 建完直接进这个部门的群聊, 省得再点一次
-            OpenDept(item);
-        }
-
-
-        // 点了左侧"创建成员": 右侧切成创建成员界面
         private void OnAddEmployee()
         {
-            // 部门下拉的选项来自左侧列表 -- 部门归 OrgListPanel 所有, 表单不自己去拿
             MemberEditView.SetDepartments(OrgPanel.DeptNames());
             MemberEditView.Reset();
             ShowOnly(MemberEditView);
-        }
-
-
-        private void OnMemberCreated(MemberDraft draft)
-        {
-            // TODO: 服务端还没有创建用户的接口(Eva 那边), 现在只把人挂到所选的各个部门里.
-            // 接上之后改成: 发请求 -> 成功再落地, 失败调 MemberEditView.ShowError(...)
-            OrgItem? first = null;
-
-            foreach (var name in draft.Departments)
-            {
-                var dept = OrgPanel.FindDept(name);
-                if (dept == null)
-                {
-                    MemberEditView.ShowError($"找不到部门: {name}");
-                    return;
-                }
-
-                if (!dept.Members.Contains(draft.Username))
-                {
-                    dept.Members.Add(draft.Username);
-                }
-
-                first ??= dept;
-            }
-
-            // 建完跳进第一个部门看效果
-            if (first != null)
-            {
-                OpenDept(first);
-            }
-
-            // 页面已经跳走, 表单里那行提示用户根本来不及看见, 所以结果反馈交给顶部 Toast.
-            // 只跳了第一个部门, 带上总数免得以为其余几个没加上
-            int n = draft.Departments.Count;
-            Toast(n > 1 ? $"已创建 {draft.Username}, 已加入 {n} 个部门" : $"已创建 {draft.Username}");
-        }
-
-
-        // 顶部那条一闪即收的提示归主窗所有, 沿用 MessageBoxWindow.Confirm 的反查写法.
-        // 拿不到主窗就算了 -- 少一条提示而已, 不值得为它中断流程
-        private void Toast(string text, bool ok = true)
-        {
-            (TopLevel.GetTopLevel(this) as MainWindow)?.ShowToast(text, ok);
         }
 
 

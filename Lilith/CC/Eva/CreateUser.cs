@@ -1,4 +1,4 @@
-﻿using CC.Model;
+using CC.Model;
 using Lilith.Core;
 using Newtonsoft.Json;
 using System;
@@ -25,11 +25,6 @@ namespace CC.Eva
         }
 
 
-        class Response
-        {
-
-        }
-
         public static async Task<User> POST(string username, string password, string nickname, string phoneNum)
         {
             if (!HttpSession.Instance.Valid)
@@ -46,7 +41,7 @@ namespace CC.Eva
             };
 
             var sw = Stopwatch.StartNew();
-            return await HttpSession.Instance.PostSecureAsync<User>("/create_user", req, true); 
+            return await HttpSession.Instance.PostSecureAsync<User>("/create_user", req, true);
         }
     }
 }

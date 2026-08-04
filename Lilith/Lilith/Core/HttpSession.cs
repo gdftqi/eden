@@ -73,7 +73,7 @@ namespace Lilith.Core
         public byte[] SK { get { return sk!; } }
         public byte[] Tx { get { return tx!; } }
         public byte[] Rx { get { return rx!; } }
-        public bool Valid { get { return tx != null && tx != null; } }
+        public bool Valid { get { return tx != null && rx != null && UserID.HasValue; } }
 
         public Int64? UserID { get; set; }
 
