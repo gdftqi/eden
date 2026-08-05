@@ -96,13 +96,45 @@
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Width="480" HorizontalAlignment="Center" Margin="0,28,0,32">
 
-                <Border Width="128" Height="128" CornerRadius="64" Background="#DCE9FB" HorizontalAlignment="Center">
-                    <Viewbox Width="60" Height="60">
-                        <Canvas Width="24" Height="24">
-                            <Path Fill="#1A73E8" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
-                        </Canvas>
-                    </Viewbox>
-                </Border>
+                <Panel Classes="avatar" Width="128" Height="128" HorizontalAlignment="Center"
+                       Background="Transparent" Cursor="Hand"
+                       PointerPressed="PickAvatar_PointerPressed">
+                    <Panel.Styles>
+                        <Style Selector="Panel.avatar Border#AvatarMask">
+                            <Setter Property="Opacity" Value="0"/>
+                        </Style>
+                        <Style Selector="Panel.avatar:pointerover Border#AvatarMask">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                        <Style Selector="Border#AvatarMask">
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                    </Panel.Styles>
+
+                    <Border CornerRadius="64" ClipToBounds="True" Background="#DCE9FB">
+                        <Panel>
+                            <Viewbox x:Name="AvatarIcon" Width="60" Height="60">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#1A73E8" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+                                </Canvas>
+                            </Viewbox>
+
+                            <Image x:Name="AvatarImage" Stretch="UniformToFill" IsVisible="False"/>
+
+                            <Border x:Name="AvatarMask" Height="36" VerticalAlignment="Bottom" Background="#73000000">
+                                <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Fill="White" Data="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8.2c-1.77 0-3.2 1.43-3.2 3.2s1.43 3.2 3.2 3.2 3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2z"/>
+                                    </Canvas>
+                                </Viewbox>
+                            </Border>
+                        </Panel>
+                    </Border>
+                </Panel>
 
                 <TextBox x:Name="NameBox" Classes="fld name" Margin="0,20,0,0" MaxLength="32" PlaceholderText="部门名称"/>
                 <TextBox x:Name="DescBox" Classes="fld desc" Margin="0,10,0,0" MaxLength="200" TextWrapping="Wrap" AcceptsReturn="False" PlaceholderText="部门描述(选填)"/>

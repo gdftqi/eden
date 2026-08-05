@@ -4,12 +4,13 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using CC.Eva;
 using CC.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace CC
 {
@@ -31,6 +32,7 @@ namespace CC
         {
             NameBox.Text = string.Empty;
             DescBox.Text = string.Empty;
+            ClearAvatar();
 
             selected.Clear();
             Picker.SetChecked(selected);
@@ -42,6 +44,64 @@ namespace CC
 
 
         // ---------------- 选人抽屉 ----------------
+
+        // 选中的头像文件.发请求时要先上传拿到 url
+        private string? avatarPath;
+
+
+        private async void PickAvatar_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            var top = TopLevel.GetTopLevel(this);
+            if (top == null)
+            {
+                return;
+            }
+
+            var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "选择部门头像",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("图片")
+                    {
+                        Patterns  = new[] { "*.png", "*.jpg", "*.jpeg" },
+                        MimeTypes = new[] { "image/png", "image/jpeg" },
+                    },
+                },
+            });
+
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await using var stream = await files[0].OpenReadAsync();
+                AvatarImage.Source = new Bitmap(stream);
+            }
+            catch (Exception ex)
+            {
+                Tips.Error($"图片打不开: {ex.Message}");
+                return;
+            }
+
+            AvatarImage.IsVisible = true;
+            AvatarIcon.IsVisible = false;
+            
+            avatarPath = files[0].TryGetLocalPath();
+        }
+
+
+        private void ClearAvatar()
+        {
+            avatarPath = null;
+            AvatarImage.Source = null;
+            AvatarImage.IsVisible = false;
+            AvatarIcon.IsVisible = true;
+        }
+
 
         private void TogglePicker_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
