@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +15,6 @@ import (
 	"github.com/eva/mid"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 const UPLOAD = "/upload"
@@ -161,7 +162,7 @@ func Upload(c *gin.Context) {
 		return
 	}
 
-	url, err := putObject(sess.UserID, ext, kind.Mime, f, fh.Size)
+	url, err := putObject(ext, kind.Mime, f, fh.Size)
 	if err != nil {
 		log.Error("Upload: 存储失败: uid = %d, %v", sess.UserID, err)
 		web.Response(c, -1, "上传失败, 请稍后重试")
@@ -184,14 +185,26 @@ func (this_ *fileKind) match(head []byte) bool {
 	return false
 }
 
-func putObject(userID uint32, ext, mime string, r io.Reader, size int64) (string, error) {
-	uid, err := uuid.NewRandom()
+// putObject 用内容的 sha256 当对象名.
+func putObject(ext, mime string, f io.ReadSeeker, size int64) (string, error) {
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+
+	key := fmt.Sprintf("%s%s", hex.EncodeToString(h.Sum(nil)), ext)
+	ok, err := mid.S3Exists(key)
 	if err != nil {
 		return "", err
 	}
 
-	// 对象名不用客户端给的文件名: 那玩意可以是 "../../etc/passwd", 也可能重名互相覆盖.
-	// ext 已经过白名单, 只可能是那几个安全值
-	key := fmt.Sprintf("%d/%s%s", userID, uid.String(), ext)
-	return mid.S3Put(key, r, size, mime)
+	if ok {
+		return mid.S3Url(key), nil
+	}
+
+	return mid.S3Put(key, f, size, mime)
 }

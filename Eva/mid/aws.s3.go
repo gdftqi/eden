@@ -2,6 +2,7 @@ package mid
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // S3 客户端
@@ -63,6 +65,28 @@ func S3Put(key string, r io.Reader, size int64, contentType string) (string, err
 	}
 
 	return S3Url(key), nil
+}
+
+// S3Exists 对象在不在
+func S3Exists(key string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), S3_TIMEOUT)
+	defer cancel()
+
+	_, err := S3.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s3Conf.Bucket),
+		Key:    aws.String(key),
+	})
+	if err == nil {
+		return true, nil
+	}
+
+	// 没找到是正常结果, 不是错误
+	var nf *types.NotFound
+	if errors.As(err, &nf) {
+		return false, nil
+	}
+
+	return false, err
 }
 
 // S3Del 删除一个对象
