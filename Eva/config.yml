@@ -15,6 +15,12 @@ mysql:
   password: "aa113311.."
   timeout: 15
 
+s3:
+  access_key: ""
+  secret_key: ""
+  bucket: ""
+  region: "ap-southeast-1"
+
 id: 1
 host: "0.0.0.0:8080"
 ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="

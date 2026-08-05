@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_info` (
 CREATE TABLE IF NOT EXISTS `db_eva`.`t_department` (
     `f_id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `f_name`        VARCHAR(200) NOT NULL                COMMENT '部门名称',
+    `f_avatar`      VARCHAR(200) NOT NULL DEFAULT ''     COMMENT '部门头像',
     `f_desc`        VARCHAR(200) NOT NULL DEFAULT ''     COMMENT '备注',
     `f_create_time` BIGINT       NOT NULL                COMMENT '创建时间',
     `f_state`       TINYINT      NOT NULL DEFAULT 1      COMMENT '1: 启用; -1: 禁用',

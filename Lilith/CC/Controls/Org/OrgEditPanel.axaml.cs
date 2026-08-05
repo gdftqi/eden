@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -8,10 +8,12 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using CC.Eva;
 using CC.Model;
+using Lilith.Core.Eva;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace CC
 {
@@ -46,8 +48,9 @@ namespace CC
 
         // ---------------- 选人抽屉 ----------------
 
-        // 选中的头像文件.发请求时要先上传拿到 url
-        private string? avatarPath;
+        // 选中的头像文件. 存文件对象而不是路径 --
+        // TryGetLocalPath() 对云盘/虚拟位置会返回 null, 那样头像就白选了
+        private IStorageFile? avatarFile;
 
 
         private async void PickAvatar_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -90,16 +93,28 @@ namespace CC
 
             AvatarImage.IsVisible = true;
             AvatarIcon.IsVisible = false;
-            
-            avatarPath = files[0].TryGetLocalPath();
-            
-            Debug.WriteLine($"{avatarPath}");
+            avatarFile = files[0];
+        }
+
+
+        // 把选中的头像传上去, 返回它在对象存储上的地址; 没选就返回空串
+        private async Task<string> UploadAvatar()
+        {
+            if (avatarFile == null)
+            {
+                return string.Empty;
+            }
+
+            var props = await avatarFile.GetBasicPropertiesAsync();
+
+            await using var stream = await avatarFile.OpenReadAsync();
+            return await Upload.POST(stream, avatarFile.Name, (long)(props.Size ?? 0));
         }
 
 
         private void ClearAvatar()
         {
-            avatarPath = null;
+            avatarFile = null;
             AvatarImage.Source = null;
             AvatarImage.IsVisible = false;
             AvatarIcon.IsVisible = true;
@@ -220,10 +235,25 @@ namespace CC
             // 描述选填, 不做校验; Trim 后为空就是"没填"
             var desc = (DescBox.Text ?? string.Empty).Trim();
 
+            // 头像先传, 失败就整个中止 -- 建完部门再报"头像没传上"的话,
+            // 用户只能回头去改, 不如一开始就不建
+            string avatar;
+            try
+            {
+                avatar = await UploadAvatar();
+                Debug.WriteLine($"{avatar}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"{ex.Message}");
+                Tips.Error($"头像上传失败: {ex.Message}");
+                return;
+            }
+
             // TODO 获取 UserList
             try
             {
-                await CreateDepart.POST(name, "TODO", desc, null);
+                await CreateDepart.POST(name, avatar, desc, null);
             }
             catch (Exception ex)
             {
@@ -234,7 +264,7 @@ namespace CC
             Tips.Success("添加部门成功");
 
             BaseTab.Notify<OrgTab>(new Message(MsgID.DeptCreated,
-                new Department { Name = name, Desc = desc }, this));
+                new Department { Name = name, Desc = desc, Avatar = avatar }, this));
 
             Reset();
         }

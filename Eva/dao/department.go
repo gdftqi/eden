@@ -1,6 +1,10 @@
 package dao
 
-import "github.com/eva/mid"
+import (
+	"time"
+
+	"github.com/eva/mid"
+)
 
 type Department struct {
 	ID     int64  `json:"id"`
@@ -11,8 +15,8 @@ type Department struct {
 }
 
 func InsertDepartment(obj *Department) error {
-	res, err := mid.Mysql.Exec("INSERT INTO `db_eva`.`t_department` (`f_name`, `f_avatar`, `f_desc`, `f_create_time`, `f_state`) VALUES (?, ?, UNIX_TIMESTAMP(), ?)",
-		obj.Name, obj.Avatar, obj.Desc, obj.State)
+	res, err := mid.Mysql.Exec("INSERT INTO `db_eva`.`t_department` (`f_name`, `f_avatar`, `f_desc`, `f_create_time`, `f_state`) VALUES (?,?,?,?,?)",
+		obj.Name, obj.Avatar, obj.Desc, time.Now().Unix(), obj.State)
 	if err != nil {
 		return err
 	}

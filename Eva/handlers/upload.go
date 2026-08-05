@@ -26,14 +26,9 @@ const uploadSlack = 1 << 20
 
 const uploadSupport = "只支持 png/jpg/jpeg/gif/zip/mp4/mp3"
 
-// 一种允许上传的类型.
-// 扩展名 -> (魔数, MIME) 放一张表里: 分成两张迟早会对不上,
-// 那时"名叫 .png 内容是 mp4"就能混进来, 还会被打上 image/png 的 MIME
 type fileKind struct {
 	Mime string
-
-	// 魔数在文件里的偏移. MP4 的前 4 字节是 ftyp box 的长度(随文件变), 真正固定的从第 4 字节起
-	Off int
+	Off  int
 
 	// 任一命中即可
 	Magics [][]byte

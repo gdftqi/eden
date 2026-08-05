@@ -92,34 +92,25 @@ namespace Lilith.Core
         }
 
 
+        public string FullUrl(string url)
+        {// 拼上 baseUrl, 两边的斜杠都容错
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                return url;
+            }
+
+            if (baseUrl.EndsWith("/"))
+            {
+                return url.StartsWith("/") ? baseUrl + url.Substring(1) : baseUrl + url;
+            }
+
+            return url.StartsWith("/") ? baseUrl + url : baseUrl + "/" + url;
+        }
+
+
         public async Task<HttpResp> PostAynsc(string url, object? payload = null, CancellationToken cancellationToken = default)
         {
-            if (!string.IsNullOrEmpty(baseUrl))
-            {
-                if (baseUrl.EndsWith("/"))
-                {
-                    if (url.StartsWith("/"))
-                    {
-                        url = baseUrl + url.Substring(1);
-                    }
-                    else
-                    {
-                        url = baseUrl + url;
-                    }
-
-                }
-                else
-                {
-                    if (url.StartsWith("/"))
-                    {
-                        url = baseUrl + url;
-                    }
-                    else
-                    {
-                        url = baseUrl + "/" + url;
-                    }
-                }
-            }
+            url = FullUrl(url);
 
             string jstr = string.Empty;
             if (payload != null)
@@ -215,6 +206,32 @@ namespace Lilith.Core
             }
 
             var rsp = await PostAynsc(url, request, cancellationToken);
+            if (rsp.Code != 0 || rsp.Data == null)
+            {
+                throw new Exception(rsp.Error ?? "request failed");
+            }
+
+            return Decrypt<TRsp>(rsp.Data);
+        }
+
+
+        public async Task<TRsp> PostFormAsync<TRsp>(string url, MultipartFormDataContent form, CancellationToken cancellationToken = default)
+        {// 表单版 POST, 用于上传文件.
+         // 服务端那边是 multipart, 解不了 JSON 信封, 所以 user_id/data 由调用方放进表单字段
+            HttpResp? rsp;
+
+            using (var response = await hc.PostAsync(FullUrl(url), form, cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+                var body = await response.Content.ReadAsStringAsync();
+
+                rsp = JsonConvert.DeserializeObject<HttpResp>(body);
+                if (rsp == null)
+                {
+                    throw new InvalidOperationException("无法将响应体反序列化为 HttpResp");
+                }
+            }
+
             if (rsp.Code != 0 || rsp.Data == null)
             {
                 throw new Exception(rsp.Error ?? "request failed");
