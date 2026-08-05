@@ -10,6 +10,7 @@ using CC.Eva;
 using CC.Model;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace CC
@@ -91,6 +92,8 @@ namespace CC
             AvatarIcon.IsVisible = false;
             
             avatarPath = files[0].TryGetLocalPath();
+            
+            Debug.WriteLine($"{avatarPath}");
         }
 
 
@@ -109,7 +112,6 @@ namespace CC
         }
 
 
-        // 抽屉里勾/取消了一个人
         private void OnPickerToggled(string nickname, bool on)
         {
             if (on)

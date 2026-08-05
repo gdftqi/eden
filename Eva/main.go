@@ -33,13 +33,22 @@ func main() {
 	}
 	log.Info("初始化 mysql 完成")
 
+	err = mid.InitS3(conf.Instance.S3)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info("初始化 s3 完成")
+
 	gin.SetMode(gin.ReleaseMode)
 	eng := gin.Default()
+
+	// 超过这个大小的 multipart 分片会落临时文件
+	eng.MaxMultipartMemory = 8 << 20
 
 	eng.POST(handlers.CREATE_USER, handlers.CreateUser)
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
 	eng.POST(handlers.REFRESH, handlers.Refresh)
-	eng.POST(handlers.UPLOAD_FILE, handlers.UploadFile)
+	eng.POST(handlers.UPLOAD, handlers.Upload)
 	eng.POST(handlers.CREATE_DEPART, handlers.CreateDepart)
 
 	log.Info("开启服务: %v", conf.Instance.Host)

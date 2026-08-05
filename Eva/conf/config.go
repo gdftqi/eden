@@ -22,6 +22,7 @@ type config struct {
 	Redis        *mid.RedisConfig `yaml:"redis"`       // redis 配置
 	Etcd         *mid.EtcdConfig  `yaml:"etcd"`        // etcd 配置
 	Mysql        *mid.MysqlConfig `yaml:"mysql"`       // mysql 配置
+	S3           *mid.S3Config    `yaml:"s3"`          // 对象存储配置
 	LoginOk      *com.RateRule    `yaml:"login_ok"`
 	LoginFail    *com.RateRule    `yaml:"login_fail"`
 
@@ -90,6 +91,26 @@ func Init(fname string) error {
 
 	if err = tmp.LoginFail.Check("login_fail"); err != nil {
 		return err
+	}
+
+	if tmp.S3 == nil {
+		return errors.New("s3 is invalid")
+	}
+
+	if len(tmp.S3.AccessKey) == 0 {
+		return errors.New("s3.access_key is invalid")
+	}
+
+	if len(tmp.S3.SecretKey) == 0 {
+		return errors.New("s3.secret_key is invalid")
+	}
+
+	if len(tmp.S3.Bucket) == 0 {
+		return errors.New("s3.bucket is invalid")
+	}
+
+	if len(tmp.S3.Region) == 0 {
+		return errors.New("s3.region is invalid")
 	}
 
 	if tmp.Redis == nil {

@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/eva/com"
@@ -41,20 +42,43 @@ func (b *BaseRequest) ReqTime() int64 {
 }
 
 func BindR(c *gin.Context, out any) (*com.UserSession, error) {
-	return bind(c, out, false)
-}
-
-func BindW(c *gin.Context, out any) (*com.UserSession, error) {
-	return bind(c, out, true)
-}
-
-func bind(c *gin.Context, out any, once bool) (*com.UserSession, error) {
 	req := httpRequest{}
 	if err := c.BindJSON(&req); err != nil {
 		log.Error("Bind: 请求格式错误: %v", err)
 		return nil, ErrBadRequest
 	}
 
+	return bind(&req, out, false)
+}
+
+func BindW(c *gin.Context, out any) (*com.UserSession, error) {
+	req := httpRequest{}
+	if err := c.BindJSON(&req); err != nil {
+		log.Error("Bind: 请求格式错误: %v", err)
+		return nil, ErrBadRequest
+	}
+
+	return bind(&req, out, true)
+}
+
+// BindWForm 与 BindW 相同, 只是 user_id/data 从表单字段取.
+// 上传文件是 multipart, BindJSON 解不出来, 但校验那一套要一模一样
+func BindWForm(c *gin.Context, out any) (*com.UserSession, error) {
+	id, err := strconv.ParseUint(c.PostForm("user_id"), 10, 32)
+	if err != nil {
+		log.Error("Bind: user_id 无效: %v", err)
+		return nil, ErrBadRequest
+	}
+
+	req := httpRequest{
+		UserID: uint32(id),
+		Data:   c.PostForm("data"),
+	}
+
+	return bind(&req, out, true)
+}
+
+func bind(req *httpRequest, out any, once bool) (*com.UserSession, error) {
 	if req.UserID == 0 || len(req.Data) == 0 {
 		return nil, ErrBadRequest
 	}
