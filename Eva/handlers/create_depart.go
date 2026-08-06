@@ -37,9 +37,10 @@ func CreateDepart(c *gin.Context) {
 	}
 
 	dept := &dao.Department{
-		Name:  req.Name,
-		Desc:  req.Desc,
-		State: 1,
+		Name:   req.Name,
+		Avatar: req.Avatar,
+		Desc:   req.Desc,
+		State:  1,
 	}
 	err = dao.InsertDepartment(dept)
 	if err != nil {

@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using System;
@@ -28,7 +28,7 @@ namespace CC
         {
             foreach (var c in Model.ContactSource.All)
             {
-                AddContact(Model.ContactSource.Avatar, c.Nickname, c.Sign);
+                AddContact(Avatars.Default, c.Nickname, c.Sign);
             }
         }
 

@@ -1,8 +1,10 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 using CC.Model;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace CC
 {
@@ -94,15 +96,51 @@ namespace CC
             // 群聊行标上 (群): 它和下面的成员行长得一样, 不标看不出这行点开是群聊
             Title = isDept ? $"{Dept!.Name} (群)" : User?.Nickname;
 
-            DeptAvatar.IsVisible = isDept;
-            UserAvatar.IsVisible = !isDept;
-            if (!isDept)
-            {
-                UserAvatarImage.Source = ContactSource.Avatar;
-            }
-
             var tip = isDept ? Dept!.Desc : User?.Username;
             ToolTip.SetTip(Body, string.IsNullOrWhiteSpace(tip) ? null : tip);
+
+            ApplyAvatar(isDept ? Dept!.Avatar : User?.Avatar, isDept);
+        }
+
+
+        private void ApplyAvatar(string? url, bool isDept)
+        {
+            // 成员没设头像就用默认照片; 部门没设就显示楼宇图标
+            var fallback = isDept ? null : Avatars.Default;
+
+            // 已经缓存的先同步铺上, 避免滚动时先闪一下占位再变成图
+            var bmp = Avatars.Cached(url);
+            Show(bmp ?? fallback);
+
+            if (bmp != null || string.IsNullOrEmpty(url))
+            {
+                return;
+            }
+
+            // 下载期间这一行可能已经被 Rebuild 掉或者换了绑定对象,
+            // 回来时要确认还是同一张图才敢往上贴
+            var want = url;
+            _ = Avatars.Load(url).ContinueWith(t =>
+            {
+                if (t.Result != null && CurrentAvatarUrl() == want)
+                {
+                    Show(t.Result);
+                }
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+
+        private string? CurrentAvatarUrl()
+        {
+            return Dept != null ? Dept.Avatar : User?.Avatar;
+        }
+
+
+        private void Show(IImage? image)
+        {
+            PhotoImage.Source = image;
+            PhotoAvatar.IsVisible = image != null;
+            IconAvatar.IsVisible = image == null;
         }
 
         private void ApplyUnread()

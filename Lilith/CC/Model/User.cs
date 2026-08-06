@@ -1,25 +1,25 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CC.Model
 {
     public class User
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
-        public string? ID { get; set; }
+        public Int64? ID { get; set; }
 
-        [JsonProperty("Nickname", NullValueHandling = NullValueHandling.Ignore)]
-        public string? Nickname { get; set; }
-
-        [JsonProperty("PhoneNum", NullValueHandling = NullValueHandling.Ignore)]
-        public string? PhoneNum { get; set; }
+        [JsonProperty("avatar", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Avatar { get; set; }
 
         [JsonProperty("username", NullValueHandling = NullValueHandling.Ignore)]
         public string? Username { get; set; }
+
+        [JsonProperty("nickname", NullValueHandling = NullValueHandling.Ignore)]
+        public string? Nickname { get; set; }
+
+        [JsonProperty("phone_num", NullValueHandling = NullValueHandling.Ignore)]
+        public string? PhoneNum { get; set; }
 
         [JsonProperty("create_time", NullValueHandling = NullValueHandling.Ignore)]
         public Int64? CreateTime { get; set; }
@@ -27,8 +27,8 @@ namespace CC.Model
         [JsonProperty("state", NullValueHandling = NullValueHandling.Ignore)]
         public Int64? State { get; set; }
 
-        [JsonProperty("departments", NullValueHandling = NullValueHandling.Ignore)]
-        public IList<Department>? Departs { get; set; }
+        [JsonProperty("depart_list", NullValueHandling = NullValueHandling.Ignore)]
+        public List<Department>? DepartList { get; set; }
 
         public override string ToString()
         {

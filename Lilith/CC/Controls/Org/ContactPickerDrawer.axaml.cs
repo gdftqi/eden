@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -294,7 +294,7 @@ namespace CC
                 CornerRadius = new CornerRadius(15),
                 ClipToBounds = true,
                 Margin = new Thickness(0, 0, 10, 0),
-                Child = new Image { Source = ContactSource.Avatar, Stretch = Stretch.UniformToFill },
+                Child = new Image { Source = Avatars.Default, Stretch = Stretch.UniformToFill },
             };
 
             var name = new TextBlock

@@ -1,7 +1,4 @@
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace CC.Model
@@ -44,27 +41,10 @@ namespace CC.Model
 
 
     /// <summary>
-    /// 联系人数据源.联系人列表和"创建部门-添加人员"共用这一份 --
-    /// 各写一份示例数据的话, 两个界面早晚对不上.
-    /// 目前是写死的示例, 接服务端后只改这个类.
+    /// 联系人数据源.
     /// </summary>
     public static class ContactSource
     {
-        private static Bitmap? avatar;
-
-        /// <summary>
-        /// 默认头像.Bitmap 解码一次就够, 列表里几十行共用同一个实例.
-        /// </summary>
-        public static IImage Avatar
-        {
-            get
-            {
-                avatar ??= new Bitmap(AssetLoader.Open(new Uri("avares://CC/Resources/unnamed.jpg")));
-                return avatar;
-            }
-        }
-
-
         public static IReadOnlyList<ContactInfo> All { get; } = Build();
 
 

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Lilith.Components;
@@ -18,6 +18,7 @@ namespace CC
         public MainWindow()
         {
             InitializeComponent();
+            Avatar.Source = Avatars.Default;
             TabChat.SendRequested += OnSendText;
             // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
             Hydra.Instance.SetOnStateChanged(OnHydraState).SetOnPackage(OnPackage);

@@ -173,7 +173,7 @@ namespace CC
                 CornerRadius = new CornerRadius(21),
                 ClipToBounds = true,
                 Margin = new Thickness(0, 0, 14, 0),
-                Child = new Image { Source = ContactSource.Avatar, Stretch = Stretch.UniformToFill },
+                Child = new Image { Source = Avatars.Default, Stretch = Stretch.UniformToFill },
             };
 
             var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };

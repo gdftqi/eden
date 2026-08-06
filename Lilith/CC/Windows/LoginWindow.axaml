@@ -98,7 +98,7 @@
                 <!-- 头像 -->
                 <Panel Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,16">
                     <Border CornerRadius="36" ClipToBounds="True">
-                        <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
+                        <Image x:Name="Avatar" Stretch="UniformToFill"/>
                     </Border>
                     <Ellipse Width="72" Height="72" Stroke="#66FFFFFF" StrokeThickness="2"/>
                 </Panel>

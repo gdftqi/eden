@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
@@ -14,6 +14,7 @@ namespace CC
         public LoginWindow(string tip = "")
         {
             InitializeComponent();
+            Avatar.Source = Avatars.Default;
             // 登录窗接管 Hydra 的高层回调, 用 no-op 顶掉可能残留的旧 MainWindow 处理器
             Hydra.Instance
                 .SetOnStateChanged((_, _) => { })

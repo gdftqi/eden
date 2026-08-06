@@ -88,3 +88,16 @@ SELECT * FROM (
     FROM `db_eva`.`t_user_basic` WHERE `f_username` = 'admin'
 ) AS new
 ON DUPLICATE KEY UPDATE `f_nickname` = new.`f_nickname`;
+
+
+CREATE OR REPLACE VIEW `db_eva`.`v_user` AS
+SELECT b.`f_id`          AS `id`,
+       b.`f_avatar`      AS `avatar`,
+       b.`f_username`    AS `username`,
+       i.`f_nickname`    AS `nickname`,
+       i.`f_phone_num`   AS `phone_num`,
+       b.`f_create_time` AS `create_time`,
+       b.`f_last_login`  AS `last_login`,
+       b.`f_state`       AS `state`
+FROM `db_eva`.`t_user_basic` AS b
+LEFT JOIN `db_eva`.`t_user_info` AS i ON b.`f_id` = i.`f_id`;

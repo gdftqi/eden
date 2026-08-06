@@ -12,6 +12,9 @@ type Department struct {
 	Avatar string `json:"avatar"`
 	Desc   string `json:"desc"`
 	State  int64  `json:"state"`
+
+	// 成员 id. 只在 /get_org 里填, 单查部门时是空的
+	UserIDs []int64 `json:"user_ids,omitempty"`
 }
 
 func InsertDepartment(obj *Department) error {
@@ -51,7 +54,7 @@ func GetDepartmentByID(id int64) (*Department, error) {
 }
 
 func GetDepartmentList() ([]*Department, error) {
-	rows, err := mid.Mysql.Query("SELECT `f_id`, `f_name`, `f_avatar`, `f_desc`, `f_state` FROM `db_eva`.`t_department`")
+	rows, err := mid.Mysql.Query("SELECT f_id,f_name,f_avatar,f_desc,f_state FROM db_eva.t_department")
 	if err != nil {
 		return nil, err
 	}

@@ -21,8 +21,8 @@ namespace CC.Model
         [JsonProperty("state", NullValueHandling = NullValueHandling.Ignore)]
         public Int64? State { get; set; }
 
-        [JsonProperty("user_list", NullValueHandling = NullValueHandling.Ignore)]
-        public List<User>? UserList { get; set; }
+        [JsonProperty("user_ids", NullValueHandling = NullValueHandling.Ignore)]
+        public List<Int64>? UserIDs { get; set; }
 
         public override string ToString()
         {

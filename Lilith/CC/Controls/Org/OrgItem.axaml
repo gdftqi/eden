@@ -1,8 +1,10 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.OrgItem"
              x:Name="Root">
-    <Border x:Name="Body" Classes="item" Height="64" Padding="12,0" Focusable="True" FocusAdorner="{x:Null}">
+    <!-- 尺寸与"创建部门/创建成员"那两个按钮对齐:
+         高 38+8*2=54, 文字左边距 14+38+12=64 -->
+    <Border x:Name="Body" Classes="item" Height="54" Padding="14,0" Focusable="True" FocusAdorner="{x:Null}">
         <Border.Styles>
             <Style Selector="Border.item">
                 <Setter Property="Background" Value="Transparent"/>
@@ -18,16 +20,16 @@
             </Style>
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
-            <Panel Grid.Column="0" Width="46" Height="46" Margin="0,0,10,0">
-                <Border x:Name="DeptAvatar" CornerRadius="23" Background="#E4E7EB">
-                    <Viewbox Width="24" Height="24">
+            <Panel Grid.Column="0" Width="38" Height="38" Margin="0,0,12,0">
+                <Border x:Name="IconAvatar" CornerRadius="19" Background="#E4E7EB">
+                    <Viewbox Width="20" Height="20">
                         <Canvas Width="24" Height="24">
                             <Path Fill="#5F6368" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
                         </Canvas>
                     </Viewbox>
                 </Border>
-                <Border x:Name="UserAvatar" CornerRadius="23" ClipToBounds="True" IsVisible="False">
-                    <Image x:Name="UserAvatarImage" Stretch="UniformToFill"/>
+                <Border x:Name="PhotoAvatar" CornerRadius="19" ClipToBounds="True" IsVisible="False">
+                    <Image x:Name="PhotoImage" Stretch="UniformToFill"/>
                 </Border>
             </Panel>
 

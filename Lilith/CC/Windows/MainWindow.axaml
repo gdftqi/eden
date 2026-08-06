@@ -147,7 +147,7 @@
 
                     <!-- 用户头像 -->
                     <Border Width="42" Height="42" CornerRadius="21" ClipToBounds="True">
-                        <Image Source="/Resources/unnamed.jpg" Stretch="UniformToFill"/>
+                        <Image x:Name="Avatar" Stretch="UniformToFill"/>
                     </Border>
                 </StackPanel>
                 </Grid>

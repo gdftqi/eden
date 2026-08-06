@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System;
 
@@ -22,8 +22,7 @@ namespace CC
         // 临时: 往会话列表塞几条示例数据(以后换成真实数据)
         private void LoadSampleChats()
         {
-            var avatar = new Avalonia.Media.Imaging.Bitmap(
-                Avalonia.Platform.AssetLoader.Open(new Uri("avares://CC/Resources/unnamed.jpg")));
+            var avatar = Avatars.Default;
 
             (string nick, string msg, string time, int unread)[] data =
             {

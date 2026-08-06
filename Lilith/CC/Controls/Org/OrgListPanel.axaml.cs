@@ -27,25 +27,14 @@ namespace CC
             AllMembersGroup.Bind(new Department { ID = AllMembersID, Name = "所有成员" },
                                  null, hasGroupChat: false);
             Hook(AllMembersGroup);
-
-            LoadSampleDepts();
         }
 
-        // 临时: 示例部门(以后换成拉服务端)
-        private void LoadSampleDepts()
-        {
-            (long id, string name, string[] members)[] data =
-            {
-                (1, "研发部", new[] { "美女1", "联系人 1", "联系人 2" }),
-                (2, "市场部", new[] { "美女2", "美女3" }),
-                (3, "行政部", new[] { "联系人 3" }),
-            };
 
-            foreach (var (id, name, members) in data)
-            {
-                AddDept(new Department { ID = id, Name = name },
-                        members.Select(n => new User { Nickname = n }));
-            }
+        // 清空部门列表. 重新拉服务端数据前先调它 --
+        // 常驻的"所有成员"在 OrgList 外面, 不受影响
+        public void ClearDepts()
+        {
+            OrgList.Children.Clear();
         }
 
 
