@@ -1,9 +1,11 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Lilith.Utils;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -26,8 +28,7 @@ namespace CC
         private static IImage? def;
 
         /// <summary>
-        /// 默认头像: 灰底圆 + 人形. 画出来的, 不依赖任何资源文件 --
-        /// 打包漏了一张图就整个界面起不来, 不值当
+        /// 默认头像
         /// </summary>
         public static IImage Default
         {
@@ -38,8 +39,6 @@ namespace CC
                     return def;
                 }
 
-                // Material 的人形在 24x24 里占了 4~20, 直接画会顶到圆边.
-                // 缩到 0.66 再居中, 四周留出约 6.7 的空
                 var person = Geometry.Parse("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z");
                 person.Transform = new MatrixTransform(
                     Matrix.CreateScale(0.66, 0.66) * Matrix.CreateTranslation(4.08, 4.08));
@@ -63,10 +62,7 @@ namespace CC
 
 
         /// <summary>
-        /// 把头像挂到一个 Image 上: 先铺默认图, 有 url 就异步换成真的.
-        ///
-        /// 下载期间这个 Image 可能已经被换去显示别人了, 所以用 Tag 记住"当前想要哪张",
-        /// 回来时对不上就不贴 -- 否则快速滚动/切换会看到张冠李戴
+        /// 把头像挂到一个 Image
         /// </summary>
         public static void Bind(Image target, string? url)
         {
@@ -160,13 +156,13 @@ namespace CC
 
             try
             {
-                await using var stream = await hc.GetStreamAsync(url);
-                bmp = new Bitmap(stream);
+                var bytes = await hc.GetByteArrayAsync(url);
+                using var ms = new MemoryStream(bytes);
+                bmp = new Bitmap(ms);
             }
-            catch
+            catch (Exception ex)
             {
-                // 头像下不来不是错误: 网断了, 对象被删了, url 是脏数据都可能.
-                // 界面保留占位图就行
+                Log.Write($"[Avatars] 下载失败: {url} | {ex.Message}");
             }
 
             lock (cache)

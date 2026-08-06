@@ -191,7 +191,7 @@ func putObject(ext, mime string, f io.ReadSeeker, size int64) (string, error) {
 		return "", err
 	}
 
-	key := fmt.Sprintf("%s%s", hex.EncodeToString(h.Sum(nil)), ext)
+	key := fmt.Sprintf("public/%s%s", hex.EncodeToString(h.Sum(nil)), ext)
 	ok, err := mid.S3Exists(key)
 	if err != nil {
 		return "", err

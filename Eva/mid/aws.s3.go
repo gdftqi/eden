@@ -101,7 +101,6 @@ func S3Del(key string) error {
 	return err
 }
 
-// S3Url 对象的访问地址(virtual-hosted 风格)
 func S3Url(key string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s3Conf.Bucket, s3Conf.Region, key)
+	return fmt.Sprintf("http://s3.%s.amazonaws.com/%s/%s", s3Conf.Region, s3Conf.Bucket, key)
 }

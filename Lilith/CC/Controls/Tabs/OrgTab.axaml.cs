@@ -111,7 +111,6 @@ namespace CC
 
             foreach (var id in dept.UserIDs ?? new List<Int64>())
             {
-                // 找不到就跳过: 人被停用了但关系表还留着, 不该因此报错
                 if (index.TryGetValue(id, out var user))
                 {
                     list.Add(user);
