@@ -4,6 +4,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/eva/dao"
+	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
 )
@@ -50,7 +51,8 @@ func CreateDepart(c *gin.Context) {
 
 	err = dao.UpsertUsersDepart(dept.ID, req.UserIDs)
 	if err != nil {
-		web.Response(c, -1, err.Error())
+		log.Error("UpsertUsersDepart failed: %v", err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
 

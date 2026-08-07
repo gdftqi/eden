@@ -3,7 +3,7 @@ package dao
 import "github.com/eva/mid"
 
 func GetDepartUserIDs() (map[int64][]int64, error) {
-	rows, err := mid.Mysql.Query("SELECT f_depart_id, f_user_id FROM db_eva.r_user_depart WHERE f_state = 1 ORDER BY f_depart_id, f_user_id")
+	rows, err := mid.Mysql.Query("SELECT f_depart_id, f_user_id FROM db_eva.r_user_depart WHERE f_state=1")
 	if err != nil {
 		return nil, err
 	}

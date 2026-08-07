@@ -103,7 +103,7 @@ func CreateUser(c *gin.Context) {
 
 	err = dao.UpsertUserDeparts(ub.ID, req.DepartIDs)
 	if err != nil {
-		log.Error("InsertUserDeparts failed: %v", err)
+		log.Error("UpsertUserDeparts failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
