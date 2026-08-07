@@ -193,6 +193,13 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	macKey := gw.MacKeyByConv(conv)
+	if len(macKey) == 0 {
+		log.Error("网关 %08X 的 siphash 密钥无效", gw.Server.ID)
+		web.Response(c, -1, "无可用网关")
+		return
+	}
+
 	// Step 7, 设置会话到 redis
 	sess := com.UserSession{
 		UserID: userID,
@@ -258,7 +265,7 @@ func UserLogin(c *gin.Context) {
 		UserID:       userID,
 		Host:         gw.Server.Host,
 		HostID:       gw.Server.ID,
-		MacKey:       base64.StdEncoding.EncodeToString(gw.MacKeyByConv(conv)),
+		MacKey:       base64.StdEncoding.EncodeToString(macKey),
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,
 	}

@@ -36,8 +36,12 @@ func (this_ *MosesInfo) String() string {
 		this_.Server.ID, this_.Server.Host, this_.Count)
 }
 
-// MacKeyByConv 按 conv 取该会话应使用的 SipHash 密钥
+// MacKeyByConv 按 conv 取该会话应使用的 SipHash 密钥.
 func (this_ *MosesInfo) MacKeyByConv(conv uint32) []byte {
+	if this_.Count <= 0 || len(this_.Keys) != this_.Count {
+		return nil
+	}
+
 	return this_.Keys[conv&uint32(this_.Count-1)]
 }
 
