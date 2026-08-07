@@ -65,7 +65,7 @@ func DeleteUserDeparts(userID int64, departIDs []int64) error {
 	}
 
 	for _, departID := range departIDs {
-		_, err = tx.Exec("UPDATE db_eva.r_user_depart SET f_state=0 WHERE f_user_id=? AND f_depart_id=?", userID, departID)
+		_, err = tx.Exec("UPDATE db_eva.r_user_depart SET f_state=-1 WHERE f_user_id=? AND f_depart_id=?", userID, departID)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -82,7 +82,7 @@ func DeleteUsersDepart(departID int64, userIDs []int64) error {
 	}
 
 	for _, userID := range userIDs {
-		_, err = tx.Exec("UPDATE db_eva.r_user_depart SET f_state=0 WHERE f_user_id=? AND f_depart_id=?", userID, departID)
+		_, err = tx.Exec("UPDATE db_eva.r_user_depart SET f_state=-1 WHERE f_user_id=? AND f_depart_id=?", userID, departID)
 		if err != nil {
 			tx.Rollback()
 			return err
