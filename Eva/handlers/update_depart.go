@@ -11,6 +11,7 @@ const UPDATE_DEPART = "/update_depart"
 type updateDepartReq struct {
 	web.BaseRequest
 
+	DepartID   int64   `json:"depart_id"`
 	Name       string  `json:"name"`
 	Avatar     string  `json:"avatar,omitempty"`
 	Desc       string  `json:"desc,omitempty"`
@@ -22,5 +23,7 @@ type updateDepartRsp struct {
 	*dao.Department
 }
 
+// TODO: 还没实现
 func UpdateDepart(c *gin.Context) {
+	web.Response(c, -1, "接口尚未实现")
 }

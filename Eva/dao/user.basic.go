@@ -41,7 +41,7 @@ func CountUserBasicByUsername(username string) (int, error) {
 }
 
 func GetUserBasicByUserID(userID int64) (*UserBasic, error) {
-	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic WHERE f_id=? AND f_state=1",
+	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic WHERE f_id=?",
 		userID)
 
 	obj := &UserBasic{}

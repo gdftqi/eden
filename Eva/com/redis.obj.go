@@ -31,6 +31,15 @@ func (this_ *UserSession) UpdateToRedis() error {
 	return mid.RedisSetEx(userSessionKey(this_.UserID), this_.String(), UserSessionTTL)
 }
 
+// RevokeUser 立刻踢掉一个用户
+func RevokeUser(userID uint32) error {
+	if err := mid.RedisDel(userSessionKey(userID)); err != nil {
+		return err
+	}
+
+	return mid.RedisDel(refreshTokenKey(userID))
+}
+
 // ---------------------------- 写请求去重 ----------------------------
 
 // 去重记录的存活时长

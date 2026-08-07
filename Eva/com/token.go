@@ -126,12 +126,16 @@ func (this_ *RefreshToken) XX20Decrypt(key []byte, b64Data string) error {
 	return json.Unmarshal(plain, this_)
 }
 
+func refreshTokenKey(userID uint32) string {
+	return fmt.Sprintf("REFRESH_TOKEN_%d", userID)
+}
+
 func (this_ *RefreshToken) UpdateToRedis() error {
-	return mid.RedisSetEx(fmt.Sprintf("REFRESH_TOKEN_%d", this_.UserID), this_.Uid, time.Hour*24*30)
+	return mid.RedisSetEx(refreshTokenKey(this_.UserID), this_.Uid, time.Hour*24*30)
 }
 
 func (this_ *RefreshToken) CheckFromRedis() error {
-	uid, err := mid.RedisGet(fmt.Sprintf("REFRESH_TOKEN_%d", this_.UserID))
+	uid, err := mid.RedisGet(refreshTokenKey(this_.UserID))
 	if err != nil {
 		return err
 	}

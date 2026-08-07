@@ -1,6 +1,10 @@
 package dao
 
-import "github.com/eva/mid"
+import (
+	"database/sql"
+
+	"github.com/eva/mid"
+)
 
 type UserInfo struct {
 	ID         int64  `json:"id"`
@@ -30,12 +34,19 @@ func UpdateUserInfo(obj *UserInfo) error {
 }
 
 func GetUserInfoByID(userID int64) (*UserInfo, error) {
-	row := mid.Mysql.QueryRow("SELECT f_id, f_nickname, f_phone_num, f_create_time FROM db_eva.t_user_info WHERE f_id=? AND f_state=1",
+	row := mid.Mysql.QueryRow("SELECT f_id, f_nickname, f_phone_num, f_create_time FROM db_eva.t_user_info WHERE f_id=?",
 		userID)
+
 	obj := &UserInfo{}
-	err := row.Scan(&obj.ID, &obj.Nickname, &obj.PhoneNum, &obj.CreateTime)
+	var vPhone sql.NullString
+
+	err := row.Scan(&obj.ID, &obj.Nickname, &vPhone, &obj.CreateTime)
 	if err != nil {
 		return nil, err
+	}
+
+	if vPhone.Valid {
+		obj.PhoneNum = vPhone.String
 	}
 
 	return obj, nil
@@ -48,12 +59,18 @@ func GetUserInfoList() ([]*UserInfo, error) {
 	}
 	defer rows.Close()
 
-	var userInfo []*UserInfo
+	var (
+		userInfo []*UserInfo
+		vPhone   sql.NullString
+	)
 	for rows.Next() {
 		obj := &UserInfo{}
-		err := rows.Scan(&obj.ID, &obj.Nickname, &obj.PhoneNum, &obj.CreateTime)
+		err := rows.Scan(&obj.ID, &obj.Nickname, &vPhone, &obj.CreateTime)
 		if err != nil {
 			return nil, err
+		}
+		if vPhone.Valid {
+			obj.PhoneNum = vPhone.String
 		}
 		userInfo = append(userInfo, obj)
 	}

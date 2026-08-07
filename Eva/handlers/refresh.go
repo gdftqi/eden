@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/eva/com"
 	"github.com/eva/conf"
+	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/utils"
 	"github.com/eva/web"
@@ -86,8 +89,32 @@ func Refresh(c *gin.Context) {
 
 	userID := refreshToken.UserID
 
+	// 账号可能在发出这张 token 之后被停用了.
+	user, err := dao.GetUserBasicByUserID(int64(userID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			web.Response(c, -1, "账号不存在")
+			return
+		}
+
+		log.Error("GetUserBasicByUserID failed: uid = %d, %v", userID, err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
+		return
+	}
+
+	if user.State != 1 {
+		// 凭据清理
+		if err = com.RevokeUser(userID); err != nil {
+			log.Error("RevokeUser failed: uid = %d, %v", userID, err)
+		}
+
+		web.Response(c, -1, "账号已禁用")
+		return
+	}
+
+	// 单独一条限速线, 不和登录共用 --
 	okID := strconv.FormatUint(uint64(userID), 10)
-	if sec, err := com.RateHit("ok", okID, conf.Instance.LoginOk); err != nil {
+	if sec, err := com.RateHit("refresh", okID, conf.Instance.LoginOk); err != nil {
 		log.Error("限速记账失败: %v", err)
 	} else if sec > 0 {
 		web.Response(c, -1, fmt.Sprintf("操作过于频繁, 请 %d 秒后再试", sec))

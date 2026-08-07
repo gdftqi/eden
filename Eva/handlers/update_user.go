@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/eva/com"
 	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
@@ -121,11 +122,22 @@ func UpdateUser(c *gin.Context) {
 		ub.State = req.State
 	}
 
+	// 改密码或停用之后把对方踢下线.
+	revoke := len(req.Password) > 0 || req.State == -1
+
 	if ub != nil {
 		if err = dao.UpdateUserBasic(ub); err != nil {
 			log.Error("UpdateUserBasic failed: %v", err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
+		}
+
+		if revoke {
+			if err = com.RevokeUser(uint32(req.UserID)); err != nil {
+				log.Error("RevokeUser failed: uid = %d, %v", req.UserID, err)
+				web.Response(c, -1, "服务器内部错误, 请稍后重试")
+				return
+			}
 		}
 	}
 
@@ -137,7 +149,6 @@ func UpdateUser(c *gin.Context) {
 		}
 	}
 
-	// 先删后加: 同一个部门同时出现在两个列表里时, 结果是"在里面"
 	if len(req.DelDepartIDs) > 0 {
 		if err = dao.DeleteUserDeparts(req.UserID, req.DelDepartIDs); err != nil {
 			log.Error("DeleteUserDeparts failed: %v", err)
