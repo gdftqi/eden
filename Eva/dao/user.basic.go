@@ -30,7 +30,7 @@ func InsertUserBasic(obj *UserBasic) error {
 }
 
 func CountUserBasicByUsername(username string) (int, error) {
-	r := mid.Mysql.QueryRow("SELECT COUNT(1) FROM db_eva.t_user_basic where f_username=?", username)
+	r := mid.Mysql.QueryRow("SELECT COUNT(1) FROM db_eva.t_user_basic WHERE f_username=?", username)
 	count := 0
 	err := r.Scan(&count)
 	if err != nil {
@@ -40,8 +40,21 @@ func CountUserBasicByUsername(username string) (int, error) {
 	return count, nil
 }
 
+func GetUserBasicByUserID(userID int64) (*UserBasic, error) {
+	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic WHERE f_id=? AND f_state=1",
+		userID)
+
+	obj := &UserBasic{}
+	err := r.Scan(&obj.ID, &obj.Username, &obj.Avatar, &obj.Password, &obj.CreateTime, &obj.LastLogin, &obj.State)
+	if err != nil {
+		return nil, err
+	}
+
+	return obj, nil
+}
+
 func GetUserBasicByUsername(username string) (*UserBasic, error) {
-	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic where f_username = ?",
+	r := mid.Mysql.QueryRow("SELECT f_id,f_username,f_avatar,f_password,f_create_time,f_last_login,f_state FROM db_eva.t_user_basic WHERE f_username=?",
 		username)
 
 	obj := &UserBasic{}
@@ -76,38 +89,7 @@ func GetUserBasicList(where string) ([]*UserBasic, error) {
 }
 
 func UpdateUserBasic(obj *UserBasic) error {
-	raw, err := GetUserBasicByUsername(obj.Username)
-	if err != nil {
-		return err
-	}
-
-	changed := false
-
-	if len(obj.Avatar) > 0 && obj.Avatar != raw.Avatar {
-		changed = true
-		raw.Avatar = obj.Avatar
-	}
-
-	if len(obj.Password) == 64 && obj.Password != raw.Password {
-		changed = true
-		raw.Password = obj.Password
-	}
-
-	if obj.LastLogin > 0 && obj.LastLogin != raw.LastLogin {
-		changed = true
-		raw.LastLogin = obj.LastLogin
-	}
-
-	if obj.State != 0 {
-		changed = true
-		raw.State = obj.State
-	}
-
-	if !changed {
-		return nil
-	}
-
-	_, err = mid.Mysql.Exec("UPDATE db_eva.t_user_basic SET f_password=?,f_last_login=?,f_state=? WHERE f_id=?",
-		raw.Password, raw.LastLogin, raw.State, raw.ID)
+	_, err := mid.Mysql.Exec("UPDATE db_eva.t_user_basic SET f_avatar=?,f_password=?,f_last_login=?,f_state=? WHERE f_id=?",
+		obj.Avatar, obj.Password, obj.LastLogin, obj.State, obj.ID)
 	return err
 }

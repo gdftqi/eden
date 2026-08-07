@@ -30,15 +30,20 @@ type Timed interface {
 }
 
 type Identified interface {
-	ReqUserID() uint32
+	ReqUserID() int64
 }
 
 type BaseRequest struct {
-	Time int64 `json:"time"`
+	UserID int64 `json:"user_id"`
+	Time   int64 `json:"time"`
 }
 
 func (b *BaseRequest) ReqTime() int64 {
 	return b.Time
+}
+
+func (b *BaseRequest) ReqUserID() int64 {
+	return b.UserID
 }
 
 func BindR(c *gin.Context, out any) (*com.UserSession, error) {
@@ -105,7 +110,7 @@ func bind(req *httpRequest, out any, once bool) (*com.UserSession, error) {
 		}
 	}
 
-	if u, ok := out.(Identified); ok && u.ReqUserID() != req.UserID {
+	if u, ok := out.(Identified); ok && u.ReqUserID() != int64(req.UserID) {
 		log.Error("Bind: 身份不一致: 外层 %d, 密文内 %d", req.UserID, u.ReqUserID())
 		return nil, ErrIdentity
 	}

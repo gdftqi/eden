@@ -16,6 +16,22 @@ type User struct {
 	State      int64  `json:"state"`
 }
 
+func GetUserByID(userID int64) (*User, error) {
+	r := mid.Mysql.QueryRow("SELECT id, avatar, username, nickname, phone_num, create_time, state FROM db_eva.v_user WHERE id=?", userID)
+	user := &User{}
+	var vPhone sql.NullString
+	err := r.Scan(&user.ID, &user.Avatar, &user.Username, &user.Nickname, &vPhone, &user.CreateTime, &user.State)
+	if err != nil {
+		return nil, err
+	}
+
+	if vPhone.Valid {
+		user.PhoneNum = vPhone.String
+	}
+
+	return user, nil
+}
+
 func GetUserList() ([]*User, error) {
 	rows, err := mid.Mysql.Query("SELECT id, avatar, username, nickname, phone_num, create_time, state FROM db_eva.v_user")
 	if err != nil {
