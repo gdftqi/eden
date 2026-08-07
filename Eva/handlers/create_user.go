@@ -15,10 +15,11 @@ const CREATE_USER = "/create_user"
 type createUserReq struct {
 	web.BaseRequest
 
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Nickname string `json:"nickname"`
-	PhoneNum string `json:"phone_num"`
+	Username  string  `json:"username"`
+	Password  string  `json:"password"`
+	Nickname  string  `json:"nickname"`
+	PhoneNum  string  `json:"phone_num"`
+	DepartIDs []int64 `json:"depart_ids"`
 }
 
 type createUserRsp struct {
@@ -96,6 +97,13 @@ func CreateUser(c *gin.Context) {
 	err = dao.InsertUserInfo(&ui)
 	if err != nil {
 		log.Error("InsertUserInfo failed: %v", err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
+		return
+	}
+
+	err = dao.UpsertUserDeparts(ub.ID, req.DepartIDs)
+	if err != nil {
+		log.Error("InsertUserDeparts failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}

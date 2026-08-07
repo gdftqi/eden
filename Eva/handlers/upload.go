@@ -17,14 +17,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const UPLOAD = "/upload"
+const (
+	UPLOAD = "/upload"
 
-const UploadMaxSize = 200 << 20 // 200MB
+	UploadMaxSize = 200 << 20 // 200MB
 
-// 除文件本体外, 表单字段和 multipart 分隔符也占字节, 给一点余量
-const uploadSlack = 1 << 20
+	// 除文件本体外, 表单字段和 multipart 分隔符也占字节, 给一点余量
+	uploadSlack = 1 << 20
 
-const uploadSupport = "只支持 png/jpg/jpeg/gif/zip/mp4/mp3"
+	uploadSupport = "只支持 png/jpg/jpeg/gif/zip/mp4/mp3"
+
+	// 够放下 Off 最大(4) + 魔数最长(4)
+	uploadHeadLen = 8
+)
 
 type fileKind struct {
 	Mime string
@@ -47,9 +52,6 @@ var uploadKinds = map[string]fileKind{
 	}},
 
 	".mp4": {Mime: "video/mp4", Off: 4, Magics: [][]byte{[]byte("ftyp")}},
-
-	// 带 ID3v2 标签的以 "ID3" 开头; 没标签的直接是帧同步头(前 11 位全 1),
-	// 第二字节按 MPEG 版本/层/CRC 变化, 这几个覆盖了实际能见到的 Layer III
 	".mp3": {Mime: "audio/mpeg", Magics: [][]byte{
 		[]byte("ID3"),
 		{0xFF, 0xFB}, {0xFF, 0xFA}, // MPEG-1 Layer III
@@ -57,9 +59,6 @@ var uploadKinds = map[string]fileKind{
 		{0xFF, 0xE3}, {0xFF, 0xE2}, // MPEG-2.5 Layer III
 	}},
 }
-
-// 够放下 Off 最大(4) + 魔数最长(4)
-const uploadHeadLen = 8
 
 type uploadReq struct {
 	web.BaseRequest

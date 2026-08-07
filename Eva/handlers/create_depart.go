@@ -48,12 +48,10 @@ func CreateDepart(c *gin.Context) {
 		return
 	}
 
-	for _, userID := range req.UserIDs {
-		err = dao.InsertUserDepart(userID, dept.ID)
-		if err != nil {
-			web.Response(c, -1, err.Error())
-			return
-		}
+	err = dao.UpsertUsersDepart(dept.ID, req.UserIDs)
+	if err != nil {
+		web.Response(c, -1, err.Error())
+		return
 	}
 
 	rsp := createDepartRsp{
