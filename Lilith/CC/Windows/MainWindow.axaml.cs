@@ -135,7 +135,8 @@ namespace CC
                     break;
 
                 case HydraState.Disconnected:
-                    BackToLogin();   // 重连放弃 / 会话失效 -> 回登录页
+                    // 重连放弃 / 会话失效 -> 回登录页
+                    BackToLogin();
                     break;
             }
         }
@@ -152,13 +153,10 @@ namespace CC
             }
             leaving = true;
 
-            // 会话已由 Hydra 关闭; 这里只做窗口切换.新 LoginWindow 会接管 Hydra 回调, 本窗回调随之失效.
-            // KickCode != 0 表示这次不是普通掉线, 而是服务端主动踢除 -> 先告诉用户为什么.
+            // 会话已由 Hydra 关闭
             uint code = Hydra.Instance.KickCode;
             if (code != 0)
             {
-                // 先收起主界面: 号都被顶了, 还把聊天内容摆在那里不合适.
-                // Hide 而不是 Close -- 这时候关掉它, 应用就一个窗口都不剩了
                 Hide();
 
                 await MessageBoxWindow.Alert("已下线", Package.ErrorText(code), "重新登录");

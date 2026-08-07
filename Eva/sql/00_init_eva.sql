@@ -45,10 +45,9 @@ CREATE TABLE IF NOT EXISTS `db_eva`.`t_department` (
 
 
 CREATE TABLE IF NOT EXISTS `db_eva`.`r_user_depart` (
-    `f_user_id`   BIGINT       NOT NULL COMMENT '',
-    `f_avatar`    VARCHAR(200) NOT NULL COMMENT '',
-    `f_depart_id` BIGINT       NOT NULL COMMENT '',
-    `f_state`     TINYINT      NOT NULL COMMENT '',
+    `f_user_id`   BIGINT  NOT NULL           COMMENT '',
+    `f_depart_id` BIGINT  NOT NULL           COMMENT '',
+    `f_state`     TINYINT NOT NULL DEFAULT 1 COMMENT '1: 在部门内; -1: 已移出',
 
     PRIMARY KEY pk_user_depart_id(`f_user_id`, `f_depart_id`),
     INDEX nk_state(`f_state`)
