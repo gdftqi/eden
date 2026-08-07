@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using CC.Eva;
 using CC.Model;
 using Lilith.Core.Eva;
 using System;
@@ -32,14 +33,24 @@ namespace CC
         }
 
 
+        /// <summary>
+        /// 灌入选人抽屉的候选名单.抽屉自己不拉接口, 由 OrgTab 拿 /get_org 那一份统一分发.
+        /// </summary>
+        public void SetCandidates(IEnumerable<User> users)
+        {
+            Picker.SetSource(users);
+        }
+
+
         public void Show(OrgGroup item)
         {
             dept = item;
 
             // 进页面时抽屉应当是关的, 编辑框也不该是开着的: 上次离开时可能正开着
             Picker.HideNow();
-            EndEdit(TitleView, TitleEdit);
-            EndEdit(RemarkView, RemarkEdit);
+            EndEdit(TitleView, TitleEditBar);
+            EndEdit(RemarkView, RemarkEditBar);
+            DropPendingAvatar();
 
             Refresh();
         }
@@ -59,9 +70,13 @@ namespace CC
             ApplyRemark(dept.Dept?.Desc);
             BuildMembers(dept.Members);
 
-            ApplyAvatar(dept.Dept?.Avatar);
+            // 有待确认的新头像时别去动它, 否则刚选的图会被服务端那版顶掉
+            if (pendingAvatar == null)
+            {
+                ApplyAvatar(dept.Dept?.Avatar);
+            }
 
-            Picker.SetChecked(dept.Members.Select(u => u.Nickname ?? string.Empty));
+            Picker.SetChecked(MemberIDs(dept));
         }
 
 
@@ -167,24 +182,37 @@ namespace CC
         // 移人是不可撤销的动作, 先问一句再抛给宿主
         private async void ConfirmRemove(User user)
         {
-            if (dept == null)
+            var target = dept;
+            if (target?.Dept?.ID == null || user.ID == null)
             {
                 return;
             }
 
-            var target = dept;
+            var d = target.Dept;
 
             bool ok = await MessageBoxWindow.Confirm(
                 this,
                 "移除成员",
-                $"确定把 {user.Nickname} 移出 {target.Dept?.Name} 吗?",
+                $"确定把 {user.Nickname} 移出 {d.Name} 吗?",
                 okText: "移除",
                 danger: true);
 
-            if (ok)
+            if (!ok)
             {
-                MemberToggled?.Invoke(target, user, false);
+                return;
             }
+
+            try
+            {
+                await UpdateDepart.POST(d.ID.Value, delUserIDs: new List<Int64> { user.ID.Value });
+            }
+            catch (Exception ex)
+            {
+                Tips.Error($"移除失败: {ex.Message}");
+                return;
+            }
+
+            MemberToggled?.Invoke(target, user, false);
         }
 
 
@@ -228,9 +256,14 @@ namespace CC
         }
 
 
+        // 选好但还没确认的新头像.图和文件各留一份: 图用来预览, 文件等点勾时才真上传
+        private Bitmap? pendingAvatar;
+        private IStorageFile? pendingAvatarFile;
+
+
         private async void PickAvatar_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (dept?.Dept == null)
+            if (dept?.Dept?.ID == null)
             {
                 return;
             }
@@ -274,7 +307,32 @@ namespace CC
                 return;
             }
 
+            // 到此为止只是贴上来看看.真正上传要等用户点勾
+            pendingAvatar = preview;
+            pendingAvatarFile = file;
+
             ShowAvatar(preview);
+            AvatarEditBar.IsVisible = true;
+        }
+
+
+        private async void AvatarOk_Click(object? sender, RoutedEventArgs e)
+        {
+            // 上传和保存都要 await, 这期间用户可能已经切到别的部门去了 --
+            // 先把目标抓在手里, 别等回来再读 dept
+            var group = dept;
+            var d = group?.Dept;
+            var file = pendingAvatarFile;
+            var preview = pendingAvatar;
+
+            if (group == null || d?.ID == null || file == null || preview == null)
+            {
+                DropPendingAvatar();
+                return;
+            }
+
+            // 请求飞出去之后就不该再点第二次
+            AvatarEditBar.IsVisible = false;
 
             string url;
             try
@@ -286,17 +344,47 @@ namespace CC
             catch (Exception ex)
             {
                 Tips.Error($"头像上传失败: {ex.Message}");
+                DropPendingAvatar();
                 return;
             }
-
-            dept.Dept.Avatar = url;
 
             // 顺手放进缓存: 刚上传的图已经在手里, 不必等切走再回来时重新下一遍
             Avatars.Put(url, preview);
 
-            // TODO: 服务端还没有改部门的接口, 这里只改了本地
+            try
+            {
+                await UpdateDepart.POST(d.ID.Value, avatar: url);
+            }
+            catch (Exception ex)
+            {
+                Tips.Error($"头像保存失败: {ex.Message}");
+                DropPendingAvatar();
+                return;
+            }
+
+            pendingAvatar = null;
+            pendingAvatarFile = null;
+
+            d.Avatar = url;
             Tips.Success("头像已更新");
-            Changed?.Invoke(dept);
+            Changed?.Invoke(group);
+        }
+
+
+        private void AvatarCancel_Click(object? sender, RoutedEventArgs e)
+        {
+            DropPendingAvatar();
+        }
+
+
+        // 丢掉待确认的那张, 界面退回服务端存着的那一版
+        private void DropPendingAvatar()
+        {
+            pendingAvatar = null;
+            pendingAvatarFile = null;
+            AvatarEditBar.IsVisible = false;
+
+            ApplyAvatar(dept?.Dept?.Avatar);
         }
 
 
@@ -309,17 +397,31 @@ namespace CC
 
         private void RenameDept_Click(object? sender, RoutedEventArgs e)
         {
-            BeginEdit(TitleView, TitleEdit, dept?.Dept?.Name);
+            BeginEdit(TitleView, TitleEditBar, TitleEdit, dept?.Dept?.Name);
         }
 
 
         private void EditRemark_Click(object? sender, RoutedEventArgs e)
         {
-            BeginEdit(RemarkView, RemarkEdit, dept?.Dept?.Desc);
+            BeginEdit(RemarkView, RemarkEditBar, RemarkEdit, dept?.Dept?.Desc);
         }
 
 
-        private void BeginEdit(Control view, TextBox edit, string? text)
+        // 勾/叉 上的 Tag 标明它管的是哪个输入框
+        private void EditOk_Click(object? sender, RoutedEventArgs e)
+        {
+            Commit((sender as Control)?.Tag as string == "title" ? TitleEdit : RemarkEdit, save: true);
+        }
+
+
+        private void EditCancel_Click(object? sender, RoutedEventArgs e)
+        {
+            Commit((sender as Control)?.Tag as string == "title" ? TitleEdit : RemarkEdit, save: false);
+        }
+
+
+        // 收放的是整条 bar(输入框 + 勾 + 叉), 不是单个输入框
+        private void BeginEdit(Control view, Control bar, TextBox edit, string? text)
         {
             if (dept == null)
             {
@@ -328,16 +430,16 @@ namespace CC
 
             edit.Text = text ?? string.Empty;
             view.IsVisible = false;
-            edit.IsVisible = true;
+            bar.IsVisible = true;
 
             edit.Focus();
             edit.SelectAll();
         }
 
 
-        private void EndEdit(Control view, TextBox edit)
+        private void EndEdit(Control view, Control bar)
         {
-            edit.IsVisible = false;
+            bar.IsVisible = false;
             view.IsVisible = true;
         }
 
@@ -362,65 +464,90 @@ namespace CC
         }
 
 
+        // 点到别处 = 放弃这次编辑.
+        // 既然勾/叉就摆在旁边, 就不该再留"失焦也算提交"这条看不见的路 --
+        // 手滑点一下就发一个请求出去, 太容易改错
         private void TitleEdit_LostFocus(object? sender, RoutedEventArgs e)
         {
-            Commit(TitleEdit, save: true);
+            Commit(TitleEdit, save: false);
         }
 
 
         private void RemarkEdit_LostFocus(object? sender, RoutedEventArgs e)
         {
-            Commit(RemarkEdit, save: true);
+            Commit(RemarkEdit, save: false);
         }
 
 
-        private void Commit(TextBox edit, bool save)
+        private async void Commit(TextBox edit, bool save)
         {
-            if (committing || !edit.IsVisible || dept?.Dept == null)
+            bool isTitle = ReferenceEquals(edit, TitleEdit);
+            var bar = isTitle ? (Control)TitleEditBar : RemarkEditBar;
+
+            if (committing || !bar.IsVisible)
             {
                 return;
             }
 
+            // 无论存不存, 编辑框都先收起来 -- 取消这条路不该被数据状态挡住.
+            // 收起来会把焦点弹走, 顺带回弹一次 LostFocus, committing 就是用来挡那一下的;
+            // 挡完立刻松开: 请求还飞在路上时不该把别处的编辑也一并挡掉,
+            // 本框自己的重入有上面的 !bar.IsVisible 拦着
             committing = true;
-            try
-            {
-                bool isTitle = ReferenceEquals(edit, TitleEdit);
-                EndEdit(isTitle ? TitleView : RemarkView, edit);
+            EndEdit(isTitle ? TitleView : RemarkView, bar);
+            committing = false;
 
-                if (!save)
+            var group = dept;
+            var d = group?.Dept;
+            if (!save || group == null || d?.ID == null)
+            {
+                return;
+            }
+
+            var text = (edit.Text ?? string.Empty).Trim();
+
+            if (isTitle)
+            {
+                // 名字是必填, 清空当作没改
+                if (text.Length == 0 || text == d.Name)
                 {
                     return;
                 }
-
-                var text = (edit.Text ?? string.Empty).Trim();
-
-                if (isTitle)
-                {
-                    // 名字是必填, 清空当作没改
-                    if (text.Length == 0 || text == dept.Dept.Name)
-                    {
-                        return;
-                    }
-                    dept.Dept.Name = text;
-                }
-                else
-                {
-                    if (text == (dept.Dept.Desc ?? string.Empty))
-                    {
-                        return;
-                    }
-                    dept.Dept.Desc = text;
-                }
-
-                // TODO: 服务端还没有改部门的接口, 先只改本地.
-                // 接上之后改成: 发请求 -> 成功再落地, 失败 Tips.Error 并把旧值填回去
-                Refresh();
-                Changed?.Invoke(dept);
             }
-            finally
+            else if (text == (d.Desc ?? string.Empty))
             {
-                committing = false;
+                return;
             }
+
+            // 先落服务端再改本地: 存不下来本地就原样不动, 省掉回滚这一步
+            try
+            {
+                await UpdateDepart.POST(d.ID.Value,
+                                        name: isTitle ? text : null,
+                                        desc: isTitle ? null : text);
+            }
+            catch (Exception ex)
+            {
+                Tips.Error(ex.Message);
+                return;
+            }
+
+            if (isTitle)
+            {
+                d.Name = text;
+            }
+            else
+            {
+                d.Desc = text;
+            }
+
+            // 请求期间用户可能已经切去看别的部门了, 那就别拿这份数据去刷面板
+            if (ReferenceEquals(dept, group))
+            {
+                Refresh();
+            }
+
+            Changed?.Invoke(group);
         }
 
   
@@ -434,18 +561,38 @@ namespace CC
             if (dept != null) Picker.Toggle();
         }
 
-        private void OnPickerToggled(string nickname, bool on)
+        private async void OnPickerToggled(User user, bool on)
         {
-            if (dept == null)
+            var target = dept;
+            if (target?.Dept?.ID == null || user.ID == null)
             {
                 return;
             }
 
- 
-            var user = dept.Members.FirstOrDefault(u => u.Nickname == nickname)
-                       ?? new User { Nickname = nickname };
+            var ids = new List<Int64> { user.ID.Value };
 
-            MemberToggled?.Invoke(dept, user, on);
+            try
+            {
+                await UpdateDepart.POST(target.Dept.ID.Value,
+                                        addUserIDs: on ? ids : null,
+                                        delUserIDs: on ? null : ids);
+            }
+            catch (Exception ex)
+            {
+                Tips.Error(ex.Message);
+
+                // 抽屉里的勾已经先翻过去了, 服务端这边没落成就得翻回来
+                Picker.SetChecked(MemberIDs(target));
+                return;
+            }
+
+            MemberToggled?.Invoke(target, user, on);
+        }
+
+
+        private static IEnumerable<Int64> MemberIDs(OrgGroup group)
+        {
+            return group.Members.Where(u => u.ID.HasValue).Select(u => u.ID!.Value);
         }
 
 

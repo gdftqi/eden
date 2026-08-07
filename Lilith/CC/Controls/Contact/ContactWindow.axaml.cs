@@ -36,24 +36,6 @@ namespace CC
                     HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 });
             }
-
-            LoadSampleMedia(avatar);
-        }
-
-        // 临时: 媒体条塞几张占位缩略图(以后换成真实的影音/链接/文档)
-        private void LoadSampleMedia(IImage thumb)
-        {
-            const int count = 5;
-            MediaStrip.Children.Clear();
-            for (int i = 0; i < count; i++)
-            {
-                MediaStrip.Children.Add(new Border
-                {
-                    Width = 96, Height = 96, CornerRadius = new CornerRadius(10), ClipToBounds = true,
-                    Child = new Image { Source = thumb, Stretch = Stretch.UniformToFill },
-                });
-            }
-            MediaCount.Text = count.ToString();
         }
 
         private void Close_Click(object? sender, RoutedEventArgs e)

@@ -1,7 +1,11 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
+using CC.Eva;
+using CC.Model;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace CC
 {
@@ -20,22 +24,78 @@ namespace CC
         public ContactListPanel()
         {
             InitializeComponent();
-            LoadSampleContacts();
         }
 
-        // 数据来自 Model.ContactSource -- 与"创建部门-添加人员"共用同一份
-        private void LoadSampleContacts()
+
+        // 只拉一次: 四个页签都常驻在可视树里(靠 IsVisible 切), 进出不会重复触发
+        private bool loaded;
+
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            foreach (var c in Model.ContactSource.All)
+            base.OnAttachedToVisualTree(e);
+
+            if (!loaded)
             {
-                AddContact(Avatars.Default, c.Nickname, c.Sign);
+                loaded = true;
+                _ = Reload();
             }
         }
 
-        // 建一个联系人项
-        private void AddContact(IImage avatar, string nick, string sign)
+
+        /// <summary>
+        /// 重新拉通讯录.
+        /// </summary>
+        public async Task Reload()
         {
-            var item = new ContactItem { Avatar = avatar, Nickname = nick, Sign = sign };
+            GetOrg.Response rsp;
+
+            try
+            {
+                rsp = await GetOrg.POST();
+            }
+            catch (Exception ex)
+            {
+                Tips.Error($"加载联系人失败: {ex.Message}");
+                return;
+            }
+
+            selectedItem = null;
+            ContactList.Children.Clear();
+
+            foreach (var u in rsp.Users ?? new List<User>())
+            {
+                AddContact(u);
+            }
+        }
+
+
+        // 建一个联系人项
+        private void AddContact(User user)
+        {
+            var cached = Avatars.Cached(user.Avatar);
+
+            // 服务端没有"个性签名"这个字段, 副行放登录名 -- 重名时靠它区分
+            var item = new ContactItem
+            {
+                User = user,
+                Nickname = user.Nickname ?? string.Empty,
+                Sign = user.Username ?? string.Empty,
+                Avatar = cached ?? Avatars.Default,
+            };
+
+            // 缓存里没有就异步下, 回来再贴.item 只服务这一个人, 不存在贴错的问题
+            if (cached == null && !string.IsNullOrEmpty(user.Avatar))
+            {
+                _ = Avatars.Load(user.Avatar).ContinueWith(t =>
+                {
+                    if (t.Result != null)
+                    {
+                        item.Avatar = t.Result;
+                    }
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+            }
+
             item.PointerPressed += (_, _) => Select(item);
             ContactList.Children.Add(item);
         }

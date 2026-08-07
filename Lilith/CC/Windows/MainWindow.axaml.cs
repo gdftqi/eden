@@ -143,7 +143,8 @@ namespace CC
 
         private bool leaving;
 
-        private async void BackToLogin()
+        // 公开出去是为了让页签也能触发
+        public async void BackToLogin()
         {
             if (leaving)
             {

@@ -38,6 +38,14 @@
   <ItemGroup>
     <Folder Include="Controls\Contact\" />
     <Folder Include="Controls\Org\" />
-    <Folder Include="Controls\Settings\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Controls\Settings\SettingInfoPanel.axaml.cs">
+      <DependentUpon>SettingInfoPanel.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\Settings\SettingSecurityPanel.axaml.cs">
+      <DependentUpon>SettingSecurityPanel.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
 </Project>

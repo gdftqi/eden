@@ -77,6 +77,10 @@ namespace CC
 
             var users = rsp.Users ?? new List<User>();
 
+            // 两个面板的选人抽屉都用这一份, 各自再去拉一次没必要
+            OrgEditView.SetCandidates(users);
+            OrgDetailView.SetCandidates(users);
+
             var index = new Dictionary<Int64, User>();
             foreach (var u in users)
             {

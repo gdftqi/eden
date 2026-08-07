@@ -16,9 +16,9 @@ namespace CC
     public partial class ContactPickerDrawer : UserControl
     {
         /// <summary>
-        /// 勾选状态变化: (昵称, 现在是否选中).宿主据此增删自己的名单.
+        /// 勾选状态变化: (联系人, 现在是否选中).宿主据此增删自己的名单.
         /// </summary>
-        public event Action<string, bool>? Toggled;
+        public event Action<User, bool>? Toggled;
 
         // 抽屉宽度, 必须与 XAML 里 UserControl 的 Width 一致(关闭时要正好平移出右边界)
         private const double DRAWER_W = 360;
@@ -26,11 +26,14 @@ namespace CC
         // 与 XAML 里 TransformOperationsTransition 的 Duration 对齐, 略留一点余量
         private static readonly TimeSpan DRAWER_MS = TimeSpan.FromMilliseconds(260);
 
-        // 当前勾上的人.只作显示用, 不是数据源
-        private readonly HashSet<string> selected = new();
+        // 候选名单.由宿主灌进来 -- 抽屉自己不拉接口, 免得每开一次就打一次服务端
+        private List<User> source = new();
 
-        // 昵称 -> 该行的复选框, 重建列表后按 selected 补勾
-        private readonly Dictionary<string, CheckBox> checkBoxes = new();
+        // 当前勾上的人(按 id).只作显示用, 不是数据源
+        private readonly HashSet<Int64> selected = new();
+
+        // id -> 该行的复选框, 重建列表后按 selected 补勾
+        private readonly Dictionary<Int64, CheckBox> checkBoxes = new();
 
         // 字母 -> 该组的标题控件, 点索引条时靠它滚过去
         private readonly Dictionary<char, Control> groupHeaders = new();
@@ -111,15 +114,25 @@ namespace CC
         // ---------------- 勾选状态 ----------------
 
         /// <summary>
+        /// 换一份候选名单.没有 id 的直接丢掉 -- 勾选和上报都以 id 为准.
+        /// </summary>
+        public void SetSource(IEnumerable<User> users)
+        {
+            source = users.Where(u => u.ID.HasValue).ToList();
+            BuildPicker((PickerSearch.Text ?? string.Empty).Trim());
+        }
+
+
+        /// <summary>
         /// 用宿主的名单刷新勾选状态.宿主那边名单一变就调一次
         /// (包括在抽屉外面移除成员的情况, 否则抽屉里的勾会和列表对不上).
         /// </summary>
-        public void SetChecked(IEnumerable<string> nicknames)
+        public void SetChecked(IEnumerable<Int64> ids)
         {
             selected.Clear();
-            foreach (var n in nicknames)
+            foreach (var id in ids)
             {
-                selected.Add(n);
+                selected.Add(id);
             }
 
             ApplyChecks();
@@ -135,20 +148,23 @@ namespace CC
         }
 
 
-        private void ToggleOne(string nickname)
+        private void ToggleOne(User user)
         {
-            bool on = !selected.Remove(nickname);
+            // SetSource 已经把没有 id 的滤掉了, 这里的都有
+            var id = user.ID!.Value;
+
+            bool on = !selected.Remove(id);
             if (on)
             {
-                selected.Add(nickname);
+                selected.Add(id);
             }
 
-            if (checkBoxes.TryGetValue(nickname, out var cb))
+            if (checkBoxes.TryGetValue(id, out var cb))
             {
                 cb.IsChecked = on;
             }
 
-            Toggled?.Invoke(nickname, on);
+            Toggled?.Invoke(user, on);
         }
 
 
@@ -165,36 +181,29 @@ namespace CC
             groupHeaders.Clear();
             checkBoxes.Clear();
 
-            var all = ContactSource.All
-                .OrderBy(c => c.IndexKey == '#' ? 1 : 0)          // # 排最后
-                .ThenBy(c => c.Sort, StringComparer.Ordinal)
+            var all = source
+                .OrderBy(u => IndexKeyOf(u) == '#' ? 1 : 0)          // # 排最后
+                .ThenBy(u => u.Username ?? string.Empty, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             if (keyword.Length > 0)
             {
-                // 昵称和拼音都能命中 -- 打 "meinv" 或 "美女" 都该搜到
-                var hits = all.Where(c =>
-                    c.Nickname.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                    c.Sort.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+                // 昵称和登录名都能命中 -- 打 "zhangsan" 或 "张三" 都该搜到
+                var hits = all.Where(u =>
+                    (u.Nickname ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                    (u.Username ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
 
                 IndexBar.IsVisible = false;
 
                 if (hits.Count == 0)
                 {
-                    PickerList.Children.Add(new TextBlock
-                    {
-                        Text = "没有匹配的联系人",
-                        FontSize = 13,
-                        Foreground = new SolidColorBrush(Color.Parse("#9AA0A6")),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        Margin = new Thickness(0, 22, 0, 22),
-                    });
+                    PickerList.Children.Add(BuildHint("没有匹配的联系人"));
                     return;
                 }
 
-                foreach (var c in hits)
+                foreach (var u in hits)
                 {
-                    PickerList.Children.Add(BuildPickerRow(c));
+                    PickerList.Children.Add(BuildPickerRow(u));
                 }
 
                 ApplyChecks();
@@ -203,24 +212,61 @@ namespace CC
 
             IndexBar.IsVisible = true;
 
-            char cur = '\0';
-            foreach (var c in all)
+            // 名单还没灌进来(或者公司就这一个人)时给句话, 别扔一片空白
+            if (all.Count == 0)
             {
-                if (c.IndexKey != cur)
+                PickerList.Children.Add(BuildHint("还没有可选的成员"));
+                return;
+            }
+
+            char cur = '\0';
+            foreach (var u in all)
+            {
+                char key = IndexKeyOf(u);
+                if (key != cur)
                 {
-                    cur = c.IndexKey;
+                    cur = key;
                     var header = BuildGroupHeader(cur);
                     groupHeaders[cur] = header;
                     PickerList.Children.Add(header);
                     IndexBar.Children.Add(BuildIndexEntry(cur));
                 }
 
-                PickerList.Children.Add(BuildPickerRow(c));
+                PickerList.Children.Add(BuildPickerRow(u));
             }
 
             // 重建会丢掉勾选框的视觉状态, 就地补回来 --
             // 放在这里而不是交给调用方, 少一个"忘了补勾"的坑
             ApplyChecks();
+        }
+
+
+        // 索引字母取自登录名: 它是 ASCII, 而昵称多半是中文, 客户端手里没有拼音表
+        // (要么带一张两万字的表, 要么引第三方库, 都不该由客户端扛).
+        // 取不到首字母就归 #, 不猜
+        private static char IndexKeyOf(User u)
+        {
+            var s = u.Username ?? string.Empty;
+            if (s.Length == 0)
+            {
+                return '#';
+            }
+
+            char c = char.ToUpperInvariant(s[0]);
+            return (c >= 'A' && c <= 'Z') ? c : '#';
+        }
+
+
+        private static Control BuildHint(string text)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.Parse("#9AA0A6")),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 22, 0, 22),
+            };
         }
 
 
@@ -275,7 +321,7 @@ namespace CC
         }
 
 
-        private Control BuildPickerRow(ContactInfo c)
+        private Control BuildPickerRow(User u)
         {
             var check = new CheckBox
             {
@@ -285,7 +331,10 @@ namespace CC
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0),
             };
-            checkBoxes[c.Nickname] = check;
+            checkBoxes[u.ID!.Value] = check;
+
+            var photo = new Image { Stretch = Stretch.UniformToFill };
+            Avatars.Bind(photo, u.Avatar);
 
             var avatar = new Border
             {
@@ -294,12 +343,12 @@ namespace CC
                 CornerRadius = new CornerRadius(15),
                 ClipToBounds = true,
                 Margin = new Thickness(0, 0, 10, 0),
-                Child = new Image { Source = Avatars.Default, Stretch = Stretch.UniformToFill },
+                Child = photo,
             };
 
             var name = new TextBlock
             {
-                Text = c.Nickname,
+                Text = u.Nickname ?? string.Empty,
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.Parse("#1E1E1E")),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -319,7 +368,7 @@ namespace CC
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = row,
             };
-            body.PointerPressed += (_, _) => ToggleOne(c.Nickname);
+            body.PointerPressed += (_, _) => ToggleOne(u);
             return body;
         }
 

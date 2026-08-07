@@ -1,11 +1,17 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using CC.Model;
 
 namespace CC
 {
     public partial class ContactItem : UserControl
     {// 联系人列表项
+
+        // 这一行对应的人.详情页要拿它读手机号等字段, 光靠昵称回查不可靠(会重名).
+        // 普通属性就够了, 不参与 XAML 绑定, 不必做成 StyledProperty
+        public User? User { get; set; }
+
         public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ContactItem, string?>("Nickname");
         public static readonly StyledProperty<string?> SignProperty = AvaloniaProperty.Register<ContactItem, string?>("Sign");
         public static readonly StyledProperty<IImage?> AvatarProperty = AvaloniaProperty.Register<ContactItem, IImage?>("Avatar");

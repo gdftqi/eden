@@ -100,6 +100,23 @@
             <Style Selector="Button.pencil:pointerover /template/ ContentPresenter">
                 <Setter Property="Background" Value="#11000000"/>
             </Style>
+
+            <!-- 编辑态的 勾/叉.
+                 Focusable=False 是关键: 输入框失焦就等于放弃这次编辑,
+                 按钮要是能抢焦点, 点"确定"的瞬间就先把自己要提交的东西撤掉了 -->
+            <Style Selector="Button.editAct">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="28"/>
+                <Setter Property="Height" Value="28"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="14"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.editAct:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#11000000"/>
+            </Style>
         </Grid.Styles>
 
         <!-- 头部: 返回 + 标题 -->
@@ -145,6 +162,25 @@
                     </Border>
                 </Panel>
 
+                <!-- 选完图只是先摆上来看看, 不点勾不上传 -->
+                <StackPanel x:Name="AvatarEditBar" Orientation="Horizontal" Spacing="2" IsVisible="False"
+                            HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <Button Classes="editAct" Click="AvatarOk_Click" ToolTip.Tip="使用这张图">
+                        <Viewbox Width="18" Height="18">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                    <Button Classes="editAct" Click="AvatarCancel_Click" ToolTip.Tip="取消">
+                        <Viewbox Width="18" Height="18">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+
                 <!-- 部门名: 只读态(文字+铅笔) 与 编辑态(下横杠输入框) 叠在一起, 切一个显示 -->
                 <Panel HorizontalAlignment="Center" Margin="0,20,0,0">
                     <StackPanel x:Name="TitleView" Orientation="Horizontal" Spacing="4">
@@ -163,9 +199,30 @@
                         </Button>
                     </StackPanel>
 
-                    <TextBox x:Name="TitleEdit" Classes="inline" IsVisible="False"
-                             Width="320" FontSize="22" MaxLength="32" TextAlignment="Center"
-                             KeyDown="Edit_KeyDown" LostFocus="TitleEdit_LostFocus"/>
+                    <StackPanel x:Name="TitleEditBar" Orientation="Horizontal" Spacing="2"
+                                IsVisible="False" VerticalAlignment="Center">
+                        <!-- 左边这 60 是给右侧两个按钮配的等宽留白(2+28+2+28):
+                             整条 bar 在 Panel 里居中, 不补的话输入框会比只读态的标题偏左 -->
+                        <TextBox x:Name="TitleEdit" Classes="inline" Margin="60,0,0,0"
+                                 Width="320" FontSize="22" MaxLength="32" TextAlignment="Center"
+                                 KeyDown="Edit_KeyDown" LostFocus="TitleEdit_LostFocus"/>
+                        <Button Classes="editAct" Tag="title" Click="EditOk_Click"
+                                ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="editAct" Tag="title" Click="EditCancel_Click"
+                                ToolTip.Tip="取消 (Esc)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
                 </Panel>
 
                 <!-- 副标题: 部门 · N 位成员 -->
@@ -228,10 +285,29 @@
                         </Button>
                     </StackPanel>
 
-                    <TextBox x:Name="RemarkEdit" Classes="inline" IsVisible="False"
-                             Width="420" FontSize="13.5" MaxLength="200"
-                             TextWrapping="Wrap" AcceptsReturn="False"
-                             KeyDown="Edit_KeyDown" LostFocus="RemarkEdit_LostFocus"/>
+                    <StackPanel x:Name="RemarkEditBar" Orientation="Horizontal" Spacing="2"
+                                IsVisible="False" VerticalAlignment="Center">
+                        <TextBox x:Name="RemarkEdit" Classes="inline"
+                                 Width="420" FontSize="13.5" MaxLength="200"
+                                 TextWrapping="Wrap" AcceptsReturn="False"
+                                 KeyDown="Edit_KeyDown" LostFocus="RemarkEdit_LostFocus"/>
+                        <Button Classes="editAct" Tag="remark" Click="EditOk_Click"
+                                ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="editAct" Tag="remark" Click="EditCancel_Click"
+                                ToolTip.Tip="取消 (Esc)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
                 </Panel>
 
                 <Border Height="1" Background="#E8EAED" Margin="0,20,0,0"/>

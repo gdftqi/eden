@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using System;
 
 namespace CC
 {
@@ -15,10 +16,11 @@ namespace CC
 
         private void OpenContact(ContactItem item)
         {
-            // 临时: 手机号/状态用示例数据(以后按联系人查真实资料)
-            ContactView.SetContact(item.Avatar!, item.Nickname ?? "",
-                new[] { "+60 16-600 3526", "+86 138-0013-8000" },
-                item.Sign ?? "");
+            // 手机号是选填的, 没有就一个都不列 -- 总比拿别人的号码顶上去强
+            var phone = item.User?.PhoneNum;
+            var phones = string.IsNullOrWhiteSpace(phone) ? Array.Empty<string>() : new[] { phone };
+
+            ContactView.SetContact(item.Avatar!, item.Nickname ?? "", phones, item.Sign ?? "");
 
             EmptyState.IsVisible = false;
             ContactView.IsVisible = true;

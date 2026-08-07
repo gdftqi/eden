@@ -21,13 +21,23 @@ namespace CC
     {
         public event Action? Cancelled;
 
-        private readonly HashSet<string> selected = new();
+        // 已选成员, 按 id 存 -- 建部门时要把这些 id 一起发上去
+        private readonly Dictionary<Int64, User> selected = new();
 
         public OrgEditPanel()
         {
             InitializeComponent();
             Picker.Toggled += OnPickerToggled;
             RefreshMembers();
+        }
+
+
+        /// <summary>
+        /// 灌入选人抽屉的候选名单.抽屉自己不拉接口, 由 OrgTab 拿 /get_org 那一份统一分发.
+        /// </summary>
+        public void SetCandidates(IEnumerable<User> users)
+        {
+            Picker.SetSource(users);
         }
 
 
@@ -38,7 +48,7 @@ namespace CC
             ClearAvatar();
 
             selected.Clear();
-            Picker.SetChecked(selected);
+            Picker.SetChecked(selected.Keys);
             Picker.HideNow();
 
             RefreshMembers();
@@ -127,25 +137,30 @@ namespace CC
         }
 
 
-        private void OnPickerToggled(string nickname, bool on)
+        private void OnPickerToggled(User user, bool on)
         {
+            if (user.ID == null)
+            {
+                return;
+            }
+
             if (on)
             {
-                selected.Add(nickname);
+                selected[user.ID.Value] = user;
             }
             else
             {
-                selected.Remove(nickname);
+                selected.Remove(user.ID.Value);
             }
 
             RefreshMembers();
         }
 
 
-        private void RemoveMember(string nickname)
+        private void RemoveMember(Int64 id)
         {
-            selected.Remove(nickname);
-            Picker.SetChecked(selected);
+            selected.Remove(id);
+            Picker.SetChecked(selected.Keys);
             RefreshMembers();
         }
 
@@ -153,18 +168,22 @@ namespace CC
         private void RefreshMembers()
         {
             MemberList.Children.Clear();
-            foreach (var nick in selected)
+            foreach (var u in selected.Values)
             {
-                MemberList.Children.Add(BuildMemberRow(nick));
+                MemberList.Children.Add(BuildMemberRow(u));
             }
 
             MemberHeader.Text = selected.Count > 0 ? $"{selected.Count} 位成员" : "尚未选择成员";
         }
 
 
-        private Control BuildMemberRow(string nickname)
+        private Control BuildMemberRow(User user)
         {
-            var sign = ContactSource.All.FirstOrDefault(c => c.Nickname == nickname)?.Sign ?? string.Empty;
+            // 副行放登录名: 服务端没有"个性签名"这个字段, 拿它区分重名的人
+            var sign = user.Username ?? string.Empty;
+
+            var photo = new Image { Stretch = Stretch.UniformToFill };
+            Avatars.Bind(photo, user.Avatar);
 
             var avatar = new Border
             {
@@ -173,13 +192,13 @@ namespace CC
                 CornerRadius = new CornerRadius(21),
                 ClipToBounds = true,
                 Margin = new Thickness(0, 0, 14, 0),
-                Child = new Image { Source = Avatars.Default, Stretch = Stretch.UniformToFill },
+                Child = photo,
             };
 
             var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2 };
             texts.Children.Add(new TextBlock
             {
-                Text = nickname,
+                Text = user.Nickname ?? string.Empty,
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#1E1E1E")),
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -218,7 +237,7 @@ namespace CC
             var row = new Border { Child = grid };
             row.Classes.Add("row");
             ToolTip.SetTip(row, "点击移除");
-            row.PointerPressed += (_, _) => RemoveMember(nickname);
+            row.PointerPressed += (_, _) => RemoveMember(user.ID!.Value);
             return row;
         }
 
@@ -250,10 +269,9 @@ namespace CC
                 return;
             }
 
-            // TODO 获取 UserList
             try
             {
-                await CreateDepart.POST(name, avatar, desc, null);
+                await CreateDepart.POST(name, avatar, desc, selected.Keys.ToList());
             }
             catch (Exception ex)
             {
