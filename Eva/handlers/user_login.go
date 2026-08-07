@@ -37,14 +37,13 @@ type userLoginReq struct {
 }
 
 type userLoginRsp struct {
-	Conv         uint32 `json:"conv"`          // kcp conv
-	UserID       uint32 `json:"user_id"`       // 用户ID
-	Host         string `json:"host"`          // kcp host
-	HostID       uint32 `json:"host_id"`       // kcp host id
-	MacKey       string `json:"mac_key"`       // siphash mac key
-	AccessToken  string `json:"access_token"`  // 网关访问Token
-	RefreshToken string `json:"refresh_token"` // OAUTH Token
-
+	Conv         uint32    `json:"conv"`          // kcp conv
+	Host         string    `json:"host"`          // kcp host
+	HostID       uint32    `json:"host_id"`       // kcp host id
+	MacKey       string    `json:"mac_key"`       // siphash mac key
+	AccessToken  string    `json:"access_token"`  // 网关访问Token
+	RefreshToken string    `json:"refresh_token"` // OAUTH Token
+	User         *dao.User `json:"user"`
 }
 
 func UserLogin(c *gin.Context) {
@@ -124,7 +123,7 @@ func UserLogin(c *gin.Context) {
 	// 还不知道 userID 时先按 IP 限一道, 否则枚举不存在的用户名是免费的
 	ipID := c.ClientIP()
 
-	user, err := dao.GetUserBasicByUsername(info.Username)
+	ub, err := dao.GetUserBasicByUsername(info.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			if _, e := com.RateHit("fail", ipID, conf.Instance.LoginFail); e != nil {
@@ -140,12 +139,12 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	if user.State != 1 {
+	if ub.State != 1 {
 		web.Response(c, -1, errBadLogin)
 		return
 	}
 
-	userID := uint32(user.ID)
+	userID := uint32(ub.ID)
 	okID := strconv.FormatUint(uint64(userID), 10)
 	failID := ipID + "|" + okID
 
@@ -156,7 +155,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(info.Password)) != nil {
+	if bcrypt.CompareHashAndPassword([]byte(ub.Password), []byte(info.Password)) != nil {
 		if _, err := com.RateHit("fail", failID, conf.Instance.LoginFail); err != nil {
 			log.Error("限速记账失败: %v", err)
 		}
@@ -215,8 +214,8 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	user.LastLogin = tnow
-	err = dao.UpdateUserBasic(user)
+	ub.LastLogin = tnow
+	err = dao.UpdateUserBasic(ub)
 	if err != nil {
 		log.Error(err)
 		web.Response(c, -1, "更新登录时间失败")
@@ -259,15 +258,22 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	user, err := dao.GetUserByID(ub.ID)
+	if err != nil {
+		log.Error("GetUserByID failed: %v", err)
+		web.Response(c, -1, "服务端内部错误9")
+		return
+	}
+
 	// Step 9, 加密应答消息
 	rsp := userLoginRsp{
 		Conv:         conv,
-		UserID:       userID,
 		Host:         gw.Server.Host,
 		HostID:       gw.Server.ID,
 		MacKey:       base64.StdEncoding.EncodeToString(macKey),
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,
+		User:         user,
 	}
 
 	web.Response(c, 0, "", tx, &rsp)
@@ -279,8 +285,10 @@ func ipv4ToU32(s string) uint32 {
 	if ip == nil {
 		return 0
 	}
+
 	if v4 := ip.To4(); v4 != nil {
 		return binary.BigEndian.Uint32(v4)
 	}
+
 	return 0
 }

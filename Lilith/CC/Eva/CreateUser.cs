@@ -2,6 +2,7 @@ using CC.Model;
 using Lilith.Core;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -22,10 +23,14 @@ namespace CC.Eva
 
             [JsonProperty("phone_num", NullValueHandling = NullValueHandling.Ignore)]
             public string? PhoneNum { get; set; }
+
+            [JsonProperty("depart_ids", NullValueHandling = NullValueHandling.Ignore)]
+            public List<Int64>? DepartIDs { get; set; }
         }
 
 
-        public static async Task<User> POST(string username, string password, string nickname, string phoneNum)
+        public static async Task<User> POST(string username, string password, string nickname,
+                                            string phoneNum, List<Int64>? departIDs = null)
         {
             if (!HttpSession.Instance.Valid)
             {
@@ -37,7 +42,8 @@ namespace CC.Eva
                 Username = username,
                 Password = password,
                 Nickname = nickname,
-                PhoneNum = phoneNum
+                PhoneNum = phoneNum,
+                DepartIDs = departIDs
             };
 
             var sw = Stopwatch.StartNew();

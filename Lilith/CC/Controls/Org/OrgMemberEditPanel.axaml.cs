@@ -27,13 +27,13 @@ namespace CC
         private static readonly TimeSpan DRAWER_MS = TimeSpan.FromMilliseconds(260);
 
         // 可选的全部部门
-        private readonly List<string> allDepts = new();
+        private readonly List<Department> allDepts = new();
 
-        // 已勾选的部门
-        private readonly HashSet<string> pickedDepts = new();
+        // 已勾选的部门(按 id -- 建成员时要把这些 id 发上去)
+        private readonly HashSet<Int64> pickedDepts = new();
 
-        // 部门名 -> 抽屉里那一行的复选框
-        private readonly Dictionary<string, CheckBox> deptChecks = new();
+        // 部门 id -> 抽屉里那一行的复选框
+        private readonly Dictionary<Int64, CheckBox> deptChecks = new();
 
         public OrgMemberEditPanel()
         {
@@ -42,10 +42,13 @@ namespace CC
         }
 
 
-        public void SetDepartments(IEnumerable<string> depts)
+        /// <summary>
+        /// 换一份可选部门.没有 id 的会被丢掉: 勾选和上报都以 id 为准.
+        /// </summary>
+        public void SetDepartments(IEnumerable<Department> depts)
         {
             allDepts.Clear();
-            allDepts.AddRange(depts);
+            allDepts.AddRange(depts.Where(d => d.ID.HasValue));
             BuildDeptList();
         }
 
@@ -74,7 +77,7 @@ namespace CC
 
             var hits = keyword.Length == 0
                 ? allDepts
-                : allDepts.Where(d => d.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+                : allDepts.Where(d => (d.Name ?? string.Empty).Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
 
             if (hits.Count == 0)
             {
@@ -96,16 +99,19 @@ namespace CC
         }
 
 
-        private Control BuildDeptRow(string dept)
+        private Control BuildDeptRow(Department dept)
         {
+            // SetDepartments 已经把没有 id 的滤掉了, 这里的都有
+            var id = dept.ID!.Value;
+
             var check = new CheckBox
             {
-                IsChecked = pickedDepts.Contains(dept),
+                IsChecked = pickedDepts.Contains(id),
                 IsHitTestVisible = false,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0),
             };
-            deptChecks[dept] = check;
+            deptChecks[id] = check;
 
             var icon = new Border
             {
@@ -136,7 +142,7 @@ namespace CC
 
             var name = new TextBlock
             {
-                Text = dept,
+                Text = dept.Name ?? string.Empty,
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.Parse("#1E1E1E")),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -156,21 +162,21 @@ namespace CC
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = row,
             };
-            body.PointerPressed += (_, _) => ToggleDept(dept);
+            body.PointerPressed += (_, _) => ToggleDept(id);
             return body;
         }
 
 
-        private void ToggleDept(string dept)
+        private void ToggleDept(Int64 id)
         {
-            if (!pickedDepts.Remove(dept))
+            if (!pickedDepts.Remove(id))
             {
-                pickedDepts.Add(dept);
+                pickedDepts.Add(id);
             }
 
-            if (deptChecks.TryGetValue(dept, out var cb))
+            if (deptChecks.TryGetValue(id, out var cb))
             {
-                cb.IsChecked = pickedDepts.Contains(dept);
+                cb.IsChecked = pickedDepts.Contains(id);
             }
 
             ApplyDeptSummary();
@@ -186,7 +192,10 @@ namespace CC
                 return;
             }
 
-            DeptSummary.Text = string.Join("、", allDepts.Where(pickedDepts.Contains));
+            // 按 allDepts 的顺序拼, 不按勾选先后 -- 摘掉再勾上不该让整串重排
+            DeptSummary.Text = string.Join("、", allDepts
+                .Where(d => pickedDepts.Contains(d.ID!.Value))
+                .Select(d => d.Name ?? string.Empty));
             DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#1E1E1E"));
         }
 
@@ -240,7 +249,7 @@ namespace CC
 
             try
             {
-                await CreateUser.POST(name, pass, nickname, phoneNum);
+                await CreateUser.POST(name, pass, nickname, phoneNum, pickedDepts.ToList());
             }
             catch (Exception ex)
             {

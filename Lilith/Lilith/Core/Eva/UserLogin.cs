@@ -1,5 +1,6 @@
 using Lilith.Utils;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Threading.Tasks;
 
@@ -36,9 +37,6 @@ namespace Lilith.Core.Eva
             [JsonProperty("conv", NullValueHandling = NullValueHandling.Ignore)]
             public UInt32? Conv { get; set; }
 
-            [JsonProperty("user_id", NullValueHandling = NullValueHandling.Ignore)]
-            public UInt32? UserID { get; set; }
-
             [JsonProperty("host", NullValueHandling = NullValueHandling.Ignore)]
             public string? Host { get; set; }
 
@@ -53,6 +51,10 @@ namespace Lilith.Core.Eva
 
             [JsonProperty("refresh_token", NullValueHandling = NullValueHandling.Ignore)]
             public string? RefreshToken { get; set; }
+
+            // 当前用户资料.不解成具体类型, 原样交给上层 -- 见 HttpSession.User
+            [JsonProperty("user", NullValueHandling = NullValueHandling.Ignore)]
+            public JObject? User { get; set; }
         }
 
         public static async Task<int> POST(string username, string password)
@@ -72,16 +74,26 @@ namespace Lilith.Core.Eva
             };
 
             var rsp = await HttpSession.Instance.PostSecureAsync<UserLoginRsp>("/user_login", req);
+
+            // 用户 id 从 user 里取: 服务端不再单独下发 user_id 了.
+            // 取不到就没法给包寻址, 也没法带上 HTTP 请求的 user_id, 只能算登录失败
+            var userID = rsp.User?["id"]?.Value<Int64>();
+            if (userID == null)
+            {
+                return -1;
+            }
+
             Refresh.RefreshToken = rsp.RefreshToken;
             KcpSession.Instance
                 .SetHost(rsp.Host!)
                 .SetConv(rsp.Conv!.Value)
-                .SetUserID(rsp.UserID!.Value)
+                .SetUserID((UInt32)userID.Value)
                 .SetGatewayID(rsp.HostID!.Value)
                 .SetMacKey(rsp.MacKey!)
                 .SetAccessToken(rsp.AccessToken!);
 
-            HttpSession.Instance.UserID = rsp.UserID!.Value;
+            HttpSession.Instance.UserID = userID.Value;
+            HttpSession.Instance.User = rsp.User;
 
             return 0;
         }

@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using CC.Model;
 using Lilith.Components;
 using Lilith.Core;
 using Lilith.Utils;
@@ -18,10 +19,19 @@ namespace CC
         public MainWindow()
         {
             InitializeComponent();
-            Avatar.Source = Avatars.Default;
+            RefreshAvatar();
             TabChat.SendRequested += OnSendText;
             // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
             Hydra.Instance.SetOnStateChanged(OnHydraState).SetOnPackage(OnPackage);
+        }
+
+
+        /// <summary>
+        /// 按当前登录用户重刷左下角头像.在设置页改完头像后也要调一次.
+        /// </summary>
+        public void RefreshAvatar()
+        {
+            Avatars.Bind(Avatar, Me.User?.Avatar);
         }
 
 

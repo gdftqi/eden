@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using CC.Model;
 using Lilith.Components;
 
 
@@ -69,6 +70,9 @@ namespace CC
                 ShowError(err);
                 return;
             }
+
+            // 登录应答里带了自己的资料, 解出来放好 -- 主窗的头像和设置页都要用
+            Me.Sync();
 
             // 连上 -> 切主窗
             var main = new MainWindow();

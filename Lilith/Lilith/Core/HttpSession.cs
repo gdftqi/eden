@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +77,11 @@ namespace Lilith.Core
         public bool Valid { get { return tx != null && rx != null && UserID.HasValue; } }
 
         public Int64? UserID { get; set; }
+
+        /// <summary>
+        /// 当前用户资料
+        /// </summary>
+        public JObject? User { get; set; }
 
 
         public void SetBaseUrl(string baseUrl)

@@ -72,9 +72,16 @@ namespace CC
         }
 
 
-        public IEnumerable<string> DeptNames()
+        // 没有 id 的不给出去: 调用方要拿它往服务端发, 光有名字没用
+        public IEnumerable<Department> Departments()
         {
-            return Groups().Select(g => g.Dept?.Name ?? string.Empty).Where(n => n.Length > 0);
+            foreach (var g in Groups())
+            {
+                if (g.Dept?.ID != null)
+                {
+                    yield return g.Dept;
+                }
+            }
         }
 
 

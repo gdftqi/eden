@@ -288,7 +288,7 @@ namespace CC
 
         private void OnAddEmployee()
         {
-            MemberEditView.SetDepartments(OrgPanel.DeptNames());
+            MemberEditView.SetDepartments(OrgPanel.Departments());
             MemberEditView.Reset();
             ShowOnly(MemberEditView);
         }
