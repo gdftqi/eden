@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const UPDATE_DEPART = "/update_depart"
+
 type updateDepartReq struct {
 	web.BaseRequest
 

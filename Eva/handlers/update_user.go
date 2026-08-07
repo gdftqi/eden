@@ -11,6 +11,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const UPDATE_USER = "/update_user"
+
 type updateUserReq struct {
 	web.BaseRequest
 
