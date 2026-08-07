@@ -45,6 +45,9 @@ func main() {
 	// 超过这个大小的 multipart 分片会落临时文件
 	eng.MaxMultipartMemory = 8 << 20
 
+	// gin 默认信任所有代理
+	eng.SetTrustedProxies(nil)
+
 	eng.POST(handlers.CREATE_USER, handlers.CreateUser)
 	eng.POST(handlers.USER_LOGIN, handlers.UserLogin)
 	eng.POST(handlers.REFRESH, handlers.Refresh)

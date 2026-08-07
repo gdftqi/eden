@@ -87,7 +87,7 @@ func UserLogin(c *gin.Context) {
 	rx, tx, err := utils.X25519KxServer(conf.Instance.SelfPk, conf.Instance.SelfSk, hpk)
 	if err != nil {
 		log.Error("交换密钥失败: %v", err)
-		web.Response(c, -1, "服务内部错误1")
+		web.Response(c, -1, "服务器内部错误1")
 		return
 	}
 
@@ -118,27 +118,38 @@ func UserLogin(c *gin.Context) {
 	}
 
 	// Step 5, 账号校验: 查库 + bcrypt 比对(库里是 bcrypt(客户端SHA256))
+	// 用户名不存在 / 账号禁用 / 密码错误
+	const errBadLogin = "用户名或密码错误"
+
+	// 还不知道 userID 时先按 IP 限一道, 否则枚举不存在的用户名是免费的
+	ipID := c.ClientIP()
+
 	user, err := dao.GetUserBasicByUsername(info.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			web.Response(c, -1, "用户名不存在")
+			if _, e := com.RateHit("fail", ipID, conf.Instance.LoginFail); e != nil {
+				log.Error("限速记账失败: %v", e)
+			}
+
+			web.Response(c, -1, errBadLogin)
 			return
 		}
+
 		log.Error("GetUserBasicByUsername failed: %v", err)
-		web.Response(c, -1, "服务器内部错误1")
+		web.Response(c, -1, "服务器内部错误2")
 		return
 	}
 
 	if user.State != 1 {
-		web.Response(c, -1, "账号已禁用")
+		web.Response(c, -1, errBadLogin)
 		return
 	}
 
 	userID := uint32(user.ID)
 	okID := strconv.FormatUint(uint64(userID), 10)
-	failID := c.ClientIP() + "|" + okID
+	failID := ipID + "|" + okID
 
-	if sec, err := com.RateBanned(com.RateBanKey("ok", okID), com.RateBanKey("fail", failID)); err != nil {
+	if sec, err := com.RateBanned(com.RateBanKey("ok", okID), com.RateBanKey("fail", failID), com.RateBanKey("fail", ipID)); err != nil {
 		log.Error("限速查询失败: %v", err)
 	} else if sec > 0 {
 		web.Response(c, -1, fmt.Sprintf("登录过于频繁, 请 %d 秒后再试", sec))
@@ -149,7 +160,7 @@ func UserLogin(c *gin.Context) {
 		if _, err := com.RateHit("fail", failID, conf.Instance.LoginFail); err != nil {
 			log.Error("限速记账失败: %v", err)
 		}
-		web.Response(c, -1, "密码错误")
+		web.Response(c, -1, errBadLogin)
 		return
 	}
 
@@ -164,7 +175,7 @@ func UserLogin(c *gin.Context) {
 	gwList, err := com.GetMosesListFromEtcd()
 	if err != nil {
 		log.Error("GetMosesListFromEtcd 失败: %v", err)
-		web.Response(c, -1, "服务器内部错误2")
+		web.Response(c, -1, "服务器内部错误3")
 		return
 	}
 
@@ -178,7 +189,7 @@ func UserLogin(c *gin.Context) {
 	conv, err := com.GenConv(gw.Server.ID)
 	if err != nil {
 		log.Error("GenConv 失败: %v", err)
-		web.Response(c, -1, "服务器内部错误3")
+		web.Response(c, -1, "服务器内部错误4")
 		return
 	}
 
@@ -193,7 +204,7 @@ func UserLogin(c *gin.Context) {
 	err = sess.UpdateToRedis()
 	if err != nil {
 		log.Error(err)
-		web.Response(c, -1, "服务器内部错误4")
+		web.Response(c, -1, "服务器内部错误5")
 		return
 	}
 
@@ -217,7 +228,7 @@ func UserLogin(c *gin.Context) {
 	sealed, err := accessToken.SealeaBoxAndSign(conf.Instance.Ed25519Sk, gw.X25519Pk)
 	if err != nil {
 		log.Error("token seal 失败: %v", err)
-		web.Response(c, -1, "服务器内部错误5")
+		web.Response(c, -1, "服务器内部错误6")
 		return
 	}
 
@@ -230,14 +241,14 @@ func UserLogin(c *gin.Context) {
 	err = refreshToken.UpdateToRedis()
 	if err != nil {
 		log.Error("更新 refresh token 到 redis 失败: %v", err)
-		web.Response(c, -1, "服务器内部错6")
+		web.Response(c, -1, "服务器内部错误7")
 		return
 	}
 
 	refreshData, err := refreshToken.XX20Encrypt([]byte(conf.Instance.RefreshKey))
 	if err != nil {
 		log.Error("refreshToken 加密失败: %v", err)
-		web.Response(c, -1, "服务器内部错误7")
+		web.Response(c, -1, "服务器内部错误8")
 		return
 	}
 

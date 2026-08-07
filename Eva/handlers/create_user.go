@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"errors"
 	"time"
+	"unicode/utf8"
 
 	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
+	"github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,7 +37,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	if len(req.Username) < 6 || len(req.Username) > 16 {
+	if len(req.Username) < 5 || len(req.Username) > 16 {
 		web.Response(c, -1, "用户名无效")
 		return
 	}
@@ -44,7 +47,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	if len(req.Nickname) == 0 || len(req.Nickname) > 16 {
+	if len(req.Nickname) == 0 || utf8.RuneCountInString(req.Nickname) > 16 {
 		web.Response(c, -1, "昵称无效")
 		return
 	}
@@ -55,18 +58,6 @@ func CreateUser(c *gin.Context) {
 	}
 
 	tnow := time.Now().Unix()
-
-	count, err := dao.CountUserBasicByUsername(req.Username)
-	if err != nil {
-		log.Error("CountUserBasicByUsername failed: %v", err)
-		web.Response(c, -1, "服务器内部错误, 请稍后重试")
-		return
-	}
-
-	if count != 0 {
-		web.Response(c, -1, "用户名已存在")
-		return
-	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -81,29 +72,24 @@ func CreateUser(c *gin.Context) {
 		CreateTime: tnow,
 		State:      1,
 	}
-	err = dao.InsertUserBasic(&ub)
-	if err != nil {
-		log.Error("InsertUserBasic failed: %v", err)
-		web.Response(c, -1, "服务器内部错误, 请稍后重试")
-		return
-	}
 
+	// ID 不在这里填: 自增值要等 t_user_basic 插完才有, InsertUser 里会回填
 	ui := dao.UserInfo{
-		ID:         ub.ID,
 		Nickname:   req.Nickname,
 		PhoneNum:   req.PhoneNum,
 		CreateTime: tnow,
 	}
-	err = dao.InsertUserInfo(&ui)
-	if err != nil {
-		log.Error("InsertUserInfo failed: %v", err)
-		web.Response(c, -1, "服务器内部错误, 请稍后重试")
-		return
-	}
 
-	err = dao.UpsertUserDeparts(ub.ID, req.DepartIDs)
-	if err != nil {
-		log.Error("UpsertUserDeparts failed: %v", err)
+	if err = dao.InsertUser(&ub, &ui, req.DepartIDs); err != nil {
+		// 用户名和手机号上都有唯一索引, 撞了(错误号 1062)是用户填重了, 不是服务出错.
+		// 靠索引兜比"先 Count 再 Insert"可靠 -- 后者两步之间有窗口, 并发同名照样撞
+		var me *mysql.MySQLError
+		if errors.As(err, &me) && me.Number == 1062 {
+			web.Response(c, -1, "用户名或手机号已被使用")
+			return
+		}
+
+		log.Error("InsertUser failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}

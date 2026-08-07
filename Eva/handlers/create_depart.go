@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"unicode/utf8"
 
 	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
+	"github.com/go-sql-driver/mysql"
 )
 
 const CREATE_DEPART = "/create_depart"
@@ -32,8 +34,14 @@ func CreateDepart(c *gin.Context) {
 		return
 	}
 
-	if utf8.RuneCountInString(req.Name) == 0 || utf8.RuneCountInString(req.Name) > 16 {
-		web.Response(c, -1, "部门名无效")
+	if len(req.Name) == 0 || utf8.RuneCountInString(req.Name) > 16 {
+		web.Response(c, -1, "名称无效")
+		return
+	}
+
+	// 描述是选填的(客户端那边写着"部门描述(选填)"), 只卡上限
+	if utf8.RuneCountInString(req.Desc) > 200 {
+		web.Response(c, -1, "描述无效")
 		return
 	}
 
@@ -43,9 +51,17 @@ func CreateDepart(c *gin.Context) {
 		Desc:   req.Desc,
 		State:  1,
 	}
-	err = dao.InsertDepartment(dept)
-	if err != nil {
-		web.Response(c, -1, err.Error())
+	if err = dao.InsertDepartment(dept); err != nil {
+		// f_name 上有 uk_name, 撞了(错误号 1062)是用户填重了, 不是服务出错.
+		// 另外原来这里直接把 err.Error() 回给客户端, 会漏出 SQL 语句和表名
+		var me *mysql.MySQLError
+		if errors.As(err, &me) && me.Number == 1062 {
+			web.Response(c, -1, "部门名已存在")
+			return
+		}
+
+		log.Error("InsertDepartment failed: %v", err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
 

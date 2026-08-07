@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"errors"
+	"unicode/utf8"
 
 	"github.com/eva/com"
 	"github.com/eva/dao"
@@ -17,9 +18,12 @@ const UPDATE_USER = "/update_user"
 type updateUserReq struct {
 	web.BaseRequest
 
-	Nickname     string  `json:"nickname"`
-	PhoneNum     string  `json:"phone_num"`
-	Avatar       string  `json:"avatar"`
+	// 指针: nil = 这次不改, "" = 改成空.
+	// 用 string 的话这两种情况都是空串, 手机号和头像就只能改不能清
+	Nickname *string `json:"nickname,omitempty"`
+	PhoneNum *string `json:"phone_num,omitempty"`
+	Avatar   *string `json:"avatar,omitempty"`
+
 	OldPassword  string  `json:"old_password"`
 	Password     string  `json:"password"`
 	State        int64   `json:"state"`
@@ -44,8 +48,9 @@ func UpdateUser(c *gin.Context) {
 		ui *dao.UserInfo
 	)
 
-	if len(req.Nickname) > 0 {
-		if len(req.Nickname) > 16 {
+	// 昵称是 NOT NULL, 空串不是合法值, 所以不接受清空
+	if req.Nickname != nil {
+		if utf8.RuneCountInString(*req.Nickname) == 0 || utf8.RuneCountInString(*req.Nickname) > 16 {
 			web.Response(c, -1, "无效的昵称")
 			return
 		}
@@ -54,11 +59,11 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 
-		ui.Nickname = req.Nickname
+		ui.Nickname = *req.Nickname
 	}
 
-	if len(req.PhoneNum) > 0 {
-		if len(req.PhoneNum) > 15 {
+	if req.PhoneNum != nil {
+		if utf8.RuneCountInString(*req.PhoneNum) > 15 {
 			web.Response(c, -1, "无效的手机号")
 			return
 		}
@@ -67,15 +72,15 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 
-		ui.PhoneNum = req.PhoneNum
+		ui.PhoneNum = *req.PhoneNum
 	}
 
-	if len(req.Avatar) > 0 {
+	if req.Avatar != nil {
 		if ub, err = loadUserBasic(ub, c, req.UserID); err != nil {
 			return
 		}
 
-		ub.Avatar = req.Avatar
+		ub.Avatar = *req.Avatar
 	}
 
 	if len(req.Password) > 0 {
