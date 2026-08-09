@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Scylla 的指标从 9180 出, 每个 shard 的数据都在这一个端口里,
+  # 用 shard 这个 label 区分, 不用每个 shard 配一个 target
+  - job_name: scylla
+    static_configs:
+      - targets: ["127.0.0.1:9180"]
+        labels:
+          cluster: typhon
+
+  # Prometheus 自己
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]

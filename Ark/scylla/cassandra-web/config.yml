@@ -1,0 +1,8 @@
+# cassandra-web 的配置.
+# 值都加引号: 密码里有 #, host_port 以 : 开头, 不引号 YAML 容易解歪
+host_port: ":3001"
+
+cassandra_host: "127.0.0.1"
+cassandra_port: 9042
+cassandra_username: "admin"
+cassandra_password: "123abc!@#"

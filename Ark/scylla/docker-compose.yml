@@ -1,0 +1,120 @@
+services:
+  # ------------------------
+  # scylla DB
+  # cqlsh /var/lib/scylla/cql.m
+  # CREATE ROLE admin WITH PASSWORD = '123abc!@#' AND LOGIN = true AND SUPERUSER = true;
+  # cqlsh -u admin -p '123abc!@#'
+  # ------------------------
+  scylla:
+    image: scylladb/scylla:latest
+    container_name: scylla
+    network_mode: host
+    restart: unless-stopped
+    privileged: true
+    tty: true
+    stdin_open: true
+
+    command: >
+      --smp 2
+      --memory 2G
+      --overprovisioned 1
+      --developer-mode 1
+      --cluster-name eden
+      --api-address 0.0.0.0
+      --rpc-address 0.0.0.0
+      --broadcast-rpc-address 172.31.6.248
+      --authenticator PasswordAuthenticator
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 200000
+        hard: 200000
+
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./data:/var/lib/scylla
+
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status 2>/dev/null | grep -q '^UN' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # ------------------------
+  # cassandra-web
+  #   浏览器里的 CQL 客户端: 看 keyspace / 表 / 数据, 跑语句
+  # ------------------------
+  cassandra-web:
+    image: ipushc/cassandra-web:latest
+    container_name: cassandra-web
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      scylla:
+        condition: service_healthy
+
+    environment:
+      - HOST_PORT=:3001          # 3000 留给 grafana
+      - CASSANDRA_HOST=127.0.0.1
+      - CASSANDRA_PORT=9042
+      - CASSANDRA_USERNAME=admin
+      - CASSANDRA_PASSWORD=123abc!@#
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./cassandra-web/config.yml:/app/config.yml:ro
+      - ./cassandra-web/config.yml:/app/config.yaml:ro
+      - ./cassandra-web/config.yml:/config.yml:ro
+
+  # ------------------------
+  # prometheus
+  #   抓 Scylla 的指标存时序
+  # ------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/data:/prometheus
+
+  # ------------------------
+  # grafana
+  #   指标面板
+  # ------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=123abc!@#
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/data:/var/lib/grafana
+
+# 占用端口(host 模式下直接是宿主机的):
+#   9042  CQL, 客户端连这个
+#   10000 REST 管理接口
+#   7000  节点间通信
+#   7001  节点间通信(TLS)
+#   7199  JMX
+#   9180  Prometheus 指标
+#
+#   3001  cassandra-web
+#   9090  prometheus
+#   3000  grafana        (admin / 123abc!@#)
