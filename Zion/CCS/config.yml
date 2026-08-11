@@ -1,0 +1,17 @@
+server:
+  id: 0x20000000
+  timeout: 45
+  protocol: "tcp"
+  name: "public/ccs"
+  host: "172.31.6.248:2000"
+  desc: "ccs"
+  router: true
+
+etcd:
+  url: "http://13.212.159.179:2379"
+  user: "root"
+  pass: "123456"
+  ttl: 15
+
+log_path: "logs"
+prof_path: "ccs.prof"

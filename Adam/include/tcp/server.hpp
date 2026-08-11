@@ -79,7 +79,7 @@ public:
     }; // class IHook;
 
 
-    static constexpr int MAX_CONN = 2048; ///< 最大连接数
+    static constexpr int MAX_CONN = 2048; // 最大连接数
 
 
     typedef void (*PackageHandler)(Terminal::Ptr, core::Package*) noexcept;
