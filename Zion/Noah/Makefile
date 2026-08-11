@@ -55,4 +55,4 @@ $(OBJ_DIR):
 -include $(OBJECTS:.o=.d)
 
 clean:
-	rm -rf $(BUILD_DIR) $(OBJ_DIR) noah.pid
+	rm -rf $(BUILD_DIR) $(OBJ_DIR) Noah.pid

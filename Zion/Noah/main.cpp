@@ -1,22 +1,4 @@
-#include <csignal>
-#include <cstdlib>
-
-#include "tcp/server.hpp"
-#include "utils/sys.hpp"
-#include "utils/prof.hpp"
-
-
-static std::unique_ptr<adam::tcp::Server> server;
-
-using adam::tcp::Conf;
-
-
-static void
-on_signal(int) {
-    if (server) {
-        server->stop();
-    }
-}
+#include "adam.h"
 
 
 class Noah: public adam::tcp::Server::IHook {
@@ -90,27 +72,7 @@ echo_handler(adam::tcp::Terminal::Ptr t, adam::core::Package* pk) noexcept {
 }
 
 
-int
-main(int /*argc*/, char** /*argv*/) {
-    if (!adam::utils::lock_pid("noah.pid")) {
-        xERROR("noah 已经在运行");
-        return EXIT_FAILURE;
-    }
-
-    Conf::instance()->load_from_file("config.yml");
-    adam::utils::init_log(Conf::instance()->log_path());
-    adam::utils::Prof prof(Conf::instance()->prof_path());
-
-    Noah s;
-    server = std::make_unique<adam::tcp::Server>(Conf::instance()->server()->host.c_str(), &s);
-
-    server->regist_handler(PID_CUSTOM + 1, &echo_handler);
-
-    ::signal(SIGINT, on_signal);
-    ::signal(SIGTERM, on_signal);
-
-    server->run();
-
-    xINFO("服务关闭");
-    return EXIT_SUCCESS;
-}
+TCP_SERVER_MAIN(
+    Noah, "config.yml",
+    TCP_PK_HANDLE(PID_CUSTOM + 1, echo_handler)
+)

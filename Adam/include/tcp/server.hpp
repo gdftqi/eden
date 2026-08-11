@@ -87,9 +87,9 @@ public:
 
 
     explicit
-    Server(const char* host, IHook* hook) noexcept
+    Server(IHook* hook) noexcept
         : hook_(hook)
-        , host_(host) {
+        , host_(Conf::instance()->server()->host) {
         host_ = host_.substr(host_.find(':'));
         ASSERT(hook_ != nullptr, "hook handler cannot be null");
     }
@@ -125,6 +125,12 @@ public:
     reactor(uint32_t idx) noexcept {
         ASSERT(idx < (uint32_t)reactors_.size(), "reactor index 越界: {}", idx);
         return reactors_[idx].get();
+    }
+
+
+    size_t
+    reactor_count() const noexcept {
+        return reactors_.size();
     }
 
 
