@@ -757,8 +757,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
     kContentFieldNumber = 5,
     kSeqFieldNumber = 2,
     kMsgIdFieldNumber = 3,
-    kCreatedAtFieldNumber = 6,
     kTypeFieldNumber = 4,
+    kFromIdFieldNumber = 7,
+    kCreatedAtFieldNumber = 6,
   };
   // string cli_uuid = 1;
   void clear_cli_uuid() ;
@@ -810,16 +811,6 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
   void _internal_set_msg_id(::int64_t value);
 
   public:
-  // int64 created_at = 6;
-  void clear_created_at() ;
-  [[nodiscard]] ::int64_t created_at() const;
-  void set_created_at(::int64_t value);
-
-  private:
-  ::int64_t _internal_created_at() const;
-  void _internal_set_created_at(::int64_t value);
-
-  public:
   // .ccs.MessageType type = 4;
   void clear_type() ;
   [[nodiscard]] ::ccs::MessageType type() const;
@@ -830,11 +821,31 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
   void _internal_set_type(::ccs::MessageType value);
 
   public:
+  // uint32 from_id = 7;
+  void clear_from_id() ;
+  [[nodiscard]] ::uint32_t from_id() const;
+  void set_from_id(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_from_id() const;
+  void _internal_set_from_id(::uint32_t value);
+
+  public:
+  // int64 created_at = 6;
+  void clear_created_at() ;
+  [[nodiscard]] ::int64_t created_at() const;
+  void set_created_at(::int64_t value);
+
+  private:
+  ::int64_t _internal_created_at() const;
+  void _internal_set_created_at(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:ccs.SingleChatNtf)
  private:
   class _Internal;
   using ParseTableT_ =
-      ::google::protobuf::internal::TcParseTable<3, 6,
+      ::google::protobuf::internal::TcParseTable<3, 7,
                           0, 41,
                           2>;
   static constexpr ParseTableT_ InternalGenerateParseTable_(
@@ -867,8 +878,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
     ::google::protobuf::internal::ArenaStringPtr content_;
     ::int64_t seq_;
     ::int64_t msg_id_;
-    ::int64_t created_at_;
     int type_;
+    ::uint32_t from_id_;
+    ::int64_t created_at_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -1399,7 +1411,7 @@ inline void SingleChatNtf::_internal_set_msg_id(::int64_t value) {
 inline void SingleChatNtf::clear_type() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.type_ = 0;
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
 }
 inline ::ccs::MessageType SingleChatNtf::type() const {
   // @@protoc_insertion_point(field_get:ccs.SingleChatNtf.type)
@@ -1407,7 +1419,7 @@ inline ::ccs::MessageType SingleChatNtf::type() const {
 }
 inline void SingleChatNtf::set_type(::ccs::MessageType value) {
   _internal_set_type(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.type)
 }
 inline ::ccs::MessageType SingleChatNtf::_internal_type() const {
@@ -1487,7 +1499,7 @@ inline void SingleChatNtf::set_allocated_content(::std::string* PROTOBUF_NULLABL
 inline void SingleChatNtf::clear_created_at() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.created_at_ = ::int64_t{0};
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
 }
 inline ::int64_t SingleChatNtf::created_at() const {
   // @@protoc_insertion_point(field_get:ccs.SingleChatNtf.created_at)
@@ -1495,7 +1507,7 @@ inline ::int64_t SingleChatNtf::created_at() const {
 }
 inline void SingleChatNtf::set_created_at(::int64_t value) {
   _internal_set_created_at(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.created_at)
 }
 inline ::int64_t SingleChatNtf::_internal_created_at() const {
@@ -1505,6 +1517,30 @@ inline ::int64_t SingleChatNtf::_internal_created_at() const {
 inline void SingleChatNtf::_internal_set_created_at(::int64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.created_at_ = value;
+}
+
+// uint32 from_id = 7;
+inline void SingleChatNtf::clear_from_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.from_id_ = 0u;
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+}
+inline ::uint32_t SingleChatNtf::from_id() const {
+  // @@protoc_insertion_point(field_get:ccs.SingleChatNtf.from_id)
+  return _internal_from_id();
+}
+inline void SingleChatNtf::set_from_id(::uint32_t value) {
+  _internal_set_from_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.from_id)
+}
+inline ::uint32_t SingleChatNtf::_internal_from_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.from_id_;
+}
+inline void SingleChatNtf::_internal_set_from_id(::uint32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.from_id_ = value;
 }
 
 #ifdef __GNUC__

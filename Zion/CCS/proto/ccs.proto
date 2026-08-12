@@ -41,10 +41,11 @@ message SingleChatRsp {
 
 
 message SingleChatNtf {
-    string      cli_uuid   = 1; 
+    string      cli_uuid   = 1;
     int64       seq        = 2;
     int64       msg_id     = 3;
     MessageType type       = 4;
     string      content    = 5;
     int64       created_at = 6;
+    uint32      from_id    = 7;
 }

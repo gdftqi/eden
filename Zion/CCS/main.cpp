@@ -138,6 +138,7 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
     ntf.set_type(req->type());
     ntf.set_content(req->content());
     ntf.set_created_at(created_at);
+    ntf.set_from_id(from_id);
 
     auto* s = ctx.reactor->server();
     uint32_t idx = s->directory()->get(to_id);

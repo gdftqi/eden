@@ -384,11 +384,11 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
     {
       PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_._has_bits_),
       0, // no _extensions_
-      6, 56,  // max_field_number, fast_idx_mask
+      7, 56,  // max_field_number, fast_idx_mask
       offsetof(ParseTableT_, field_lookup_table),
-      4294967232,  // skipmap
+      4294967168,  // skipmap
       offsetof(ParseTableT_, field_entries),
-      6,  // num_field_entries
+      7,  // num_field_entries
       0,  // num_aux_entries
       offsetof(ParseTableT_, field_names),  // no aux_entries
       class_data,
@@ -413,7 +413,7 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.msg_id_)}},
       // .ccs.MessageType type = 4;
       {::_pbi::TcParser::FastV32S1,
-       {32, 5, 0,
+       {32, 4, 0,
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_)}},
       // string content = 5;
       {::_pbi::TcParser::FastUS1,
@@ -421,9 +421,12 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.content_)}},
       // int64 created_at = 6;
       {::_pbi::TcParser::FastV64S1,
-       {48, 4, 0,
+       {48, 6, 0,
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_)}},
-      {::_pbi::TcParser::MiniParse, {}},
+      // uint32 from_id = 7;
+      {::_pbi::TcParser::FastV32S1,
+       {56, 5, 0,
+        PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.from_id_)}},
     }}, {{
       65535, 65535
     }}, {{
@@ -434,11 +437,13 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
       // int64 msg_id = 3;
       {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.msg_id_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
       // .ccs.MessageType type = 4;
-      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kOpenEnum)},
+      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kOpenEnum)},
       // string content = 5;
       {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.content_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
       // int64 created_at = 6;
-      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+      // uint32 from_id = 7;
+      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.from_id_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
     }},
     // no aux_entries
     {{
@@ -462,8 +467,9 @@ inline constexpr SingleChatNtf::Impl_::Impl_(
             ::_pbi::ConstantInitialized()),
         seq_{::int64_t{0}},
         msg_id_{::int64_t{0}},
-        created_at_{::int64_t{0}},
-        type_{static_cast< ::ccs::MessageType >(0)} {}
+        type_{static_cast< ::ccs::MessageType >(0)},
+        from_id_{0u},
+        created_at_{::int64_t{0}} {}
 
 template <typename>
 constexpr SingleChatNtf::SingleChatNtf(::_pbi::ConstantInitialized,
@@ -1323,9 +1329,9 @@ SingleChatNtf::SingleChatNtf(
                offsetof(Impl_, seq_),
            reinterpret_cast<const char*>(&from._impl_) +
                offsetof(Impl_, seq_),
-           offsetof(Impl_, type_) -
+           offsetof(Impl_, created_at_) -
                offsetof(Impl_, seq_) +
-               sizeof(Impl_::type_));
+               sizeof(Impl_::created_at_));
 
   // @@protoc_insertion_point(copy_constructor:ccs.SingleChatNtf)
 }
@@ -1340,9 +1346,9 @@ inline void SingleChatNtf::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, seq_),
            0,
-           offsetof(Impl_, type_) -
+           offsetof(Impl_, created_at_) -
                offsetof(Impl_, seq_) +
-               sizeof(Impl_::type_));
+               sizeof(Impl_::created_at_));
 }
 SingleChatNtf::~SingleChatNtf() {
   // @@protoc_insertion_point(destructor:ccs.SingleChatNtf)
@@ -1397,12 +1403,12 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
       this_._impl_.content_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000003cU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000007cU)) {
     ::memset(&this_._impl_.seq_, 0,
              static_cast<::size_t>(
-                 reinterpret_cast<char*>(&this_._impl_.type_) -
+                 reinterpret_cast<char*>(&this_._impl_.created_at_) -
                  reinterpret_cast<char*>(&this_._impl_.seq_)) +
-                 sizeof(_impl_.type_));
+                 sizeof(_impl_.created_at_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::std::string>();
@@ -1456,7 +1462,7 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   }
 
   // .ccs.MessageType type = 4;
-  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
     if (this_._internal_type() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteEnumToArray(
@@ -1475,11 +1481,20 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   }
 
   // int64 created_at = 6;
-  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
     if (this_._internal_created_at() != 0) {
       target =
           ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<6>(
               stream, this_._internal_created_at(), target);
+    }
+  }
+
+  // uint32 from_id = 7;
+  if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (this_._internal_from_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
+          7, this_._internal_from_id(), target);
     }
   }
 
@@ -1506,7 +1521,7 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x0000003fU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
     // string cli_uuid = 1;
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_cli_uuid().empty()) {
@@ -1535,18 +1550,25 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
             this_._internal_msg_id());
       }
     }
-    // int64 created_at = 6;
-    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      if (this_._internal_created_at() != 0) {
-        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
-            this_._internal_created_at());
-      }
-    }
     // .ccs.MessageType type = 4;
-    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
       if (this_._internal_type() != 0) {
         total_size += 1 +
                       ::_pbi::WireFormatLite::EnumSize(this_._internal_type());
+      }
+    }
+    // uint32 from_id = 7;
+    if (CheckHasBit(cached_has_bits, 0x00000020U)) {
+      if (this_._internal_from_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
+            this_._internal_from_id());
+      }
+    }
+    // int64 created_at = 6;
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (this_._internal_created_at() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_created_at());
       }
     }
   }
@@ -1570,7 +1592,7 @@ void SingleChatNtf::MergeImpl(::google::protobuf::MessageLite& to_msg,
   (void)cached_has_bits;
 
   cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x0000003fU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!from._internal_cli_uuid().empty()) {
         _this->_internal_set_cli_uuid(from._internal_cli_uuid());
@@ -1600,13 +1622,18 @@ void SingleChatNtf::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000010U)) {
-      if (from._internal_created_at() != 0) {
-        _this->_impl_.created_at_ = from._impl_.created_at_;
+      if (from._internal_type() != 0) {
+        _this->_impl_.type_ = from._impl_.type_;
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000020U)) {
-      if (from._internal_type() != 0) {
-        _this->_impl_.type_ = from._impl_.type_;
+      if (from._internal_from_id() != 0) {
+        _this->_impl_.from_id_ = from._impl_.from_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      if (from._internal_created_at() != 0) {
+        _this->_impl_.created_at_ = from._impl_.created_at_;
       }
     }
   }
@@ -1632,8 +1659,8 @@ void SingleChatNtf::InternalSwap(SingleChatNtf* PROTOBUF_RESTRICT PROTOBUF_NONNU
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cli_uuid_, &other->_impl_.cli_uuid_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.content_, &other->_impl_.content_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_)
-      + sizeof(SingleChatNtf::_impl_.type_)
+      PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_)
+      + sizeof(SingleChatNtf::_impl_.created_at_)
       - PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.seq_)>(
           reinterpret_cast<char*>(&_impl_.seq_),
           reinterpret_cast<char*>(&other->_impl_.seq_));
