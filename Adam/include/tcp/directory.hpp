@@ -2,9 +2,8 @@
 #define __ADAM_TCP_DIRECTORY_HPP__
 
 
-#include <mutex>
 #include <cstdint>
-#include <absl/container/flat_hash_map.h>
+#include <boost/unordered/concurrent_flat_map.hpp>
 
 
 namespace adam::tcp {
@@ -12,11 +11,6 @@ namespace adam::tcp {
 
 /**
  * @brief 终端全局目录: uid -> 属主 reactor index
- *
- * 只在终端进入/顶号/下线时读写(控制面低频), 分片锁足够;
- * exchange 把"查旧属主+登记新属主"并成一步原子操作,
- * 两个 reactor 同时处理同一 uid 的 ENT 由此串行化.
- * 热路径(每消息)只走各 reactor 私有的 terminal_router_, 不碰这里.
  */
 class Directory {
     Directory(const Directory&) = delete;
@@ -32,12 +26,6 @@ public:
     static constexpr uint32_t NPOS = (uint32_t)-1;
 
 
-    /**
-     * @brief 分片数, 2 的幂(按 uid 低位取分片)
-     */
-    static constexpr uint32_t SHARDS = 16;
-
-
     Directory() noexcept = default;
 
 
@@ -46,17 +34,14 @@ public:
      */
     uint32_t
     exchange(uint32_t uid, uint32_t idx) noexcept {
-        auto& sd = shard(uid);
-        std::lock_guard<std::mutex> lk(sd.mtx);
+        uint32_t prev = NPOS;
 
-        auto itr = sd.map.find(uid);
-        if (itr == sd.map.end()) {
-            sd.map.emplace(uid, idx);
-            return NPOS;
-        }
+        // 已存在则进回调(拿旧值并覆盖), 不存在则插入 -- 两条路对单 key 都是原子的
+        map_.insert_or_visit({uid, idx}, [&](auto& kv) {
+            prev = kv.second;
+            kv.second = idx;
+        });
 
-        uint32_t prev = itr->second;
-        itr->second = idx;
         return prev;
     }
 
@@ -66,16 +51,9 @@ public:
      */
     bool
     erase_if(uint32_t uid, uint32_t idx) noexcept {
-        auto& sd = shard(uid);
-        std::lock_guard<std::mutex> lk(sd.mtx);
-
-        auto itr = sd.map.find(uid);
-        if (itr == sd.map.end() || itr->second != idx) {
-            return false;
-        }
-
-        sd.map.erase(itr);
-        return true;
+        return map_.erase_if(uid, [&](auto& kv) {
+            return kv.second == idx;
+        }) != 0;
     }
 
 
@@ -84,28 +62,18 @@ public:
      */
     uint32_t
     get(uint32_t uid) noexcept {
-        auto& sd = shard(uid);
-        std::lock_guard<std::mutex> lk(sd.mtx);
+        uint32_t idx = NPOS;
 
-        auto itr = sd.map.find(uid);
-        return itr == sd.map.end() ? NPOS : itr->second;
+        map_.visit(uid, [&](const auto& kv) {
+            idx = kv.second;
+        });
+
+        return idx;
     }
 
 
 private:
-    struct Shard {
-        std::mutex                              mtx;
-        absl::flat_hash_map<uint32_t, uint32_t> map;
-    };
-
-
-    Shard&
-    shard(uint32_t uid) noexcept {
-        return shards_[uid & (SHARDS - 1)];
-    }
-
-
-    Shard shards_[SHARDS];
+    boost::concurrent_flat_map<uint32_t, uint32_t> map_;
 }; // class Directory;
 
 
