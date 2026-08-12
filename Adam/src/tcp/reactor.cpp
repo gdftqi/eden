@@ -502,7 +502,6 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
     auto h = server_->get_phandler((uint16_t)pk->data.pid);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pk->data.pid, s->remote_addr());
-        // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
         return 0;
     }
 
