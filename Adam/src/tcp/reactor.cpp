@@ -81,11 +81,6 @@ adam::tcp::Reactor::run() noexcept {
 }
 
 
-// 按 uid 找到终端并踢除; 组包发送由 Terminal 自己完成.
-// 只发通知, 不在此删档 -- 删除统一由 OFF / 断连清扫负责:
-//   业务踢人: 等网关摘掉会话后扇出 OFF 再删(踢失败也不会"提前忘记");
-//   顶号:     add_terminal 末尾的覆盖写自然替换旧档(同 reactor),
-//             跨 reactor 时旧档留在旧 reactor, 等它那条连接上的 OFF.
 void
 adam::tcp::Reactor::kick_terminal(uint32_t uid, uint32_t code) noexcept {
     auto t = get_terminal(uid);
