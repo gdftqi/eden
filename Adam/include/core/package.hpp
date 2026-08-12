@@ -77,6 +77,11 @@ struct Package {
     payload_length() const noexcept {
         return meta.len - PKG_HDR_LEN;
     }
+
+    const uint8_t*
+    payload() const noexcept {
+        return data.payload;
+    }
 }; // struct Package;
 
 

@@ -6,6 +6,7 @@
 #include "kcp/server.hpp"
 #include "tcp/server.hpp"
 #include "utils/prof.hpp"
+#include "utils/proto_ex.hpp"
 #include "utils/sys.hpp"
 
 
