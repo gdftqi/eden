@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS eva.chat_message (
     content    text,        -- 文本
     target_id  bigint,      -- 仅事件行使用
     edit_seq   bigint,      -- 最后一次编辑事件的 seq,兼作版本号
-    edited_at  timestamp,
+    edited_at  bigint,
     is_revoked boolean,     -- 撤回标记
-    created_at timestamp,   -- 服务端时间,不采信客户端时钟
+    created_at bigint,   -- 服务端时间,不采信客户端时钟
     PRIMARY KEY ((chat_id, bucket), seq)
 ) WITH CLUSTERING ORDER BY (seq DESC)   -- 倒序:拉最新消息无需反向扫描
 AND compaction = {
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS eva.msg_edit_history (
     edit_seq  bigint,     -- 版本号,倒序即最新在前
     content   text,       -- 该版本的内容
     editor_id bigint,
-    edited_at timestamp,
+    edited_at bigint,
     PRIMARY KEY (msg_id, edit_seq)
 ) WITH CLUSTERING ORDER BY (edit_seq DESC);
 
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS eva.chat_cursor (
     clear_before_seq bigint,   -- "清空聊天记录"水位,一条记录顶掉海量删除标记
     is_pinned        boolean,
     is_muted         boolean,
-    joined_at        timestamp,
+    joined_at        bigint,
     PRIMARY KEY (user_id, chat_id)
 ) WITH compaction = {'class': 'LeveledCompactionStrategy'};
 

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+
+package ccs;
+
+option optimize_for = LITE_RUNTIME;
+option csharp_namespace = "CC.Proto";
+
+
+enum MessageType {
+    MT_None   = 0;
+    MT_Text   = 1;
+    MT_Image  = 2;
+    MT_File   = 3;
+    MT_Audio  = 4;
+    MT_Video  = 5;
+    MT_Pdf    = 6;
+
+    MT_Edit   = 100;
+    MT_Revoke = 101;
+}
+
+
+message SingleChatReq {
+    string      cli_uuid   = 1;   // 客户端幂等 ID, 重发不换号
+    uint32      to_id      = 2;   // 单聊对端 uid
+    MessageType type       = 3;
+    string      content    = 4;   // 文本为原文; 富媒体为 JSON(存对象 key); 编辑时为新内容
+    int64       target_id  = 5;   // 仅编辑/撤回: 目标 msg_id, 服务端校验防拿错行
+    int64       target_seq = 6;   // 仅编辑/撤回: 目标 seq, 服务端 seq/10000 定位分区
+}
+
+
+message SingleChatRsp {
+    string cli_uuid   = 1;   // 原样带回, 客户端靠它认领本地那条"发送中"
+    int32  code       = 2;   // 0 成功, 其余见错误码表
+    int64  seq        = 3;
+    int64  msg_id     = 4;
+    int64  created_at = 5;   // 服务端毫秒时间戳, 两端显示以此为准
+}
