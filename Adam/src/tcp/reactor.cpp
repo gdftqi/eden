@@ -508,7 +508,8 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
         return 0;
     }
 
-    h(t, pk);
+    Server::Context ctx(this, t.get());
+    h(ctx, pk);
     return 0;
 }
 

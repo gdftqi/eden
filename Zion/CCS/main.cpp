@@ -1,4 +1,8 @@
 #include "adam.h"
+#include "proto/ccs.pb.h"
+
+#define PID_SINGLE_CHAT_REQ (PID_CUSTOM + 1)
+#define PID_SINGLE_CHAT_RSP (PID_CUSTOM + 2)
 
 
 class CCS: public adam::tcp::Server::IHook {
@@ -55,24 +59,21 @@ public:
 
 
 /**
- * @brief 单聊消息入口. 占位: 目前只是 echo 回发, 用来验证链路通.
- *        真实实现按 README 的流程走: peek chat_id -> 算属主 -> 投递/就地处理.
+ * @brief 单聊
  */
 static void
-single_chat(adam::tcp::Terminal::Ptr t, adam::core::Package* pk) noexcept {
-    // src/dst 对调, 原样回送给对端
-    uint32_t src = pk->data.src_id;
-    pk->data.src_id = pk->data.dst_id;
-    pk->data.dst_id = src;
-
-    int rc = t->sess()->send(*pk);
-    if (rc < 0) {
-        xWARN("single_chat send failed: uid ={}, rc={}", t->uid(), rc);
+single_chat(adam::tcp::Server::Context& ctx, adam::core::Package* pk) noexcept {
+    ccs::SingleChatReq req;
+    if (adam::utils::pb_deserialize(&req, pk->payload(), pk->payload_length()) < 0) {
+        xERROR("pb 解析失败");
+        return;
     }
+
+    // TODO
 }
 
 
 TCP_SERVER_MAIN(
     CCS, "config.yml",
-    TCP_PK_HANDLE(PID_CUSTOM + 1, single_chat)
+    TCP_PK_HANDLE(PID_SINGLE_CHAT_REQ, single_chat)
 )

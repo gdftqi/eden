@@ -79,10 +79,30 @@ public:
     }; // class IHook;
 
 
+    struct Context {
+        Reactor*  reactor;
+        Terminal* terminal;
+
+
+        explicit
+        Context(Reactor* r, Terminal* t) noexcept
+            : reactor(r)
+            , terminal(t)
+        {}
+
+
+        ~Context() = default;
+        Context(const Context&) = delete;
+        Context(Context&&) = delete;
+        Context& operator=(const Context&) = delete;
+        Context& operator=(Context&&) = delete;
+    }; // struct Context;
+
+
     static constexpr int MAX_CONN = 2048; // 最大连接数
 
 
-    typedef void (*PackageHandler)(Terminal::Ptr, core::Package*) noexcept;
+    typedef void (*PackageHandler)(Context&, core::Package*) noexcept;
     typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
 
 

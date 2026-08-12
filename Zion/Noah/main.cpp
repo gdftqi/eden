@@ -59,7 +59,9 @@ public:
  *        对应 pk_id = 1(PING)消息。
  */
 static void
-echo_handler(adam::tcp::Terminal::Ptr t, adam::core::Package* pk) noexcept {
+echo_handler(adam::tcp::Server::Context& ctx, adam::core::Package* pk) noexcept {
+    auto* t = ctx.terminal;
+
     // src/dst 对调, 原样回送给对端
     uint32_t src = pk->data.src_id;
     pk->data.src_id = pk->data.dst_id;
