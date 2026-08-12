@@ -52,6 +52,16 @@ public:
 
 
     /**
+     * @brief 发包(唯一组帧点). 只允许在本终端的属主 reactor 线程上调用(Session::send 无锁).
+     * @param dst 0 = 发给终端本人(业务包, 网关按 conv 转发);
+     *            传网关 id = 发给网关自己的框架通知(KIC/BIND/UNBD)
+     * @return >= 0 成功, < 0 socket 错
+     */
+    int
+    send(uint16_t pid, const uint8_t* payload, uint32_t len, uint32_t dst = 0) noexcept;
+
+
+    /**
      * @brief 踢除本终端(位置透明): 属主 reactor == cur 直接踢, 否则投 TerminalKick 给属主
      */
     void
@@ -73,10 +83,6 @@ public:
 
 
 private:
-    // 只做组帧 + 发送; payload 由各自的 proto 结构编好后传入,
-    // 于是 BIND/UNBD 的载荷可各自独立演进, 而组帧约定只有一份.
-    void
-    notify(uint16_t pid, const uint8_t* payload, uint32_t len) noexcept;
 
 
     explicit

@@ -1,5 +1,5 @@
 CXX         := g++
-CXXFLAGS    := -O2 -g -Wall -Wextra -I../../Adam/include -MMD -MP -std=c++20
+CXXFLAGS    := -O2 -g -Wall -Wextra -I../../Adam/include -I/usr/local/include -MMD -MP -std=c++20
 
 # gperftools profiler 静态自包含链:让 ccs 二进制不依赖 libprofiler.so / libunwind.so
 # 运行期库(最小化部署镜像里没这俩 .so 也能起)。链序敏感: profiler → unwind → lzma。
@@ -19,7 +19,7 @@ FLAME_DST   := $(BUILD_DIR)/flame_build.sh
 BUILD_START := $(shell date +%s)
 
 SOURCES := $(wildcard *.cpp)
-OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o)
+OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o) $(OBJ_DIR)/ccs.pb.o
 
 .PHONY: all clean
 
@@ -45,6 +45,14 @@ $(FLAME_DST): flame_build.sh | $(BUILD_DIR)
 
 $(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# protobuf 生成物: proto 一变自动重新生成 + 编译.
+# 生成的代码告警不归我们管, 单独关掉
+$(OBJ_DIR)/ccs.pb.o: proto/ccs.pb.cc | $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -w -Iproto -c $< -o $@
+
+proto/ccs.pb.cc proto/ccs.pb.h: proto/ccs.proto
+	protoc -Iproto --cpp_out=proto $<
 
 $(BUILD_DIR):
 	@mkdir -p $@

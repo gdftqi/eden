@@ -8,15 +8,18 @@
 namespace adam::tcp {
 
 
+class Reactor;
+
+
 struct Message {
     enum class Type {
         /**
-         * @brief 停止
+         * @brief 停止(仅用于唤醒消息循环). 无参
          */
         Stop,
 
         /**
-         * @brief 连接成功
+         * @brief 连接成功.  arg1.v = 新连接的 fd
          */
         SessionConnected,
 
@@ -36,51 +39,34 @@ struct Message {
         TerminalHandle,
 
         /**
-         * @brief 踢除终端(旧属主 reactor 发 KIC 并清档)
+         * @brief 踢除终端. arg1.v = uid, arg2.v = kick code
          */
         TerminalKick,
+
+        /**
+         * @brief 自定义任务.
+         */
+        MidHandle,
     };
 
 
-    explicit
-    Message(Type t, void* ptr = nullptr) 
-        : type(t) {
-        arg.ptr = ptr;
-    }
+    struct Arg {
+        uint64_t v   { 0 };
+        void*    ptr { nullptr };
+    }; // struct Arg;
 
 
     explicit
-    Message(Type t, SOCKET fd)
-        : type(t) {
-        arg.fd = fd;
-    }
-
-
-    explicit
-    Message(Type t, uint32_t uid, uint32_t code)
-        : type(t) {
-        arg.kick.uid  = uid;
-        arg.kick.code = code;
-    }
-
-
-    explicit
-    Message(Type t, uint32_t id)
-        : type(t) {
-        arg.id = id;
-    }
+    Message(Type t) noexcept
+        : type(t)
+    {}
 
 
     Type type;
-    union {
-        SOCKET   fd { (SOCKET)-1 };
-        uint32_t id;
-        struct {
-            uint32_t uid;
-            uint32_t code;
-        } kick;
-        void*    ptr;
-    } arg;
+    Arg  arg1;
+    Arg  arg2;
+    Arg  arg3;
+    Reactor* reactor { nullptr }; // 当前 reactor 工作线程
 
 
     Message(const Message&) = delete;
@@ -89,7 +75,7 @@ struct Message {
     Message& operator=(Message&&) = delete;
 }; // struct Message;
 
-    
+
 } // namespace adam::tcp
 
 

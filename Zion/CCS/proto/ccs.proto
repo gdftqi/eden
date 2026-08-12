@@ -32,9 +32,19 @@ message SingleChatReq {
 
 
 message SingleChatRsp {
-    string cli_uuid   = 1;   // 原样带回, 客户端靠它认领本地那条"发送中"
+    string cli_uuid   = 1;
     int32  code       = 2;   // 0 成功, 其余见错误码表
     int64  seq        = 3;
     int64  msg_id     = 4;
-    int64  created_at = 5;   // 服务端毫秒时间戳, 两端显示以此为准
+    int64  created_at = 5;
+}
+
+
+message SingleChatNtf {
+    string      cli_uuid   = 1; 
+    int64       seq        = 2;
+    int64       msg_id     = 3;
+    MessageType type       = 4;
+    string      content    = 5;
+    int64       created_at = 6;
 }

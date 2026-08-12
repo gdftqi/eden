@@ -11,7 +11,10 @@ void
 adam::tcp::Terminal::kick(uint32_t code, Reactor* cur) noexcept {
     auto* owner = sess_->reactor();
     if (owner != cur) {
-        owner->notify(new Message(Message::Type::TerminalKick, uid_, code));
+        auto* m = new Message(Message::Type::TerminalKick);
+        m->arg1.v = uid_;
+        m->arg2.v = code;
+        owner->notify(m);
         return;
     }
 
@@ -23,7 +26,7 @@ adam::tcp::Terminal::kick(uint32_t code, Reactor* cur) noexcept {
     uint8_t buf[core::TerminalKickNotify::LEN];
     ntf.encode(buf, sizeof(buf));
 
-    notify(PID_TER_KIC_NTF, buf, sizeof(buf));
+    send(PID_TER_KIC_NTF, buf, sizeof(buf), sess_->id());
 }
 
 
@@ -35,7 +38,7 @@ adam::tcp::Terminal::bind() noexcept {
     uint8_t buf[core::TerminalBindNotify::LEN];
     ntf.encode(buf, sizeof(buf));
 
-    notify(PID_TER_BIND_NTF, buf, sizeof(buf));
+    send(PID_TER_BIND_NTF, buf, sizeof(buf), sess_->id());
 }
 
 
@@ -46,16 +49,17 @@ adam::tcp::Terminal::unbind() noexcept {
 
     uint8_t buf[core::TerminalUnbindNotify::LEN];
     ntf.encode(buf, sizeof(buf));
-    notify(PID_TER_UNBD_NTF, buf, sizeof(buf));
+    send(PID_TER_UNBD_NTF, buf, sizeof(buf), sess_->id());
 }
 
 
-void
-adam::tcp::Terminal::notify(uint16_t pid, const uint8_t* payload, uint32_t len) noexcept {
-    constexpr uint32_t MAX_NTF_LEN = 16;
-    ASSERT(len <= MAX_NTF_LEN, "send_ntf payload 过长: {}", len);
+int
+adam::tcp::Terminal::send(uint16_t pid, const uint8_t* payload, uint32_t len, uint32_t dst) noexcept {
+    if (len > (uint32_t)(core::PKG_MAX_LEN - core::PKG_HDR_LEN)) {
+        return xERR;
+    }
 
-    alignas(core::Package) uint8_t buf[sizeof(core::Package) + MAX_NTF_LEN];
+    alignas(core::Package) static thread_local uint8_t buf[sizeof(core::Package) + (core::PKG_MAX_LEN - core::PKG_HDR_LEN)];
     auto* pk = (core::Package*)buf;
 
     pk->meta.len      = core::PKG_HDR_LEN + len;
@@ -63,10 +67,13 @@ adam::tcp::Terminal::notify(uint16_t pid, const uint8_t* payload, uint32_t len) 
     pk->meta.src_addr = 0;
     pk->data.pid      = pid;
     pk->data.src_id   = Conf::instance()->server()->id;
-    pk->data.dst_id   = sess_->id();
+    pk->data.dst_id   = dst == 0 ? uid_ : dst;
     ::memcpy(pk->data.payload, payload, len);
 
-    if (sess_->send(*pk) < 0) {
-        xERROR("PID {} 发送失败: uid = {}", pid, uid_);
+    int rc = (int)sess_->send(*pk);
+    if (rc < 0) {
+        xERROR("PID {} 发送失败: uid = {}, rc = {}", pid, uid_, rc);
     }
+
+    return rc;
 }

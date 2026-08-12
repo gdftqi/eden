@@ -51,6 +51,12 @@ public:
     }
 
 
+    Server*
+    server() noexcept {
+        return server_;
+    }
+
+
     bool
     running() const noexcept {
         return state_.load(std::memory_order_relaxed) == core::State::Running;
@@ -83,9 +89,15 @@ public:
     }
 
 
-    // 踢除终端(发 KIC + 删档); 只允许在本 reactor 线程调用(跨线程走 Terminal::kick 的 notify 路径)
     void
     kick_terminal(uint32_t uid, uint32_t code) noexcept;
+
+
+    Terminal::Ptr
+    get_terminal(uint32_t uid) noexcept {
+        auto itr = ters_.find(uid);
+        return itr == ters_.end() ? nullptr : itr->second;
+    }
 
 
 private:
@@ -132,13 +144,6 @@ private:
     remove_terminal(uint32_t uid, uint32_t code) noexcept;
 
 
-    Terminal::Ptr
-    get_terminal(uint32_t uid) noexcept {
-        auto itr = ters_.find(uid);
-        return itr == ters_.end() ? nullptr : itr->second;
-    }
-
-
     void
     on_event_handle(const ::epoll_event& ev) noexcept;
 
@@ -154,6 +159,10 @@ private:
     // 新连接: 注册进本 reactor 的 epoll(ET)+ on_connected 钩子 + 首读(补 ET 注册前到达的数据)
     void
     on_session_connected(Message* m) noexcept;
+
+
+    void
+    on_mid_handle(Message* m) noexcept;
 
 
     void

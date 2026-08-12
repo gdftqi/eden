@@ -91,6 +91,12 @@ public:
         {}
 
 
+        void
+        terminate(int kick_code) noexcept {
+            terminal->kick(kick_code, reactor);
+        }
+
+
         ~Context() = default;
         Context(const Context&) = delete;
         Context(Context&&) = delete;
@@ -104,6 +110,10 @@ public:
 
     typedef void (*PackageHandler)(Context&, core::Package*) noexcept;
     typedef absl::flat_hash_map<uint16_t, PackageHandler> PackageHandlers;
+
+
+    typedef void (*MessageHandler)(Message*) noexcept;
+    typedef absl::flat_hash_map<uint16_t, MessageHandler> MessageHandlers; 
 
 
     explicit
@@ -179,23 +189,43 @@ public:
 
 
     PackageHandler
-    get_handler(uint16_t pid) const noexcept {
-        auto itr = handlers.find(pid);
-        return itr == handlers.end() ? nullptr : itr->second;
+    get_phandler(uint16_t pid) const noexcept {
+        auto itr = phandlers_.find(pid);
+        return itr == phandlers_.end() ? nullptr : itr->second;
+    }
+
+
+    MessageHandler
+    get_mhandler(uint16_t mid) const noexcept {
+        auto itr = mhandlers_.find(mid);
+        return itr == mhandlers_.end() ? nullptr : itr->second;
     }
 
 
     void
     regist_handler(uint16_t pid, PackageHandler handler) noexcept {
         ASSERT(pid >= PID_CUSTOM, "PID: {} 无效", pid);
-        ASSERT(state_.load() == core::State::Stopped, "服务启动之后不允许再次注册 PID句柄");
+        ASSERT(state_.load() == core::State::Stopped, "服务启动之后不允许再次注册 PID 句柄");
 
-        if (handlers[pid] != nullptr) {
+        if (phandlers_[pid] != nullptr) {
             xWARN("handler for PID {} already exists, will be overwritten", pid);
         }
 
-        handlers[pid] = handler;
+        phandlers_[pid] = handler;
         Conf::instance()->server()->pid_set(pid);
+    }
+
+
+    void
+    regist_handler(uint16_t mid, MessageHandler handler) noexcept {
+        ASSERT(mid > 0, "MID: {} 无效", mid);
+        ASSERT(state_.load() == core::State::Stopped, "服务启动之后不允许再次注册 MID 句柄");
+
+        if (mhandlers_[mid] != nullptr) {
+            xWARN("handler for MID {} already exists, will be overwritten", mid);
+        }
+
+        mhandlers_[mid] = handler;
     }
 
 
@@ -230,7 +260,8 @@ private:
     std::string               host_;   
     std::vector<Reactor::Ptr> reactors_;   
     std::vector<std::thread>  threads_;
-    PackageHandlers           handlers;
+    PackageHandlers           phandlers_;
+    MessageHandlers           mhandlers_;
     Directory                 dir_;
 }; // class Server;
 

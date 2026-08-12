@@ -71,9 +71,9 @@ adam::tcp::Reactor::run() noexcept {
 
     mque_.clear([](Message* m) {
         if (m->type == Message::Type::SessionConnected) {
-            ::close(m->arg.fd);
+            ::close((SOCKET)m->arg1.v);
         }
-        delete m; 
+        delete m;
     });
 
     release();
@@ -150,7 +150,10 @@ adam::tcp::Reactor::add_terminal(Terminal::Ptr t) noexcept {
 
     uint32_t prev = server_->directory()->exchange(t->uid(), index_);
     if (prev != Directory::NPOS && prev != index_) {
-        server_->reactor(prev)->notify(new Message(Message::Type::TerminalKick, t->uid(), (uint32_t)PERR_TER_TAKEOVER));
+        auto* m = new Message(Message::Type::TerminalKick);
+        m->arg1.v = t->uid();
+        m->arg2.v = (uint32_t)PERR_TER_TAKEOVER;
+        server_->reactor(prev)->notify(m);
     } else {
         // 本 reactor: 旧档挂在别的连接 = 顶号; 同连接 = 重报, 静默覆盖
         auto old = get_terminal(t->uid());
@@ -307,7 +310,7 @@ adam::tcp::Reactor::session_handle(Session::Ptr s) noexcept {
 
 void
 adam::tcp::Reactor::on_session_connected(Message* m) noexcept {
-    SOCKET fd = m->arg.fd;
+    SOCKET fd = (SOCKET)m->arg1.v;
     auto s = Session::create(fd, this);
 
     ::epoll_event ev;
@@ -496,7 +499,7 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
         return xERR_NOT_AUTH;
     }
 
-    auto h = server_->get_handler((uint16_t)pk->data.pid);
+    auto h = server_->get_phandler((uint16_t)pk->data.pid);
     if (!h) {
         xWARN("no handler for pk_id {}, from {}", pk->data.pid, s->remote_addr());
         // TODO: 通知网关, 业务服务不存在, 需要主动断开与客户端的连接
@@ -511,6 +514,16 @@ adam::tcp::Reactor::on_package_handle(Session::Ptr s, core::Package* pk) noexcep
     Server::Context ctx(this, t.get());
     h(ctx, pk);
     return 0;
+}
+
+
+void
+adam::tcp::Reactor::on_mid_handle(Message* msg) noexcept {
+    auto mid = (uint16_t)msg->arg1.v;
+    msg->reactor = this;
+    auto h = server_->get_mhandler(mid);
+    ASSERT(h != nullptr, "内部错误, 未注的 MID {}", mid);
+    h(msg);
 }
 
 
@@ -530,7 +543,11 @@ adam::tcp::Reactor::drain_evque() noexcept {
                 break;
 
             case Message::Type::TerminalKick:
-                kick_terminal(ms[i]->arg.kick.uid, ms[i]->arg.kick.code);
+                kick_terminal((uint32_t)ms[i]->arg1.v, (uint32_t)ms[i]->arg2.v);
+                break;
+
+            case Message::Type::MidHandle:
+                on_mid_handle(ms[i]);
                 break;
 
             default:

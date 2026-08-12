@@ -169,7 +169,9 @@ adam::tcp::Server::on_listen_handle(const ::epoll_event& ev) noexcept {
                 continue;
             }
 
-            reactors_[acc_next_++ % reactors_.size()]->notify(new Message(Message::Type::SessionConnected, cfd));
+            auto* m = new Message(Message::Type::SessionConnected);
+            m->arg1.v = (uint64_t)cfd;
+            reactors_[acc_next_++ % reactors_.size()]->notify(m);
         }
     }
 }

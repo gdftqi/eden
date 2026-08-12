@@ -32,7 +32,8 @@ using TcpConf = adam::tcp::Conf;
     }
 
 
-#define TCP_PK_HANDLE(id, fn)  server->regist_handler(id, &fn);
+#define TCP_PK_HANDLE(id, fn)   server->regist_handler(id, &fn);
+#define TCP_MSG_HANDLE(id, fn)  server->regist_handler(id, &fn);
 
 
 #define TCP_SERVER_MAIN(name, config, ...) \
