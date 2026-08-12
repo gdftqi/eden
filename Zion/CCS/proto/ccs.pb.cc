@@ -50,10 +50,10 @@ constexpr SingleChatRsp::ParseTableT_ SingleChatRsp::InternalGenerateParseTable_
       #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
     }, {{
       {::_pbi::TcParser::MiniParse, {}},
-      // string cli_uuid = 1;
-      {::_pbi::TcParser::FastUS1,
-       {10, 0, 0,
-        PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.cli_uuid_)}},
+      // uint64 cli_id = 1;
+      {::_pbi::TcParser::FastV64S1,
+       {8, 0, 0,
+        PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.cli_id_)}},
       // int32 code = 2;
       {::_pbi::TcParser::FastV32S1,
        {16, 4, 0,
@@ -75,8 +75,8 @@ constexpr SingleChatRsp::ParseTableT_ SingleChatRsp::InternalGenerateParseTable_
     }}, {{
       65535, 65535
     }}, {{
-      // string cli_uuid = 1;
-      {PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.cli_uuid_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+      // uint64 cli_id = 1;
+      {PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.cli_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
       // int32 code = 2;
       {PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.code_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
       // int64 seq = 3;
@@ -88,9 +88,6 @@ constexpr SingleChatRsp::ParseTableT_ SingleChatRsp::InternalGenerateParseTable_
     }},
     // no aux_entries
     {{
-      "\21\10\0\0\0\0\0\0"
-      "ccs.SingleChatRsp"
-      "cli_uuid"
     }},
   };
 }
@@ -99,9 +96,7 @@ constexpr SingleChatRsp::ParseTableT_ SingleChatRsp::InternalGenerateParseTable_
 inline constexpr SingleChatRsp::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
-      : cli_uuid_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
+      : cli_id_{::uint64_t{0u}},
         seq_{::int64_t{0}},
         msg_id_{::int64_t{0}},
         created_at_{::int64_t{0}},
@@ -123,7 +118,7 @@ inline void* PROTOBUF_NONNULL SingleChatRsp::PlacementNew_(
   return ::new (mem) SingleChatRsp(arena);
 }
 constexpr auto SingleChatRsp::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(SingleChatRsp), alignof(SingleChatRsp));
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(SingleChatRsp), alignof(SingleChatRsp));
 }
 constexpr auto SingleChatRsp::InternalGenerateClassData_(
     const MessageLite& prototype,
@@ -220,10 +215,10 @@ constexpr SingleChatReq::ParseTableT_ SingleChatReq::InternalGenerateParseTable_
       #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
     }, {{
       {::_pbi::TcParser::MiniParse, {}},
-      // string cli_uuid = 1;
-      {::_pbi::TcParser::FastUS1,
-       {10, 0, 0,
-        PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.cli_uuid_)}},
+      // uint64 cli_id = 1;
+      {::_pbi::TcParser::FastV64S1,
+       {8, 1, 0,
+        PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.cli_id_)}},
       // uint32 to_id = 2;
       {::_pbi::TcParser::FastV32S1,
        {16, 2, 0,
@@ -234,7 +229,7 @@ constexpr SingleChatReq::ParseTableT_ SingleChatReq::InternalGenerateParseTable_
         PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.type_)}},
       // string content = 4;
       {::_pbi::TcParser::FastUS1,
-       {34, 1, 0,
+       {34, 0, 0,
         PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.content_)}},
       // int64 target_id = 5;
       {::_pbi::TcParser::FastV64S1,
@@ -248,14 +243,14 @@ constexpr SingleChatReq::ParseTableT_ SingleChatReq::InternalGenerateParseTable_
     }}, {{
       65535, 65535
     }}, {{
-      // string cli_uuid = 1;
-      {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.cli_uuid_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+      // uint64 cli_id = 1;
+      {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.cli_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
       // uint32 to_id = 2;
       {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.to_id_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
       // .ccs.MessageType type = 3;
       {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.type_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kOpenEnum)},
       // string content = 4;
-      {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.content_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+      {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.content_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
       // int64 target_id = 5;
       {PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.target_id_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
       // int64 target_seq = 6;
@@ -263,9 +258,8 @@ constexpr SingleChatReq::ParseTableT_ SingleChatReq::InternalGenerateParseTable_
     }},
     // no aux_entries
     {{
-      "\21\10\0\0\7\0\0\0"
+      "\21\0\0\0\7\0\0\0"
       "ccs.SingleChatReq"
-      "cli_uuid"
       "content"
     }},
   };
@@ -275,12 +269,10 @@ constexpr SingleChatReq::ParseTableT_ SingleChatReq::InternalGenerateParseTable_
 inline constexpr SingleChatReq::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
-      : cli_uuid_(
+      : content_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        content_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
+        cli_id_{::uint64_t{0u}},
         to_id_{0u},
         type_{static_cast< ::ccs::MessageType >(0)},
         target_id_{::int64_t{0}},
@@ -399,10 +391,10 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
       #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
     }, {{
       {::_pbi::TcParser::MiniParse, {}},
-      // string cli_uuid = 1;
-      {::_pbi::TcParser::FastUS1,
-       {10, 0, 0,
-        PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.cli_uuid_)}},
+      // uint64 cli_id = 1;
+      {::_pbi::TcParser::FastV64S1,
+       {8, 1, 0,
+        PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.cli_id_)}},
       // int64 seq = 2;
       {::_pbi::TcParser::FastV64S1,
        {16, 2, 0,
@@ -417,7 +409,7 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_)}},
       // string content = 5;
       {::_pbi::TcParser::FastUS1,
-       {42, 1, 0,
+       {42, 0, 0,
         PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.content_)}},
       // int64 created_at = 6;
       {::_pbi::TcParser::FastV64S1,
@@ -430,8 +422,8 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
     }}, {{
       65535, 65535
     }}, {{
-      // string cli_uuid = 1;
-      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.cli_uuid_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+      // uint64 cli_id = 1;
+      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.cli_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
       // int64 seq = 2;
       {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.seq_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
       // int64 msg_id = 3;
@@ -439,7 +431,7 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
       // .ccs.MessageType type = 4;
       {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.type_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kOpenEnum)},
       // string content = 5;
-      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.content_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+      {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.content_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
       // int64 created_at = 6;
       {PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
       // uint32 from_id = 7;
@@ -447,9 +439,8 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
     }},
     // no aux_entries
     {{
-      "\21\10\0\0\0\7\0\0"
+      "\21\0\0\0\0\7\0\0"
       "ccs.SingleChatNtf"
-      "cli_uuid"
       "content"
     }},
   };
@@ -459,12 +450,10 @@ constexpr SingleChatNtf::ParseTableT_ SingleChatNtf::InternalGenerateParseTable_
 inline constexpr SingleChatNtf::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
-      : cli_uuid_(
+      : content_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        content_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
+        cli_id_{::uint64_t{0u}},
         seq_{::int64_t{0}},
         msg_id_{::int64_t{0}},
         type_{static_cast< ::ccs::MessageType >(0)},
@@ -637,7 +626,6 @@ PROTOBUF_NDEBUG_INLINE SingleChatReq::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
     [[maybe_unused]] const ::ccs::SingleChatReq& from_msg)
       : _has_bits_{from._has_bits_},
-        cli_uuid_(arena, from.cli_uuid_),
         content_(arena, from.content_) {}
 
 SingleChatReq::SingleChatReq(
@@ -655,11 +643,11 @@ SingleChatReq::SingleChatReq(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
   ::memcpy(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, to_id_),
+               offsetof(Impl_, cli_id_),
            reinterpret_cast<const char*>(&from._impl_) +
-               offsetof(Impl_, to_id_),
+               offsetof(Impl_, cli_id_),
            offsetof(Impl_, target_seq_) -
-               offsetof(Impl_, to_id_) +
+               offsetof(Impl_, cli_id_) +
                sizeof(Impl_::target_seq_));
 
   // @@protoc_insertion_point(copy_constructor:ccs.SingleChatReq)
@@ -667,16 +655,15 @@ SingleChatReq::SingleChatReq(
 PROTOBUF_NDEBUG_INLINE SingleChatReq::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-      : cli_uuid_(arena),
-        content_(arena) {}
+      : content_(arena) {}
 
 inline void SingleChatReq::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, to_id_),
+               offsetof(Impl_, cli_id_),
            0,
            offsetof(Impl_, target_seq_) -
-               offsetof(Impl_, to_id_) +
+               offsetof(Impl_, cli_id_) +
                sizeof(Impl_::target_seq_));
 }
 SingleChatReq::~SingleChatReq() {
@@ -690,7 +677,6 @@ inline void SingleChatReq::SharedDtor(MessageLite& self) {
   }
   this_._internal_metadata_.Delete<::std::string>();
   ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.cli_uuid_.Destroy();
   this_._impl_.content_.Destroy();
   this_._impl_.~Impl_();
 }
@@ -724,19 +710,14 @@ PROTOBUF_NOINLINE void SingleChatReq::Clear() {
   ::uint32_t cached_has_bits [[maybe_unused]] = 0;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      this_._impl_.cli_uuid_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      this_._impl_.content_.ClearNonDefaultToEmpty();
-    }
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    this_._impl_.content_.ClearNonDefaultToEmpty();
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000003cU)) {
-    ::memset(&this_._impl_.to_id_, 0,
+  if (BatchCheckHasBit(cached_has_bits, 0x0000003eU)) {
+    ::memset(&this_._impl_.cli_id_, 0,
              static_cast<::size_t>(
                  reinterpret_cast<char*>(&this_._impl_.target_seq_) -
-                 reinterpret_cast<char*>(&this_._impl_.to_id_)) +
+                 reinterpret_cast<char*>(&this_._impl_.cli_id_)) +
                  sizeof(_impl_.target_seq_));
   }
   _impl_._has_bits_.Clear();
@@ -762,13 +743,12 @@ PROTOBUF_NOINLINE void SingleChatReq::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string cli_uuid = 1;
-  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-    if (!this_._internal_cli_uuid().empty()) {
-      const ::std::string& _s = this_._internal_cli_uuid();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "ccs.SingleChatReq.cli_uuid");
-      target = stream->WriteStringMaybeAliased(1, _s, target);
+  // uint64 cli_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_cli_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          1, this_._internal_cli_id(), target);
     }
   }
 
@@ -791,7 +771,7 @@ PROTOBUF_NOINLINE void SingleChatReq::Clear() {
   }
 
   // string content = 4;
-  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_content().empty()) {
       const ::std::string& _s = this_._internal_content();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -842,18 +822,18 @@ PROTOBUF_NOINLINE void SingleChatReq::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000003fU)) {
-    // string cli_uuid = 1;
-    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!this_._internal_cli_uuid().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_cli_uuid());
-      }
-    }
     // string content = 4;
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_content().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_content());
+      }
+    }
+    // uint64 cli_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_cli_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_cli_id());
       }
     }
     // uint32 to_id = 2;
@@ -907,21 +887,17 @@ void SingleChatReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
   cached_has_bits = from._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000003fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!from._internal_cli_uuid().empty()) {
-        _this->_internal_set_cli_uuid(from._internal_cli_uuid());
-      } else {
-        if (_this->_impl_.cli_uuid_.IsDefault()) {
-          _this->_internal_set_cli_uuid("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!from._internal_content().empty()) {
         _this->_internal_set_content(from._internal_content());
       } else {
         if (_this->_impl_.content_.IsDefault()) {
           _this->_internal_set_content("");
         }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_cli_id() != 0) {
+        _this->_impl_.cli_id_ = from._impl_.cli_id_;
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
@@ -964,14 +940,13 @@ void SingleChatReq::InternalSwap(SingleChatReq* PROTOBUF_RESTRICT PROTOBUF_NONNU
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cli_uuid_, &other->_impl_.cli_uuid_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.content_, &other->_impl_.content_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.target_seq_)
       + sizeof(SingleChatReq::_impl_.target_seq_)
-      - PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.to_id_)>(
-          reinterpret_cast<char*>(&_impl_.to_id_),
-          reinterpret_cast<char*>(&other->_impl_.to_id_));
+      - PROTOBUF_FIELD_OFFSET(SingleChatReq, _impl_.cli_id_)>(
+          reinterpret_cast<char*>(&_impl_.cli_id_),
+          reinterpret_cast<char*>(&other->_impl_.cli_id_));
 }
 
 // ===================================================================
@@ -985,49 +960,29 @@ SingleChatRsp::SingleChatRsp(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
   SharedCtor(arena);
   // @@protoc_insertion_point(arena_constructor:ccs.SingleChatRsp)
 }
-PROTOBUF_NDEBUG_INLINE SingleChatRsp::Impl_::Impl_(
-    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
-    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::ccs::SingleChatRsp& from_msg)
-      : _has_bits_{from._has_bits_},
-        cli_uuid_(arena, from.cli_uuid_) {}
-
 SingleChatRsp::SingleChatRsp(
-    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
-    const SingleChatRsp& from)
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const SingleChatRsp& from)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : Super_(arena, SingleChatRsp_get_class_data()) {
-
+    : Super_(arena, SingleChatRsp_get_class_data()),
 #else   // PROTOBUF_CUSTOM_VTABLE
-    : Super_(arena) {
+    : Super_(arena),
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  SingleChatRsp* const _this = this;
-  (void)_this;
+      _impl_(from._impl_) {
   _internal_metadata_.MergeFrom<::std::string>(
       from._internal_metadata_);
-  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
-  ::memcpy(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, seq_),
-           reinterpret_cast<const char*>(&from._impl_) +
-               offsetof(Impl_, seq_),
-           offsetof(Impl_, code_) -
-               offsetof(Impl_, seq_) +
-               sizeof(Impl_::code_));
-
-  // @@protoc_insertion_point(copy_constructor:ccs.SingleChatRsp)
 }
 PROTOBUF_NDEBUG_INLINE SingleChatRsp::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-      : cli_uuid_(arena) {}
+     {}
 
 inline void SingleChatRsp::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, seq_),
+               offsetof(Impl_, cli_id_),
            0,
            offsetof(Impl_, code_) -
-               offsetof(Impl_, seq_) +
+               offsetof(Impl_, cli_id_) +
                sizeof(Impl_::code_));
 }
 SingleChatRsp::~SingleChatRsp() {
@@ -1041,7 +996,6 @@ inline void SingleChatRsp::SharedDtor(MessageLite& self) {
   }
   this_._internal_metadata_.Delete<::std::string>();
   ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.cli_uuid_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -1074,14 +1028,11 @@ PROTOBUF_NOINLINE void SingleChatRsp::Clear() {
   ::uint32_t cached_has_bits [[maybe_unused]] = 0;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-    this_._impl_.cli_uuid_.ClearNonDefaultToEmpty();
-  }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000001eU)) {
-    ::memset(&this_._impl_.seq_, 0,
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
+    ::memset(&this_._impl_.cli_id_, 0,
              static_cast<::size_t>(
                  reinterpret_cast<char*>(&this_._impl_.code_) -
-                 reinterpret_cast<char*>(&this_._impl_.seq_)) +
+                 reinterpret_cast<char*>(&this_._impl_.cli_id_)) +
                  sizeof(_impl_.code_));
   }
   _impl_._has_bits_.Clear();
@@ -1107,13 +1058,12 @@ PROTOBUF_NOINLINE void SingleChatRsp::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string cli_uuid = 1;
+  // uint64 cli_id = 1;
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-    if (!this_._internal_cli_uuid().empty()) {
-      const ::std::string& _s = this_._internal_cli_uuid();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "ccs.SingleChatRsp.cli_uuid");
-      target = stream->WriteStringMaybeAliased(1, _s, target);
+    if (this_._internal_cli_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          1, this_._internal_cli_id(), target);
     }
   }
 
@@ -1177,11 +1127,11 @@ PROTOBUF_NOINLINE void SingleChatRsp::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
-    // string cli_uuid = 1;
+    // uint64 cli_id = 1;
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!this_._internal_cli_uuid().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_cli_uuid());
+      if (this_._internal_cli_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_cli_id());
       }
     }
     // int64 seq = 3;
@@ -1235,12 +1185,8 @@ void SingleChatRsp::MergeImpl(::google::protobuf::MessageLite& to_msg,
   cached_has_bits = from._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!from._internal_cli_uuid().empty()) {
-        _this->_internal_set_cli_uuid(from._internal_cli_uuid());
-      } else {
-        if (_this->_impl_.cli_uuid_.IsDefault()) {
-          _this->_internal_set_cli_uuid("");
-        }
+      if (from._internal_cli_id() != 0) {
+        _this->_impl_.cli_id_ = from._impl_.cli_id_;
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
@@ -1279,17 +1225,14 @@ void SingleChatRsp::CopyFrom(const SingleChatRsp& from) {
 
 void SingleChatRsp::InternalSwap(SingleChatRsp* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
   using ::std::swap;
-  auto* arena = GetArena();
-  ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cli_uuid_, &other->_impl_.cli_uuid_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.code_)
       + sizeof(SingleChatRsp::_impl_.code_)
-      - PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.seq_)>(
-          reinterpret_cast<char*>(&_impl_.seq_),
-          reinterpret_cast<char*>(&other->_impl_.seq_));
+      - PROTOBUF_FIELD_OFFSET(SingleChatRsp, _impl_.cli_id_)>(
+          reinterpret_cast<char*>(&_impl_.cli_id_),
+          reinterpret_cast<char*>(&other->_impl_.cli_id_));
 }
 
 // ===================================================================
@@ -1308,7 +1251,6 @@ PROTOBUF_NDEBUG_INLINE SingleChatNtf::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
     [[maybe_unused]] const ::ccs::SingleChatNtf& from_msg)
       : _has_bits_{from._has_bits_},
-        cli_uuid_(arena, from.cli_uuid_),
         content_(arena, from.content_) {}
 
 SingleChatNtf::SingleChatNtf(
@@ -1326,11 +1268,11 @@ SingleChatNtf::SingleChatNtf(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
   ::memcpy(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, seq_),
+               offsetof(Impl_, cli_id_),
            reinterpret_cast<const char*>(&from._impl_) +
-               offsetof(Impl_, seq_),
+               offsetof(Impl_, cli_id_),
            offsetof(Impl_, created_at_) -
-               offsetof(Impl_, seq_) +
+               offsetof(Impl_, cli_id_) +
                sizeof(Impl_::created_at_));
 
   // @@protoc_insertion_point(copy_constructor:ccs.SingleChatNtf)
@@ -1338,16 +1280,15 @@ SingleChatNtf::SingleChatNtf(
 PROTOBUF_NDEBUG_INLINE SingleChatNtf::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
-      : cli_uuid_(arena),
-        content_(arena) {}
+      : content_(arena) {}
 
 inline void SingleChatNtf::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char*>(&_impl_) +
-               offsetof(Impl_, seq_),
+               offsetof(Impl_, cli_id_),
            0,
            offsetof(Impl_, created_at_) -
-               offsetof(Impl_, seq_) +
+               offsetof(Impl_, cli_id_) +
                sizeof(Impl_::created_at_));
 }
 SingleChatNtf::~SingleChatNtf() {
@@ -1361,7 +1302,6 @@ inline void SingleChatNtf::SharedDtor(MessageLite& self) {
   }
   this_._internal_metadata_.Delete<::std::string>();
   ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.cli_uuid_.Destroy();
   this_._impl_.content_.Destroy();
   this_._impl_.~Impl_();
 }
@@ -1395,19 +1335,14 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   ::uint32_t cached_has_bits [[maybe_unused]] = 0;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
-    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      this_._impl_.cli_uuid_.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      this_._impl_.content_.ClearNonDefaultToEmpty();
-    }
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    this_._impl_.content_.ClearNonDefaultToEmpty();
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x0000007cU)) {
-    ::memset(&this_._impl_.seq_, 0,
+  if (BatchCheckHasBit(cached_has_bits, 0x0000007eU)) {
+    ::memset(&this_._impl_.cli_id_, 0,
              static_cast<::size_t>(
                  reinterpret_cast<char*>(&this_._impl_.created_at_) -
-                 reinterpret_cast<char*>(&this_._impl_.seq_)) +
+                 reinterpret_cast<char*>(&this_._impl_.cli_id_)) +
                  sizeof(_impl_.created_at_));
   }
   _impl_._has_bits_.Clear();
@@ -1433,13 +1368,12 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string cli_uuid = 1;
-  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-    if (!this_._internal_cli_uuid().empty()) {
-      const ::std::string& _s = this_._internal_cli_uuid();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "ccs.SingleChatNtf.cli_uuid");
-      target = stream->WriteStringMaybeAliased(1, _s, target);
+  // uint64 cli_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_cli_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          1, this_._internal_cli_id(), target);
     }
   }
 
@@ -1471,7 +1405,7 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   }
 
   // string content = 5;
-  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_content().empty()) {
       const ::std::string& _s = this_._internal_content();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -1522,18 +1456,18 @@ PROTOBUF_NOINLINE void SingleChatNtf::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
-    // string cli_uuid = 1;
-    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!this_._internal_cli_uuid().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_cli_uuid());
-      }
-    }
     // string content = 5;
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_content().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_content());
+      }
+    }
+    // uint64 cli_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_cli_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_cli_id());
       }
     }
     // int64 seq = 2;
@@ -1594,21 +1528,17 @@ void SingleChatNtf::MergeImpl(::google::protobuf::MessageLite& to_msg,
   cached_has_bits = from._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
-      if (!from._internal_cli_uuid().empty()) {
-        _this->_internal_set_cli_uuid(from._internal_cli_uuid());
-      } else {
-        if (_this->_impl_.cli_uuid_.IsDefault()) {
-          _this->_internal_set_cli_uuid("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!from._internal_content().empty()) {
         _this->_internal_set_content(from._internal_content());
       } else {
         if (_this->_impl_.content_.IsDefault()) {
           _this->_internal_set_content("");
         }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_cli_id() != 0) {
+        _this->_impl_.cli_id_ = from._impl_.cli_id_;
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
@@ -1656,14 +1586,13 @@ void SingleChatNtf::InternalSwap(SingleChatNtf* PROTOBUF_RESTRICT PROTOBUF_NONNU
   ABSL_DCHECK_EQ(arena, other->GetArena());
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cli_uuid_, &other->_impl_.cli_uuid_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.content_, &other->_impl_.content_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.created_at_)
       + sizeof(SingleChatNtf::_impl_.created_at_)
-      - PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.seq_)>(
-          reinterpret_cast<char*>(&_impl_.seq_),
-          reinterpret_cast<char*>(&other->_impl_.seq_));
+      - PROTOBUF_FIELD_OFFSET(SingleChatNtf, _impl_.cli_id_)>(
+          reinterpret_cast<char*>(&_impl_.cli_id_),
+          reinterpret_cast<char*>(&other->_impl_.cli_id_));
 }
 
 // @@protoc_insertion_point(namespace_scope)

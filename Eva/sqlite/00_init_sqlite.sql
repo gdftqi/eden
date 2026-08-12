@@ -55,11 +55,9 @@ CREATE TABLE message (
     chat_id    INTEGER NOT NULL,
     seq        INTEGER,              -- 服务端序号。未确认时为 NULL
     msg_id     INTEGER,              -- 服务端全局 ID。未确认时为 NULL
-    client_id  TEXT NOT NULL,        -- 发送时生成,ACK 回来按它定位本行回填
-                                     -- 收到的消息也必须有值, 而且要唯一 -- 见下面唯一索引.
-                                     -- 约定: 服务端推送时把发送方的 client_id 原样带下来
-                                     -- (chat_message 表里存着). 万一没带, 客户端合成
-                                     -- 'srv:' || seq 顶上, 绝不能填空串 -- 第二条就撞索引
+    client_id  INTEGER NOT NULL,     -- 幂等 ID: 自己发的 = 本行 local_id;
+                                     -- 收到的 = NTF 里发送方的 cli_id.
+                                     -- 各发送方各自递增会撞, 唯一索引必须带 from_id
     from_id    INTEGER NOT NULL,
     msg_type   INTEGER NOT NULL,     -- 1文本 2图片 3文件 4语音 ...
     content    TEXT,                 -- 当前内容(编辑后即新内容)
@@ -82,7 +80,7 @@ CREATE TABLE message (
     created_at INTEGER NOT NULL,     -- 毫秒
     is_deleted INTEGER NOT NULL DEFAULT 0   -- 本端删除(仅自己不可见)
 );
-CREATE UNIQUE INDEX idx_msg_client ON message(chat_id, client_id);
+CREATE UNIQUE INDEX idx_msg_client ON message(chat_id, from_id, client_id);
 -- ↑ 幂等基石:重发、重连、重复推送靠 INSERT OR IGNORE 天然去重
 CREATE UNIQUE INDEX idx_msg_seq ON message(chat_id, seq) WHERE seq IS NOT NULL;
 -- ↑ 部分索引:未确认消息 seq 为 NULL,不加条件唯一约束建不起来
@@ -100,7 +98,7 @@ CREATE TABLE outbox (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     chat_id    INTEGER NOT NULL,
     op_type    INTEGER NOT NULL,     -- 1发送 2编辑 3撤回 4已读上报
-    client_id  TEXT NOT NULL,        -- 幂等 ID,重试时保持不变
+    client_id  INTEGER NOT NULL,     -- 幂等 ID(= message.local_id), 重试时保持不变
     target_id  INTEGER,              -- 编辑/撤回的目标 msg_id
     payload    TEXT,                 -- 新内容等参数
     prev_value TEXT,                 -- 操作前的旧值,失败时回滚本地乐观更新

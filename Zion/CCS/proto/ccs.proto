@@ -22,7 +22,7 @@ enum MessageType {
 
 
 message SingleChatReq {
-    string      cli_uuid   = 1;   // 客户端幂等 ID, 重发不换号
+    uint64      cli_id     = 1;   // 客户端幂等 ID(本地自增), 重发不换号
     uint32      to_id      = 2;   // 单聊对端 uid
     MessageType type       = 3;
     string      content    = 4;   // 文本为原文; 富媒体为 JSON(存对象 key); 编辑时为新内容
@@ -32,7 +32,7 @@ message SingleChatReq {
 
 
 message SingleChatRsp {
-    string cli_uuid   = 1;
+    uint64 cli_id     = 1;
     int32  code       = 2;   // 0 成功, 其余见错误码表
     int64  seq        = 3;
     int64  msg_id     = 4;
@@ -41,7 +41,7 @@ message SingleChatRsp {
 
 
 message SingleChatNtf {
-    string      cli_uuid   = 1;
+    uint64      cli_id     = 1;
     int64       seq        = 2;
     int64       msg_id     = 3;
     MessageType type       = 4;

@@ -113,7 +113,7 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
 
     // ---- ACK from_id ----
     ccs::SingleChatRsp rsp;
-    rsp.set_cli_uuid(req->cli_uuid());
+    rsp.set_cli_id(req->cli_id());
     rsp.set_code(0);
     rsp.set_seq(seq);
     rsp.set_msg_id(msg_id);
@@ -132,7 +132,7 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
 
     // ---- 推送 to_id ----
     ccs::SingleChatNtf ntf;
-    ntf.set_cli_uuid(req->cli_uuid());
+    ntf.set_cli_id(req->cli_id());
     ntf.set_seq(seq);
     ntf.set_msg_id(msg_id);
     ntf.set_type(req->type());

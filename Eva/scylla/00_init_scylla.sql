@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS eva.chat_message (
     bucket     int,         -- 分桶号, 防止单会话 partition 无限增长.
     seq        bigint,      -- 会话内单调序号. 排序、已读判定、增量同步的唯一依据
     msg_id     bigint,      -- 全网唯一 ID(雪花). 撤回、引用、编辑目标、举报都用它
-    cli_uuid   text,        -- 客户端生成的幂等 ID.
+    cli_id     bigint,      -- 客户端幂等 ID(本地自增). CQL 无 unsigned, bigint 值域够用
     from_id    bigint,      -- 发送者 uid
     to_id      bigint,      -- 单聊对端 uid, 群聊填 0.
     msg_type   tinyint,     -- 1文本 2图片 3文件 4语音 ... 100编辑事件 101撤回事件

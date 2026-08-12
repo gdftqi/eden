@@ -254,25 +254,20 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatRsp final : public ::goog
 
   // accessors -------------------------------------------------------
   enum : int {
-    kCliUuidFieldNumber = 1,
+    kCliIdFieldNumber = 1,
     kSeqFieldNumber = 3,
     kMsgIdFieldNumber = 4,
     kCreatedAtFieldNumber = 5,
     kCodeFieldNumber = 2,
   };
-  // string cli_uuid = 1;
-  void clear_cli_uuid() ;
-  [[nodiscard]] const ::std::string& cli_uuid() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_cli_uuid(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_cli_uuid();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_cli_uuid();
-  void set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value);
+  // uint64 cli_id = 1;
+  void clear_cli_id() ;
+  [[nodiscard]] ::uint64_t cli_id() const;
+  void set_cli_id(::uint64_t value);
 
   private:
-  const ::std::string& _internal_cli_uuid() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_cli_uuid(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_cli_uuid();
+  ::uint64_t _internal_cli_id() const;
+  void _internal_set_cli_id(::uint64_t value);
 
   public:
   // int64 seq = 3;
@@ -320,7 +315,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatRsp final : public ::goog
   class _Internal;
   using ParseTableT_ =
       ::google::protobuf::internal::TcParseTable<3, 5,
-                          0, 34,
+                          0, 0,
                           2>;
   static constexpr ParseTableT_ InternalGenerateParseTable_(
       const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
@@ -348,7 +343,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatRsp final : public ::goog
         const SingleChatRsp& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::internal::ArenaStringPtr cli_uuid_;
+    ::uint64_t cli_id_;
     ::int64_t seq_;
     ::int64_t msg_id_;
     ::int64_t created_at_;
@@ -495,28 +490,13 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatReq final : public ::goog
 
   // accessors -------------------------------------------------------
   enum : int {
-    kCliUuidFieldNumber = 1,
     kContentFieldNumber = 4,
+    kCliIdFieldNumber = 1,
     kToIdFieldNumber = 2,
     kTypeFieldNumber = 3,
     kTargetIdFieldNumber = 5,
     kTargetSeqFieldNumber = 6,
   };
-  // string cli_uuid = 1;
-  void clear_cli_uuid() ;
-  [[nodiscard]] const ::std::string& cli_uuid() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_cli_uuid(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_cli_uuid();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_cli_uuid();
-  void set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_cli_uuid() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_cli_uuid(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_cli_uuid();
-
-  public:
   // string content = 4;
   void clear_content() ;
   [[nodiscard]] const ::std::string& content() const;
@@ -530,6 +510,16 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatReq final : public ::goog
   const ::std::string& _internal_content() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_content(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_content();
+
+  public:
+  // uint64 cli_id = 1;
+  void clear_cli_id() ;
+  [[nodiscard]] ::uint64_t cli_id() const;
+  void set_cli_id(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_cli_id() const;
+  void _internal_set_cli_id(::uint64_t value);
 
   public:
   // uint32 to_id = 2;
@@ -577,7 +567,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatReq final : public ::goog
   class _Internal;
   using ParseTableT_ =
       ::google::protobuf::internal::TcParseTable<3, 6,
-                          0, 41,
+                          0, 33,
                           2>;
   static constexpr ParseTableT_ InternalGenerateParseTable_(
       const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
@@ -605,8 +595,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatReq final : public ::goog
         const SingleChatReq& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::internal::ArenaStringPtr cli_uuid_;
     ::google::protobuf::internal::ArenaStringPtr content_;
+    ::uint64_t cli_id_;
     ::uint32_t to_id_;
     int type_;
     ::int64_t target_id_;
@@ -753,29 +743,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
 
   // accessors -------------------------------------------------------
   enum : int {
-    kCliUuidFieldNumber = 1,
     kContentFieldNumber = 5,
+    kCliIdFieldNumber = 1,
     kSeqFieldNumber = 2,
     kMsgIdFieldNumber = 3,
     kTypeFieldNumber = 4,
     kFromIdFieldNumber = 7,
     kCreatedAtFieldNumber = 6,
   };
-  // string cli_uuid = 1;
-  void clear_cli_uuid() ;
-  [[nodiscard]] const ::std::string& cli_uuid() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_cli_uuid(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_cli_uuid();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_cli_uuid();
-  void set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_cli_uuid() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_cli_uuid(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_cli_uuid();
-
-  public:
   // string content = 5;
   void clear_content() ;
   [[nodiscard]] const ::std::string& content() const;
@@ -789,6 +764,16 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
   const ::std::string& _internal_content() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_content(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_content();
+
+  public:
+  // uint64 cli_id = 1;
+  void clear_cli_id() ;
+  [[nodiscard]] ::uint64_t cli_id() const;
+  void set_cli_id(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_cli_id() const;
+  void _internal_set_cli_id(::uint64_t value);
 
   public:
   // int64 seq = 2;
@@ -846,7 +831,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
   class _Internal;
   using ParseTableT_ =
       ::google::protobuf::internal::TcParseTable<3, 7,
-                          0, 41,
+                          0, 33,
                           2>;
   static constexpr ParseTableT_ InternalGenerateParseTable_(
       const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
@@ -874,8 +859,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
         const SingleChatNtf& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::internal::ArenaStringPtr cli_uuid_;
     ::google::protobuf::internal::ArenaStringPtr content_;
+    ::uint64_t cli_id_;
     ::int64_t seq_;
     ::int64_t msg_id_;
     int type_;
@@ -903,68 +888,28 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED SingleChatNtf final : public ::goog
 
 // SingleChatReq
 
-// string cli_uuid = 1;
-inline void SingleChatReq::clear_cli_uuid() {
+// uint64 cli_id = 1;
+inline void SingleChatReq::clear_cli_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.cli_id_ = ::uint64_t{0u};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
 }
-inline const ::std::string& SingleChatReq::cli_uuid() const
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:ccs.SingleChatReq.cli_uuid)
-  return _internal_cli_uuid();
+inline ::uint64_t SingleChatReq::cli_id() const {
+  // @@protoc_insertion_point(field_get:ccs.SingleChatReq.cli_id)
+  return _internal_cli_id();
 }
-template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void SingleChatReq::set_cli_uuid(Arg_&& arg, Args_... args) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  _impl_.cli_uuid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:ccs.SingleChatReq.cli_uuid)
+inline void SingleChatReq::set_cli_id(::uint64_t value) {
+  _internal_set_cli_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:ccs.SingleChatReq.cli_id)
 }
-inline ::std::string* PROTOBUF_NONNULL SingleChatReq::mutable_cli_uuid()
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  ::std::string* _s = _internal_mutable_cli_uuid();
-  // @@protoc_insertion_point(field_mutable:ccs.SingleChatReq.cli_uuid)
-  return _s;
-}
-inline const ::std::string& SingleChatReq::_internal_cli_uuid() const {
+inline ::uint64_t SingleChatReq::_internal_cli_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.cli_uuid_.Get();
+  return _impl_.cli_id_;
 }
-inline void SingleChatReq::_internal_set_cli_uuid(const ::std::string& value) {
+inline void SingleChatReq::_internal_set_cli_id(::uint64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.Set(value, GetArena());
-}
-inline ::std::string* PROTOBUF_NONNULL SingleChatReq::_internal_mutable_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.cli_uuid_.Mutable( GetArena());
-}
-inline ::std::string* PROTOBUF_NULLABLE SingleChatReq::release_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:ccs.SingleChatReq.cli_uuid)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
-    return nullptr;
-  }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  auto* released = _impl_.cli_uuid_.Release();
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  return released;
-}
-inline void SingleChatReq::set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  }
-  _impl_.cli_uuid_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.cli_uuid_.IsDefault()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  // @@protoc_insertion_point(field_set_allocated:ccs.SingleChatReq.cli_uuid)
+  _impl_.cli_id_ = value;
 }
 
 // uint32 to_id = 2;
@@ -1019,7 +964,7 @@ inline void SingleChatReq::_internal_set_type(::ccs::MessageType value) {
 inline void SingleChatReq::clear_content() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.content_.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
 }
 inline const ::std::string& SingleChatReq::content() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -1029,13 +974,13 @@ inline const ::std::string& SingleChatReq::content() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SingleChatReq::set_content(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   _impl_.content_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:ccs.SingleChatReq.content)
 }
 inline ::std::string* PROTOBUF_NONNULL SingleChatReq::mutable_content()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   ::std::string* _s = _internal_mutable_content();
   // @@protoc_insertion_point(field_mutable:ccs.SingleChatReq.content)
   return _s;
@@ -1055,10 +1000,10 @@ inline ::std::string* PROTOBUF_NONNULL SingleChatReq::_internal_mutable_content(
 inline ::std::string* PROTOBUF_NULLABLE SingleChatReq::release_content() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:ccs.SingleChatReq.content)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
   auto* released = _impl_.content_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.content_.Set("", GetArena());
@@ -1068,9 +1013,9 @@ inline ::std::string* PROTOBUF_NULLABLE SingleChatReq::release_content() {
 inline void SingleChatReq::set_allocated_content(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
   }
   _impl_.content_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.content_.IsDefault()) {
@@ -1131,68 +1076,28 @@ inline void SingleChatReq::_internal_set_target_seq(::int64_t value) {
 
 // SingleChatRsp
 
-// string cli_uuid = 1;
-inline void SingleChatRsp::clear_cli_uuid() {
+// uint64 cli_id = 1;
+inline void SingleChatRsp::clear_cli_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.ClearToEmpty();
+  _impl_.cli_id_ = ::uint64_t{0u};
   ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
 }
-inline const ::std::string& SingleChatRsp::cli_uuid() const
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:ccs.SingleChatRsp.cli_uuid)
-  return _internal_cli_uuid();
+inline ::uint64_t SingleChatRsp::cli_id() const {
+  // @@protoc_insertion_point(field_get:ccs.SingleChatRsp.cli_id)
+  return _internal_cli_id();
 }
-template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void SingleChatRsp::set_cli_uuid(Arg_&& arg, Args_... args) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
+inline void SingleChatRsp::set_cli_id(::uint64_t value) {
+  _internal_set_cli_id(value);
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  _impl_.cli_uuid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:ccs.SingleChatRsp.cli_uuid)
+  // @@protoc_insertion_point(field_set:ccs.SingleChatRsp.cli_id)
 }
-inline ::std::string* PROTOBUF_NONNULL SingleChatRsp::mutable_cli_uuid()
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  ::std::string* _s = _internal_mutable_cli_uuid();
-  // @@protoc_insertion_point(field_mutable:ccs.SingleChatRsp.cli_uuid)
-  return _s;
-}
-inline const ::std::string& SingleChatRsp::_internal_cli_uuid() const {
+inline ::uint64_t SingleChatRsp::_internal_cli_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.cli_uuid_.Get();
+  return _impl_.cli_id_;
 }
-inline void SingleChatRsp::_internal_set_cli_uuid(const ::std::string& value) {
+inline void SingleChatRsp::_internal_set_cli_id(::uint64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.Set(value, GetArena());
-}
-inline ::std::string* PROTOBUF_NONNULL SingleChatRsp::_internal_mutable_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.cli_uuid_.Mutable( GetArena());
-}
-inline ::std::string* PROTOBUF_NULLABLE SingleChatRsp::release_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:ccs.SingleChatRsp.cli_uuid)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
-    return nullptr;
-  }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  auto* released = _impl_.cli_uuid_.Release();
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  return released;
-}
-inline void SingleChatRsp::set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  }
-  _impl_.cli_uuid_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.cli_uuid_.IsDefault()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  // @@protoc_insertion_point(field_set_allocated:ccs.SingleChatRsp.cli_uuid)
+  _impl_.cli_id_ = value;
 }
 
 // int32 code = 2;
@@ -1295,68 +1200,28 @@ inline void SingleChatRsp::_internal_set_created_at(::int64_t value) {
 
 // SingleChatNtf
 
-// string cli_uuid = 1;
-inline void SingleChatNtf::clear_cli_uuid() {
+// uint64 cli_id = 1;
+inline void SingleChatNtf::clear_cli_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  _impl_.cli_id_ = ::uint64_t{0u};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
 }
-inline const ::std::string& SingleChatNtf::cli_uuid() const
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:ccs.SingleChatNtf.cli_uuid)
-  return _internal_cli_uuid();
+inline ::uint64_t SingleChatNtf::cli_id() const {
+  // @@protoc_insertion_point(field_get:ccs.SingleChatNtf.cli_id)
+  return _internal_cli_id();
 }
-template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void SingleChatNtf::set_cli_uuid(Arg_&& arg, Args_... args) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  _impl_.cli_uuid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.cli_uuid)
+inline void SingleChatNtf::set_cli_id(::uint64_t value) {
+  _internal_set_cli_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.cli_id)
 }
-inline ::std::string* PROTOBUF_NONNULL SingleChatNtf::mutable_cli_uuid()
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  ::std::string* _s = _internal_mutable_cli_uuid();
-  // @@protoc_insertion_point(field_mutable:ccs.SingleChatNtf.cli_uuid)
-  return _s;
-}
-inline const ::std::string& SingleChatNtf::_internal_cli_uuid() const {
+inline ::uint64_t SingleChatNtf::_internal_cli_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.cli_uuid_.Get();
+  return _impl_.cli_id_;
 }
-inline void SingleChatNtf::_internal_set_cli_uuid(const ::std::string& value) {
+inline void SingleChatNtf::_internal_set_cli_id(::uint64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.cli_uuid_.Set(value, GetArena());
-}
-inline ::std::string* PROTOBUF_NONNULL SingleChatNtf::_internal_mutable_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.cli_uuid_.Mutable( GetArena());
-}
-inline ::std::string* PROTOBUF_NULLABLE SingleChatNtf::release_cli_uuid() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:ccs.SingleChatNtf.cli_uuid)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
-    return nullptr;
-  }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  auto* released = _impl_.cli_uuid_.Release();
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  return released;
-}
-inline void SingleChatNtf::set_allocated_cli_uuid(::std::string* PROTOBUF_NULLABLE value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
-  }
-  _impl_.cli_uuid_.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.cli_uuid_.IsDefault()) {
-    _impl_.cli_uuid_.Set("", GetArena());
-  }
-  // @@protoc_insertion_point(field_set_allocated:ccs.SingleChatNtf.cli_uuid)
+  _impl_.cli_id_ = value;
 }
 
 // int64 seq = 2;
@@ -1435,7 +1300,7 @@ inline void SingleChatNtf::_internal_set_type(::ccs::MessageType value) {
 inline void SingleChatNtf::clear_content() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.content_.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
 }
 inline const ::std::string& SingleChatNtf::content() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -1445,13 +1310,13 @@ inline const ::std::string& SingleChatNtf::content() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void SingleChatNtf::set_content(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   _impl_.content_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:ccs.SingleChatNtf.content)
 }
 inline ::std::string* PROTOBUF_NONNULL SingleChatNtf::mutable_content()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   ::std::string* _s = _internal_mutable_content();
   // @@protoc_insertion_point(field_mutable:ccs.SingleChatNtf.content)
   return _s;
@@ -1471,10 +1336,10 @@ inline ::std::string* PROTOBUF_NONNULL SingleChatNtf::_internal_mutable_content(
 inline ::std::string* PROTOBUF_NULLABLE SingleChatNtf::release_content() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:ccs.SingleChatNtf.content)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
   auto* released = _impl_.content_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.content_.Set("", GetArena());
@@ -1484,9 +1349,9 @@ inline ::std::string* PROTOBUF_NULLABLE SingleChatNtf::release_content() {
 inline void SingleChatNtf::set_allocated_content(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
   }
   _impl_.content_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.content_.IsDefault()) {
