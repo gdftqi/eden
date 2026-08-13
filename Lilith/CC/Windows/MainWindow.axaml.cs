@@ -323,6 +323,16 @@ namespace CC
                     OnChatNtf(pkg);
                     return;
 
+                case ChatProto.PID_CLEAR_CHAT_RSP:
+                case ChatProto.PID_CLEAR_CHAT_NTF:
+                    OnClearChat(pkg);
+                    return;
+
+                case ChatProto.PID_DELETE_CHAT_RSP:
+                case ChatProto.PID_DELETE_CHAT_NTF:
+                    OnDeleteChat(pkg);
+                    return;
+
                 default:
                     Log.Write($"[CC] 未处理的 PID: {pkg.PID}, src = 0x{pkg.SrcID:X8}");
                     return;
@@ -382,6 +392,66 @@ namespace CC
         }
 
 
+        private void OnClearChat(Package pkg)
+        {
+            try
+            {
+                long chatId;
+                if (pkg.PID == ChatProto.PID_CLEAR_CHAT_RSP)
+                {
+                    var rsp = ClearChatRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                    if (rsp.Code != 0)
+                    {
+                        Log.Write($"[CC] 清空聊天失败: code = {rsp.Code}");
+                        ShowToast("清空失败, 请稍后重试", false);
+                        return;
+                    }
+                    chatId = (long)rsp.ChatId;
+                }
+                else
+                {
+                    chatId = (long)ClearChatNtf.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength).ChatId;
+                }
+
+                TabChat.OnChatCleared(chatId);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] CLEAR_CHAT 解析失败: {ex.Message}");
+            }
+        }
+
+
+        private void OnDeleteChat(Package pkg)
+        {
+            try
+            {
+                long chatId;
+                if (pkg.PID == ChatProto.PID_DELETE_CHAT_RSP)
+                {
+                    var rsp = DeleteChatCursorRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                    if (rsp.Code != 0)
+                    {
+                        Log.Write($"[CC] 删除会话失败: code = {rsp.Code}");
+                        ShowToast("删除失败, 请稍后重试", false);
+                        return;
+                    }
+                    chatId = (long)rsp.ChatId;
+                }
+                else
+                {
+                    chatId = (long)DeleteChatCursorNtf.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength).ChatId;
+                }
+
+                TabChat.OnChatDeleted(chatId);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] DELETE_CHAT 解析失败: {ex.Message}");
+            }
+        }
+
+
         private void OnChatNtf(Package pkg)
         {
             SingleChatNtf ntf;
@@ -426,8 +496,7 @@ namespace CC
             TabChat.OnPeerMessage(chatId, ntf);
         }
 
-        // 聊天窗发送: 先落本地库拿 cli_id(幂等键), 再发 CCS; ACK 回来按 cli_id 认领.
-        // 不查连接状态: 断线时也要落库, 消息留在待确认段(f_seq=0), 归重发机制处理
+
         private void OnSendText(SingleChatReq req)
         {
             long cliId = InsertPendingMessage(req);
@@ -443,9 +512,6 @@ namespace CC
         }
 
 
-        // 发送前落库: 待确认段(f_seq=0, 状态=发送中), 返回 f_local_id 作 cli_id; 失败返回 0.
-        // f_cli_id 就是本行自增 id, 插入后原地回填 -- 占位 0 只在这一批语句内存在,
-        // 不会撞 (f_chat_id, f_from_id, f_cli_id) 唯一索引
         private static long InsertPendingMessage(SingleChatReq req)
         {
             if (Me.Db == null)

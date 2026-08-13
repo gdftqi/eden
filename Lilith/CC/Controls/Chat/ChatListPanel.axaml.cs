@@ -79,7 +79,6 @@ namespace CC
             item.Unread      = conv.Unread;
             item.Avatar      = Avatars.Cached(conv.PeerAvatar) ?? Avatars.Default;
 
-            // 头像不在缓存就异步补(item 只服务这一个会话, 不存在贴错)
             if (Avatars.Cached(conv.PeerAvatar) == null && !string.IsNullOrEmpty(conv.PeerAvatar))
             {
                 _ = Avatars.Load(conv.PeerAvatar).ContinueWith(t =>
@@ -95,7 +94,20 @@ namespace CC
         }
 
 
-        // 切换选中项: 旧的熄灭, 新的点亮, 再通知宿主
+        /// <summary>
+        /// 把某个会话从列表里摘掉(删除会话用).
+        /// </summary>
+        public void Remove(ChatItem item)
+        {
+            if (ReferenceEquals(selectedItem, item))
+            {
+                selectedItem = null;
+            }
+
+            ChatList.Children.Remove(item);
+        }
+
+
         public void Select(ChatItem item)
         {
             if (selectedItem != null)
@@ -108,7 +120,7 @@ namespace CC
         }
 
         private void ClearSearch_Click(object? sender, RoutedEventArgs e)
-        {// 搜索框 清空文字
+        {
             SearchBox.Text = string.Empty;
             SearchBox.Focus();
         }

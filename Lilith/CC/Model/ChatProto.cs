@@ -30,6 +30,36 @@ namespace CC.Model
         /// </summary>
         public const ushort PID_SINGLE_CHAT_NTF = Package.PID_CUSTOM + 3;
 
+        /// <summary>
+        /// 清空聊天记录请求(双边: 服务端删库, 两边都清).
+        /// </summary>
+        public const ushort PID_CLEAR_CHAT_REQ = Package.PID_CUSTOM + 4;
+
+        /// <summary>
+        /// 清空聊天记录应答(给发起方).
+        /// </summary>
+        public const ushort PID_CLEAR_CHAT_RSP = Package.PID_CUSTOM + 5;
+
+        /// <summary>
+        /// 清空聊天记录通知(给对端, 让它也清掉本地记录).
+        /// </summary>
+        public const ushort PID_CLEAR_CHAT_NTF = Package.PID_CUSTOM + 6;
+
+        /// <summary>
+        /// 删除会话请求(双边: 消息和会话在两边都消失).
+        /// </summary>
+        public const ushort PID_DELETE_CHAT_REQ = Package.PID_CUSTOM + 7;
+
+        /// <summary>
+        /// 删除会话应答(给发起方).
+        /// </summary>
+        public const ushort PID_DELETE_CHAT_RSP = Package.PID_CUSTOM + 8;
+
+        /// <summary>
+        /// 删除会话通知(给对端).
+        /// </summary>
+        public const ushort PID_DELETE_CHAT_NTF = Package.PID_CUSTOM + 9;
+
 
         /// <summary>
         /// 序列化 pb 消息并发给 CCS: 唯一的组包出口.

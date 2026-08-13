@@ -25,6 +25,28 @@ namespace CC
             InitializeComponent();
             ChatPanel.ChatSelected += OpenChat;
             ChatView.SendRequested += OnSendRequested;
+            ChatView.ClearRequested += OnClearRequested;
+            ChatView.DeleteRequested += OnDeleteRequested;
+        }
+
+
+        private void OnClearRequested()
+        {
+            if (current != null)
+            {
+                ChatProto.Send(new ClearChatReq { ToId = (uint)current.PeerId },
+                               ChatProto.PID_CLEAR_CHAT_REQ);
+            }
+        }
+
+
+        private void OnDeleteRequested()
+        {
+            if (current != null)
+            {
+                ChatProto.Send(new DeleteChatCursorReq { ToId = (uint)current.PeerId },
+                               ChatProto.PID_DELETE_CHAT_REQ);
+            }
         }
 
 
@@ -405,6 +427,98 @@ LIMIT $n";
                     }
                     return;
                 }
+            }
+        }
+
+
+        public void OnChatCleared(long chatId)
+        {
+            var conv = ChatPanel.Find(chatId)?.Conversation;
+            if (conv == null)
+            {
+                return;
+            }
+
+            conv.Messages.Clear();
+            conv.LastPreview = string.Empty;
+            conv.LastTime = 0;
+            conv.Unread = 0;
+            ChatPanel.Upsert(conv);
+
+            if (ReferenceEquals(conv, current))
+            {
+                ChatView.ClearMessages();
+            }
+
+            ClearMessagesLocal(chatId);
+        }
+
+
+        public void OnChatDeleted(long chatId)
+        {
+            var item = ChatPanel.Find(chatId);
+            if (item == null)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(item.Conversation, current))
+            {
+                current = null;
+                ChatView.Conversation = null;
+                ChatView.ClearMessages();
+                ChatView.IsVisible = false;
+                EmptyState.IsVisible = true;
+            }
+
+            ChatPanel.Remove(item);
+            DeleteChatLocal(chatId);
+        }
+
+
+        private static void ClearMessagesLocal(long chatId)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText =
+                    "DELETE FROM t_chat_message WHERE f_chat_id = $cid;" +
+                    "UPDATE t_chat_conversation SET f_unread = 0, f_last_preview = NULL, f_last_time = 0 " +
+                    "WHERE f_chat_id = $cid";
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 清空聊天记录失败: {ex.Message}");
+            }
+        }
+
+
+        private static void DeleteChatLocal(long chatId)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText =
+                    "DELETE FROM t_chat_message WHERE f_chat_id = $cid;" +
+                    "DELETE FROM t_chat_conversation WHERE f_chat_id = $cid";
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 删除会话失败: {ex.Message}");
             }
         }
 

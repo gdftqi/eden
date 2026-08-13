@@ -42,6 +42,16 @@ namespace CC
         /// </summary>
         public event Action<SingleChatReq>? SendRequested;
 
+        /// <summary>
+        /// 清空聊天记录请求(用户已确认过)
+        /// </summary>
+        public event Action? ClearRequested;
+
+        /// <summary>
+        /// 删除会话请求(用户已确认过)
+        /// </summary>
+        public event Action? DeleteRequested;
+
         public SingleChatWindow()
         {
             InitializeComponent();
@@ -240,14 +250,35 @@ namespace CC
             // TODO: 加为联系人
         }
 
-        private void ClearChat_Click(object? sender, RoutedEventArgs e)
+
+        private async void ClearChat_Click(object? sender, RoutedEventArgs e)
         {
-            ClearMessages();
+            if (Conversation == null)
+            {
+                return;
+            }
+
+            if (await MessageBoxWindow.Confirm(this, "清空聊天",
+                    $"确定清空与 {PeerName} 的聊天记录吗? 双方都将不再看到这些消息.",
+                    "清空", "取消", true))
+            {
+                ClearRequested?.Invoke();
+            }
         }
 
-        private void DeleteChat_Click(object? sender, RoutedEventArgs e)
+        private async void DeleteChat_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO: 删除对话(需通知 MainWindow 移除会话并回到空态)
+            if (Conversation == null)
+            {
+                return;
+            }
+
+            if (await MessageBoxWindow.Confirm(this, "删除对话",
+                    $"确定删除与 {PeerName} 的对话吗? 聊天记录会一并删除, 双方都无法恢复.",
+                    "删除", "取消", true))
+            {
+                DeleteRequested?.Invoke();
+            }
         }
 
         private void CaptureDesktop_Click(object? sender, RoutedEventArgs e)
