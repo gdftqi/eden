@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System;
+using System.Collections.Generic;
 
 namespace CC
 {
@@ -17,6 +18,24 @@ namespace CC
         {
             InitializeComponent();
         }
+
+        /// <summary>
+        /// 遍历列表里的所有会话.
+        /// </summary>
+        public IEnumerable<CC.Model.ChatConversation> Conversations
+        {
+            get
+            {
+                foreach (var child in ChatList.Children)
+                {
+                    if (child is ChatItem it && it.Conversation != null)
+                    {
+                        yield return it.Conversation;
+                    }
+                }
+            }
+        }
+
 
         /// <summary>
         /// 按 chat_id 找会话行, 没有返回 null.

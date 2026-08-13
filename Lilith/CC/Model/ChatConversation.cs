@@ -24,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_conv_sort ON t_chat_conversation(f_last_time DESC
 ";
 
         /// <summary>
-        /// 会话 ID: 单聊 = (min(uid) &lt;&lt; 32) | max(uid), 与服务端同一算法.
+        /// 会话 ID
         /// </summary>
         public Int64 ChatId { get; set; }
 
@@ -69,14 +69,13 @@ CREATE INDEX IF NOT EXISTS idx_conv_sort ON t_chat_conversation(f_last_time DESC
         public string PeerAvatar { get; set; } = string.Empty;
 
         /// <summary>
-        /// 会话内消息: 已确认段(按 Seq) + 待确认段(按插入序)拼接.
-        /// v1 全内存, 落 SQLite 后改按需加载.
+        /// 消息列表
         /// </summary>
         public List<ChatMessage> Messages { get; } = new();
 
 
         /// <summary>
-        /// 与服务端 make_chat_id 同一算法. uid 恒小于 2^31, 高位天然为 0.
+        /// 计算 ChatID
         /// </summary>
         public static Int64 MakeChatId(Int64 a, Int64 b)
         {

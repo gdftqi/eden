@@ -355,7 +355,6 @@ namespace CC
                 using var cmd = Me.Db.CreateCommand();
                 if (rsp.Code == 0)
                 {
-                    // f_seq = 0 的闸保证幂等: 重复 ACK 不会二次改写
                     cmd.CommandText =
                         "UPDATE t_chat_message SET f_seq = $seq, f_msg_id = $mid, f_created_at = $ts, f_status = 1 " +
                         "WHERE f_local_id = $cli AND f_from_id = $me AND f_seq = 0";
@@ -378,10 +377,11 @@ namespace CC
             {
                 Log.Write($"[CC] ACK 回填失败: {ex.Message}");
             }
+
+            TabChat.OnChatAck(rsp);
         }
 
 
-        // 单聊推送: 找/建会话 + 消息落库(唯一索引挡重复), 再交给 ChatTab 决定要不要出气泡
         private void OnChatNtf(Package pkg)
         {
             SingleChatNtf ntf;
@@ -423,7 +423,7 @@ namespace CC
                 }
             }
 
-            TabChat.OnPeerMessage(chatId, (long)ntf.FromId, ntf.Content, ntf.CreatedAt);
+            TabChat.OnPeerMessage(chatId, ntf);
         }
 
         // 聊天窗发送: 先落本地库拿 cli_id(幂等键), 再发 CCS; ACK 回来按 cli_id 认领.
@@ -438,6 +438,7 @@ namespace CC
             }
 
             req.CliId = (ulong)cliId;
+            TabChat.OnSelfMessage(req, cliId);
             ChatProto.Send(req, ChatProto.PID_SINGLE_CHAT_REQ);
         }
 

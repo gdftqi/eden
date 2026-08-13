@@ -28,19 +28,9 @@ namespace CC
         }
 
 
-        // 聊天窗要发消息
         private void OnSendRequested(SingleChatReq req)
         {
             SendRequested?.Invoke(req);
-
-            if (current != null)
-            {
-                long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                current.LastPreview = req.Content;
-                current.LastTime = now;
-                ChatPanel.Upsert(current, true);
-                UpdateConversation(current.ChatId, req.Content, now, 0);
-            }
         }
 
 
@@ -56,12 +46,9 @@ namespace CC
         }
 
 
-        // 组织架构的 uid -> User 映射, Reload 时拉取; 收到陌生会话的推送时补名字/头像用
         private readonly Dictionary<Int64, User> orgUsers = new Dictionary<Int64, User>();
 
-        /// <summary>
-        /// 从本地库加载会话列表. 名字/头像不落会话表, 从组织架构解析.
-        /// </summary>
+
         private async Task Reload()
         {
             if (Me.Db == null)
@@ -121,12 +108,65 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
                         conv.PeerName = $"用户 {conv.PeerId}";
                     }
 
+                    LoadMessages(conv);
                     ChatPanel.Upsert(conv);
                 }
             }
             catch (Exception ex)
             {
                 Log.Write($"[ChatTab] 会话加载失败: {ex.Message}");
+            }
+        }
+
+
+        private const int HISTORY_LIMIT = 50;
+
+
+        private static void LoadMessages(ChatConversation conv)
+        {
+            conv.Messages.Clear();
+
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText = @"
+SELECT f_cli_id, f_seq, f_msg_id, f_from_id, f_msg_type,
+       f_content, f_status, f_edit_seq, f_is_revoked, f_created_at
+FROM t_chat_message
+WHERE f_chat_id = $cid AND f_is_deleted = 0
+ORDER BY (f_seq = 0) DESC, f_seq DESC, f_local_id DESC
+LIMIT $n";
+                cmd.Parameters.AddWithValue("$cid", conv.ChatId);
+                cmd.Parameters.AddWithValue("$n", HISTORY_LIMIT);
+
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    conv.Messages.Add(new ChatMessage
+                    {
+                        ClientId  = r.GetInt64(0),
+                        Seq       = r.GetInt64(1),
+                        MsgId     = r.GetInt64(2),
+                        FromId    = r.GetInt64(3),
+                        Type      = r.GetInt32(4),
+                        Content   = r.IsDBNull(5) ? string.Empty : r.GetString(5),
+                        Status    = r.GetInt32(6),
+                        EditSeq   = r.GetInt64(7),
+                        IsRevoked = r.GetInt64(8) != 0,
+                        CreatedAt = r.GetInt64(9),
+                    });
+                }
+
+                conv.Messages.Reverse();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 聊天记录加载失败: {ex.Message}");
             }
         }
 
@@ -236,32 +276,45 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
             ChatView.PeerAvatar = item.Avatar;
             ChatView.PeerStatus = string.Empty;
 
-            ChatView.ClearMessages();
             EmptyState.IsVisible = false;
             ChatView.IsVisible = true;
+
+            // 按 Conversation.Messages 重画(内部会先清屏)
+            ChatView.Reload();
         }
 
-        // 服务端来的消息进聊天窗(MainWindow.OnPackage 转发过来)
+
         public void AddText(bool mine, string text, string time)
         {
             ChatView.AddText(mine, text, time);
         }
 
 
-        // 对端消息(MainWindow.OnChatNtf 已把会话+消息落库后转发).
-        // 正开着这个会话: 出气泡, 不计未读; 否则(含列表里还没有这个会话):
-        // 找/建列表行 + 未读加一, 但不打开聊天窗, 不抢用户当前的操作
-        public void OnPeerMessage(long chatId, long fromId, string content, long createdAt)
+        public void OnPeerMessage(long chatId, SingleChatNtf ntf)
         {
+            long fromId = ntf.FromId;
+
+            var msg = new ChatMessage
+            {
+                ClientId  = (long)ntf.CliId,
+                Seq       = ntf.Seq,
+                MsgId     = ntf.MsgId,
+                FromId    = fromId,
+                Type      = (int)ntf.Type,
+                Content   = ntf.Content,
+                Status    = 1,
+                CreatedAt = ntf.CreatedAt,
+            };
+
             if (current != null && current.ChatId == chatId)
             {
-                ChatView.AddText(false, content,
-                    DateTimeOffset.FromUnixTimeMilliseconds(createdAt).LocalDateTime.ToString("HH:mm"));
+                current.Messages.Add(msg);
+                ChatView.AddMessage(msg);
 
-                current.LastPreview = content;
-                current.LastTime = createdAt;
+                current.LastPreview = msg.Content;
+                current.LastTime = msg.CreatedAt;
                 ChatPanel.Upsert(current, true);
-                UpdateConversation(chatId, content, createdAt, 0);
+                UpdateConversation(chatId, msg.Content, msg.CreatedAt, 0);
                 return;
             }
 
@@ -285,15 +338,77 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
                 }
             }
 
+            conv.Messages.Add(msg);
             conv.Unread += 1;
-            conv.LastPreview = content;
-            conv.LastTime = createdAt;
+            conv.LastPreview = msg.Content;
+            conv.LastTime = msg.CreatedAt;
             ChatPanel.Upsert(conv, true);
-            UpdateConversation(chatId, content, createdAt, 1);
+            UpdateConversation(chatId, msg.Content, msg.CreatedAt, 1);
         }
 
 
-        // 会话表的预览/时间/未读增量落库(会话行由 OnChatNtf 保证已存在)
+        public void OnSelfMessage(SingleChatReq req, long cliId)
+        {
+            if (current == null)
+            {
+                return;
+            }
+
+            var msg = new ChatMessage
+            {
+                ClientId  = cliId,
+                FromId    = Me.ID,
+                Type      = (int)req.Type,
+                Content   = req.Content,
+                Status    = 0,
+                CreatedAt = DateTimeOffset.Now.ToUnixTimeMilliseconds(),
+            };
+
+            current.Messages.Add(msg);
+            ChatView.AddMessage(msg);
+
+            current.LastPreview = msg.Content;
+            current.LastTime = msg.CreatedAt;
+            ChatPanel.Upsert(current, true);
+            UpdateConversation(current.ChatId, msg.Content, msg.CreatedAt, 0);
+        }
+
+
+        public void OnChatAck(SingleChatRsp rsp)
+        {
+            long cliId = (long)rsp.CliId;
+
+            foreach (var conv in ChatPanel.Conversations)
+            {
+                foreach (var m in conv.Messages)
+                {
+                    if (m.ClientId != cliId || m.FromId != Me.ID)
+                    {
+                        continue;
+                    }
+
+                    if (rsp.Code == 0)
+                    {
+                        m.Seq       = rsp.Seq;
+                        m.MsgId     = rsp.MsgId;
+                        m.CreatedAt = rsp.CreatedAt;
+                        m.Status    = 1;
+                    }
+                    else
+                    {
+                        m.Status = 2;
+                    }
+
+                    if (ReferenceEquals(conv, current))
+                    {
+                        ChatView.UpdateStatus(m);
+                    }
+                    return;
+                }
+            }
+        }
+
+
         private static void UpdateConversation(long chatId, string preview, long time, int unreadDelta)
         {
             if (Me.Db == null)

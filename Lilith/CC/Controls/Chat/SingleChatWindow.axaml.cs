@@ -12,8 +12,6 @@ using System.Runtime.InteropServices;
 namespace CC
 {
     // 单聊窗口.
-    // 与 MultiChatWindow 是一对孪生控件: 消息区/输入框/表情/发送逻辑两边相同,
-    // 改其中一处务必同步另一处.差异只在顶栏按钮和菜单项.
     public partial class SingleChatWindow : UserControl
     {
         public static readonly StyledProperty<string?> PeerNameProperty = AvaloniaProperty.Register<SingleChatWindow, string?>(nameof(PeerName));
@@ -101,6 +99,59 @@ namespace CC
             AddMessage(new MessageBubble { IsOutgoing = outgoing, Text = text, Time = time, Status = status });
         }
 
+
+        /// <summary>
+        /// 追加一条消息气泡.
+        /// </summary>
+        public void AddMessage(ChatMessage msg)
+        {
+            AddMessage(new MessageBubble
+            {
+                Message    = msg,
+                IsOutgoing = msg.Mine,
+                Text       = msg.Content,
+                Time       = DateTimeOffset.FromUnixTimeMilliseconds(msg.CreatedAt).LocalDateTime.ToString("HH:mm"),
+                Status     = msg.Status,
+            });
+        }
+
+
+        /// <summary>
+        /// 把某条消息的气泡刷成它当前的状态(发送中转圈 -> 已送达绿勾).
+        /// 找不到就当它不在当前视图里, 静默跳过.
+        /// </summary>
+        public void UpdateStatus(ChatMessage msg)
+        {
+            foreach (var child in MessageList.Children)
+            {
+                if (child is MessageBubble b && ReferenceEquals(b.Message, msg))
+                {
+                    b.Status = msg.Status;
+                    b.Time   = DateTimeOffset.FromUnixTimeMilliseconds(msg.CreatedAt).LocalDateTime.ToString("HH:mm");
+                    return;
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 按 Conversation.Messages 重画整个消息区, 切换会话时调用.
+        /// </summary>
+        public void Reload()
+        {
+            ClearMessages();
+
+            if (Conversation == null)
+            {
+                return;
+            }
+
+            foreach (var m in Conversation.Messages)
+            {
+                AddMessage(m);
+            }
+        }
+
         public void ClearMessages()
         {
             MessageList.Children.Clear();
@@ -144,15 +195,14 @@ namespace CC
                 return;
             }
 
-            // TODO req: CliId 归宿主填(入库拿到 f_local_id 才有值)
             SingleChatReq req = new SingleChatReq();
             req.Content = t;
             req.Type = MessageType.MtText;
             req.ToId = (uint)Conversation.PeerId;
 
-            AddText(true, t, DateTime.Now.ToString("HH:mm"), 1);
             InputBox.Text = string.Empty;
             InputBox.Focus();
+
             SendRequested?.Invoke(req);
         }
 
