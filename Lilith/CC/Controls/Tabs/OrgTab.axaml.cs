@@ -25,6 +25,7 @@ namespace CC
             ChatView.SendRequested += t => SendRequested?.Invoke(t);
 
             MemberView.CloseRequested += ShowEmptyState;
+            MemberView.ChatRequested += OnMemberChat;
 
             OrgEditView.Cancelled += ShowEmptyState;
             MemberEditView.Cancelled += ShowEmptyState;
@@ -202,10 +203,32 @@ namespace CC
         }
 
 
+        // 信息页当前显示的人, "消息"按钮点下来要知道找谁聊
+        private User? memberShown;
+
+
+        // 点了信息页的"消息": 切到聊天页并打开与他的会话
+        private void OnMemberChat()
+        {
+            if (memberShown?.ID == null)
+            {
+                return;
+            }
+
+            if (TopLevel.GetTopLevel(this) is MainWindow main)
+            {
+                main.OpenChatTab();
+            }
+
+            BaseTab.Notify<ChatTab>(new Message(MsgID.OpenChat, memberShown, this));
+        }
+
+
         // 点部门下的成员: 显示人员信息(与 ContactTab 的联系人信息同一控件)
         private void OpenMemberInfo(User user)
         {
             current = null;
+            memberShown = user;
 
             var phone  = user.PhoneNum;
             var phones = string.IsNullOrWhiteSpace(phone) ? Array.Empty<string>() : new[] { phone };

@@ -5,8 +5,13 @@ using Avalonia.Media;
 
 namespace CC
 {
+    /// <summary>
+    /// 会话列表项
+    /// </summary>
     public partial class ChatItem : UserControl
-    {// 会话列表项
+    {
+        public Model.ChatConversation? Conversation { get; set; }
+
         public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ChatItem, string?>("Nickname");
         public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<ChatItem, string?>("LastMessage");
         public static readonly StyledProperty<string?> TimeProperty = AvaloniaProperty.Register<ChatItem, string?>("Time");

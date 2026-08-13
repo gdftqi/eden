@@ -76,6 +76,15 @@ namespace CC
 
         private void Chat_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
+            OpenChatTab();
+        }
+
+
+        /// <summary>
+        /// 切到聊天页.
+        /// </summary>
+        public void OpenChatTab()
+        {
             SetNav(ChatIcon);
             ShowTab(TabChat);
         }

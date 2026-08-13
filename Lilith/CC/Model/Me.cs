@@ -44,8 +44,6 @@ namespace CC.Model
         }
 
 
-        // 打开(必要时创建)本账号的库: 建表 + 重放连接级 PRAGMA.
-        // 每账号一个文件, 切号就是换文件, 表里不需要 owner 列
         private static void OpenDb()
         {
             Db?.Dispose();
@@ -66,7 +64,6 @@ namespace CC.Model
                 db.Open();
 
                 using var cmd = db.CreateCommand();
-                // 前几条 PRAGMA 是连接级的, 不写进文件, 每次 open 都必须重放
                 cmd.CommandText = @"
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous  = NORMAL;
@@ -82,7 +79,6 @@ PRAGMA user_version = 1;
             }
             catch (Exception ex)
             {
-                // 库开不了不挡登录: 聊天先降级为纯内存, 别的功能照常
                 Log.Write($"[Me] 本地库打开失败: {ex.Message}");
             }
         }

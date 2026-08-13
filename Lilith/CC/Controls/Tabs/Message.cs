@@ -9,6 +9,9 @@ namespace CC
 
         /// <summary>成员创建成功.Param = 用户名</summary>
         MemberCreated,
+
+        /// <summary>打开与某人的会话.Param = 对端 User</summary>
+        OpenChat,
     }
 
 
