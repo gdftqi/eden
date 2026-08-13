@@ -32,8 +32,8 @@ message SingleChatReq {
 
 
 message SingleChatRsp {
-    uint64 cli_id     = 1;
-    int32  code       = 2;   // 0 成功, 其余见错误码表
+    int32  code       = 1;   // 0 成功, 其余见错误码表
+    uint64 cli_id     = 2;
     int64  seq        = 3;
     int64  msg_id     = 4;
     int64  created_at = 5;
@@ -48,4 +48,37 @@ message SingleChatNtf {
     string      content    = 5;
     int64       created_at = 6;
     uint32      from_id    = 7;
+}
+
+
+message ClearChatReq {
+    uint32 to_id      = 1;
+    uint64 idempotent = 2;
+}
+
+
+message ClearChatRsp {
+    int32  code    = 1;
+    uint64 chat_id = 2;
+}
+
+
+message ClearChatNtf {
+    uint64 chat_id = 1;
+}
+
+
+message DeleteChatCursorReq {
+    uint32 to_id      = 1;
+    uint64 idempotent = 2;
+}
+
+message DeleteChatCursorRsp {
+    int32  code    = 1;
+    uint64 chat_id = 2;
+}
+
+
+message DeleteChatCursorNtf {
+    uint64 chat_id = 1;
 }

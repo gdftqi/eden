@@ -7,6 +7,7 @@
 #include "tcp/server.hpp"
 #include "utils/prof.hpp"
 #include "utils/proto_ex.hpp"
+#include "utils/snow_flake.hpp"
 #include "utils/sys.hpp"
 
 

@@ -70,14 +70,15 @@ CREATE TABLE IF NOT EXISTS eva.chat_seq (
 -- ============================================================
 -- 按 user_id 分区,一次查询拉到该用户全部会话
 CREATE TABLE IF NOT EXISTS eva.chat_cursor (
-    user_id          bigint,
-    chat_id          bigint,
-    read_seq         bigint,   -- 已读位置。某条消息已读 = 其 seq <= read_seq
-    recv_seq         bigint,   -- 已送达位置。重连时上报,服务端补推差集
-    clear_before_seq bigint,   -- "清空聊天记录"水位,一条记录顶掉海量删除标记
-    is_pinned        boolean,
-    is_muted         boolean,
-    joined_at        bigint,
+    user_id   bigint,
+    chat_id   bigint,
+    last_seq  bigint,   -- 会话最新消息的 seq。发消息时服务端写,双方各一行
+    last_time bigint,   -- 会话最新消息的时间,会话列表按它排序
+    read_seq  bigint,   -- 已读位置。某条消息已读 = 其 seq <= read_seq; 未读数 = last_seq - read_seq
+    recv_seq  bigint,   -- 已送达位置。重连时上报,服务端补推差集
+    is_pinned boolean,
+    is_muted  boolean,
+    joined_at bigint,
     PRIMARY KEY (user_id, chat_id)
 ) WITH compaction = {'class': 'LeveledCompactionStrategy'};
 

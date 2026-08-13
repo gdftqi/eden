@@ -1,5 +1,5 @@
 CXX         := g++
-CXXFLAGS    := -O2 -g -Wall -Wextra -I../../Adam/include -I/usr/local/include -MMD -MP -std=c++20
+CXXFLAGS    := -O2 -g -Wall -Wextra -I. -Iinclude -I../../Adam/include -I/usr/local/include -MMD -MP -std=c++20
 
 # gperftools profiler 静态自包含链:让 ccs 二进制不依赖 libprofiler.so / libunwind.so
 # 运行期库(最小化部署镜像里没这俩 .so 也能起)。链序敏感: profiler → unwind → lzma。
@@ -18,7 +18,7 @@ COMPOSE_DST := $(BUILD_DIR)/docker-compose.yml
 FLAME_DST   := $(BUILD_DIR)/flame_build.sh
 BUILD_START := $(shell date +%s)
 
-SOURCES := $(wildcard *.cpp)
+SOURCES := $(wildcard *.cpp) $(wildcard src/*.cpp)
 OBJECTS := $(SOURCES:%.cpp=$(OBJ_DIR)/%.o) $(OBJ_DIR)/ccs.pb.o
 
 .PHONY: all clean
@@ -43,7 +43,9 @@ $(COMPOSE_DST): docker-compose.yml | $(BUILD_DIR)
 $(FLAME_DST): flame_build.sh | $(BUILD_DIR)
 	cp $< $@
 
-$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
+# mkdir 用 $(@D) 而不是固定的 OBJ_DIR: src/ 下的源文件要在 obj/src/ 里落对应的 .o
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # protobuf 生成物: proto 一变自动重新生成 + 编译.
