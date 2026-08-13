@@ -74,6 +74,12 @@ adam::kcp::Session::terminal_enter() noexcept {
         return;
     }
 
+    terminal_enter(serv);
+}
+
+
+void
+adam::kcp::Session::terminal_enter(tcp::Connector::Ptr serv) noexcept {
     core::TerminalEnterReq req;
     req.uid  = uid_;
     req.conv = conv();
@@ -91,11 +97,11 @@ adam::kcp::Session::terminal_enter() noexcept {
     pk->meta.src_addr = req.ip;
     pk->data.pid      = PID_TER_ENT_REQ;
     pk->data.src_id   = Conf::instance()->server()->id;
-    pk->data.dst_id   = rid;
+    pk->data.dst_id   = serv->id();
     req.encode(pk->data.payload, core::TerminalEnterReq::LEN);
 
     if (serv->send(*pk, worker_->tnow()) < 0) {
-        xERROR("{} 向路由服务 {} 登记失败", to_json(), rid);
+        xERROR("{} 向后端 {} 登记失败", to_json(), serv->id());
     }
 }
 

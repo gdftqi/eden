@@ -8,6 +8,7 @@
 #include "core/error.hpp"
 #include "kcp/config.hpp"
 #include "kcp/ikcp.h"
+#include "tcp/connector.hpp"
 
 
 namespace adam::kcp {
@@ -199,6 +200,14 @@ public:
      */
     void
     terminal_enter() noexcept;
+
+
+    /**
+     * @brief 向指定后端登记本终端. ENT 只能由网关盖章代发 --
+     *        payload 里的 conv/ip 要与信封 meta 互验, 客户端自己组不出合法包
+     */
+    void
+    terminal_enter(tcp::Connector::Ptr serv) noexcept;
 
 
     /**

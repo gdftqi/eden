@@ -372,6 +372,8 @@ adam::kcp::Worker::on_udp_handle(const ::epoll_event& ev) noexcept {
                         } else {
                             res = on_pack_handle(s, pk);
                         }
+                    } else if (pk->data.pid == PID_TER_ENT_REQ) {
+                        res = on_terminal_enter_req(s, pk);
                     } else {
                         res = on_c2s(s, pk);
                     }
@@ -675,19 +677,13 @@ adam::kcp::Worker::on_regist_backend_rsp(tcp::Connector::Ptr conn, core::Package
     if (res == 0) {
         conn->set_authed(true);
         server_->hook()->on_serv_registed(conn);
-
-        // 路由服务(重)连成功: 它那边的档案在连接断开时已被清扫, 必须全量重报,
-        // 否则这批终端永久从路由表消失(顶号/下线通知全部失效)
-        if (std::binary_search(router_ids_.begin(), router_ids_.end(), conn->id())) {
-            terminal_reenter(conn->id());
-        }
+        terminal_reenter(conn->id());
     } else {
         xERROR("注册服务 {} 失败 {}", conn->id(), res);
     }
 }
 
 
-// 后端(路由服务)要求踢除某终端: 按信封 conv 定位会话, 校验 uid 后摘除
 void
 adam::kcp::Worker::on_terminal_kick_notify(tcp::Connector::Ptr conn, core::Package *pk) noexcept {
     core::TerminalKickNotify ntf;
@@ -796,9 +792,14 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
 
 void
 adam::kcp::Worker::terminal_reenter(uint32_t rid) noexcept {
-    if (router_ids_.empty()) {
+    auto serv = get_serv(rid);
+    if (serv == nullptr) {
         return;
     }
+
+    // 路由后端按 uid 分片算归属; 普通后端网关没法替会话作主,
+    // 以绑定集为准 -- 登记过谁就给谁重报
+    bool is_router = std::binary_search(router_ids_.begin(), router_ids_.end(), rid);
 
     int n = 0;
     for (auto& [conv, s]: sesss_) {
@@ -806,16 +807,20 @@ adam::kcp::Worker::terminal_reenter(uint32_t rid) noexcept {
             continue;   // 未鉴权的会话还没有 uid, 也就不存在登记
         }
 
-        if (router_ids_[s->uid() % router_ids_.size()] != rid) {
-            continue;   // 不归这个实例管
+        if (is_router) {
+            if (router_ids_[s->uid() % router_ids_.size()] != rid) {
+                continue;   // 不归这个实例管
+            }
+        } else if (!s->binds().contains(rid)) {
+            continue;   // 从未登记过这个后端
         }
 
-        s->terminal_enter();
+        s->terminal_enter(serv);
         ++n;
     }
 
     if (n > 0) {
-        xINFO("路由服务 {} 注册成功, 重报 {} 个终端", rid, n);
+        xINFO("后端 {} 注册成功, 重报 {} 个终端", rid, n);
     }
 }
 
@@ -935,6 +940,34 @@ adam::kcp::Worker::on_regist_terminal_req(Session::Ptr s, core::Package *in) noe
     s->terminal_enter();
 
     return res;
+}
+
+
+int
+adam::kcp::Worker::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noexcept {
+    if (!s->authed()) {
+        return xERR_NOT_AUTH;
+    }
+
+    if (std::binary_search(router_ids_.begin(), router_ids_.end(), pk->data.dst_id)) {
+        // 不允许登录路由服务
+        xWARN("{} 试图登记到路由服务 {}, 忽略", s->to_json(), pk->data.dst_id);
+        return xOK;
+    }
+
+    if (s->binds().contains(pk->data.dst_id)) {
+        return xOK;
+    }
+
+    auto sv = get_serv(pk->data.dst_id);
+    if (sv == nullptr || !sv->is_connected() || !sv->authed()) {
+        xWARN("{} 登记: 目标 {} 未就绪", s->to_json(), pk->data.dst_id);
+        s->send_error(PERR_REQ_UNREACHABLE, pk->data.dst_id, pk->data.pid);
+        return xOK;
+    }
+
+    s->terminal_enter(sv);
+    return xOK;
 }
 
 

@@ -270,7 +270,6 @@ private:
     on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package *pk) noexcept;
 
 
-    // 路由服务(重)注册成功 -> 把本 worker 名下 / 归属该实例的终端全量重报
     void
     terminal_reenter(uint32_t rid) noexcept;
 
@@ -283,6 +282,10 @@ private:
 
     int
     on_regist_terminal_req(Session::Ptr s, core::Package *pk) noexcept;
+
+
+    int
+    on_terminal_enter_req(Session::Ptr s, core::Package *pk) noexcept;
 
 
     int
