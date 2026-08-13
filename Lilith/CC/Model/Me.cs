@@ -72,7 +72,7 @@ PRAGMA temp_store   = MEMORY;
 PRAGMA mmap_size    = 268435456;
 PRAGMA cache_size   = -8000;
 PRAGMA user_version = 1;
-" + ChatConversation.DDL + ChatMessage.DDL;
+" + ChatCursor.DDL + ChatMessage.DDL;
                 cmd.ExecuteNonQuery();
 
                 Db = db;

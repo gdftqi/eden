@@ -10,7 +10,7 @@ namespace CC
     /// </summary>
     public partial class ChatItem : UserControl
     {
-        public Model.ChatConversation? Conversation { get; set; }
+        public Model.ChatCursor? Conversation { get; set; }
 
         public static readonly StyledProperty<string?> NicknameProperty = AvaloniaProperty.Register<ChatItem, string?>("Nickname");
         public static readonly StyledProperty<string?> LastMessageProperty = AvaloniaProperty.Register<ChatItem, string?>("LastMessage");

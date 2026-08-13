@@ -15,7 +15,7 @@ namespace CC
         public event Action<SingleChatReq>? SendRequested;
 
         // 当前打开的会话
-        private ChatConversation? current;
+        private ChatCursor? current;
 
         // 只加载一次: 页签常驻可视树(靠 IsVisible 切), 进出会重复触发 attach
         private bool loaded;
@@ -103,12 +103,12 @@ namespace CC
                 cmd.CommandText = @"
 SELECT f_chat_id, f_peer_id, f_recv_seq, f_read_seq, f_peer_read_seq,
        f_unread, f_last_preview, f_last_time
-FROM t_chat_conversation ORDER BY f_last_time ASC";
+FROM t_chat_cursor ORDER BY f_last_time ASC";
 
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                 {
-                    var conv = new ChatConversation
+                    var conv = new ChatCursor
                     {
                         ChatId      = r.GetInt64(0),
                         PeerId      = r.GetInt64(1),
@@ -144,7 +144,7 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
         private const int HISTORY_LIMIT = 50;
 
 
-        private static void LoadMessages(ChatConversation conv)
+        private static void LoadMessages(ChatCursor conv)
         {
             conv.Messages.Clear();
 
@@ -215,13 +215,13 @@ LIMIT $n";
                 return;
             }
 
-            Int64 chatId = ChatConversation.MakeChatId(Me.ID, peer.ID.Value);
+            Int64 chatId = ChatCursor.MakeChatId(Me.ID, peer.ID.Value);
 
             // 列表里已有就用它挂着的那份(消息都在上面), 没有才新建
             var conv = ChatPanel.Find(chatId)?.Conversation;
             if (conv == null)
             {
-                conv = new ChatConversation
+                conv = new ChatCursor
                 {
                     ChatId     = chatId,
                     PeerId     = peer.ID.Value,
@@ -236,7 +236,8 @@ LIMIT $n";
         }
 
 
-        // 未读清零落库
+        // 未读清零落库. 点开即已读, 所以顺手把 f_read_seq 推到 f_recv_seq --
+        // 明天做已读回执时直接上报这个值即可
         private static void ClearUnread(long chatId)
         {
             if (Me.Db == null)
@@ -247,7 +248,8 @@ LIMIT $n";
             try
             {
                 using var cmd = Me.Db.CreateCommand();
-                cmd.CommandText = "UPDATE t_chat_conversation SET f_unread = 0 WHERE f_chat_id = $cid";
+                cmd.CommandText =
+                    "UPDATE t_chat_cursor SET f_unread = 0, f_read_seq = f_recv_seq WHERE f_chat_id = $cid";
                 cmd.Parameters.AddWithValue("$cid", chatId);
                 cmd.ExecuteNonQuery();
             }
@@ -258,8 +260,8 @@ LIMIT $n";
         }
 
 
-        // 会话落库(幂等): 已存在就什么都不做
-        private static void InsertConversation(ChatConversation conv)
+        // 抬高本地已收水位(自己发的消息走这里; 对端来的消息在 MainWindow 落库时一并抬)
+        private static void UpdateRecvSeq(long chatId, long seq)
         {
             if (Me.Db == null)
             {
@@ -269,7 +271,31 @@ LIMIT $n";
             try
             {
                 using var cmd = Me.Db.CreateCommand();
-                cmd.CommandText = "INSERT OR IGNORE INTO t_chat_conversation(f_chat_id, f_peer_id) VALUES ($cid, $pid)";
+                cmd.CommandText =
+                    "UPDATE t_chat_cursor SET f_recv_seq = $seq WHERE f_chat_id = $cid AND f_recv_seq < $seq";
+                cmd.Parameters.AddWithValue("$seq", seq);
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 更新已收水位失败: {ex.Message}");
+            }
+        }
+
+
+        // 会话落库(幂等): 已存在就什么都不做
+        private static void InsertConversation(ChatCursor conv)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText = "INSERT OR IGNORE INTO t_chat_cursor(f_chat_id, f_peer_id) VALUES ($cid, $pid)";
                 cmd.Parameters.AddWithValue("$cid", conv.ChatId);
                 cmd.Parameters.AddWithValue("$pid", conv.PeerId);
                 cmd.ExecuteNonQuery();
@@ -331,6 +357,7 @@ LIMIT $n";
             if (current != null && current.ChatId == chatId)
             {
                 current.Messages.Add(msg);
+                current.RecvSeq = msg.Seq;   // 库里那份由 MainWindow 落库时一起抬
                 ChatView.AddMessage(msg);
 
                 current.LastPreview = msg.Content;
@@ -343,7 +370,7 @@ LIMIT $n";
             var conv = ChatPanel.Find(chatId)?.Conversation;
             if (conv == null)
             {
-                conv = new ChatConversation
+                conv = new ChatCursor
                 {
                     ChatId = chatId,
                     PeerId = fromId,
@@ -361,6 +388,7 @@ LIMIT $n";
             }
 
             conv.Messages.Add(msg);
+            conv.RecvSeq = msg.Seq;
             conv.Unread += 1;
             conv.LastPreview = msg.Content;
             conv.LastTime = msg.CreatedAt;
@@ -415,6 +443,14 @@ LIMIT $n";
                         m.MsgId     = rsp.MsgId;
                         m.CreatedAt = rsp.CreatedAt;
                         m.Status    = 1;
+
+                        // 自己发的消息也占这个会话的 seq 空间, 一样要抬水位,
+                        // 否则增量同步会把自己发过的消息再拉回来一遍
+                        if (rsp.Seq > conv.RecvSeq)
+                        {
+                            conv.RecvSeq = rsp.Seq;
+                            UpdateRecvSeq(conv.ChatId, rsp.Seq);
+                        }
                     }
                     else
                     {
@@ -488,7 +524,7 @@ LIMIT $n";
                 using var cmd = Me.Db.CreateCommand();
                 cmd.CommandText =
                     "DELETE FROM t_chat_message WHERE f_chat_id = $cid;" +
-                    "UPDATE t_chat_conversation SET f_unread = 0, f_last_preview = NULL, f_last_time = 0 " +
+                    "UPDATE t_chat_cursor SET f_unread = 0, f_last_preview = NULL, f_last_time = 0 " +
                     "WHERE f_chat_id = $cid";
                 cmd.Parameters.AddWithValue("$cid", chatId);
                 cmd.ExecuteNonQuery();
@@ -512,7 +548,7 @@ LIMIT $n";
                 using var cmd = Me.Db.CreateCommand();
                 cmd.CommandText =
                     "DELETE FROM t_chat_message WHERE f_chat_id = $cid;" +
-                    "DELETE FROM t_chat_conversation WHERE f_chat_id = $cid";
+                    "DELETE FROM t_chat_cursor WHERE f_chat_id = $cid";
                 cmd.Parameters.AddWithValue("$cid", chatId);
                 cmd.ExecuteNonQuery();
             }
@@ -534,7 +570,7 @@ LIMIT $n";
             {
                 using var cmd = Me.Db.CreateCommand();
                 cmd.CommandText =
-                    "UPDATE t_chat_conversation SET f_unread = f_unread + $d, f_last_preview = $p, f_last_time = $t " +
+                    "UPDATE t_chat_cursor SET f_unread = f_unread + $d, f_last_preview = $p, f_last_time = $t " +
                     "WHERE f_chat_id = $cid";
                 cmd.Parameters.AddWithValue("$d", unreadDelta);
                 cmd.Parameters.AddWithValue("$p", preview);

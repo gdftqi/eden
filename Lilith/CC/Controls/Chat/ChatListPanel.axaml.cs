@@ -22,7 +22,7 @@ namespace CC
         /// <summary>
         /// 遍历列表里的所有会话.
         /// </summary>
-        public IEnumerable<CC.Model.ChatConversation> Conversations
+        public IEnumerable<CC.Model.ChatCursor> Conversations
         {
             get
             {
@@ -57,7 +57,7 @@ namespace CC
         /// <summary>
         /// 会话进列表
         /// </summary>
-        public ChatItem Upsert(CC.Model.ChatConversation conv, bool bump = false)
+        public ChatItem Upsert(CC.Model.ChatCursor conv, bool bump = false)
         {
             var item = Find(conv.ChatId);
             if (item == null)

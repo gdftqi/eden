@@ -465,7 +465,7 @@ namespace CC
                 return;
             }
 
-            long chatId = Model.ChatConversation.MakeChatId(Me.ID, ntf.FromId);
+            long chatId = Model.ChatCursor.MakeChatId(Me.ID, ntf.FromId);
 
             if (Me.Db != null)
             {
@@ -473,9 +473,12 @@ namespace CC
                 {
                     using var cmd = Me.Db.CreateCommand();
                     cmd.CommandText =
-                        "INSERT OR IGNORE INTO t_chat_conversation(f_chat_id, f_peer_id) VALUES ($cid, $peer);" +
+                        "INSERT OR IGNORE INTO t_chat_cursor(f_chat_id, f_peer_id) VALUES ($cid, $peer);" +
                         "INSERT OR IGNORE INTO t_chat_message(f_chat_id, f_cli_id, f_seq, f_msg_id, f_from_id, f_to_id, f_msg_type, f_content, f_status, f_created_at) " +
-                        "VALUES ($cid, $cli, $seq, $mid, $peer, $me, $type, $content, 1, $ts)";
+                        "VALUES ($cid, $cli, $seq, $mid, $peer, $me, $type, $content, 1, $ts);" +
+                        // 抬高"我本地已有到哪"的水位, 增量同步时上报它.
+                        // 带 f_recv_seq < $seq 是防乱序: 迟到的旧消息不能把水位拉低
+                        "UPDATE t_chat_cursor SET f_recv_seq = $seq WHERE f_chat_id = $cid AND f_recv_seq < $seq";
                     cmd.Parameters.AddWithValue("$cid", chatId);
                     cmd.Parameters.AddWithValue("$peer", (long)ntf.FromId);
                     cmd.Parameters.AddWithValue("$cli", (long)ntf.CliId);
@@ -527,7 +530,7 @@ namespace CC
                     "VALUES ($cid, 0, $from, $to, $type, $content, $ts);" +
                     "UPDATE t_chat_message SET f_cli_id = f_local_id WHERE f_local_id = last_insert_rowid();" +
                     "SELECT last_insert_rowid();";
-                cmd.Parameters.AddWithValue("$cid", Model.ChatConversation.MakeChatId(Me.ID, req.ToId));
+                cmd.Parameters.AddWithValue("$cid", Model.ChatCursor.MakeChatId(Me.ID, req.ToId));
                 cmd.Parameters.AddWithValue("$from", Me.ID);
                 cmd.Parameters.AddWithValue("$to", req.ToId);
                 cmd.Parameters.AddWithValue("$type", (int)req.Type);

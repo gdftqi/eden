@@ -6,11 +6,11 @@ namespace CC.Model
     /// <summary>
     /// 会话(本地实体), UI 的 ChatItem 控件绑定它.
     /// </summary>
-    public class ChatConversation
+    public class ChatCursor
     {
         // 建表语句(幂等, 每次启动执行). 改列时同步维护顶部注释和 Eva/sqlite/00_init_sqlite.sql
         public const string DDL = @"
-CREATE TABLE IF NOT EXISTS t_chat_conversation (
+CREATE TABLE IF NOT EXISTS t_chat_cursor (
     f_chat_id       INTEGER PRIMARY KEY,
     f_peer_id       INTEGER NOT NULL,
     f_recv_seq      INTEGER NOT NULL DEFAULT 0,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS t_chat_conversation (
     f_last_preview  TEXT,
     f_last_time     INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_conv_sort ON t_chat_conversation(f_last_time DESC);
+CREATE INDEX IF NOT EXISTS idx_cursor_sort ON t_chat_cursor(f_last_time DESC);
 ";
 
         /// <summary>

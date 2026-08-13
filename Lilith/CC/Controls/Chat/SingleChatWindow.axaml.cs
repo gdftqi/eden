@@ -25,7 +25,7 @@ namespace CC
         /// <summary>
         /// 当前显示的会话
         /// </summary>
-        public Model.ChatConversation? Conversation { get; set; }
+        public Model.ChatCursor? Conversation { get; set; }
 
         /// <summary>
         /// 点了顶栏: 请求打开联系人详情.宿主不订阅就等于没这功能.

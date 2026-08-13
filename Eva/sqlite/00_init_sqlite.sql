@@ -15,7 +15,7 @@ PRAGMA cache_size   = -8000;      -- 8MB
 -- ============================================================
 -- 会话列表
 -- ============================================================
-CREATE TABLE t_chat_conversation (
+CREATE TABLE t_chat_cursor (
     f_chat_id       INTEGER PRIMARY KEY,
     f_peer_id       INTEGER NOT NULL,
     f_recv_seq      INTEGER NOT NULL DEFAULT 0,   -- 本地已收到的最大 seq, 重连时上报
@@ -25,7 +25,7 @@ CREATE TABLE t_chat_conversation (
     f_last_preview  TEXT,
     f_last_time     INTEGER NOT NULL DEFAULT 0    -- 毫秒
 );
-CREATE INDEX idx_conv_sort ON t_chat_conversation(f_last_time DESC);
+CREATE INDEX idx_cursor_sort ON t_chat_cursor(f_last_time DESC);
 
 
 -- ============================================================
