@@ -36,15 +36,20 @@ namespace CC
 
 
         /// <summary>
-        /// 会话进列表: 已有则刷新展示, 没有则插到最顶(最近会话在上).
+        /// 会话进列表
         /// </summary>
-        public ChatItem Upsert(CC.Model.ChatConversation conv)
+        public ChatItem Upsert(CC.Model.ChatConversation conv, bool bump = false)
         {
             var item = Find(conv.ChatId);
             if (item == null)
             {
                 item = new ChatItem { Conversation = conv };
                 item.PointerPressed += (_, _) => Select(item);
+                ChatList.Children.Insert(0, item);
+            }
+            else if (bump && ChatList.Children.IndexOf(item) > 0)
+            {
+                ChatList.Children.Remove(item);
                 ChatList.Children.Insert(0, item);
             }
 

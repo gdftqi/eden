@@ -26,7 +26,7 @@ namespace CC
                     // KCP 连接超时
                     .SetKcpTimeout(30)
                     // 鉴权成功后自动登记进入CCS
-                    .SetEnterServs(new uint[] { 0x20000000 })
+                    .SetEnterServs(new uint[] { Model.ChatProto.CCS_ID })
                     // 重连的最大时间
                     .SetReconnectMax(300)
                     // 设置 Update 回调

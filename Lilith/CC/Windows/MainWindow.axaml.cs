@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CC.Model;
+using CC.Proto;
 using Lilith.Components;
 using Lilith.Core;
 using Lilith.Utils;
@@ -12,10 +13,6 @@ namespace CC
 {
     public partial class MainWindow : Window
     {
-        // ---- KCP echo 测试参数 ----
-        // 必须与 Noah 的 regist_handler(PID_CUSTOM + 1) 一致, 否则网关转发过滤会判死连接
-        const ushort ECHO_PID = (ushort)(Package.PID_CUSTOM + 1);
-
         public MainWindow()
         {
             InitializeComponent();
@@ -297,48 +294,185 @@ namespace CC
             ToastBanner.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateY(-60px)");
         }
 
-        // 服务端 echo 回来(Hydra 主线程回调)
+        // Hydra 主线程回调: 收包按 PID 分发. 包在回调返回后即还池, 不可留引用
         private void OnPackage(Package pkg)
         {
-            // 框架消息必须先分流: 它们的 payload 是二进制, 当文本解会显示成乱码
-            if (pkg.PID == Package.PID_TER_ERROR)
+            switch (pkg.PID)
             {
-                if (Package.DecodeError(pkg, out uint code, out uint dstId, out uint pid))
-                {
-                    Log.Write($"[CC] 请求未送达: code = {code}, dst_id = {dstId}, pid = {pid}");
-                    TabChat.AddText(false, Package.ErrorText(code), DateTime.Now.ToString("HH:mm"));
-                }
-                return;
-            }
+                case Package.PID_TER_ERROR:
+                    if (Package.DecodeError(pkg, out uint code, out uint dstId, out uint pid))
+                    {
+                        Log.Write($"[CC] 请求未送达: code = {code}, dst_id = {dstId}, pid = {pid}");
+                        ShowToast(Package.ErrorText(code), false);
+                    }
+                    return;
 
-            // 后端登记回执: code=0 即已在该后端建档, 可收它的推送.
-            if (pkg.PID == Package.PID_TER_ENT_RSP)
-            {
-                if (Package.DecodeEnterRsp(pkg, out uint entUid, out uint entCode))
-                {
-                    Log.Write($"[CC] 后端登记回执: serv = 0x{pkg.SrcID:X8}, uid = {entUid}, code = {entCode}");
-                }
-                return;
-            }
+                case Package.PID_TER_ENT_RSP:
+                    // 后端登记回执: code=0 即已建档, 可收它的推送
+                    if (Package.DecodeEnterRsp(pkg, out uint entUid, out uint entCode))
+                    {
+                        Log.Write($"[CC] 后端登记回执: serv = 0x{pkg.SrcID:X8}, uid = {entUid}, code = {entCode}");
+                    }
+                    return;
 
-            var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
-            TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
+                case ChatProto.PID_SINGLE_CHAT_RSP:
+                    OnChatRsp(pkg);
+                    return;
+
+                case ChatProto.PID_SINGLE_CHAT_NTF:
+                    OnChatNtf(pkg);
+                    return;
+
+                default:
+                    Log.Write($"[CC] 未处理的 PID: {pkg.PID}, src = 0x{pkg.SrcID:X8}");
+                    return;
+            }
         }
 
-        // 聊天窗发送时触发: 把文字打包成业务 echo 包发给服务端
-        private void OnSendText(string text)
+
+        // 单聊 ACK: 按 cli_id(=f_local_id) 认领, 回填服务端三件套并置成功;
+        // code != 0 只标失败, 不删行 -- 内容还在, 用户可看着原文重发
+        private void OnChatRsp(Package pkg)
         {
-            if (Hydra.Instance.State != HydraState.Connected)
+            SingleChatRsp rsp;
+            try
+            {
+                rsp = SingleChatRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] SINGLE_CHAT_RSP 解析失败: {ex.Message}");
+                return;
+            }
+
+            if (Me.Db == null)
             {
                 return;
             }
 
-            var pkg = Package.Pool.Take();
-            pkg.PID = ECHO_PID;
-            pkg.DstID = 0x10010000;
-            pkg.PayloadLength = System.Text.Encoding.UTF8.GetBytes(text, 0, text.Length, pkg.Payload, 0);
-            // 所有权移交 Hydra: ioSend 线程发完负责还池, 这里不能再碰 pkg
-            Hydra.Instance.Send(pkg);
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                if (rsp.Code == 0)
+                {
+                    // f_seq = 0 的闸保证幂等: 重复 ACK 不会二次改写
+                    cmd.CommandText =
+                        "UPDATE t_chat_message SET f_seq = $seq, f_msg_id = $mid, f_created_at = $ts, f_status = 1 " +
+                        "WHERE f_local_id = $cli AND f_from_id = $me AND f_seq = 0";
+                    cmd.Parameters.AddWithValue("$seq", rsp.Seq);
+                    cmd.Parameters.AddWithValue("$mid", rsp.MsgId);
+                    cmd.Parameters.AddWithValue("$ts", rsp.CreatedAt);
+                }
+                else
+                {
+                    Log.Write($"[CC] 消息被服务端拒绝: cli_id = {rsp.CliId}, code = {rsp.Code}");
+                    ShowToast("消息发送失败", false);
+                    cmd.CommandText =
+                        "UPDATE t_chat_message SET f_status = 2 WHERE f_local_id = $cli AND f_from_id = $me AND f_seq = 0";
+                }
+                cmd.Parameters.AddWithValue("$cli", (long)rsp.CliId);
+                cmd.Parameters.AddWithValue("$me", Me.ID);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] ACK 回填失败: {ex.Message}");
+            }
+        }
+
+
+        // 单聊推送: 找/建会话 + 消息落库(唯一索引挡重复), 再交给 ChatTab 决定要不要出气泡
+        private void OnChatNtf(Package pkg)
+        {
+            SingleChatNtf ntf;
+            try
+            {
+                ntf = SingleChatNtf.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] SINGLE_CHAT_NTF 解析失败: {ex.Message}");
+                return;
+            }
+
+            long chatId = Model.ChatConversation.MakeChatId(Me.ID, ntf.FromId);
+
+            if (Me.Db != null)
+            {
+                try
+                {
+                    using var cmd = Me.Db.CreateCommand();
+                    cmd.CommandText =
+                        "INSERT OR IGNORE INTO t_chat_conversation(f_chat_id, f_peer_id) VALUES ($cid, $peer);" +
+                        "INSERT OR IGNORE INTO t_chat_message(f_chat_id, f_cli_id, f_seq, f_msg_id, f_from_id, f_to_id, f_msg_type, f_content, f_status, f_created_at) " +
+                        "VALUES ($cid, $cli, $seq, $mid, $peer, $me, $type, $content, 1, $ts)";
+                    cmd.Parameters.AddWithValue("$cid", chatId);
+                    cmd.Parameters.AddWithValue("$peer", (long)ntf.FromId);
+                    cmd.Parameters.AddWithValue("$cli", (long)ntf.CliId);
+                    cmd.Parameters.AddWithValue("$seq", ntf.Seq);
+                    cmd.Parameters.AddWithValue("$mid", ntf.MsgId);
+                    cmd.Parameters.AddWithValue("$me", Me.ID);
+                    cmd.Parameters.AddWithValue("$type", (int)ntf.Type);
+                    cmd.Parameters.AddWithValue("$content", ntf.Content);
+                    cmd.Parameters.AddWithValue("$ts", ntf.CreatedAt);
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    Log.Write($"[CC] 推送落库失败: {ex.Message}");
+                }
+            }
+
+            TabChat.OnPeerMessage(chatId, (long)ntf.FromId, ntf.Content, ntf.CreatedAt);
+        }
+
+        // 聊天窗发送: 先落本地库拿 cli_id(幂等键), 再发 CCS; ACK 回来按 cli_id 认领.
+        // 不查连接状态: 断线时也要落库, 消息留在待确认段(f_seq=0), 归重发机制处理
+        private void OnSendText(SingleChatReq req)
+        {
+            long cliId = InsertPendingMessage(req);
+            if (cliId <= 0)
+            {
+                ShowToast("发送失败", false);
+                return;
+            }
+
+            req.CliId = (ulong)cliId;
+            ChatProto.Send(req, ChatProto.PID_SINGLE_CHAT_REQ);
+        }
+
+
+        // 发送前落库: 待确认段(f_seq=0, 状态=发送中), 返回 f_local_id 作 cli_id; 失败返回 0.
+        // f_cli_id 就是本行自增 id, 插入后原地回填 -- 占位 0 只在这一批语句内存在,
+        // 不会撞 (f_chat_id, f_from_id, f_cli_id) 唯一索引
+        private static long InsertPendingMessage(SingleChatReq req)
+        {
+            if (Me.Db == null)
+            {
+                return 0;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText =
+                    "INSERT INTO t_chat_message(f_chat_id, f_cli_id, f_from_id, f_to_id, f_msg_type, f_content, f_created_at) " +
+                    "VALUES ($cid, 0, $from, $to, $type, $content, $ts);" +
+                    "UPDATE t_chat_message SET f_cli_id = f_local_id WHERE f_local_id = last_insert_rowid();" +
+                    "SELECT last_insert_rowid();";
+                cmd.Parameters.AddWithValue("$cid", Model.ChatConversation.MakeChatId(Me.ID, req.ToId));
+                cmd.Parameters.AddWithValue("$from", Me.ID);
+                cmd.Parameters.AddWithValue("$to", req.ToId);
+                cmd.Parameters.AddWithValue("$type", (int)req.Type);
+                cmd.Parameters.AddWithValue("$content", req.Content);
+                cmd.Parameters.AddWithValue("$ts", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                return (long)(cmd.ExecuteScalar() ?? 0L);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] 消息落库失败: {ex.Message}");
+                return 0;
+            }
         }
     }
 }

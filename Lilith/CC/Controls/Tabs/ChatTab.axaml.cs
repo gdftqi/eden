@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using CC.Eva;
 using CC.Model;
+using CC.Proto;
 using Lilith.Utils;
 using System;
 using System.Collections.Generic;
@@ -11,7 +12,7 @@ namespace CC
 {
     public partial class ChatTab : BaseTab
     {
-        public event Action<string>? SendRequested;
+        public event Action<SingleChatReq>? SendRequested;
 
         // 当前打开的会话
         private ChatConversation? current;
@@ -23,7 +24,23 @@ namespace CC
         {
             InitializeComponent();
             ChatPanel.ChatSelected += OpenChat;
-            ChatView.SendRequested += t => SendRequested?.Invoke(t);
+            ChatView.SendRequested += OnSendRequested;
+        }
+
+
+        // 聊天窗要发消息
+        private void OnSendRequested(SingleChatReq req)
+        {
+            SendRequested?.Invoke(req);
+
+            if (current != null)
+            {
+                long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                current.LastPreview = req.Content;
+                current.LastTime = now;
+                ChatPanel.Upsert(current, true);
+                UpdateConversation(current.ChatId, req.Content, now, 0);
+            }
         }
 
 
@@ -39,6 +56,9 @@ namespace CC
         }
 
 
+        // 组织架构的 uid -> User 映射, Reload 时拉取; 收到陌生会话的推送时补名字/头像用
+        private readonly Dictionary<Int64, User> orgUsers = new Dictionary<Int64, User>();
+
         /// <summary>
         /// 从本地库加载会话列表. 名字/头像不落会话表, 从组织架构解析.
         /// </summary>
@@ -49,7 +69,7 @@ namespace CC
                 return;
             }
 
-            var users = new Dictionary<Int64, User>();
+            var users = orgUsers;
             try
             {
                 var rsp = await GetOrg.POST();
@@ -154,6 +174,28 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
         }
 
 
+        // 未读清零落库
+        private static void ClearUnread(long chatId)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText = "UPDATE t_chat_conversation SET f_unread = 0 WHERE f_chat_id = $cid";
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 未读清零失败: {ex.Message}");
+            }
+        }
+
+
         // 会话落库(幂等): 已存在就什么都不做
         private static void InsertConversation(ChatConversation conv)
         {
@@ -180,6 +222,15 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
         private void OpenChat(ChatItem item)
         {
             current = item.Conversation;
+            ChatView.Conversation = item.Conversation;
+
+            // 点开即已读: 角标熄灭 + 落库清零
+            if (current != null && current.Unread > 0)
+            {
+                current.Unread = 0;
+                item.Unread = 0;
+                ClearUnread(current.ChatId);
+            }
 
             ChatView.PeerName = item.Nickname;
             ChatView.PeerAvatar = item.Avatar;
@@ -194,6 +245,78 @@ FROM t_chat_conversation ORDER BY f_last_time ASC";
         public void AddText(bool mine, string text, string time)
         {
             ChatView.AddText(mine, text, time);
+        }
+
+
+        // 对端消息(MainWindow.OnChatNtf 已把会话+消息落库后转发).
+        // 正开着这个会话: 出气泡, 不计未读; 否则(含列表里还没有这个会话):
+        // 找/建列表行 + 未读加一, 但不打开聊天窗, 不抢用户当前的操作
+        public void OnPeerMessage(long chatId, long fromId, string content, long createdAt)
+        {
+            if (current != null && current.ChatId == chatId)
+            {
+                ChatView.AddText(false, content,
+                    DateTimeOffset.FromUnixTimeMilliseconds(createdAt).LocalDateTime.ToString("HH:mm"));
+
+                current.LastPreview = content;
+                current.LastTime = createdAt;
+                ChatPanel.Upsert(current, true);
+                UpdateConversation(chatId, content, createdAt, 0);
+                return;
+            }
+
+            var conv = ChatPanel.Find(chatId)?.Conversation;
+            if (conv == null)
+            {
+                conv = new ChatConversation
+                {
+                    ChatId = chatId,
+                    PeerId = fromId,
+                };
+
+                if (orgUsers.TryGetValue(fromId, out var u))
+                {
+                    conv.PeerName   = u.Nickname ?? string.Empty;
+                    conv.PeerAvatar = u.Avatar ?? string.Empty;
+                }
+                else
+                {
+                    conv.PeerName = $"用户 {fromId}";
+                }
+            }
+
+            conv.Unread += 1;
+            conv.LastPreview = content;
+            conv.LastTime = createdAt;
+            ChatPanel.Upsert(conv, true);
+            UpdateConversation(chatId, content, createdAt, 1);
+        }
+
+
+        // 会话表的预览/时间/未读增量落库(会话行由 OnChatNtf 保证已存在)
+        private static void UpdateConversation(long chatId, string preview, long time, int unreadDelta)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText =
+                    "UPDATE t_chat_conversation SET f_unread = f_unread + $d, f_last_preview = $p, f_last_time = $t " +
+                    "WHERE f_chat_id = $cid";
+                cmd.Parameters.AddWithValue("$d", unreadDelta);
+                cmd.Parameters.AddWithValue("$p", preview);
+                cmd.Parameters.AddWithValue("$t", time);
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 会话表更新失败: {ex.Message}");
+            }
         }
     }
 }

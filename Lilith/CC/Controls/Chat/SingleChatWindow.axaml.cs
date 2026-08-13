@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using CC.Model;
+using CC.Proto;
 using CC.Utils;
 using System;
 using System.Runtime.InteropServices;
@@ -23,6 +25,11 @@ namespace CC
         public string? PeerStatus { get => GetValue(PeerStatusProperty); set => SetValue(PeerStatusProperty, value); }
 
         /// <summary>
+        /// 当前显示的会话
+        /// </summary>
+        public Model.ChatConversation? Conversation { get; set; }
+
+        /// <summary>
         /// 点了顶栏: 请求打开联系人详情.宿主不订阅就等于没这功能.
         /// </summary>
         public event Action? DetailRequested;
@@ -35,7 +42,7 @@ namespace CC
         /// <summary>
         /// 发送消息请求
         /// </summary>
-        public event Action<string>? SendRequested;
+        public event Action<SingleChatReq>? SendRequested;
 
         public SingleChatWindow()
         {
@@ -126,12 +133,27 @@ namespace CC
 
         private void Send()
         {
+            if (Conversation == null)
+            {
+                return;
+            }
+
             var t = InputBox.Text?.Trim();
-            if (string.IsNullOrEmpty(t)) return;
+            if (string.IsNullOrEmpty(t))
+            {
+                return;
+            }
+
+            // TODO req: CliId 归宿主填(入库拿到 f_local_id 才有值)
+            SingleChatReq req = new SingleChatReq();
+            req.Content = t;
+            req.Type = MessageType.MtText;
+            req.ToId = (uint)Conversation.PeerId;
+
             AddText(true, t, DateTime.Now.ToString("HH:mm"), 1);
             InputBox.Text = string.Empty;
             InputBox.Focus();
-            SendRequested?.Invoke(t);
+            SendRequested?.Invoke(req);
         }
 
         // ---- 表情选择 ----
