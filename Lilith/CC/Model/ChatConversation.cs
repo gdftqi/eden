@@ -3,28 +3,25 @@ using System.Collections.Generic;
 
 namespace CC.Model
 {
-
-// -- ============================================================
-// -- 会话列表
-// -- ============================================================
-// CREATE TABLE t_chat_conversation (
-    // f_chat_id       INTEGER PRIMARY KEY,
-    // f_peer_id       INTEGER NOT NULL,
-    // f_recv_seq      INTEGER NOT NULL DEFAULT 0,   -- 本地已收到的最大 seq, 重连时上报
-    // f_read_seq      INTEGER NOT NULL DEFAULT 0,   -- 本端已读位置
-    // f_peer_read_seq INTEGER NOT NULL DEFAULT 0,   -- 对方已读到哪, 双勾蓝
-    // f_unread        INTEGER NOT NULL DEFAULT 0,   -- 冗余计数, 列表页不能 COUNT
-    // f_last_preview  TEXT,
-    // f_last_time     INTEGER NOT NULL DEFAULT 0    -- 毫秒
-// );
-// CREATE INDEX idx_conv_sort ON t_chat_conversation(f_last_time DESC);
-
     /// <summary>
-    /// 一个会话(本地实体), UI 的 ChatItem 控件绑定它.
+    /// 会话(本地实体), UI 的 ChatItem 控件绑定它.
     /// </summary>
     public class ChatConversation
     {
-        public const string DDL = "";
+        // 建表语句(幂等, 每次启动执行). 改列时同步维护顶部注释和 Eva/sqlite/00_init_sqlite.sql
+        public const string DDL = @"
+CREATE TABLE IF NOT EXISTS t_chat_conversation (
+    f_chat_id       INTEGER PRIMARY KEY,
+    f_peer_id       INTEGER NOT NULL,
+    f_recv_seq      INTEGER NOT NULL DEFAULT 0,
+    f_read_seq      INTEGER NOT NULL DEFAULT 0,
+    f_peer_read_seq INTEGER NOT NULL DEFAULT 0,
+    f_unread        INTEGER NOT NULL DEFAULT 0,
+    f_last_preview  TEXT,
+    f_last_time     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_conv_sort ON t_chat_conversation(f_last_time DESC);
+";
 
         /// <summary>
         /// 会话 ID: 单聊 = (min(uid) &lt;&lt; 32) | max(uid), 与服务端同一算法.
@@ -72,7 +69,8 @@ namespace CC.Model
         public string PeerAvatar { get; set; } = string.Empty;
 
         /// <summary>
-        /// 会话内消息, 按 SortKey 升序. v1 全内存, 落 SQLite 后改按需加载.
+        /// 会话内消息: 已确认段(按 Seq) + 待确认段(按插入序)拼接.
+        /// v1 全内存, 落 SQLite 后改按需加载.
         /// </summary>
         public List<ChatMessage> Messages { get; } = new();
 

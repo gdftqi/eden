@@ -9,6 +9,30 @@ namespace CC.Model
     /// </summary>
     public class ChatMessage
     {
+        // 建表语句(幂等, 每次启动执行). 改列时同步维护 Eva/sqlite/00_init_sqlite.sql
+        public const string DDL = @"
+CREATE TABLE IF NOT EXISTS t_chat_message (
+    f_local_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    f_chat_id    INTEGER NOT NULL,
+    f_cli_id     INTEGER NOT NULL,
+    f_seq        INTEGER NOT NULL DEFAULT 0,
+    f_msg_id     INTEGER NOT NULL DEFAULT 0,
+    f_from_id    INTEGER NOT NULL,
+    f_to_id      INTEGER NOT NULL,
+    f_msg_type   INTEGER NOT NULL,
+    f_content    TEXT,
+    f_status     INTEGER NOT NULL DEFAULT 0,
+    f_edit_seq   INTEGER NOT NULL DEFAULT 0,
+    f_edited_at  INTEGER,
+    f_is_revoked INTEGER NOT NULL DEFAULT 0,
+    f_created_at INTEGER NOT NULL,
+    f_is_deleted INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_client ON t_chat_message(f_chat_id, f_from_id, f_cli_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msg_seq    ON t_chat_message(f_chat_id, f_seq) WHERE f_seq > 0;
+CREATE INDEX        IF NOT EXISTS idx_msg_id     ON t_chat_message(f_msg_id) WHERE f_msg_id > 0;
+";
+
         /// <summary>
         /// 幂等 ID(本地自增). 发送带上它, ACK 回来靠它认领本条;
         /// 收到的消息填对方 NTF 里的 cli_id.
