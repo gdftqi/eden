@@ -38,6 +38,7 @@
   <ItemGroup>
     <Folder Include="Controls\Contact\" />
     <Folder Include="Controls\Org\" />
+    <Folder Include="Proto\" />
   </ItemGroup>
 
   <ItemGroup>
