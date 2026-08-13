@@ -341,8 +341,8 @@ single_chat(Server::Context& ctx, adam::core::Package* pk) noexcept {
 TCP_SERVER_MAIN(
     CCS, "config.yml",
 
-    adam::db::Scylla::instance()->init_from_file("config.yml");
-    adam::db::Scylla::instance()->connect("eva");
+    ASSERT(adam::db::Scylla::instance()->init_from_file("config.yml") == 0, "初始化 scylla 失败");
+    ASSERT(adam::db::Scylla::instance()->connect("eva") == 0, "连接 eva 空间失败");
     snow_flake = std::make_unique<adam::utils::Snowflake>(adam::tcp::Conf::instance()->server()->id & 0x3FFU);
 
     TCP_PK_HANDLE(PID_SINGLE_CHAT_REQ, single_chat)
