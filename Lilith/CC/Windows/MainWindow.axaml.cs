@@ -311,6 +311,16 @@ namespace CC
                 return;
             }
 
+            // 后端登记回执: code=0 即已在该后端建档, 可收它的推送.
+            if (pkg.PID == Package.PID_TER_ENT_RSP)
+            {
+                if (Package.DecodeEnterRsp(pkg, out uint entUid, out uint entCode))
+                {
+                    Log.Write($"[CC] 后端登记回执: serv = 0x{pkg.SrcID:X8}, uid = {entUid}, code = {entCode}");
+                }
+                return;
+            }
+
             var text = System.Text.Encoding.UTF8.GetString(pkg.Payload, 0, pkg.PayloadLength);
             TabChat.AddText(false, text, DateTime.Now.ToString("HH:mm"));
         }
