@@ -58,15 +58,10 @@ CREATE TABLE IF NOT EXISTS eva.msg_edit_history (
 -- ============================================================
 -- 号段水位
 -- ============================================================
--- 发号器的持久台账: 记"已承诺(批发)到哪", 不是"已使用到哪"(后者无表, 见上方墓碑).
--- 副业: 冷会话拉最新页拿 allocated/10000 当起点桶上界(普通 SELECT, 空桶兜底).
--- 铁律: 除副业的 SELECT 外只准 LWT 碰 -- 普通写和 Paxos 混同一分区
---       会破坏线性化保证, 坏起来无声无息. cqlsh 里也别手改
+-- 发号器相关
 CREATE TABLE IF NOT EXISTS eva.chat_seq (
     chat_id   bigint PRIMARY KEY,
-    allocated bigint      -- 已分配上限。用 LWT (IF allocated = ?) 原子抬高
-                          -- CAS 失败即说明归属权已转移,天然充当 fencing token
-                          -- 步长动态增长(32 起步,上限 4096):冷会话少浪费、热会话摊薄 LWT 开销
+    allocated bigint      -- 已分配上限
 ) WITH compaction = {'class': 'LeveledCompactionStrategy'};
 
 

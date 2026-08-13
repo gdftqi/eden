@@ -25,13 +25,17 @@ SIMDJSON_LIB      := /usr/local/lib/libsimdjson.a
 MIMALLOC_OVERRIDE := /usr/local/lib/mimalloc-3.2/mimalloc.o
 PROTOBUF_LIB      := /usr/local/lib/libprotobuf-lite.a
 UTF8_LIBS         := /usr/local/lib/libutf8_range.a /usr/local/lib/libutf8_validity.a
+# scylla cpp-rs-driver: libcassandra_static.a 只是它的软链, 别重复捆.
+# 底层是 rust, 但 ssl/crypto/z/zstd 都取外部符号 -- 正好用上面已捆的那几个
+SCYLLA_LIB        := /usr/local/lib/x86_64-linux-gnu/libscylladb_static.a
 # absl 集合取两条依赖链的并集: flat_hash_map(容器) + protobuf-lite(log/cord/status 那批),
 # boost::concurrent_flat_map 是 header-only, 没有对应条目
 ABSL_LIBS         := $(sort $(patsubst -l%,/usr/local/lib/lib%.a,$(filter -labsl_%,$(shell pkg-config --libs --static absl_flat_hash_map protobuf-lite))))
 
 
 BUNDLED_LIBS      := $(SPDLOG_LIB) $(LIBBPF_LIB) $(ELF_LIB) $(Z_LIB) $(ZSTD_LIB) $(YAMLCPP_LIB) $(LIBSODIUM_LIB) $(ABSL_LIBS) \
-                     $(LIBCURL_LIB) $(SSL_LIB) $(CRYPTO_LIB) $(JITTER_LIB) $(SIMDJSON_LIB) $(PROTOBUF_LIB) $(UTF8_LIBS)
+                     $(LIBCURL_LIB) $(SSL_LIB) $(CRYPTO_LIB) $(JITTER_LIB) $(SIMDJSON_LIB) $(PROTOBUF_LIB) $(UTF8_LIBS) \
+                     $(SCYLLA_LIB)
 
 INCLUDES := -Iinclude -I/usr/local/include -I/usr/local/include/mimalloc-3.2
 

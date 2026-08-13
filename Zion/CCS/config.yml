@@ -12,5 +12,11 @@ etcd:
   pass: "123456"
   ttl: 15
 
+scylla:
+  hosts: "127.0.0.1"
+  port: 9042
+  user: "admin"
+  pass: "123abc!@#"
+
 log_path: "logs"
 prof_path: "ccs.prof"
