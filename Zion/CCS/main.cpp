@@ -255,6 +255,10 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
         return;
     }
 
+    if (to_id == from_id) {
+        return;
+    }
+
     // ---- 推送 to_id ----
     ccs::SingleChatNtf ntf;
     ntf.set_cli_id(req->cli_id());
