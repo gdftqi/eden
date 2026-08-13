@@ -123,9 +123,20 @@ namespace Lilith.Core
         public const ushort PID_REG_TER_REQ = 102;
 
         /// <summary>
-        /// 终端注册应答 服务端响应(对应 Adam PID_TER_REG_RSP, payload = 32B 服务端临时公钥)
+        /// 终端注册应答 (payload = 32B 服务端临时公钥)
         /// </summary>
         public const ushort PID_REG_TER_RSP = 103;
+
+        /// <summary>
+        /// 终端进入请求
+        /// </summary>
+        public const ushort PID_TER_ENT_REQ = 107;
+
+        /// <summary>
+        /// 终端进入应答
+        /// 后端确实建档后才会收到, src_id 即完成登记的后端服务 id; payload 见 <see cref="DecodeEnterRsp"/>.
+        /// </summary>
+        public const ushort PID_TER_ENT_RSP = 108;
 
         /// <summary>
         /// 请求处理失败通知(网关 -> 客户端, 对应 Adam PID_TER_ERROR).
@@ -134,8 +145,7 @@ namespace Lilith.Core
         public const ushort PID_TER_ERROR = 114;
 
         /// <summary>
-        /// 自定义消息ID起点: 100-199 为系统段(网关/后端专用, 客户端发送会被网关丢弃),
-        /// 业务消息必须 >= 此值; 且目标后端须已声明该 PID, 否则网关会回 PID_TER_ERROR.
+        /// 自定义消息ID起点
         /// </summary>
         public const ushort PID_CUSTOM = 200;
 
@@ -251,6 +261,35 @@ namespace Lilith.Core
         }
 
         #endregion /// PID_TER_ERROR 载荷
+
+
+        #region /// PID_TER_ENT_RSP 载荷
+
+        /// <summary>
+        /// EnterRsp 长度: uid(4) + code(4), 全小端
+        /// </summary>
+        public const int ENTER_RSP_LEN = 8;
+
+
+        /// <summary>
+        /// 解析 PID_TER_ENT_RSP 的载荷: 后端已建档的回执.
+        /// code == 0 即成功(含"已在档"的重复登记); 拒绝登记不走这里, 会话会被直接踢除.
+        /// </summary>
+        /// <returns>长度不足返回 false</returns>
+        public static bool DecodeEnterRsp(Package pkg, out uint uid, out uint code)
+        {
+            uid = code = 0;
+            if (pkg.PayloadLength < ENTER_RSP_LEN)
+            {
+                return false;
+            }
+
+            Decode32LE(pkg.Payload, 0, out uid);
+            Decode32LE(pkg.Payload, 4, out code);
+            return true;
+        }
+
+        #endregion /// PID_TER_ENT_RSP 载荷
 
 
         #region /// 消息字段

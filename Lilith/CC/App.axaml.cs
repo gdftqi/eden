@@ -25,6 +25,8 @@ namespace CC
                     .SetHttpX25519PK("LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M=")
                     // KCP 连接超时
                     .SetKcpTimeout(30)
+                    // 鉴权成功后自动登记进入CCS
+                    .SetEnterServs(new uint[] { 0x20000000 })
                     // 重连的最大时间
                     .SetReconnectMax(300)
                     // 设置 Update 回调

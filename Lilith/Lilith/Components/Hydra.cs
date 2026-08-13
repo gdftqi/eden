@@ -159,6 +159,18 @@ namespace Lilith.Components
 
 
         /// <summary>
+        /// 设置鉴权成功后要登记进入的业务后端服务 id 列表
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <returns></returns>
+        public Hydra SetEnterServs(uint[] ids)
+        {
+            KcpSession.Instance.SetEnterServs(ids);
+            return this;
+        }
+
+
+        /// <summary>
         /// 设置最大重连时间(单位秒), 默认 5 分钟
         /// </summary>
         /// <param name="max"></param>

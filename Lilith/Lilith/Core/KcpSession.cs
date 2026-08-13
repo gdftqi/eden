@@ -200,6 +200,18 @@ namespace Lilith.Core
             return this;
         }
 
+
+        /// <summary>
+        /// 设置鉴权成功后要登记进入的业务后端服务 id 列表
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <returns></returns>
+        public KcpSession SetEnterServs(uint[] ids)
+        {
+            enterServs = ids;
+            return this;
+        }
+
         #endregion /// 流式初始化
 
 
@@ -255,6 +267,19 @@ namespace Lilith.Core
                 {
                     Close();
                     return -1001;
+                }
+
+                foreach (var sid in enterServs)
+                {
+                    var pkg = Package.Pool.Take();
+                    pkg.PID = Package.PID_TER_ENT_REQ;
+                    pkg.DstID = sid;
+                    pkg.PayloadLength = 0;
+                    if (Send(pkg) < 0)
+                    {
+                        Log.Write($"[KCP] 终端登记发送失败: dst = {sid}");
+                    }
+                    Package.Pool.Return(pkg);
                 }
 
                 return 0;
@@ -817,6 +842,9 @@ namespace Lilith.Core
 
         // Kcp Server 网关ID
         private uint gatewayId;
+
+        // 鉴权成功后要登记进入的业务后端服务 id 列表
+        private uint[] enterServs = Array.Empty<uint>();
 
         // 信封的槽位 MAC 密钥(Eva 按 conv 下发, 与服务端 XDP 用的是同一把)
         private byte[]? macKey;

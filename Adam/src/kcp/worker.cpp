@@ -786,6 +786,13 @@ adam::kcp::Worker::on_terminal_enter_rsp(tcp::Connector::Ptr conn, core::Package
     if (s != nullptr && s->uid() == rsp.uid) {
         s->bind(conn->id());
         server_->hook()->on_terminal_binded(s, conn->id());
+
+        if (!std::binary_search(router_ids_.begin(), router_ids_.end(), conn->id())) {
+            pk->data.dst_id = s->uid();
+            if (s->send(pk) < 0) {
+                xERROR("{} ENT_RSP 中继失败", s->to_json());
+            }
+        }
     }
 }
 
@@ -952,10 +959,6 @@ adam::kcp::Worker::on_terminal_enter_req(Session::Ptr s, core::Package *pk) noex
     if (std::binary_search(router_ids_.begin(), router_ids_.end(), pk->data.dst_id)) {
         // 不允许登录路由服务
         xWARN("{} 试图登记到路由服务 {}, 忽略", s->to_json(), pk->data.dst_id);
-        return xOK;
-    }
-
-    if (s->binds().contains(pk->data.dst_id)) {
         return xOK;
     }
 
