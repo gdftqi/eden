@@ -11,6 +11,9 @@ namespace CC
     {
         public event Action? CloseRequested;
 
+        // 点了"消息": 宿主负责切到聊天页并打开/创建与该联系人的会话
+        public event Action? ChatRequested;
+
         public ContactWindow()
         {
             InitializeComponent();
@@ -41,6 +44,11 @@ namespace CC
         private void Close_Click(object? sender, RoutedEventArgs e)
         {
             CloseRequested?.Invoke();
+        }
+
+        private void Chat_Click(object? sender, RoutedEventArgs e)
+        {
+            ChatRequested?.Invoke();
         }
     }
 }

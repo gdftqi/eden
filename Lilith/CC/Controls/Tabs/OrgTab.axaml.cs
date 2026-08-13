@@ -18,12 +18,13 @@ namespace CC
             InitializeComponent();
 
             OrgPanel.GroupChatSelected += OpenGroupChat;
-            OrgPanel.MemberSelected += OpenSoloChat;
+            OrgPanel.MemberSelected += OpenMemberInfo;
             OrgPanel.AddOrgRequested += OnAddOrg;
             OrgPanel.AddEmployeeRequested += OnAddEmployee;
 
             ChatView.SendRequested += t => SendRequested?.Invoke(t);
-            SoloView.SendRequested += t => SendRequested?.Invoke(t);
+
+            MemberView.CloseRequested += ShowEmptyState;
 
             OrgEditView.Cancelled += ShowEmptyState;
             MemberEditView.Cancelled += ShowEmptyState;
@@ -187,7 +188,7 @@ namespace CC
             {
                 OrgPanel.Select(row);
             }
-            OpenSoloChat(real);
+            OpenMemberInfo(real);
         }
 
 
@@ -201,14 +202,19 @@ namespace CC
         }
 
 
-        private void OpenSoloChat(User user)
+        // 点部门下的成员: 显示人员信息(与 ContactTab 的联系人信息同一控件)
+        private void OpenMemberInfo(User user)
         {
             current = null;
-            SoloView.PeerName = user.Nickname;
-            SoloView.PeerStatus = user.Username;
-            SoloView.PeerAvatar = Avatars.Cached(user.Avatar) ?? Avatars.Default;
-            SoloView.ClearMessages();
-            ShowOnly(SoloView);
+
+            var phone  = user.PhoneNum;
+            var phones = string.IsNullOrWhiteSpace(phone) ? Array.Empty<string>() : new[] { phone };
+
+            MemberView.SetContact(Avatars.Cached(user.Avatar) ?? Avatars.Default,
+                                  user.Nickname ?? string.Empty,
+                                  phones,
+                                  user.Username ?? string.Empty);
+            ShowOnly(MemberView);
         }
 
 
@@ -303,7 +309,7 @@ namespace CC
         private void ShowOnly(Control target)
         {
             ChatView.IsVisible       = target == ChatView;
-            SoloView.IsVisible       = target == SoloView;
+            MemberView.IsVisible     = target == MemberView;
             OrgEditView.IsVisible    = target == OrgEditView;
             MemberEditView.IsVisible = target == MemberEditView;
             OrgDetailView.IsVisible  = target == OrgDetailView;

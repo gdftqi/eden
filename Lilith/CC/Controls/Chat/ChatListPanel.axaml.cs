@@ -16,34 +16,6 @@ namespace CC
         public ChatListPanel()
         {
             InitializeComponent();
-            LoadSampleChats();
-        }
-
-        // 临时: 往会话列表塞几条示例数据(以后换成真实数据)
-        private void LoadSampleChats()
-        {
-            var avatar = Avatars.Default;
-
-            (string nick, string msg, string time, int unread)[] data =
-            {
-                ("美女1", "111111", "星期一", 1),
-                ("美女2", "222222", "星期二", 0),
-                ("美女3", "333333", "星期三", 8),
-                ("美女4", "444444", "星期四", 0),
-                ("美女5", "555555", "星期五", 36),
-                ("美女6", "666666", "星期六", 0),
-                ("美女7", "777777", "2026年6月11日", 128),
-            };
-
-            foreach (var (nick, msg, time, unread) in data)
-            {
-                AddChat(avatar, nick, msg, time, unread);
-            }
-
-            for (int i = 1; i <= 15; i++)
-            {
-                AddChat(avatar, $"联系人 {i}", "这是一条示例消息，用来撑高列表", "昨天");
-            }
         }
 
         private void AddChat(Avalonia.Media.IImage avatar, string nick, string msg, string time, int unread = 0)

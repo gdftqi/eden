@@ -79,8 +79,18 @@
                 <!-- 手机号(可多个, code-behind 填充) -->
                 <StackPanel x:Name="PhoneList" HorizontalAlignment="Center" Spacing="4"/>
 
-                <!-- 语音 / 视频 / 搜索 -->
+                <!-- 消息 / 语音 / 视频 / 搜索 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="26" Margin="0,22,0,8">
+                    <StackPanel Spacing="7">
+                        <Button Classes="act" Click="Chat_Click">
+                            <Viewbox Width="22" Height="22">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#333" Data="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <TextBlock Text="消息" FontSize="12.5" Foreground="#444" HorizontalAlignment="Center"/>
+                    </StackPanel>
                     <StackPanel Spacing="7">
                         <Button Classes="act">
                             <Viewbox Width="22" Height="22">

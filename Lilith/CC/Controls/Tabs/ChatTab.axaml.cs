@@ -18,7 +18,7 @@ namespace CC
         {
             ChatView.PeerName = item.Nickname;
             ChatView.PeerAvatar = item.Avatar;
-            ChatView.PeerStatus = "最后在线 今天 17:20";
+            ChatView.PeerStatus = string.Empty;
 
             ChatView.ClearMessages();
             EmptyState.IsVisible = false;
