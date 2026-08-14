@@ -260,7 +260,48 @@ LIMIT $n";
         }
 
 
-        // 抬高本地已收水位(自己发的消息走这里; 对端来的消息在 MainWindow 落库时一并抬)
+        // 对端已读到 seq(ConfirmChatNtf): 记下水位, 把自己发的、seq 不超过它的消息标成已读
+        public void OnPeerRead(long chatId, long seq)
+        {
+            var conv = ChatPanel.Find(chatId)?.Conversation;
+            if (conv == null || seq <= conv.PeerReadSeq)
+            {
+                return;   // 迟到的旧通知不能把水位拉回去
+            }
+
+            conv.PeerReadSeq = seq;
+            UpdatePeerReadSeq(chatId, seq);
+
+            if (ReferenceEquals(conv, current))
+            {
+                ChatView.MarkRead(seq);
+            }
+        }
+
+
+        private static void UpdatePeerReadSeq(long chatId, long seq)
+        {
+            if (Me.Db == null)
+            {
+                return;
+            }
+
+            try
+            {
+                using var cmd = Me.Db.CreateCommand();
+                cmd.CommandText =
+                    "UPDATE t_chat_cursor SET f_peer_read_seq = $seq WHERE f_chat_id = $cid AND f_peer_read_seq < $seq";
+                cmd.Parameters.AddWithValue("$seq", seq);
+                cmd.Parameters.AddWithValue("$cid", chatId);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[ChatTab] 更新对端已读水位失败: {ex.Message}");
+            }
+        }
+
+
         private static void UpdateRecvSeq(long chatId, long seq)
         {
             if (Me.Db == null)
@@ -284,7 +325,6 @@ LIMIT $n";
         }
 
 
-        // 会话落库(幂等): 已存在就什么都不做
         private static void InsertConversation(ChatCursor conv)
         {
             if (Me.Db == null)
@@ -312,12 +352,27 @@ LIMIT $n";
             current = item.Conversation;
             ChatView.Conversation = item.Conversation;
 
-            // 点开即已读: 角标熄灭 + 落库清零
-            if (current != null && current.Unread > 0)
+            if (current != null)
             {
-                current.Unread = 0;
-                item.Unread = 0;
-                ClearUnread(current.ChatId);
+                bool advanced = current.ReadSeq < current.RecvSeq;
+
+                if (advanced || current.Unread > 0)
+                {
+                    current.Unread  = 0;
+                    current.ReadSeq = current.RecvSeq;
+                    item.Unread     = 0;
+                    ClearUnread(current.ChatId);
+                }
+
+                if (advanced)
+                {
+                    ChatProto.Send(new ConfirmChatReq
+                                   {
+                                       PeerId = (uint)current.PeerId,
+                                       Seq    = current.RecvSeq,
+                                   },
+                                   ChatProto.PID_CONFIRM_CHAT_REQ);
+                }
             }
 
             ChatView.PeerName = item.Nickname;
@@ -357,7 +412,7 @@ LIMIT $n";
             if (current != null && current.ChatId == chatId)
             {
                 current.Messages.Add(msg);
-                current.RecvSeq = msg.Seq;   // 库里那份由 MainWindow 落库时一起抬
+                current.RecvSeq = msg.Seq;
                 ChatView.AddMessage(msg);
 
                 current.LastPreview = msg.Content;
@@ -444,8 +499,6 @@ LIMIT $n";
                         m.CreatedAt = rsp.CreatedAt;
                         m.Status    = 1;
 
-                        // 自己发的消息也占这个会话的 seq 空间, 一样要抬水位,
-                        // 否则增量同步会把自己发过的消息再拉回来一遍
                         if (rsp.Seq > conv.RecvSeq)
                         {
                             conv.RecvSeq = rsp.Seq;

@@ -333,6 +333,14 @@ namespace CC
                     OnDeleteChat(pkg);
                     return;
 
+                case ChatProto.PID_CONFIRM_CHAT_RSP:
+                    OnConfirmChatRsp(pkg);
+                    return;
+
+                case ChatProto.PID_CONFIRM_CHAT_NTF:
+                    OnConfirmChatNtf(pkg);
+                    return;
+
                 default:
                     Log.Write($"[CC] 未处理的 PID: {pkg.PID}, src = 0x{pkg.SrcID:X8}");
                     return;
@@ -389,6 +397,37 @@ namespace CC
             }
 
             TabChat.OnChatAck(rsp);
+        }
+
+
+        private void OnConfirmChatRsp(Package pkg)
+        {
+            try
+            {
+                var rsp = ConfirmChatRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                if (rsp.Code != 0)
+                {
+                    Log.Write($"[CC] 已读上报失败: chat_id = {rsp.ChatId}, code = {rsp.Code}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] CONFIRM_CHAT_RSP 解析失败: {ex.Message}");
+            }
+        }
+
+
+        private void OnConfirmChatNtf(Package pkg)
+        {
+            try
+            {
+                var ntf = ConfirmChatNtf.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                TabChat.OnPeerRead((long)ntf.ChatId, ntf.Seq);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] CONFIRM_CHAT_NTF 解析失败: {ex.Message}");
+            }
         }
 
 
@@ -476,8 +515,6 @@ namespace CC
                         "INSERT OR IGNORE INTO t_chat_cursor(f_chat_id, f_peer_id) VALUES ($cid, $peer);" +
                         "INSERT OR IGNORE INTO t_chat_message(f_chat_id, f_cli_id, f_seq, f_msg_id, f_from_id, f_to_id, f_msg_type, f_content, f_status, f_created_at) " +
                         "VALUES ($cid, $cli, $seq, $mid, $peer, $me, $type, $content, 1, $ts);" +
-                        // 抬高"我本地已有到哪"的水位, 增量同步时上报它.
-                        // 带 f_recv_seq < $seq 是防乱序: 迟到的旧消息不能把水位拉低
                         "UPDATE t_chat_cursor SET f_recv_seq = $seq WHERE f_chat_id = $cid AND f_recv_seq < $seq";
                     cmd.Parameters.AddWithValue("$cid", chatId);
                     cmd.Parameters.AddWithValue("$peer", (long)ntf.FromId);

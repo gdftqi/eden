@@ -121,8 +121,36 @@ namespace CC
                 IsOutgoing = msg.Mine,
                 Text       = msg.Content,
                 Time       = DateTimeOffset.FromUnixTimeMilliseconds(msg.CreatedAt).LocalDateTime.ToString("HH:mm"),
-                Status     = msg.Status,
+                Status     = BubbleStatus(msg),
             });
+        }
+
+
+        private int BubbleStatus(ChatMessage msg)
+        {
+            if (msg.Status == 1 && msg.Mine && msg.Seq > 0 && Conversation != null
+                && msg.Seq <= Conversation.PeerReadSeq)
+            {
+                return 3;
+            }
+
+            return msg.Status;
+        }
+
+
+        /// <summary>
+        /// 对端已读到 seq: 把自己发的、seq 不超过它的气泡改成已读态.
+        /// </summary>
+        public void MarkRead(long seq)
+        {
+            foreach (var child in MessageList.Children)
+            {
+                if (child is MessageBubble b && b.IsOutgoing && b.Status == 1
+                    && b.Message != null && b.Message.Seq > 0 && b.Message.Seq <= seq)
+                {
+                    b.Status = 3;
+                }
+            }
         }
 
 

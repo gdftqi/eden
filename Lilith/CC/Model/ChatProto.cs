@@ -60,6 +60,21 @@ namespace CC.Model
         /// </summary>
         public const ushort PID_DELETE_CHAT_NTF = Package.PID_CUSTOM + 9;
 
+        /// <summary>
+        /// 已读上报: 告诉服务端"我在这个会话读到 seq 了".
+        /// </summary>
+        public const ushort PID_CONFIRM_CHAT_REQ = Package.PID_CUSTOM + 10;
+
+        /// <summary>
+        /// 已读上报应答.
+        /// </summary>
+        public const ushort PID_CONFIRM_CHAT_RSP = Package.PID_CUSTOM + 11;
+
+        /// <summary>
+        /// 对端已读通知: 对方读到 seq 了, 据此把自己发的消息标成已读.
+        /// </summary>
+        public const ushort PID_CONFIRM_CHAT_NTF = Package.PID_CUSTOM + 12;
+
 
         /// <summary>
         /// 序列化 pb 消息并发给 CCS: 唯一的组包出口.
