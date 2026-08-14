@@ -717,15 +717,15 @@ constexpr DeleteChatCursorReq::ParseTableT_ DeleteChatCursorReq::InternalGenerat
       {::_pbi::TcParser::FastV64S1,
        {16, 0, 0,
         PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.idempotent_)}},
-      // uint32 to_id = 1;
+      // uint32 peer_id = 1;
       {::_pbi::TcParser::FastV32S1,
        {8, 1, 0,
-        PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.to_id_)}},
+        PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.peer_id_)}},
     }}, {{
       65535, 65535
     }}, {{
-      // uint32 to_id = 1;
-      {PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.to_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
+      // uint32 peer_id = 1;
+      {PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.peer_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
       // uint64 idempotent = 2;
       {PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.idempotent_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
     }},
@@ -740,7 +740,7 @@ inline constexpr DeleteChatCursorReq::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
       : idempotent_{::uint64_t{0u}},
-        to_id_{0u} {}
+        peer_id_{0u} {}
 
 template <typename>
 constexpr DeleteChatCursorReq::DeleteChatCursorReq(::_pbi::ConstantInitialized,
@@ -962,6 +962,437 @@ const ::_pbi::ClassData* DeleteChatCursorNtf_get_class_data() {
 }
 }  // namespace
 #endif  // PROTOBUF_CUSTOM_VTABLE
+class ConfirmChatRsp::_Internal {
+ public:
+  using HasBits = decltype(::std::declval<ConfirmChatRsp>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_._has_bits_);
+};
+
+constexpr ConfirmChatRsp::ParseTableT_ ConfirmChatRsp::InternalGenerateParseTable_(const ::_pbi::ClassData* class_data) {
+  return ParseTableT_{
+    {
+      PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_._has_bits_),
+      0, // no _extensions_
+      2, 8,  // max_field_number, fast_idx_mask
+      offsetof(ParseTableT_, field_lookup_table),
+      4294967292,  // skipmap
+      offsetof(ParseTableT_, field_entries),
+      2,  // num_field_entries
+      0,  // num_aux_entries
+      offsetof(ParseTableT_, field_names),  // no aux_entries
+      class_data,
+      nullptr,  // post_loop_handler
+      ::_pbi::TcParser::MpUnknownFields,  // fallback
+      #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+      ::_pbi::TcParser::GetTable<::ccs::ConfirmChatRsp>(),  // to_prefetch
+      #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+    }, {{
+      // uint64 chat_id = 2;
+      {::_pbi::TcParser::FastV64S1,
+       {16, 0, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.chat_id_)}},
+      // int32 code = 1;
+      {::_pbi::TcParser::FastV32S1,
+       {8, 1, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.code_)}},
+    }}, {{
+      65535, 65535
+    }}, {{
+      // int32 code = 1;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.code_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+      // uint64 chat_id = 2;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.chat_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
+    }},
+    // no aux_entries
+    {{
+    }},
+  };
+}
+
+
+inline constexpr ConfirmChatRsp::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : chat_id_{::uint64_t{0u}},
+        code_{0} {}
+
+template <typename>
+constexpr ConfirmChatRsp::ConfirmChatRsp(::_pbi::ConstantInitialized,
+                       const ::_pbi::ClassData* PROTOBUF_NONNULL class_data)
+    : Super_(
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          class_data
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          ),
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+inline void* PROTOBUF_NONNULL ConfirmChatRsp::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ConfirmChatRsp(arena);
+}
+constexpr auto ConfirmChatRsp::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(ConfirmChatRsp), alignof(ConfirmChatRsp));
+}
+constexpr auto ConfirmChatRsp::InternalGenerateClassData_(
+    const MessageLite& prototype,
+    const ::google::protobuf::internal::TcParseTableBase* tc_table) {
+  return ::google::protobuf::internal::ClassDataLite{
+      {
+          &prototype,
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+          &_table_.header,
+#else
+          tc_table,
+#endif
+          nullptr,  // IsInitialized
+          &ConfirmChatRsp::MergeImpl,
+          Super_::GetNewImpl<ConfirmChatRsp>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ConfirmChatRsp::SharedDtor,
+          Super_::GetClearImpl<ConfirmChatRsp>(), &ConfirmChatRsp::ByteSizeLong,
+              &ConfirmChatRsp::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_._cached_size_),
+          true,
+      },
+      "ccs.ConfirmChatRsp",
+  };
+}
+struct ConfirmChatRspGlobalsTypeInternal : ::_pbi::MessageGlobalsBase {
+  constexpr ConfirmChatRspGlobalsTypeInternal()
+      :
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+        _default(::_pbi::ConstantInitialized{},
+                 ConfirmChatRsp_class_data_.base())
+#else   // !PROTOBUF_MESSAGE_GLOBALS
+        MessageGlobalsBase(ConfirmChatRsp::InternalGenerateClassData_(
+            _default, &ConfirmChatRsp_globals_._table.header)),
+        _default(::_pbi::ConstantInitialized{}, GetClassData()),
+        _table(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatRsp>(
+            GetClassData()))
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+  {
+  }
+  ~ConfirmChatRspGlobalsTypeInternal() {}
+  union {
+    alignas(::_pbi::kMaxMessageAlignment) ConfirmChatRsp _default;
+  };
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  decltype(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatRsp>(
+      ::std::declval<const ::_pbi::ClassData*>())) _table;
+#endif
+};
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+static_assert(PROTOBUF_FIELD_OFFSET(ConfirmChatRspGlobalsTypeInternal, _default) ==
+              ::_pbi::MessageGlobalsBase::OffsetToDefault());
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PROTOBUF_MESSAGE_GLOBALS_CONST ConfirmChatRspGlobalsTypeInternal ConfirmChatRsp_globals_
+        PROTOBUF_MESSAGE_GLOBALS_SECTION(.data.rel.ro);
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+namespace {
+const ::_pbi::ClassData* ConfirmChatRsp_get_class_data() {
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  return ConfirmChatRsp_globals_.GetClassData();
+#else
+  return ConfirmChatRsp_class_data_.base();
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+}
+}  // namespace
+#endif  // PROTOBUF_CUSTOM_VTABLE
+class ConfirmChatReq::_Internal {
+ public:
+  using HasBits = decltype(::std::declval<ConfirmChatReq>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_._has_bits_);
+};
+
+constexpr ConfirmChatReq::ParseTableT_ ConfirmChatReq::InternalGenerateParseTable_(const ::_pbi::ClassData* class_data) {
+  return ParseTableT_{
+    {
+      PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_._has_bits_),
+      0, // no _extensions_
+      3, 24,  // max_field_number, fast_idx_mask
+      offsetof(ParseTableT_, field_lookup_table),
+      4294967288,  // skipmap
+      offsetof(ParseTableT_, field_entries),
+      3,  // num_field_entries
+      0,  // num_aux_entries
+      offsetof(ParseTableT_, field_names),  // no aux_entries
+      class_data,
+      nullptr,  // post_loop_handler
+      ::_pbi::TcParser::MpUnknownFields,  // fallback
+      #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+      ::_pbi::TcParser::GetTable<::ccs::ConfirmChatReq>(),  // to_prefetch
+      #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+    }, {{
+      {::_pbi::TcParser::MiniParse, {}},
+      // uint32 peer_id = 1;
+      {::_pbi::TcParser::FastV32S1,
+       {8, 2, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.peer_id_)}},
+      // int64 seq = 2;
+      {::_pbi::TcParser::FastV64S1,
+       {16, 0, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.seq_)}},
+      // uint64 idempotent = 3;
+      {::_pbi::TcParser::FastV64S1,
+       {24, 1, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.idempotent_)}},
+    }}, {{
+      65535, 65535
+    }}, {{
+      // uint32 peer_id = 1;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.peer_id_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
+      // int64 seq = 2;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.seq_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+      // uint64 idempotent = 3;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.idempotent_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
+    }},
+    // no aux_entries
+    {{
+    }},
+  };
+}
+
+
+inline constexpr ConfirmChatReq::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : seq_{::int64_t{0}},
+        idempotent_{::uint64_t{0u}},
+        peer_id_{0u} {}
+
+template <typename>
+constexpr ConfirmChatReq::ConfirmChatReq(::_pbi::ConstantInitialized,
+                       const ::_pbi::ClassData* PROTOBUF_NONNULL class_data)
+    : Super_(
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          class_data
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          ),
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+inline void* PROTOBUF_NONNULL ConfirmChatReq::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ConfirmChatReq(arena);
+}
+constexpr auto ConfirmChatReq::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(ConfirmChatReq), alignof(ConfirmChatReq));
+}
+constexpr auto ConfirmChatReq::InternalGenerateClassData_(
+    const MessageLite& prototype,
+    const ::google::protobuf::internal::TcParseTableBase* tc_table) {
+  return ::google::protobuf::internal::ClassDataLite{
+      {
+          &prototype,
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+          &_table_.header,
+#else
+          tc_table,
+#endif
+          nullptr,  // IsInitialized
+          &ConfirmChatReq::MergeImpl,
+          Super_::GetNewImpl<ConfirmChatReq>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ConfirmChatReq::SharedDtor,
+          Super_::GetClearImpl<ConfirmChatReq>(), &ConfirmChatReq::ByteSizeLong,
+              &ConfirmChatReq::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_._cached_size_),
+          true,
+      },
+      "ccs.ConfirmChatReq",
+  };
+}
+struct ConfirmChatReqGlobalsTypeInternal : ::_pbi::MessageGlobalsBase {
+  constexpr ConfirmChatReqGlobalsTypeInternal()
+      :
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+        _default(::_pbi::ConstantInitialized{},
+                 ConfirmChatReq_class_data_.base())
+#else   // !PROTOBUF_MESSAGE_GLOBALS
+        MessageGlobalsBase(ConfirmChatReq::InternalGenerateClassData_(
+            _default, &ConfirmChatReq_globals_._table.header)),
+        _default(::_pbi::ConstantInitialized{}, GetClassData()),
+        _table(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatReq>(
+            GetClassData()))
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+  {
+  }
+  ~ConfirmChatReqGlobalsTypeInternal() {}
+  union {
+    alignas(::_pbi::kMaxMessageAlignment) ConfirmChatReq _default;
+  };
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  decltype(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatReq>(
+      ::std::declval<const ::_pbi::ClassData*>())) _table;
+#endif
+};
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+static_assert(PROTOBUF_FIELD_OFFSET(ConfirmChatReqGlobalsTypeInternal, _default) ==
+              ::_pbi::MessageGlobalsBase::OffsetToDefault());
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PROTOBUF_MESSAGE_GLOBALS_CONST ConfirmChatReqGlobalsTypeInternal ConfirmChatReq_globals_
+        PROTOBUF_MESSAGE_GLOBALS_SECTION(.data.rel.ro);
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+namespace {
+const ::_pbi::ClassData* ConfirmChatReq_get_class_data() {
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  return ConfirmChatReq_globals_.GetClassData();
+#else
+  return ConfirmChatReq_class_data_.base();
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+}
+}  // namespace
+#endif  // PROTOBUF_CUSTOM_VTABLE
+class ConfirmChatNtf::_Internal {
+ public:
+  using HasBits = decltype(::std::declval<ConfirmChatNtf>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_._has_bits_);
+};
+
+constexpr ConfirmChatNtf::ParseTableT_ ConfirmChatNtf::InternalGenerateParseTable_(const ::_pbi::ClassData* class_data) {
+  return ParseTableT_{
+    {
+      PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_._has_bits_),
+      0, // no _extensions_
+      2, 8,  // max_field_number, fast_idx_mask
+      offsetof(ParseTableT_, field_lookup_table),
+      4294967292,  // skipmap
+      offsetof(ParseTableT_, field_entries),
+      2,  // num_field_entries
+      0,  // num_aux_entries
+      offsetof(ParseTableT_, field_names),  // no aux_entries
+      class_data,
+      nullptr,  // post_loop_handler
+      ::_pbi::TcParser::MpUnknownFields,  // fallback
+      #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+      ::_pbi::TcParser::GetTable<::ccs::ConfirmChatNtf>(),  // to_prefetch
+      #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+    }, {{
+      // int64 seq = 2;
+      {::_pbi::TcParser::FastV64S1,
+       {16, 1, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.seq_)}},
+      // uint64 chat_id = 1;
+      {::_pbi::TcParser::FastV64S1,
+       {8, 0, 0,
+        PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.chat_id_)}},
+    }}, {{
+      65535, 65535
+    }}, {{
+      // uint64 chat_id = 1;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.chat_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
+      // int64 seq = 2;
+      {PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.seq_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    }},
+    // no aux_entries
+    {{
+    }},
+  };
+}
+
+
+inline constexpr ConfirmChatNtf::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    ::_pbi::ConstantInitialized) noexcept
+      : chat_id_{::uint64_t{0u}},
+        seq_{::int64_t{0}} {}
+
+template <typename>
+constexpr ConfirmChatNtf::ConfirmChatNtf(::_pbi::ConstantInitialized,
+                       const ::_pbi::ClassData* PROTOBUF_NONNULL class_data)
+    : Super_(
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          class_data
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          ),
+      _impl_(internal_visibility(), ::_pbi::ConstantInitialized()) {
+}
+inline void* PROTOBUF_NONNULL ConfirmChatNtf::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ConfirmChatNtf(arena);
+}
+constexpr auto ConfirmChatNtf::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(ConfirmChatNtf), alignof(ConfirmChatNtf));
+}
+constexpr auto ConfirmChatNtf::InternalGenerateClassData_(
+    const MessageLite& prototype,
+    const ::google::protobuf::internal::TcParseTableBase* tc_table) {
+  return ::google::protobuf::internal::ClassDataLite{
+      {
+          &prototype,
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+          &_table_.header,
+#else
+          tc_table,
+#endif
+          nullptr,  // IsInitialized
+          &ConfirmChatNtf::MergeImpl,
+          Super_::GetNewImpl<ConfirmChatNtf>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ConfirmChatNtf::SharedDtor,
+          Super_::GetClearImpl<ConfirmChatNtf>(), &ConfirmChatNtf::ByteSizeLong,
+              &ConfirmChatNtf::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_._cached_size_),
+          true,
+      },
+      "ccs.ConfirmChatNtf",
+  };
+}
+struct ConfirmChatNtfGlobalsTypeInternal : ::_pbi::MessageGlobalsBase {
+  constexpr ConfirmChatNtfGlobalsTypeInternal()
+      :
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+        _default(::_pbi::ConstantInitialized{},
+                 ConfirmChatNtf_class_data_.base())
+#else   // !PROTOBUF_MESSAGE_GLOBALS
+        MessageGlobalsBase(ConfirmChatNtf::InternalGenerateClassData_(
+            _default, &ConfirmChatNtf_globals_._table.header)),
+        _default(::_pbi::ConstantInitialized{}, GetClassData()),
+        _table(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatNtf>(
+            GetClassData()))
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+  {
+  }
+  ~ConfirmChatNtfGlobalsTypeInternal() {}
+  union {
+    alignas(::_pbi::kMaxMessageAlignment) ConfirmChatNtf _default;
+  };
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  decltype(::_pbi::PrivateAccess::GenerateParseTable<ConfirmChatNtf>(
+      ::std::declval<const ::_pbi::ClassData*>())) _table;
+#endif
+};
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+static_assert(PROTOBUF_FIELD_OFFSET(ConfirmChatNtfGlobalsTypeInternal, _default) ==
+              ::_pbi::MessageGlobalsBase::OffsetToDefault());
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PROTOBUF_MESSAGE_GLOBALS_CONST ConfirmChatNtfGlobalsTypeInternal ConfirmChatNtf_globals_
+        PROTOBUF_MESSAGE_GLOBALS_SECTION(.data.rel.ro);
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+namespace {
+const ::_pbi::ClassData* ConfirmChatNtf_get_class_data() {
+#ifdef PROTOBUF_MESSAGE_GLOBALS
+  return ConfirmChatNtf_globals_.GetClassData();
+#else
+  return ConfirmChatNtf_class_data_.base();
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+}
+}  // namespace
+#endif  // PROTOBUF_CUSTOM_VTABLE
 class ClearChatRsp::_Internal {
  public:
   using HasBits = decltype(::std::declval<ClearChatRsp>()._impl_._has_bits_);
@@ -1133,15 +1564,15 @@ constexpr ClearChatReq::ParseTableT_ ClearChatReq::InternalGenerateParseTable_(c
       {::_pbi::TcParser::FastV64S1,
        {16, 0, 0,
         PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.idempotent_)}},
-      // uint32 to_id = 1;
+      // uint32 peer_id = 1;
       {::_pbi::TcParser::FastV32S1,
        {8, 1, 0,
-        PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.to_id_)}},
+        PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.peer_id_)}},
     }}, {{
       65535, 65535
     }}, {{
-      // uint32 to_id = 1;
-      {PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.to_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
+      // uint32 peer_id = 1;
+      {PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.peer_id_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
       // uint64 idempotent = 2;
       {PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.idempotent_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUInt64)},
     }},
@@ -1156,7 +1587,7 @@ inline constexpr ClearChatReq::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     ::_pbi::ConstantInitialized) noexcept
       : idempotent_{::uint64_t{0u}},
-        to_id_{0u} {}
+        peer_id_{0u} {}
 
 template <typename>
 constexpr ClearChatReq::ClearChatReq(::_pbi::ConstantInitialized,
@@ -2459,9 +2890,9 @@ inline void ClearChatReq::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, idempotent_),
            0,
-           offsetof(Impl_, to_id_) -
+           offsetof(Impl_, peer_id_) -
                offsetof(Impl_, idempotent_) +
-               sizeof(Impl_::to_id_));
+               sizeof(Impl_::peer_id_));
 }
 ClearChatReq::~ClearChatReq() {
   // @@protoc_insertion_point(destructor:ccs.ClearChatReq)
@@ -2509,9 +2940,9 @@ PROTOBUF_NOINLINE void ClearChatReq::Clear() {
   if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
     ::memset(&this_._impl_.idempotent_, 0,
              static_cast<::size_t>(
-                 reinterpret_cast<char*>(&this_._impl_.to_id_) -
+                 reinterpret_cast<char*>(&this_._impl_.peer_id_) -
                  reinterpret_cast<char*>(&this_._impl_.idempotent_)) +
-                 sizeof(_impl_.to_id_));
+                 sizeof(_impl_.peer_id_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::std::string>();
@@ -2536,12 +2967,12 @@ PROTOBUF_NOINLINE void ClearChatReq::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // uint32 to_id = 1;
+  // uint32 peer_id = 1;
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-    if (this_._internal_to_id() != 0) {
+    if (this_._internal_peer_id() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
-          1, this_._internal_to_id(), target);
+          1, this_._internal_peer_id(), target);
     }
   }
 
@@ -2585,11 +3016,11 @@ PROTOBUF_NOINLINE void ClearChatReq::Clear() {
             this_._internal_idempotent());
       }
     }
-    // uint32 to_id = 1;
+    // uint32 peer_id = 1;
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (this_._internal_to_id() != 0) {
+      if (this_._internal_peer_id() != 0) {
         total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
-            this_._internal_to_id());
+            this_._internal_peer_id());
       }
     }
   }
@@ -2620,8 +3051,8 @@ void ClearChatReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (from._internal_to_id() != 0) {
-        _this->_impl_.to_id_ = from._impl_.to_id_;
+      if (from._internal_peer_id() != 0) {
+        _this->_impl_.peer_id_ = from._impl_.peer_id_;
       }
     }
   }
@@ -2643,8 +3074,8 @@ void ClearChatReq::InternalSwap(ClearChatReq* PROTOBUF_RESTRICT PROTOBUF_NONNULL
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.to_id_)
-      + sizeof(ClearChatReq::_impl_.to_id_)
+      PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.peer_id_)
+      + sizeof(ClearChatReq::_impl_.peer_id_)
       - PROTOBUF_FIELD_OFFSET(ClearChatReq, _impl_.idempotent_)>(
           reinterpret_cast<char*>(&_impl_.idempotent_),
           reinterpret_cast<char*>(&other->_impl_.idempotent_));
@@ -3087,9 +3518,9 @@ inline void DeleteChatCursorReq::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE aren
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, idempotent_),
            0,
-           offsetof(Impl_, to_id_) -
+           offsetof(Impl_, peer_id_) -
                offsetof(Impl_, idempotent_) +
-               sizeof(Impl_::to_id_));
+               sizeof(Impl_::peer_id_));
 }
 DeleteChatCursorReq::~DeleteChatCursorReq() {
   // @@protoc_insertion_point(destructor:ccs.DeleteChatCursorReq)
@@ -3137,9 +3568,9 @@ PROTOBUF_NOINLINE void DeleteChatCursorReq::Clear() {
   if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
     ::memset(&this_._impl_.idempotent_, 0,
              static_cast<::size_t>(
-                 reinterpret_cast<char*>(&this_._impl_.to_id_) -
+                 reinterpret_cast<char*>(&this_._impl_.peer_id_) -
                  reinterpret_cast<char*>(&this_._impl_.idempotent_)) +
-                 sizeof(_impl_.to_id_));
+                 sizeof(_impl_.peer_id_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::std::string>();
@@ -3164,12 +3595,12 @@ PROTOBUF_NOINLINE void DeleteChatCursorReq::Clear() {
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // uint32 to_id = 1;
+  // uint32 peer_id = 1;
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-    if (this_._internal_to_id() != 0) {
+    if (this_._internal_peer_id() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
-          1, this_._internal_to_id(), target);
+          1, this_._internal_peer_id(), target);
     }
   }
 
@@ -3213,11 +3644,11 @@ PROTOBUF_NOINLINE void DeleteChatCursorReq::Clear() {
             this_._internal_idempotent());
       }
     }
-    // uint32 to_id = 1;
+    // uint32 peer_id = 1;
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (this_._internal_to_id() != 0) {
+      if (this_._internal_peer_id() != 0) {
         total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
-            this_._internal_to_id());
+            this_._internal_peer_id());
       }
     }
   }
@@ -3248,8 +3679,8 @@ void DeleteChatCursorReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (from._internal_to_id() != 0) {
-        _this->_impl_.to_id_ = from._impl_.to_id_;
+      if (from._internal_peer_id() != 0) {
+        _this->_impl_.peer_id_ = from._impl_.peer_id_;
       }
     }
   }
@@ -3271,8 +3702,8 @@ void DeleteChatCursorReq::InternalSwap(DeleteChatCursorReq* PROTOBUF_RESTRICT PR
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.to_id_)
-      + sizeof(DeleteChatCursorReq::_impl_.to_id_)
+      PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.peer_id_)
+      + sizeof(DeleteChatCursorReq::_impl_.peer_id_)
       - PROTOBUF_FIELD_OFFSET(DeleteChatCursorReq, _impl_.idempotent_)>(
           reinterpret_cast<char*>(&_impl_.idempotent_),
           reinterpret_cast<char*>(&other->_impl_.idempotent_));
@@ -3681,6 +4112,696 @@ void DeleteChatCursorNtf::InternalSwap(DeleteChatCursorNtf* PROTOBUF_RESTRICT PR
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   swap(_impl_.chat_id_, other->_impl_.chat_id_);
+}
+
+// ===================================================================
+
+ConfirmChatReq::ConfirmChatReq(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatReq_get_class_data()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:ccs.ConfirmChatReq)
+}
+ConfirmChatReq::ConfirmChatReq(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatReq& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatReq_get_class_data()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(from._impl_) {
+  _internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+PROTOBUF_NDEBUG_INLINE ConfirmChatReq::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+     {}
+
+inline void ConfirmChatReq::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, seq_),
+           0,
+           offsetof(Impl_, peer_id_) -
+               offsetof(Impl_, seq_) +
+               sizeof(Impl_::peer_id_));
+}
+ConfirmChatReq::~ConfirmChatReq() {
+  // @@protoc_insertion_point(destructor:ccs.ConfirmChatReq)
+  SharedDtor(*this);
+}
+inline void ConfirmChatReq::SharedDtor(MessageLite& self) {
+  ConfirmChatReq& this_ = static_cast<ConfirmChatReq&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::std::string>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::google::protobuf::internal::ClassDataLite ConfirmChatReq_class_data_ =
+    ConfirmChatReq::InternalGenerateClassData_(ConfirmChatReq_globals_._default);
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatReq::GetClassData() const {
+  return ConfirmChatReq_class_data_.base();
+}
+#else
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatReq::GetClassData() const {
+  return ConfirmChatReq_globals_.GetClassData();
+}
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ConfirmChatReq::ParseTableT_
+    ConfirmChatReq::_table_ =
+        ConfirmChatReq::InternalGenerateParseTable_(ConfirmChatReq_class_data_.base());
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_NOINLINE void ConfirmChatReq::Clear() {
+  auto& this_ [[maybe_unused]] = *this;
+  // @@protoc_insertion_point(message_clear_start:ccs.ConfirmChatReq)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    ::memset(&this_._impl_.seq_, 0,
+             static_cast<::size_t>(
+                 reinterpret_cast<char*>(&this_._impl_.peer_id_) -
+                 reinterpret_cast<char*>(&this_._impl_.seq_)) +
+                 sizeof(_impl_.peer_id_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::std::string>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ConfirmChatReq::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ConfirmChatReq& this_ = static_cast<const ConfirmChatReq&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ConfirmChatReq::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ConfirmChatReq& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:ccs.ConfirmChatReq)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // uint32 peer_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (this_._internal_peer_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
+          1, this_._internal_peer_id(), target);
+    }
+  }
+
+  // int64 seq = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (this_._internal_seq() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<2>(
+              stream, this_._internal_seq(), target);
+    }
+  }
+
+  // uint64 idempotent = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_idempotent() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          3, this_._internal_idempotent(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:ccs.ConfirmChatReq)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ConfirmChatReq::ByteSizeLong(const MessageLite& base) {
+  const ConfirmChatReq& this_ = static_cast<const ConfirmChatReq&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ConfirmChatReq::ByteSizeLong() const {
+  const ConfirmChatReq& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:ccs.ConfirmChatReq)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    // int64 seq = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (this_._internal_seq() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_seq());
+      }
+    }
+    // uint64 idempotent = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_idempotent() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_idempotent());
+      }
+    }
+    // uint32 peer_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (this_._internal_peer_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt32SizePlusOne(
+            this_._internal_peer_id());
+      }
+    }
+  }
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    total_size += this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  this_._impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void ConfirmChatReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                      const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this = static_cast<ConfirmChatReq*>(&to_msg);
+  auto& from = static_cast<const ConfirmChatReq&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:ccs.ConfirmChatReq)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (from._internal_seq() != 0) {
+        _this->_impl_.seq_ = from._impl_.seq_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_idempotent() != 0) {
+        _this->_impl_.idempotent_ = from._impl_.idempotent_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (from._internal_peer_id() != 0) {
+        _this->_impl_.peer_id_ = from._impl_.peer_id_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+
+void ConfirmChatReq::CopyFrom(const ConfirmChatReq& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:ccs.ConfirmChatReq)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ConfirmChatReq::InternalSwap(ConfirmChatReq* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.peer_id_)
+      + sizeof(ConfirmChatReq::_impl_.peer_id_)
+      - PROTOBUF_FIELD_OFFSET(ConfirmChatReq, _impl_.seq_)>(
+          reinterpret_cast<char*>(&_impl_.seq_),
+          reinterpret_cast<char*>(&other->_impl_.seq_));
+}
+
+// ===================================================================
+
+ConfirmChatRsp::ConfirmChatRsp(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatRsp_get_class_data()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:ccs.ConfirmChatRsp)
+}
+ConfirmChatRsp::ConfirmChatRsp(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatRsp& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatRsp_get_class_data()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(from._impl_) {
+  _internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+PROTOBUF_NDEBUG_INLINE ConfirmChatRsp::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+     {}
+
+inline void ConfirmChatRsp::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, chat_id_),
+           0,
+           offsetof(Impl_, code_) -
+               offsetof(Impl_, chat_id_) +
+               sizeof(Impl_::code_));
+}
+ConfirmChatRsp::~ConfirmChatRsp() {
+  // @@protoc_insertion_point(destructor:ccs.ConfirmChatRsp)
+  SharedDtor(*this);
+}
+inline void ConfirmChatRsp::SharedDtor(MessageLite& self) {
+  ConfirmChatRsp& this_ = static_cast<ConfirmChatRsp&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::std::string>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::google::protobuf::internal::ClassDataLite ConfirmChatRsp_class_data_ =
+    ConfirmChatRsp::InternalGenerateClassData_(ConfirmChatRsp_globals_._default);
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatRsp::GetClassData() const {
+  return ConfirmChatRsp_class_data_.base();
+}
+#else
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatRsp::GetClassData() const {
+  return ConfirmChatRsp_globals_.GetClassData();
+}
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ConfirmChatRsp::ParseTableT_
+    ConfirmChatRsp::_table_ =
+        ConfirmChatRsp::InternalGenerateParseTable_(ConfirmChatRsp_class_data_.base());
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_NOINLINE void ConfirmChatRsp::Clear() {
+  auto& this_ [[maybe_unused]] = *this;
+  // @@protoc_insertion_point(message_clear_start:ccs.ConfirmChatRsp)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    ::memset(&this_._impl_.chat_id_, 0,
+             static_cast<::size_t>(
+                 reinterpret_cast<char*>(&this_._impl_.code_) -
+                 reinterpret_cast<char*>(&this_._impl_.chat_id_)) +
+                 sizeof(_impl_.code_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::std::string>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ConfirmChatRsp::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ConfirmChatRsp& this_ = static_cast<const ConfirmChatRsp&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ConfirmChatRsp::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ConfirmChatRsp& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:ccs.ConfirmChatRsp)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // int32 code = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_code() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<1>(
+              stream, this_._internal_code(), target);
+    }
+  }
+
+  // uint64 chat_id = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (this_._internal_chat_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          2, this_._internal_chat_id(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:ccs.ConfirmChatRsp)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ConfirmChatRsp::ByteSizeLong(const MessageLite& base) {
+  const ConfirmChatRsp& this_ = static_cast<const ConfirmChatRsp&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ConfirmChatRsp::ByteSizeLong() const {
+  const ConfirmChatRsp& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:ccs.ConfirmChatRsp)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    // uint64 chat_id = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (this_._internal_chat_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_chat_id());
+      }
+    }
+    // int32 code = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_code() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_code());
+      }
+    }
+  }
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    total_size += this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  this_._impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void ConfirmChatRsp::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                      const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this = static_cast<ConfirmChatRsp*>(&to_msg);
+  auto& from = static_cast<const ConfirmChatRsp&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:ccs.ConfirmChatRsp)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (from._internal_chat_id() != 0) {
+        _this->_impl_.chat_id_ = from._impl_.chat_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_code() != 0) {
+        _this->_impl_.code_ = from._impl_.code_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+
+void ConfirmChatRsp::CopyFrom(const ConfirmChatRsp& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:ccs.ConfirmChatRsp)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ConfirmChatRsp::InternalSwap(ConfirmChatRsp* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.code_)
+      + sizeof(ConfirmChatRsp::_impl_.code_)
+      - PROTOBUF_FIELD_OFFSET(ConfirmChatRsp, _impl_.chat_id_)>(
+          reinterpret_cast<char*>(&_impl_.chat_id_),
+          reinterpret_cast<char*>(&other->_impl_.chat_id_));
+}
+
+// ===================================================================
+
+ConfirmChatNtf::ConfirmChatNtf(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatNtf_get_class_data()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:ccs.ConfirmChatNtf)
+}
+ConfirmChatNtf::ConfirmChatNtf(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatNtf& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : Super_(arena, ConfirmChatNtf_get_class_data()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : Super_(arena),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(from._impl_) {
+  _internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+PROTOBUF_NDEBUG_INLINE ConfirmChatNtf::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+     {}
+
+inline void ConfirmChatNtf::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, chat_id_),
+           0,
+           offsetof(Impl_, seq_) -
+               offsetof(Impl_, chat_id_) +
+               sizeof(Impl_::seq_));
+}
+ConfirmChatNtf::~ConfirmChatNtf() {
+  // @@protoc_insertion_point(destructor:ccs.ConfirmChatNtf)
+  SharedDtor(*this);
+}
+inline void ConfirmChatNtf::SharedDtor(MessageLite& self) {
+  ConfirmChatNtf& this_ = static_cast<ConfirmChatNtf&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::std::string>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::google::protobuf::internal::ClassDataLite ConfirmChatNtf_class_data_ =
+    ConfirmChatNtf::InternalGenerateClassData_(ConfirmChatNtf_globals_._default);
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatNtf::GetClassData() const {
+  return ConfirmChatNtf_class_data_.base();
+}
+#else
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ConfirmChatNtf::GetClassData() const {
+  return ConfirmChatNtf_globals_.GetClassData();
+}
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_CONSTINIT
+PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const ConfirmChatNtf::ParseTableT_
+    ConfirmChatNtf::_table_ =
+        ConfirmChatNtf::InternalGenerateParseTable_(ConfirmChatNtf_class_data_.base());
+#endif  // !PROTOBUF_MESSAGE_GLOBALS
+PROTOBUF_NOINLINE void ConfirmChatNtf::Clear() {
+  auto& this_ [[maybe_unused]] = *this;
+  // @@protoc_insertion_point(message_clear_start:ccs.ConfirmChatNtf)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    ::memset(&this_._impl_.chat_id_, 0,
+             static_cast<::size_t>(
+                 reinterpret_cast<char*>(&this_._impl_.seq_) -
+                 reinterpret_cast<char*>(&this_._impl_.chat_id_)) +
+                 sizeof(_impl_.seq_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::std::string>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ConfirmChatNtf::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ConfirmChatNtf& this_ = static_cast<const ConfirmChatNtf&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ConfirmChatNtf::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ConfirmChatNtf& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:ccs.ConfirmChatNtf)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // uint64 chat_id = 1;
+  if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+    if (this_._internal_chat_id() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+          1, this_._internal_chat_id(), target);
+    }
+  }
+
+  // int64 seq = 2;
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+    if (this_._internal_seq() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<2>(
+              stream, this_._internal_seq(), target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target = stream->WriteRaw(
+        this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).data(),
+        static_cast<int>(this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size()), target);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:ccs.ConfirmChatNtf)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ConfirmChatNtf::ByteSizeLong(const MessageLite& base) {
+  const ConfirmChatNtf& this_ = static_cast<const ConfirmChatNtf&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ConfirmChatNtf::ByteSizeLong() const {
+  const ConfirmChatNtf& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:ccs.ConfirmChatNtf)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits [[maybe_unused]] = 0;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    // uint64 chat_id = 1;
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (this_._internal_chat_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+            this_._internal_chat_id());
+      }
+    }
+    // int64 seq = 2;
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (this_._internal_seq() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_seq());
+      }
+    }
+  }
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    total_size += this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size();
+  }
+  this_._impl_._cached_size_.Set(::_pbi::ToCachedSize(total_size));
+  return total_size;
+}
+
+void ConfirmChatNtf::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                      const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this = static_cast<ConfirmChatNtf*>(&to_msg);
+  auto& from = static_cast<const ConfirmChatNtf&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(class_specific_merge_from_start:ccs.ConfirmChatNtf)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000001U)) {
+      if (from._internal_chat_id() != 0) {
+        _this->_impl_.chat_id_ = from._impl_.chat_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
+      if (from._internal_seq() != 0) {
+        _this->_impl_.seq_ = from._impl_.seq_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::std::string>(
+      from._internal_metadata_);
+}
+
+void ConfirmChatNtf::CopyFrom(const ConfirmChatNtf& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:ccs.ConfirmChatNtf)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ConfirmChatNtf::InternalSwap(ConfirmChatNtf* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.seq_)
+      + sizeof(ConfirmChatNtf::_impl_.seq_)
+      - PROTOBUF_FIELD_OFFSET(ConfirmChatNtf, _impl_.chat_id_)>(
+          reinterpret_cast<char*>(&_impl_.chat_id_),
+          reinterpret_cast<char*>(&other->_impl_.chat_id_));
 }
 
 // @@protoc_insertion_point(namespace_scope)

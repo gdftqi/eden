@@ -66,6 +66,30 @@ extern const ::google::protobuf::internal::ClassDataLite ClearChatRsp_class_data
 #else
 extern const ClearChatRspGlobalsTypeInternal ClearChatRsp_globals_;
 #endif  // PROTOBUF_MESSAGE_GLOBALS
+class ConfirmChatNtf;
+struct ConfirmChatNtfGlobalsTypeInternal;
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+extern ConfirmChatNtfGlobalsTypeInternal ConfirmChatNtf_globals_;
+extern const ::google::protobuf::internal::ClassDataLite ConfirmChatNtf_class_data_;
+#else
+extern const ConfirmChatNtfGlobalsTypeInternal ConfirmChatNtf_globals_;
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+class ConfirmChatReq;
+struct ConfirmChatReqGlobalsTypeInternal;
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+extern ConfirmChatReqGlobalsTypeInternal ConfirmChatReq_globals_;
+extern const ::google::protobuf::internal::ClassDataLite ConfirmChatReq_class_data_;
+#else
+extern const ConfirmChatReqGlobalsTypeInternal ConfirmChatReq_globals_;
+#endif  // PROTOBUF_MESSAGE_GLOBALS
+class ConfirmChatRsp;
+struct ConfirmChatRspGlobalsTypeInternal;
+#ifndef PROTOBUF_MESSAGE_GLOBALS
+extern ConfirmChatRspGlobalsTypeInternal ConfirmChatRsp_globals_;
+extern const ::google::protobuf::internal::ClassDataLite ConfirmChatRsp_class_data_;
+#else
+extern const ConfirmChatRspGlobalsTypeInternal ConfirmChatRsp_globals_;
+#endif  // PROTOBUF_MESSAGE_GLOBALS
 class DeleteChatCursorNtf;
 struct DeleteChatCursorNtfGlobalsTypeInternal;
 #ifndef PROTOBUF_MESSAGE_GLOBALS
@@ -1257,7 +1281,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DeleteChatCursorReq final : public 
   // accessors -------------------------------------------------------
   enum : int {
     kIdempotentFieldNumber = 2,
-    kToIdFieldNumber = 1,
+    kPeerIdFieldNumber = 1,
   };
   // uint64 idempotent = 2;
   void clear_idempotent() ;
@@ -1269,14 +1293,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DeleteChatCursorReq final : public 
   void _internal_set_idempotent(::uint64_t value);
 
   public:
-  // uint32 to_id = 1;
-  void clear_to_id() ;
-  [[nodiscard]] ::uint32_t to_id() const;
-  void set_to_id(::uint32_t value);
+  // uint32 peer_id = 1;
+  void clear_peer_id() ;
+  [[nodiscard]] ::uint32_t peer_id() const;
+  void set_peer_id(::uint32_t value);
 
   private:
-  ::uint32_t _internal_to_id() const;
-  void _internal_set_to_id(::uint32_t value);
+  ::uint32_t _internal_peer_id() const;
+  void _internal_set_peer_id(::uint32_t value);
 
   public:
   // @@protoc_insertion_point(class_scope:ccs.DeleteChatCursorReq)
@@ -1313,7 +1337,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DeleteChatCursorReq final : public 
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint64_t idempotent_;
-    ::uint32_t to_id_;
+    ::uint32_t peer_id_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -1502,6 +1526,618 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED DeleteChatCursorNtf final : public 
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint64_t chat_id_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_ccs_2eproto;
+};
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ConfirmChatRsp final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:ccs.ConfirmChatRsp) */ {
+  using Super_ = ::google::protobuf::MessageLite;
+
+ public:
+  inline ConfirmChatRsp() : ConfirmChatRsp(nullptr) {}
+  ~ConfirmChatRsp() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ConfirmChatRsp* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ConfirmChatRsp));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ConfirmChatRsp(::google::protobuf::internal::ConstantInitialized,
+                           const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+                               class_data);
+
+  inline ConfirmChatRsp(const ConfirmChatRsp& from) : ConfirmChatRsp(nullptr, from) {}
+  inline ConfirmChatRsp(ConfirmChatRsp&& from) noexcept : ConfirmChatRsp(nullptr, ::std::move(from)) {}
+  inline ConfirmChatRsp& operator=(const ConfirmChatRsp& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ConfirmChatRsp& operator=(ConfirmChatRsp&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  [[nodiscard]] inline ::std::string* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::std::string>();
+  }
+
+  [[nodiscard]] static const ConfirmChatRsp& default_instance() {
+    return *::google::protobuf::internal::MessageGlobalsBase::ToDefaultInstance<ConfirmChatRsp>(&ConfirmChatRsp_globals_);
+  }
+  static constexpr int kIndexInFileMessages = 10;
+  friend void swap(ConfirmChatRsp& a, ConfirmChatRsp& b) { a.Swap(&b); }
+  inline void Swap(ConfirmChatRsp* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ConfirmChatRsp* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ConfirmChatRsp* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return Super_::DefaultConstruct<ConfirmChatRsp>(arena);
+  }
+  void CopyFrom(const ConfirmChatRsp& from);
+  void MergeFrom(const ConfirmChatRsp& from) { ConfirmChatRsp::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ConfirmChatRsp* PROTOBUF_NONNULL other);
+ private:
+  static ::absl::string_view FullMessageName() { return "ccs.ConfirmChatRsp"; }
+
+  explicit ConfirmChatRsp(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ConfirmChatRsp(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatRsp& from);
+  ConfirmChatRsp(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ConfirmChatRsp&& from) noexcept
+      : ConfirmChatRsp(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_(
+      const MessageLite& prototype,
+      const ::google::protobuf::internal::TcParseTableBase* PROTOBUF_NULLABLE tc_table = nullptr);
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kChatIdFieldNumber = 2,
+    kCodeFieldNumber = 1,
+  };
+  // uint64 chat_id = 2;
+  void clear_chat_id() ;
+  [[nodiscard]] ::uint64_t chat_id() const;
+  void set_chat_id(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_chat_id() const;
+  void _internal_set_chat_id(::uint64_t value);
+
+  public:
+  // int32 code = 1;
+  void clear_code() ;
+  [[nodiscard]] ::int32_t code() const;
+  void set_code(::int32_t value);
+
+  private:
+  ::int32_t _internal_code() const;
+  void _internal_set_code(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:ccs.ConfirmChatRsp)
+ private:
+  class _Internal;
+  using ParseTableT_ =
+      ::google::protobuf::internal::TcParseTable<1, 2,
+                          0, 0,
+                          2>;
+  static constexpr ParseTableT_ InternalGenerateParseTable_(
+      const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
+  friend class ::google::protobuf::internal::TcParser;
+  #ifndef PROTOBUF_MESSAGE_GLOBALS
+  static const ParseTableT_ _table_;
+  #endif
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ConfirmChatRsp& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::uint64_t chat_id_;
+    ::int32_t code_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_ccs_2eproto;
+};
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ConfirmChatReq final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:ccs.ConfirmChatReq) */ {
+  using Super_ = ::google::protobuf::MessageLite;
+
+ public:
+  inline ConfirmChatReq() : ConfirmChatReq(nullptr) {}
+  ~ConfirmChatReq() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ConfirmChatReq* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ConfirmChatReq));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ConfirmChatReq(::google::protobuf::internal::ConstantInitialized,
+                           const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+                               class_data);
+
+  inline ConfirmChatReq(const ConfirmChatReq& from) : ConfirmChatReq(nullptr, from) {}
+  inline ConfirmChatReq(ConfirmChatReq&& from) noexcept : ConfirmChatReq(nullptr, ::std::move(from)) {}
+  inline ConfirmChatReq& operator=(const ConfirmChatReq& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ConfirmChatReq& operator=(ConfirmChatReq&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  [[nodiscard]] inline ::std::string* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::std::string>();
+  }
+
+  [[nodiscard]] static const ConfirmChatReq& default_instance() {
+    return *::google::protobuf::internal::MessageGlobalsBase::ToDefaultInstance<ConfirmChatReq>(&ConfirmChatReq_globals_);
+  }
+  static constexpr int kIndexInFileMessages = 9;
+  friend void swap(ConfirmChatReq& a, ConfirmChatReq& b) { a.Swap(&b); }
+  inline void Swap(ConfirmChatReq* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ConfirmChatReq* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ConfirmChatReq* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return Super_::DefaultConstruct<ConfirmChatReq>(arena);
+  }
+  void CopyFrom(const ConfirmChatReq& from);
+  void MergeFrom(const ConfirmChatReq& from) { ConfirmChatReq::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ConfirmChatReq* PROTOBUF_NONNULL other);
+ private:
+  static ::absl::string_view FullMessageName() { return "ccs.ConfirmChatReq"; }
+
+  explicit ConfirmChatReq(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ConfirmChatReq(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatReq& from);
+  ConfirmChatReq(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ConfirmChatReq&& from) noexcept
+      : ConfirmChatReq(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_(
+      const MessageLite& prototype,
+      const ::google::protobuf::internal::TcParseTableBase* PROTOBUF_NULLABLE tc_table = nullptr);
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kSeqFieldNumber = 2,
+    kIdempotentFieldNumber = 3,
+    kPeerIdFieldNumber = 1,
+  };
+  // int64 seq = 2;
+  void clear_seq() ;
+  [[nodiscard]] ::int64_t seq() const;
+  void set_seq(::int64_t value);
+
+  private:
+  ::int64_t _internal_seq() const;
+  void _internal_set_seq(::int64_t value);
+
+  public:
+  // uint64 idempotent = 3;
+  void clear_idempotent() ;
+  [[nodiscard]] ::uint64_t idempotent() const;
+  void set_idempotent(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_idempotent() const;
+  void _internal_set_idempotent(::uint64_t value);
+
+  public:
+  // uint32 peer_id = 1;
+  void clear_peer_id() ;
+  [[nodiscard]] ::uint32_t peer_id() const;
+  void set_peer_id(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_peer_id() const;
+  void _internal_set_peer_id(::uint32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:ccs.ConfirmChatReq)
+ private:
+  class _Internal;
+  using ParseTableT_ =
+      ::google::protobuf::internal::TcParseTable<2, 3,
+                          0, 0,
+                          2>;
+  static constexpr ParseTableT_ InternalGenerateParseTable_(
+      const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
+  friend class ::google::protobuf::internal::TcParser;
+  #ifndef PROTOBUF_MESSAGE_GLOBALS
+  static const ParseTableT_ _table_;
+  #endif
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ConfirmChatReq& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::int64_t seq_;
+    ::uint64_t idempotent_;
+    ::uint32_t peer_id_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_ccs_2eproto;
+};
+// -------------------------------------------------------------------
+
+class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ConfirmChatNtf final : public ::google::protobuf::MessageLite
+/* @@protoc_insertion_point(class_definition:ccs.ConfirmChatNtf) */ {
+  using Super_ = ::google::protobuf::MessageLite;
+
+ public:
+  inline ConfirmChatNtf() : ConfirmChatNtf(nullptr) {}
+  ~ConfirmChatNtf() PROTOBUF_FINAL;
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+  void operator delete(ConfirmChatNtf* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+    SharedDtor(*msg);
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(ConfirmChatNtf));
+  }
+#endif
+
+  template <typename = void>
+  explicit constexpr ConfirmChatNtf(::google::protobuf::internal::ConstantInitialized,
+                           const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+                               class_data);
+
+  inline ConfirmChatNtf(const ConfirmChatNtf& from) : ConfirmChatNtf(nullptr, from) {}
+  inline ConfirmChatNtf(ConfirmChatNtf&& from) noexcept : ConfirmChatNtf(nullptr, ::std::move(from)) {}
+  inline ConfirmChatNtf& operator=(const ConfirmChatNtf& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ConfirmChatNtf& operator=(ConfirmChatNtf&& from) noexcept {
+    if (this == &from) return *this;
+    if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] inline const ::std::string& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString);
+  }
+  [[nodiscard]] inline ::std::string* PROTOBUF_NONNULL
+  mutable_unknown_fields() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::std::string>();
+  }
+
+  [[nodiscard]] static const ConfirmChatNtf& default_instance() {
+    return *::google::protobuf::internal::MessageGlobalsBase::ToDefaultInstance<ConfirmChatNtf>(&ConfirmChatNtf_globals_);
+  }
+  static constexpr int kIndexInFileMessages = 11;
+  friend void swap(ConfirmChatNtf& a, ConfirmChatNtf& b) { a.Swap(&b); }
+  inline void Swap(ConfirmChatNtf* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ConfirmChatNtf* PROTOBUF_NONNULL other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  [[nodiscard]] ConfirmChatNtf* PROTOBUF_NONNULL
+  New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return Super_::DefaultConstruct<ConfirmChatNtf>(arena);
+  }
+  void CopyFrom(const ConfirmChatNtf& from);
+  void MergeFrom(const ConfirmChatNtf& from) { ConfirmChatNtf::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(::google::protobuf::MessageLite& to_msg,
+                        const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  [[nodiscard]] bool IsInitialized() const {
+    return true;
+  }
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() PROTOBUF_FINAL;
+  #if defined(PROTOBUF_CUSTOM_VTABLE)
+  private:
+  [[nodiscard]] static ::size_t ByteSizeLong(const ::google::protobuf::MessageLite& msg);
+  [[nodiscard]] static ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      const ::google::protobuf::MessageLite& msg, ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream);
+
+  public:
+  [[nodiscard]] ::size_t ByteSizeLong() const { return ByteSizeLong(*this); }
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+    return _InternalSerialize(*this, target, stream);
+  }
+  #else   // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] ::size_t ByteSizeLong() const final;
+  [[nodiscard]] ::uint8_t* PROTOBUF_NONNULL _InternalSerialize(
+      ::uint8_t* PROTOBUF_NONNULL target,
+      ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const final;
+  #endif  // PROTOBUF_CUSTOM_VTABLE
+  [[nodiscard]] int GetCachedSize() const {
+    return _impl_._cached_size_.Get();
+  }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static void SharedDtor(MessageLite& self);
+  void InternalSwap(ConfirmChatNtf* PROTOBUF_NONNULL other);
+ private:
+  static ::absl::string_view FullMessageName() { return "ccs.ConfirmChatNtf"; }
+
+  explicit ConfirmChatNtf(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  ConfirmChatNtf(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const ConfirmChatNtf& from);
+  ConfirmChatNtf(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, ConfirmChatNtf&& from) noexcept
+      : ConfirmChatNtf(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
+  static void* PROTOBUF_NONNULL PlacementNew_(
+      const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  static constexpr auto InternalNewImpl_();
+
+ public:
+  static constexpr auto InternalGenerateClassData_(
+      const MessageLite& prototype,
+      const ::google::protobuf::internal::TcParseTableBase* PROTOBUF_NULLABLE tc_table = nullptr);
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kChatIdFieldNumber = 1,
+    kSeqFieldNumber = 2,
+  };
+  // uint64 chat_id = 1;
+  void clear_chat_id() ;
+  [[nodiscard]] ::uint64_t chat_id() const;
+  void set_chat_id(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_chat_id() const;
+  void _internal_set_chat_id(::uint64_t value);
+
+  public:
+  // int64 seq = 2;
+  void clear_seq() ;
+  [[nodiscard]] ::int64_t seq() const;
+  void set_seq(::int64_t value);
+
+  private:
+  ::int64_t _internal_seq() const;
+  void _internal_set_seq(::int64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:ccs.ConfirmChatNtf)
+ private:
+  class _Internal;
+  using ParseTableT_ =
+      ::google::protobuf::internal::TcParseTable<1, 2,
+                          0, 0,
+                          2>;
+  static constexpr ParseTableT_ InternalGenerateParseTable_(
+      const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL class_data);
+  friend class ::google::protobuf::internal::TcParser;
+  #ifndef PROTOBUF_MESSAGE_GLOBALS
+  static const ParseTableT_ _table_;
+  #endif
+
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  friend ::google::protobuf::internal::PrivateAccess;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                                    ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+    inline explicit Impl_(
+        ::google::protobuf::internal::InternalVisibility visibility,
+        ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+        const ConfirmChatNtf& from_msg);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    ::google::protobuf::internal::CachedSize _cached_size_;
+    ::uint64_t chat_id_;
+    ::int64_t seq_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -1845,7 +2481,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ClearChatReq final : public ::googl
   // accessors -------------------------------------------------------
   enum : int {
     kIdempotentFieldNumber = 2,
-    kToIdFieldNumber = 1,
+    kPeerIdFieldNumber = 1,
   };
   // uint64 idempotent = 2;
   void clear_idempotent() ;
@@ -1857,14 +2493,14 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ClearChatReq final : public ::googl
   void _internal_set_idempotent(::uint64_t value);
 
   public:
-  // uint32 to_id = 1;
-  void clear_to_id() ;
-  [[nodiscard]] ::uint32_t to_id() const;
-  void set_to_id(::uint32_t value);
+  // uint32 peer_id = 1;
+  void clear_peer_id() ;
+  [[nodiscard]] ::uint32_t peer_id() const;
+  void set_peer_id(::uint32_t value);
 
   private:
-  ::uint32_t _internal_to_id() const;
-  void _internal_set_to_id(::uint32_t value);
+  ::uint32_t _internal_peer_id() const;
+  void _internal_set_peer_id(::uint32_t value);
 
   public:
   // @@protoc_insertion_point(class_scope:ccs.ClearChatReq)
@@ -1901,7 +2537,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ClearChatReq final : public ::googl
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint64_t idempotent_;
-    ::uint32_t to_id_;
+    ::uint32_t peer_id_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -2636,28 +3272,28 @@ inline void SingleChatNtf::_internal_set_from_id(::uint32_t value) {
 
 // ClearChatReq
 
-// uint32 to_id = 1;
-inline void ClearChatReq::clear_to_id() {
+// uint32 peer_id = 1;
+inline void ClearChatReq::clear_peer_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.to_id_ = 0u;
+  _impl_.peer_id_ = 0u;
   ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
 }
-inline ::uint32_t ClearChatReq::to_id() const {
-  // @@protoc_insertion_point(field_get:ccs.ClearChatReq.to_id)
-  return _internal_to_id();
+inline ::uint32_t ClearChatReq::peer_id() const {
+  // @@protoc_insertion_point(field_get:ccs.ClearChatReq.peer_id)
+  return _internal_peer_id();
 }
-inline void ClearChatReq::set_to_id(::uint32_t value) {
-  _internal_set_to_id(value);
+inline void ClearChatReq::set_peer_id(::uint32_t value) {
+  _internal_set_peer_id(value);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  // @@protoc_insertion_point(field_set:ccs.ClearChatReq.to_id)
+  // @@protoc_insertion_point(field_set:ccs.ClearChatReq.peer_id)
 }
-inline ::uint32_t ClearChatReq::_internal_to_id() const {
+inline ::uint32_t ClearChatReq::_internal_peer_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.to_id_;
+  return _impl_.peer_id_;
 }
-inline void ClearChatReq::_internal_set_to_id(::uint32_t value) {
+inline void ClearChatReq::_internal_set_peer_id(::uint32_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.to_id_ = value;
+  _impl_.peer_id_ = value;
 }
 
 // uint64 idempotent = 2;
@@ -2768,28 +3404,28 @@ inline void ClearChatNtf::_internal_set_chat_id(::uint64_t value) {
 
 // DeleteChatCursorReq
 
-// uint32 to_id = 1;
-inline void DeleteChatCursorReq::clear_to_id() {
+// uint32 peer_id = 1;
+inline void DeleteChatCursorReq::clear_peer_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.to_id_ = 0u;
+  _impl_.peer_id_ = 0u;
   ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
 }
-inline ::uint32_t DeleteChatCursorReq::to_id() const {
-  // @@protoc_insertion_point(field_get:ccs.DeleteChatCursorReq.to_id)
-  return _internal_to_id();
+inline ::uint32_t DeleteChatCursorReq::peer_id() const {
+  // @@protoc_insertion_point(field_get:ccs.DeleteChatCursorReq.peer_id)
+  return _internal_peer_id();
 }
-inline void DeleteChatCursorReq::set_to_id(::uint32_t value) {
-  _internal_set_to_id(value);
+inline void DeleteChatCursorReq::set_peer_id(::uint32_t value) {
+  _internal_set_peer_id(value);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  // @@protoc_insertion_point(field_set:ccs.DeleteChatCursorReq.to_id)
+  // @@protoc_insertion_point(field_set:ccs.DeleteChatCursorReq.peer_id)
 }
-inline ::uint32_t DeleteChatCursorReq::_internal_to_id() const {
+inline ::uint32_t DeleteChatCursorReq::_internal_peer_id() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.to_id_;
+  return _impl_.peer_id_;
 }
-inline void DeleteChatCursorReq::_internal_set_to_id(::uint32_t value) {
+inline void DeleteChatCursorReq::_internal_set_peer_id(::uint32_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.to_id_ = value;
+  _impl_.peer_id_ = value;
 }
 
 // uint64 idempotent = 2;
@@ -2894,6 +3530,186 @@ inline ::uint64_t DeleteChatCursorNtf::_internal_chat_id() const {
 inline void DeleteChatCursorNtf::_internal_set_chat_id(::uint64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.chat_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ConfirmChatReq
+
+// uint32 peer_id = 1;
+inline void ConfirmChatReq::clear_peer_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.peer_id_ = 0u;
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+}
+inline ::uint32_t ConfirmChatReq::peer_id() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatReq.peer_id)
+  return _internal_peer_id();
+}
+inline void ConfirmChatReq::set_peer_id(::uint32_t value) {
+  _internal_set_peer_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatReq.peer_id)
+}
+inline ::uint32_t ConfirmChatReq::_internal_peer_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.peer_id_;
+}
+inline void ConfirmChatReq::_internal_set_peer_id(::uint32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.peer_id_ = value;
+}
+
+// int64 seq = 2;
+inline void ConfirmChatReq::clear_seq() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.seq_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+}
+inline ::int64_t ConfirmChatReq::seq() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatReq.seq)
+  return _internal_seq();
+}
+inline void ConfirmChatReq::set_seq(::int64_t value) {
+  _internal_set_seq(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatReq.seq)
+}
+inline ::int64_t ConfirmChatReq::_internal_seq() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.seq_;
+}
+inline void ConfirmChatReq::_internal_set_seq(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.seq_ = value;
+}
+
+// uint64 idempotent = 3;
+inline void ConfirmChatReq::clear_idempotent() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.idempotent_ = ::uint64_t{0u};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+}
+inline ::uint64_t ConfirmChatReq::idempotent() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatReq.idempotent)
+  return _internal_idempotent();
+}
+inline void ConfirmChatReq::set_idempotent(::uint64_t value) {
+  _internal_set_idempotent(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatReq.idempotent)
+}
+inline ::uint64_t ConfirmChatReq::_internal_idempotent() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.idempotent_;
+}
+inline void ConfirmChatReq::_internal_set_idempotent(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.idempotent_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ConfirmChatRsp
+
+// int32 code = 1;
+inline void ConfirmChatRsp::clear_code() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.code_ = 0;
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+}
+inline ::int32_t ConfirmChatRsp::code() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatRsp.code)
+  return _internal_code();
+}
+inline void ConfirmChatRsp::set_code(::int32_t value) {
+  _internal_set_code(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatRsp.code)
+}
+inline ::int32_t ConfirmChatRsp::_internal_code() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.code_;
+}
+inline void ConfirmChatRsp::_internal_set_code(::int32_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.code_ = value;
+}
+
+// uint64 chat_id = 2;
+inline void ConfirmChatRsp::clear_chat_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.chat_id_ = ::uint64_t{0u};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+}
+inline ::uint64_t ConfirmChatRsp::chat_id() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatRsp.chat_id)
+  return _internal_chat_id();
+}
+inline void ConfirmChatRsp::set_chat_id(::uint64_t value) {
+  _internal_set_chat_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatRsp.chat_id)
+}
+inline ::uint64_t ConfirmChatRsp::_internal_chat_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.chat_id_;
+}
+inline void ConfirmChatRsp::_internal_set_chat_id(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.chat_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// ConfirmChatNtf
+
+// uint64 chat_id = 1;
+inline void ConfirmChatNtf::clear_chat_id() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.chat_id_ = ::uint64_t{0u};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+}
+inline ::uint64_t ConfirmChatNtf::chat_id() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatNtf.chat_id)
+  return _internal_chat_id();
+}
+inline void ConfirmChatNtf::set_chat_id(::uint64_t value) {
+  _internal_set_chat_id(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatNtf.chat_id)
+}
+inline ::uint64_t ConfirmChatNtf::_internal_chat_id() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.chat_id_;
+}
+inline void ConfirmChatNtf::_internal_set_chat_id(::uint64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.chat_id_ = value;
+}
+
+// int64 seq = 2;
+inline void ConfirmChatNtf::clear_seq() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.seq_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+}
+inline ::int64_t ConfirmChatNtf::seq() const {
+  // @@protoc_insertion_point(field_get:ccs.ConfirmChatNtf.seq)
+  return _internal_seq();
+}
+inline void ConfirmChatNtf::set_seq(::int64_t value) {
+  _internal_set_seq(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  // @@protoc_insertion_point(field_set:ccs.ConfirmChatNtf.seq)
+}
+inline ::int64_t ConfirmChatNtf::_internal_seq() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.seq_;
+}
+inline void ConfirmChatNtf::_internal_set_seq(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.seq_ = value;
 }
 
 #ifdef __GNUC__
