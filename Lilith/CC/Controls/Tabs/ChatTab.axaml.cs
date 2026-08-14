@@ -34,7 +34,7 @@ namespace CC
         {
             if (current != null)
             {
-                ChatProto.Send(new ClearChatReq { ToId = (uint)current.PeerId },
+                ChatProto.Send(new ClearChatReq { PeerId = (uint)current.PeerId },
                                ChatProto.PID_CLEAR_CHAT_REQ);
             }
         }
@@ -44,7 +44,7 @@ namespace CC
         {
             if (current != null)
             {
-                ChatProto.Send(new DeleteChatCursorReq { ToId = (uint)current.PeerId },
+                ChatProto.Send(new DeleteChatCursorReq { PeerId = (uint)current.PeerId },
                                ChatProto.PID_DELETE_CHAT_REQ);
             }
         }

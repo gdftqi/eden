@@ -70,8 +70,8 @@ clear_chat_db(Server::Context& ctx, const ccs::ClearChatReq* req) noexcept {
     using adam::db::Scylla;
 
     uint32_t from_id = ctx.terminal->uid();
-    uint32_t to_id   = (uint32_t)req->to_id();
-    uint64_t chat_id = make_chat_id(from_id, to_id);
+    uint32_t peer_id = (uint32_t)req->peer_id();
+    uint64_t chat_id = make_chat_id(from_id, peer_id);
 
     int64_t allocated = 0;
     int rc = Scylla::instance()->exec(
@@ -122,23 +122,23 @@ clear_chat_db(Server::Context& ctx, const ccs::ClearChatReq* req) noexcept {
     }
 
     // 自己和自己的会话没有对端可通知
-    if (to_id == from_id) {
+    if (peer_id == from_id) {
         return;
     }
 
-    // ---- 通知 to_id 也清掉本地记录 ----
+    // ---- 通知 peer_id 也清掉本地记录 ----
     ccs::ClearChatNtf ntf;
     ntf.set_chat_id(chat_id);
 
     auto* s = ctx.reactor->server();
-    uint32_t idx = s->directory()->get(to_id);
+    uint32_t idx = s->directory()->get(peer_id);
     if (idx == Directory::NPOS) {
         // 目标不在线: 它本地的旧记录要等拉历史时才对得上
         return;
     }
 
     if (idx == ctx.reactor->index()) {
-        auto t = ctx.reactor->get_terminal(to_id);
+        auto t = ctx.reactor->get_terminal(peer_id);
         if (t != nullptr) {
             Server::Context to_ctx(ctx.reactor, t.get());
             clear_chat_notify(to_ctx, &ntf);
@@ -148,7 +148,7 @@ clear_chat_db(Server::Context& ctx, const ccs::ClearChatReq* req) noexcept {
 
     auto* m = new Message(Message::Type::MidHandle);
     m->arg1.v   = MID_CLEAR_CHAT_PUSH;
-    m->arg2.v   = to_id;
+    m->arg2.v   = peer_id;
     m->arg3.ptr = new ccs::ClearChatNtf(std::move(ntf));
     s->reactor(idx)->notify(m);
 }
@@ -177,15 +177,15 @@ clear_chat(Server::Context& ctx, adam::core::Package* pk) noexcept {
     }
 
     uint32_t from_id = ctx.terminal->uid();
-    uint32_t to_id   = (uint32_t)req.to_id();
-    if (to_id == 0) {
-        xERROR("无效的 to_id: from = {}", from_id);
+    uint32_t peer_id = (uint32_t)req.peer_id();
+    if (peer_id == 0) {
+        xERROR("无效的 peer_id: from = {}", from_id);
         ctx.terminate(PERR_TER_PROTO_ERR);
         return;
     }
 
     auto* s = ctx.reactor->server();
-    uint64_t chat_id = make_chat_id(from_id, to_id);
+    uint64_t chat_id = make_chat_id(from_id, peer_id);
     auto* reactor = s->reactor(chat_id % s->reactor_count());
     if (reactor == ctx.reactor) {
         clear_chat_db(ctx, &req);

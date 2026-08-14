@@ -70,11 +70,9 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
     using adam::db::Scylla;
 
     uint32_t from_id = ctx.terminal->uid();
-    uint32_t to_id   = (uint32_t)req->to_id();
-    uint64_t chat_id = make_chat_id(from_id, to_id);
+    uint32_t peer_id = (uint32_t)req->peer_id();
+    uint64_t chat_id = make_chat_id(from_id, peer_id);
 
-    // 删除会话 = 清空消息 + 抹掉双方的会话游标, 会话本身从两边的列表消失.
-    // 消息按 bucket 分区存, 逐桶删分区; 上界取 chat_seq.allocated(已批发水位, 恒 >= 真实最大 seq)
     int64_t allocated = 0;
     int rc = Scylla::instance()->exec(
         "SELECT allocated FROM eva.chat_seq WHERE chat_id=?",
@@ -84,14 +82,15 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
         [&](const ::CassResult* rs) noexcept {
             const ::CassRow* row = ::cass_result_first_row(rs);
             if (row == nullptr) {
-                return;   // 这个会话从没发过消息, allocated 保持 0
+                return;
             }
 
             const ::CassValue* v = ::cass_row_get_column_by_name(row, "allocated");
             if (v != nullptr) {
                 ::cass_value_get_int64(v, &allocated);
             }
-        });
+        }
+    );
 
     for (int64_t b = 0; rc == 0 && b <= allocated / SEQ_BUCKET_WIDTH; ++b) {
         rc = Scylla::instance()->exec(
@@ -102,8 +101,7 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
             });
     }
 
-    // 双方的游标各删一行. chat_seq 不动: 号继续往上发, 免得新消息和残留的旧 seq 撞号
-    for (uint32_t uid: { from_id, to_id }) {
+    for (uint32_t uid: { from_id, peer_id }) {
         if (rc != 0) {
             break;
         }
@@ -113,10 +111,11 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
             [&](::CassStatement* st) {
                 ::cass_statement_bind_int64(st, 0, (int64_t)uid);
                 ::cass_statement_bind_int64(st, 1, (int64_t)chat_id);
-            });
+            }
+        );
 
-        if (to_id == from_id) {
-            break;   // 自己和自己的会话只有一行游标
+        if (peer_id == from_id) {
+            break;
         }
     }
 
@@ -136,29 +135,26 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
         home->notify(m);
     }
 
-    // 没删成就别通知对端, 免得它把本地会话删了而服务端还留着
     if (rc != 0) {
         return;
     }
 
-    // 自己和自己的会话没有对端可通知
-    if (to_id == from_id) {
+    if (peer_id == from_id) {
         return;
     }
 
-    // ---- 通知 to_id 也删掉本地会话 ----
+    // ---- 通知 peer_id 也删掉本地会话 ----
     ccs::DeleteChatCursorNtf ntf;
     ntf.set_chat_id(chat_id);
 
     auto* s = ctx.reactor->server();
-    uint32_t idx = s->directory()->get(to_id);
+    uint32_t idx = s->directory()->get(peer_id);
     if (idx == Directory::NPOS) {
-        // 目标不在线: 它本地的会话要等拉历史时才对得上
         return;
     }
 
     if (idx == ctx.reactor->index()) {
-        auto t = ctx.reactor->get_terminal(to_id);
+        auto t = ctx.reactor->get_terminal(peer_id);
         if (t != nullptr) {
             Server::Context to_ctx(ctx.reactor, t.get());
             delete_chat_notify(to_ctx, &ntf);
@@ -168,7 +164,7 @@ delete_chat_db(Server::Context& ctx, const ccs::DeleteChatCursorReq* req) noexce
 
     auto* m = new Message(Message::Type::MidHandle);
     m->arg1.v   = MID_DELETE_CHAT_PUSH;
-    m->arg2.v   = to_id;
+    m->arg2.v   = peer_id;
     m->arg3.ptr = new ccs::DeleteChatCursorNtf(std::move(ntf));
     s->reactor(idx)->notify(m);
 }
@@ -197,15 +193,15 @@ delete_chat(Server::Context& ctx, adam::core::Package* pk) noexcept {
     }
 
     uint32_t from_id = ctx.terminal->uid();
-    uint32_t to_id   = (uint32_t)req.to_id();
-    if (to_id == 0) {
-        xERROR("无效的 to_id: from = {}", from_id);
+    uint32_t peer_id = (uint32_t)req.peer_id();
+    if (peer_id == 0) {
+        xERROR("无效的 peer_id: from = {}", from_id);
         ctx.terminate(PERR_TER_PROTO_ERR);
         return;
     }
 
     auto* s = ctx.reactor->server();
-    uint64_t chat_id = make_chat_id(from_id, to_id);
+    uint64_t chat_id = make_chat_id(from_id, peer_id);
     auto* reactor = s->reactor(chat_id % s->reactor_count());
     if (reactor == ctx.reactor) {
         delete_chat_db(ctx, &req);
