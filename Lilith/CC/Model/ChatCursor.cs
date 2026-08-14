@@ -39,6 +39,12 @@ CREATE INDEX IF NOT EXISTS idx_cursor_sort ON t_chat_cursor(f_last_time DESC);
         public Int64 RecvSeq { get; set; }
 
         /// <summary>
+        /// 服务端那边的最新位置, 同步时拿到, 不落本地库.
+        /// 比 RecvSeq 大就说明还有消息没拉下来.
+        /// </summary>
+        public Int64 SyncSeq { get; set; }
+
+        /// <summary>
         /// 本端已读位置.
         /// </summary>
         public Int64 ReadSeq { get; set; }

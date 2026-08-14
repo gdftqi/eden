@@ -75,6 +75,26 @@ namespace CC.Model
         /// </summary>
         public const ushort PID_CONFIRM_CHAT_NTF = Package.PID_CUSTOM + 12;
 
+        /// <summary>
+        /// 拉会话水位(离线同步第一步): 服务端把该用户全部会话的 last_seq 等一次给回来.
+        /// </summary>
+        public const ushort PID_GET_CHAT_CURSOR_REQ = Package.PID_CUSTOM + 13;
+
+        /// <summary>
+        /// 会话水位应答.
+        /// </summary>
+        public const ushort PID_GET_CHAT_CURSOR_RSP = Package.PID_CUSTOM + 14;
+
+        /// <summary>
+        /// 拉某个会话的历史(第二步, 点开会话时按需拉).
+        /// </summary>
+        public const ushort PID_GET_CHAT_MSG_REQ = Package.PID_CUSTOM + 15;
+
+        /// <summary>
+        /// 聊天记录应答.
+        /// </summary>
+        public const ushort PID_GET_CHAT_MSG_RSP = Package.PID_CUSTOM + 16;
+
 
         /// <summary>
         /// 序列化 pb 消息并发给 CCS: 唯一的组包出口.

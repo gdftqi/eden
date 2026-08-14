@@ -319,7 +319,22 @@ namespace CC
                     if (Package.DecodeEnterRsp(pkg, out uint entUid, out uint entCode))
                     {
                         Log.Write($"[CC] 后端登记回执: serv = 0x{pkg.SrcID:X8}, uid = {entUid}, code = {entCode}");
+
+                        // 进了 CCS 就立刻对账: 拉一遍会话水位, 看离线期间落下了什么.
+                        // 重连也会走到这里, 正好补上断线那段
+                        if (entCode == 0 && pkg.SrcID == ChatProto.CCS_ID)
+                        {
+                            ChatProto.Send(new GetChatCursorReq(), ChatProto.PID_GET_CHAT_CURSOR_REQ);
+                        }
                     }
+                    return;
+
+                case ChatProto.PID_GET_CHAT_CURSOR_RSP:
+                    OnChatCursorRsp(pkg);
+                    return;
+
+                case ChatProto.PID_GET_CHAT_MSG_RSP:
+                    OnChatMessageRsp(pkg);
                     return;
 
                 case ChatProto.PID_SINGLE_CHAT_RSP:
@@ -404,6 +419,48 @@ namespace CC
             }
 
             TabChat.OnChatAck(rsp);
+        }
+
+
+        // 会话水位应答: 交给 ChatTab 和本地对账, 算出各会话落下了多少条
+        private void OnChatCursorRsp(Package pkg)
+        {
+            try
+            {
+                var rsp = GetChatCursorRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                if (rsp.Code != 0)
+                {
+                    Log.Write($"[CC] 拉会话水位失败: code = {rsp.Code}");
+                    return;
+                }
+
+                TabChat.OnCursorSync(rsp);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] GET_CHAT_CURSOR_RSP 解析失败: {ex.Message}");
+            }
+        }
+
+
+        // 拉回来的历史: 交给 ChatTab 落库重画
+        private void OnChatMessageRsp(Package pkg)
+        {
+            try
+            {
+                var rsp = GetChatMessageRsp.Parser.ParseFrom(pkg.Payload, 0, pkg.PayloadLength);
+                if (rsp.Code != 0)
+                {
+                    Log.Write($"[CC] 拉聊天记录失败: chat_id = {rsp.ChatId}, code = {rsp.Code}");
+                    return;
+                }
+
+                TabChat.OnChatMessages(rsp);
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[CC] GET_CHAT_MSG_RSP 解析失败: {ex.Message}");
+            }
         }
 
 
