@@ -14,6 +14,11 @@ namespace CC
     {
         public event Action<SingleChatReq>? SendRequested;
 
+        /// <summary>
+        /// 来了一条用户没看到的消息(聊天页不在前面). 宿主据此在导航图标上点红点.
+        /// </summary>
+        public event Action? Unseen;
+
         // 当前打开的会话
         private ChatCursor? current;
 
@@ -64,6 +69,66 @@ namespace CC
             {
                 loaded = true;
                 _ = Reload();
+            }
+        }
+
+
+        private bool windowActive = true;
+
+
+        /// <summary>
+        /// 窗口前台状态变了(MainWindow 调).
+        /// </summary>
+        public void SetWindowActive(bool active)
+        {
+            windowActive = active;
+
+            if (active)
+            {
+                CatchUpRead();
+            }
+        }
+
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == IsVisibleProperty && IsVisible)
+            {
+                CatchUpRead();
+            }
+        }
+
+
+        private bool Watching()
+        {
+            return windowActive && IsVisible;
+        }
+
+
+        private void RaiseUnseen()
+        {
+            if (!IsVisible)
+            {
+                Unseen?.Invoke();
+            }
+        }
+
+
+        private void CatchUpRead()
+        {
+            if (!Watching() || current == null || current.ReadSeq >= current.RecvSeq)
+            {
+                return;
+            }
+
+            ConfirmRead(current);
+
+            var item = ChatPanel.Find(current.ChatId);
+            if (item != null)
+            {
+                item.Unread = 0;
             }
         }
 
@@ -259,13 +324,12 @@ LIMIT $n";
         }
 
 
-        // 对端已读到 seq(ConfirmChatNtf): 记下水位, 把自己发的、seq 不超过它的消息标成已读
         public void OnPeerRead(long chatId, long seq)
         {
             var conv = ChatPanel.Find(chatId)?.Conversation;
             if (conv == null || seq <= conv.PeerReadSeq)
             {
-                return;   // 迟到的旧通知不能把水位拉回去
+                return;
             }
 
             conv.PeerReadSeq = seq;
@@ -417,18 +481,33 @@ LIMIT $n";
 
             if (current != null && current.ChatId == chatId)
             {
+                bool watching = Watching();
+
                 current.Messages.Add(msg);
-                current.RecvSeq = msg.Seq;
+                current.RecvSeq     = msg.Seq;
+                current.LastPreview = msg.Content;
+                current.LastTime    = msg.CreatedAt;
                 ChatView.AddMessage(msg);
 
-                current.LastPreview = msg.Content;
-                current.LastTime = msg.CreatedAt;
-                ChatPanel.Upsert(current, true);
-                UpdateConversation(chatId, msg.Content, msg.CreatedAt, 0);
+                if (!watching)
+                {
+                    Utils.Sound.Notify();
+                    current.Unread += 1;
+                    RaiseUnseen();
+                }
 
-                ConfirmRead(current);
+                ChatPanel.Upsert(current, true);
+                UpdateConversation(chatId, msg.Content, msg.CreatedAt, watching ? 0 : 1);
+
+                if (watching)
+                {
+                    ConfirmRead(current);
+                }
                 return;
             }
+
+            Utils.Sound.Notify();
+            RaiseUnseen();
 
             var conv = ChatPanel.Find(chatId)?.Conversation;
             if (conv == null)

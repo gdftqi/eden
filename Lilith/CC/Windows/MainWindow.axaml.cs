@@ -18,6 +18,12 @@ namespace CC
             InitializeComponent();
             RefreshAvatar();
             TabChat.SendRequested += OnSendText;
+            TabChat.Unseen += () => ChatDot.IsVisible = true;
+
+            // 窗口在不在前台, 决定收到消息算不算"用户看见了"(已读回执 + 提示音都看它)
+            Activated += (_, _) => TabChat.SetWindowActive(true);
+            Deactivated += (_, _) => TabChat.SetWindowActive(false);
+
             // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
             Hydra.Instance.SetOnStateChanged(OnHydraState).SetOnPackage(OnPackage);
         }
@@ -84,6 +90,7 @@ namespace CC
         {
             SetNav(ChatIcon);
             ShowTab(TabChat);
+            ChatDot.IsVisible = false;   // 点进来就算看到了
         }
 
         private void Contacts_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
