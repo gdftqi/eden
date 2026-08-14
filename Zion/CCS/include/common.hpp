@@ -7,18 +7,22 @@
 #include "proto/ccs.pb.h"
 
 
-#define PID_SINGLE_CHAT_REQ  (PID_CUSTOM + 1)
-#define PID_SINGLE_CHAT_RSP  (PID_CUSTOM + 2)
-#define PID_SINGLE_CHAT_NTF  (PID_CUSTOM + 3)
-#define PID_CLEAR_CHAT_REQ   (PID_CUSTOM + 4)
-#define PID_CLEAR_CHAT_RSP   (PID_CUSTOM + 5)
-#define PID_CLEAR_CHAT_NTF   (PID_CUSTOM + 6)
-#define PID_DELETE_CHAT_REQ  (PID_CUSTOM + 7)
-#define PID_DELETE_CHAT_RSP  (PID_CUSTOM + 8)
-#define PID_DELETE_CHAT_NTF  (PID_CUSTOM + 9)
-#define PID_CONFIRM_CHAT_REQ (PID_CUSTOM + 10)
-#define PID_CONFIRM_CHAT_RSP (PID_CUSTOM + 11)
-#define PID_CONFIRM_CHAT_NTF (PID_CUSTOM + 12)
+#define PID_SINGLE_CHAT_REQ     (PID_CUSTOM + 1)
+#define PID_SINGLE_CHAT_RSP     (PID_CUSTOM + 2)
+#define PID_SINGLE_CHAT_NTF     (PID_CUSTOM + 3)
+#define PID_CLEAR_CHAT_REQ      (PID_CUSTOM + 4)
+#define PID_CLEAR_CHAT_RSP      (PID_CUSTOM + 5)
+#define PID_CLEAR_CHAT_NTF      (PID_CUSTOM + 6)
+#define PID_DELETE_CHAT_REQ     (PID_CUSTOM + 7)
+#define PID_DELETE_CHAT_RSP     (PID_CUSTOM + 8)
+#define PID_DELETE_CHAT_NTF     (PID_CUSTOM + 9)
+#define PID_CONFIRM_CHAT_REQ    (PID_CUSTOM + 10)
+#define PID_CONFIRM_CHAT_RSP    (PID_CUSTOM + 11)
+#define PID_CONFIRM_CHAT_NTF    (PID_CUSTOM + 12)
+#define PID_GET_CHAT_CURSOR_REQ (PID_CUSTOM + 13)
+#define PID_GET_CHAT_CURSOR_RSP (PID_CUSTOM + 14)
+#define PID_GET_CHAT_MSG_REQ    (PID_CUSTOM + 15)
+#define PID_GET_CHAT_MSG_RSP    (PID_CUSTOM + 16)
 
 
 constexpr uint16_t MID_SINGLE_CHAT_DB    = 1;
@@ -51,6 +55,53 @@ using adam::tcp::Terminal;
 inline uint64_t
 make_chat_id(uint32_t a, uint32_t b) noexcept {
     return (uint64_t)std::min(a, b) << 32 | std::max(a, b);
+}
+
+
+// 取列的小工具: 列不存在或是 NULL 都给零值.
+// 直接 cass_value_get_* 每取一个字段要判空 + 判返回码, 读起来全是噪音
+inline int64_t
+col_i64(const ::CassRow* row, const char* name) noexcept {
+    int64_t v = 0;
+    const ::CassValue* c = ::cass_row_get_column_by_name(row, name);
+    if (c != nullptr) {
+        ::cass_value_get_int64(c, &v);
+    }
+    return v;
+}
+
+
+inline int8_t
+col_i8(const ::CassRow* row, const char* name) noexcept {
+    int8_t v = 0;
+    const ::CassValue* c = ::cass_row_get_column_by_name(row, name);
+    if (c != nullptr) {
+        ::cass_value_get_int8(c, &v);
+    }
+    return v;
+}
+
+
+inline bool
+col_bool(const ::CassRow* row, const char* name) noexcept {
+    cass_bool_t v = cass_false;
+    const ::CassValue* c = ::cass_row_get_column_by_name(row, name);
+    if (c != nullptr) {
+        ::cass_value_get_bool(c, &v);
+    }
+    return v == cass_true;
+}
+
+
+inline std::string
+col_text(const ::CassRow* row, const char* name) noexcept {
+    const char* s = nullptr;
+    size_t      n = 0;
+    const ::CassValue* c = ::cass_row_get_column_by_name(row, name);
+    if (c != nullptr && ::cass_value_get_string(c, &s, &n) == CASS_OK) {
+        return std::string(s, n);
+    }
+    return std::string();
 }
 
 

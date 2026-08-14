@@ -1,4 +1,6 @@
 #include "ccs.hpp"
+#include "chat_cursor.hpp"
+#include "chat_message.hpp"
 #include "clear_chat.hpp"
 #include "delete_chat.hpp"
 #include "single_chat.hpp"
@@ -30,4 +32,7 @@ TCP_SERVER_MAIN(
     TCP_MSG_HANDLE(MID_CONFIRM_CHAT_DB, confirm_chat_db)
     TCP_MSG_HANDLE(MID_CONFIRM_CHAT_PUSH, confirm_chat_notify)
     TCP_MSG_HANDLE(MID_CONFIRM_CHAT_ACK, confirm_chat_ack)
+
+    TCP_PK_HANDLE(PID_GET_CHAT_CURSOR_REQ, get_chat_cursor)
+    TCP_PK_HANDLE(PID_GET_CHAT_MSG_REQ, get_chat_message)
 )

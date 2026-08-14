@@ -101,3 +101,58 @@ message ConfirmChatNtf {
     uint64 chat_id = 1;
     int64  seq     = 2;
 }
+
+
+message ChatCursorItem {
+    uint32 user_id   = 1;
+    uint64 chat_id   = 2;
+    int64  last_seq  = 3;
+    int64  last_time = 4;
+    int64  read_seq  = 5;
+    int64  recv_seq  = 6;
+    bool   is_pinned = 7;
+    bool   is_muted  = 8;
+}
+
+
+message ChatMsg {
+    uint64      chat_id    = 1;
+    int32       bucket     = 2;
+    int64       seq        = 3;
+    int64       msg_id     = 4;
+    uint64      cli_id     = 5;
+    uint32      from_id    = 6;
+    uint32      to_id      = 7;
+    MessageType msg_type   = 8;
+    string      content    = 9;
+    int64       target_id  = 10;
+    int64       edit_seq   = 11;
+    int64       edited_at  = 12;
+    bool        is_revoked = 13;
+    int64       created_at = 14;
+}
+
+
+message GetChatCursorReq {
+}
+
+
+message GetChatCursorRsp {
+    int32                   code    = 1;
+    repeated ChatCursorItem cursors = 2;
+}
+
+
+message GetChatMessageReq {
+    uint64 chat_id    = 1;
+    int64  before_seq = 2;
+    int32  limit      = 3;
+}
+
+
+message GetChatMessageRsp {
+    int32            code     = 1;
+    uint64           chat_id  = 2;
+    bool             has_more = 3;
+    repeated ChatMsg messages = 4;
+}
