@@ -20,7 +20,8 @@ namespace CC
         // 非文本内容
         public static readonly StyledProperty<object?> BodyProperty = AvaloniaProperty.Register<MessageBubble, object?>(nameof(Body));
 
-        // 回执(仅自己发的显示).
+        // 回执(仅自己发的显示). 0 发送中(转圈) / 1 已送达(绿单勾) /
+        // 2 失败(红叹号) / 3 对方已读(绿双勾)
         public static readonly StyledProperty<int> StatusProperty = AvaloniaProperty.Register<MessageBubble, int>(nameof(Status));
 
         // 这个气泡画的是哪条消息. ACK 回来时靠它把气泡找回来
@@ -49,8 +50,7 @@ namespace CC
 
         static readonly IBrush InBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));   // 对方: 白
         static readonly IBrush OutBrush = new SolidColorBrush(Color.Parse("#DCF8C6"));  // 自己: 浅绿
-        static readonly IBrush TickGreen = new SolidColorBrush(Color.Parse("#43A047")); // 已送达
-        static readonly IBrush TickBlue = new SolidColorBrush(Color.Parse("#34B7F1"));  // 对方已读
+        static readonly IBrush TickGreen = new SolidColorBrush(Color.Parse("#43A047")); // 已送达 / 对方已读
         static readonly IBrush TickRed = new SolidColorBrush(Color.Parse("#E53935"));   // 失败
 
         const string SingleCheck = "M0,3 L2,5 L6,0";
@@ -89,7 +89,7 @@ namespace CC
 
             if (Ticks.IsVisible)
             {
-                Ticks.Stroke = Status switch { 2 => TickRed, 3 => TickBlue, _ => TickGreen };
+                Ticks.Stroke = Status == 2 ? TickRed : TickGreen;
                 Ticks.Data = Geometry.Parse(Status switch { 2 => FailMark, 3 => DoubleCheck, _ => SingleCheck });
             }
         }

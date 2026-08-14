@@ -236,9 +236,8 @@ LIMIT $n";
         }
 
 
-        // 未读清零落库. 点开即已读, 所以顺手把 f_read_seq 推到 f_recv_seq --
-        // 明天做已读回执时直接上报这个值即可
-        private static void ClearUnread(long chatId)
+        // 已读落库
+        private static void SaveReadSeq(long chatId)
         {
             if (Me.Db == null)
             {
@@ -329,7 +328,7 @@ LIMIT $n";
         {
             conv.Unread  = 0;
             conv.ReadSeq = conv.RecvSeq;
-            ClearUnread(conv.ChatId);
+            SaveReadSeq(conv.ChatId);
 
             ChatProto.Send(new ConfirmChatReq
                            {
@@ -378,7 +377,7 @@ LIMIT $n";
                 else if (current.Unread > 0)
                 {
                     current.Unread = 0;
-                    ClearUnread(current.ChatId);
+                    SaveReadSeq(current.ChatId);
                 }
             }
 

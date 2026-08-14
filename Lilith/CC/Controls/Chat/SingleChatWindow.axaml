@@ -118,7 +118,40 @@
         </Border>
 
         <!-- 消息区 -->
-        <Border Grid.Row="1" Background="#ECE5DD">
+        <Border Grid.Row="1">
+            <!-- 底色 + 平铺暗纹. 用矢量而不是图片: 颜色/密度/缩放随时能调, 也不用带素材文件.
+                 改密度调 SourceRect/DestinationRect 的边长(两个要一样大), 改深浅调 Pen 的颜色 -->
+            <Border.Background>
+                <DrawingBrush TileMode="Tile" SourceRect="0,0,120,120" DestinationRect="0,0,120,120">
+                    <DrawingBrush.Drawing>
+                        <DrawingGroup>
+                            <!-- 一格的底色, 平铺后就是整片背景 -->
+                            <GeometryDrawing Brush="#ECE5DD" Geometry="M0,0 H120 V120 H0 Z"/>
+
+                            <!-- 描边的小图案. 全部缩在格子内侧, 平铺时不会被切开 -->
+                            <GeometryDrawing Geometry="M13,20 A7,7 0 1 0 27,20 A7,7 0 1 0 13,20
+                                                       M25,54 V66 M19,60 H31
+                                                       M50,28 C53,23 57,23 60,28 C63,33 67,33 70,28
+                                                       M95,14 L101,26 L89,26 Z
+                                                       M65,58 L72,65 L65,72 L58,65 Z
+                                                       M94,68 Q102,78 110,68
+                                                       M12,100 L18,94 L24,100 L30,94
+                                                       M55,105 A5,5 0 1 0 65,105 A5,5 0 1 0 55,105
+                                                       M95,95 V107 M89,101 H101">
+                                <GeometryDrawing.Pen>
+                                    <Pen Brush="#DCD2C6" Thickness="1.5" LineCap="Round" LineJoin="Round"/>
+                                </GeometryDrawing.Pen>
+                            </GeometryDrawing>
+
+                            <!-- 几个实心小点, 打散规律感 -->
+                            <GeometryDrawing Brush="#DCD2C6"
+                                             Geometry="M40,44 A2,2 0 1 0 44,44 A2,2 0 1 0 40,44
+                                                       M86,44 A2,2 0 1 0 90,44 A2,2 0 1 0 86,44
+                                                       M38,84 A2,2 0 1 0 42,84 A2,2 0 1 0 38,84"/>
+                        </DrawingGroup>
+                    </DrawingBrush.Drawing>
+                </DrawingBrush>
+            </Border.Background>
             <ScrollViewer x:Name="MsgScroll" HorizontalScrollBarVisibility="Disabled">
                 <ScrollViewer.Resources>
                     <!-- 滚动条 -->
