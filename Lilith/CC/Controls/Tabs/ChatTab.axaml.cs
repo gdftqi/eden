@@ -325,6 +325,21 @@ LIMIT $n";
         }
 
 
+        private static void ConfirmRead(ChatCursor conv)
+        {
+            conv.Unread  = 0;
+            conv.ReadSeq = conv.RecvSeq;
+            ClearUnread(conv.ChatId);
+
+            ChatProto.Send(new ConfirmChatReq
+                           {
+                               PeerId = (uint)conv.PeerId,
+                               Seq    = conv.RecvSeq,
+                           },
+                           ChatProto.PID_CONFIRM_CHAT_REQ);
+        }
+
+
         private static void InsertConversation(ChatCursor conv)
         {
             if (Me.Db == null)
@@ -354,24 +369,16 @@ LIMIT $n";
 
             if (current != null)
             {
-                bool advanced = current.ReadSeq < current.RecvSeq;
+                item.Unread = 0;
 
-                if (advanced || current.Unread > 0)
+                if (current.ReadSeq < current.RecvSeq)
                 {
-                    current.Unread  = 0;
-                    current.ReadSeq = current.RecvSeq;
-                    item.Unread     = 0;
-                    ClearUnread(current.ChatId);
+                    ConfirmRead(current);
                 }
-
-                if (advanced)
+                else if (current.Unread > 0)
                 {
-                    ChatProto.Send(new ConfirmChatReq
-                                   {
-                                       PeerId = (uint)current.PeerId,
-                                       Seq    = current.RecvSeq,
-                                   },
-                                   ChatProto.PID_CONFIRM_CHAT_REQ);
+                    current.Unread = 0;
+                    ClearUnread(current.ChatId);
                 }
             }
 
@@ -419,6 +426,8 @@ LIMIT $n";
                 current.LastTime = msg.CreatedAt;
                 ChatPanel.Upsert(current, true);
                 UpdateConversation(chatId, msg.Content, msg.CreatedAt, 0);
+
+                ConfirmRead(current);
                 return;
             }
 
