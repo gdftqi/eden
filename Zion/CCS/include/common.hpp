@@ -7,26 +7,32 @@
 #include "proto/ccs.pb.h"
 
 
-#define PID_SINGLE_CHAT_REQ (PID_CUSTOM + 1)
-#define PID_SINGLE_CHAT_RSP (PID_CUSTOM + 2)
-#define PID_SINGLE_CHAT_NTF (PID_CUSTOM + 3)
-#define PID_CLEAR_CHAT_REQ  (PID_CUSTOM + 4)
-#define PID_CLEAR_CHAT_RSP  (PID_CUSTOM + 5)
-#define PID_CLEAR_CHAT_NTF  (PID_CUSTOM + 6)
-#define PID_DELETE_CHAT_REQ (PID_CUSTOM + 7)
-#define PID_DELETE_CHAT_RSP (PID_CUSTOM + 8)
-#define PID_DELETE_CHAT_NTF (PID_CUSTOM + 9)
+#define PID_SINGLE_CHAT_REQ  (PID_CUSTOM + 1)
+#define PID_SINGLE_CHAT_RSP  (PID_CUSTOM + 2)
+#define PID_SINGLE_CHAT_NTF  (PID_CUSTOM + 3)
+#define PID_CLEAR_CHAT_REQ   (PID_CUSTOM + 4)
+#define PID_CLEAR_CHAT_RSP   (PID_CUSTOM + 5)
+#define PID_CLEAR_CHAT_NTF   (PID_CUSTOM + 6)
+#define PID_DELETE_CHAT_REQ  (PID_CUSTOM + 7)
+#define PID_DELETE_CHAT_RSP  (PID_CUSTOM + 8)
+#define PID_DELETE_CHAT_NTF  (PID_CUSTOM + 9)
+#define PID_CONFIRM_CHAT_REQ (PID_CUSTOM + 10)
+#define PID_CONFIRM_CHAT_RSP (PID_CUSTOM + 11)
+#define PID_CONFIRM_CHAT_NTF (PID_CUSTOM + 12)
 
 
-constexpr uint16_t MID_SINGLE_CHAT_DB   = 1;
-constexpr uint16_t MID_SINGLE_CHAT_PUSH = 2;
-constexpr uint16_t MID_SINGLE_CHAT_ACK  = 3;
-constexpr uint16_t MID_CLEAR_CHAT_DB    = 4;
-constexpr uint16_t MID_CLEAR_CHAT_PUSH  = 5;
-constexpr uint16_t MID_CLEAR_CHAT_ACK   = 6;
-constexpr uint16_t MID_DELETE_CHAT_DB   = 7;
-constexpr uint16_t MID_DELETE_CHAT_PUSH = 8;
-constexpr uint16_t MID_DELETE_CHAT_ACK  = 9;
+constexpr uint16_t MID_SINGLE_CHAT_DB    = 1;
+constexpr uint16_t MID_SINGLE_CHAT_PUSH  = 2;
+constexpr uint16_t MID_SINGLE_CHAT_ACK   = 3;
+constexpr uint16_t MID_CLEAR_CHAT_DB     = 4;
+constexpr uint16_t MID_CLEAR_CHAT_PUSH   = 5;
+constexpr uint16_t MID_CLEAR_CHAT_ACK    = 6;
+constexpr uint16_t MID_DELETE_CHAT_DB    = 7;
+constexpr uint16_t MID_DELETE_CHAT_PUSH  = 8;
+constexpr uint16_t MID_DELETE_CHAT_ACK   = 9;
+constexpr uint16_t MID_CONFIRM_CHAT_DB   = 10;
+constexpr uint16_t MID_CONFIRM_CHAT_PUSH = 11;
+constexpr uint16_t MID_CONFIRM_CHAT_ACK  = 12;
 
 
 // 分桶宽度: bucket = seq / 10000. 发消息算桶号, 清空按桶删分区, 两边都用

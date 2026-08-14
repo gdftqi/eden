@@ -2,6 +2,7 @@
 #include "clear_chat.hpp"
 #include "delete_chat.hpp"
 #include "single_chat.hpp"
+#include "confirm_chat.hpp"
 
 
 TCP_SERVER_MAIN(
@@ -24,4 +25,9 @@ TCP_SERVER_MAIN(
     TCP_MSG_HANDLE(MID_DELETE_CHAT_DB, delete_chat_db)
     TCP_MSG_HANDLE(MID_DELETE_CHAT_PUSH, delete_chat_notify)
     TCP_MSG_HANDLE(MID_DELETE_CHAT_ACK, delete_chat_ack)
+
+    TCP_PK_HANDLE(PID_CONFIRM_CHAT_REQ, confirm_chat)
+    TCP_MSG_HANDLE(MID_CONFIRM_CHAT_DB, confirm_chat_db)
+    TCP_MSG_HANDLE(MID_CONFIRM_CHAT_PUSH, confirm_chat_notify)
+    TCP_MSG_HANDLE(MID_CONFIRM_CHAT_ACK, confirm_chat_ack)
 )
