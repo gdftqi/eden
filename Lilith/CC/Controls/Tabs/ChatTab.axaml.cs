@@ -33,6 +33,41 @@ namespace CC
             ChatView.SendRequested += OnSendRequested;
             ChatView.ClearRequested += OnClearRequested;
             ChatView.DeleteRequested += OnDeleteRequested;
+            ChatView.DetailRequested += ShowPeerInfo;
+            MemberView.CloseRequested += BackToChat;
+        }
+
+
+        // 点聊天窗顶栏: 显示对端的联系人信息
+        private void ShowPeerInfo()
+        {
+            if (current == null || !orgUsers.TryGetValue(current.PeerId, out var u))
+            {
+                return;
+            }
+
+            var phones = string.IsNullOrWhiteSpace(u.PhoneNum)
+                       ? System.Array.Empty<string>()
+                       : new[] { u.PhoneNum };
+
+            MemberView.SetContact(Avatars.Cached(u.Avatar) ?? Avatars.Default,
+                                  u.Nickname ?? string.Empty,
+                                  phones,
+                                  u.Username ?? string.Empty);
+
+            ChatView.IsVisible   = false;
+            EmptyState.IsVisible = false;
+            MemberView.IsVisible = true;
+        }
+
+
+        private void BackToChat()
+        {
+            MemberView.IsVisible = false;
+
+            bool has = current != null;
+            ChatView.IsVisible   = has;
+            EmptyState.IsVisible = !has;
         }
 
 

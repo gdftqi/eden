@@ -1,6 +1,8 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Lilith.Components;
 
@@ -60,6 +62,68 @@ namespace CC
             {
                 desktop.Shutdown();
             }
+        }
+
+
+        // 托盘图标的两个形态: 平时的, 和右上角带红点的
+        private static Avalonia.Controls.TrayIcon? tray;
+        private static WindowIcon? iconIdle;
+        private static WindowIcon? iconDot;
+
+
+        private static Avalonia.Controls.TrayIcon? Tray()
+        {
+            if (tray != null || Application.Current == null)
+            {
+                return tray;
+            }
+
+            var icons = Avalonia.Controls.TrayIcon.GetIcons(Application.Current);
+            if (icons != null && icons.Count > 0)
+            {
+                tray     = icons[0];
+                iconIdle = tray.Icon;   // XAML 里设的那张, 存下来好切回去
+            }
+
+            return tray;
+        }
+
+
+        /// <summary>
+        /// 有没看过的消息时给托盘图标点个红点(窗口收在托盘里时的唯一提示).
+        /// </summary>
+        public static void SetTrayDot(bool on)
+        {
+            var t = Tray();
+            if (t == null)
+            {
+                return;
+            }
+
+            if (!on)
+            {
+                if (iconIdle != null)
+                {
+                    t.Icon = iconIdle;
+                }
+                return;
+            }
+
+            if (iconDot == null)
+            {
+                try
+                {
+                    using var s = AssetLoader.Open(new System.Uri("avares://CC/Resources/app_dot.png"));
+                    iconDot = new WindowIcon(s);
+                }
+                catch (System.Exception ex)
+                {
+                    Lilith.Utils.Log.Write($"[CC] 托盘红点图标加载失败: {ex.Message}");
+                    return;
+                }
+            }
+
+            t.Icon = iconDot;
         }
 
 

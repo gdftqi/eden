@@ -21,11 +21,13 @@ namespace CC
             TabChat.SendRequested += OnSendText;
             TabChat.Unseen += () => ChatDot.IsVisible = true;
 
-            // 窗口在不在前台, 决定收到消息算不算"用户看见了"(已读回执 + 提示音都看它)
-            Activated += (_, _) => TabChat.SetWindowActive(true);
+            Activated += (_, _) =>
+            {
+                TabChat.SetWindowActive(true);
+                App.SetTrayDot(false);
+            };
             Deactivated += (_, _) => TabChat.SetWindowActive(false);
 
-            // 主窗接管 Hydra 的高层回调(pump 在 App 里已接好, 这里不用管)
             Hydra.Instance.SetOnStateChanged(OnHydraState).SetOnPackage(OnPackage);
         }
 
@@ -39,7 +41,7 @@ namespace CC
         }
 
 
-        // 切换页签: 叠放的四个 Tab 只显示一个
+        // 切换页签
         private void ShowTab(Control tab)
         {
             TabChat.IsVisible = tab == TabChat;
@@ -48,7 +50,7 @@ namespace CC
             TabSettings.IsVisible = tab == TabSettings;
         }
 
-        // 关闭按钮: 收进托盘而不是退出
+        // 关闭按钮
         private void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             Hide();
@@ -139,7 +141,7 @@ namespace CC
             }
         }
 
-        // Hydra 状态变化(主线程回调): 驱动浮窗 / 掉线回登录
+        // Hydra 状态变化(主线程回调)
         private void OnHydraState(HydraState prev, HydraState cur)
         {
             switch (cur)
@@ -597,6 +599,13 @@ namespace CC
             }
 
             TabChat.OnPeerMessage(chatId, ntf);
+
+            // 窗口收在托盘里(或最小化了)时, 托盘图标是唯一能提示的地方.
+            // 判 IsVisible 而不是 windowActive: 只是切到别的程序时窗口还看得见, 不用打点
+            if (!IsVisible || WindowState == WindowState.Minimized)
+            {
+                App.SetTrayDot(true);
+            }
         }
 
 
