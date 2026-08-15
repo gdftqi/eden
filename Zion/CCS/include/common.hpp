@@ -106,6 +106,7 @@ col_text(const ::CassRow* row, const char* name) noexcept {
     if (c != nullptr && ::cass_value_get_string(c, &s, &n) == CASS_OK) {
         return std::string(s, n);
     }
+
     return std::string();
 }
 

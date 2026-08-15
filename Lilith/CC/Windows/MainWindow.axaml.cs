@@ -47,12 +47,10 @@ namespace CC
             TabSettings.IsVisible = tab == TabSettings;
         }
 
+        // 关闭按钮: 收进托盘而不是退出
         private void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            if (Application.Current?.ApplicationLifetime is IControlledApplicationLifetime lifetime)
-            {
-                lifetime.Shutdown();
-            }
+            Hide();
         }
 
         private void Minimize_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
