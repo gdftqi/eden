@@ -17,6 +17,7 @@ namespace CC
         {
             InitializeComponent();
             RefreshAvatar();
+            App.SetTrayUser(Me.User?.Username);
             TabChat.SendRequested += OnSendText;
             TabChat.Unseen += () => ChatDot.IsVisible = true;
 

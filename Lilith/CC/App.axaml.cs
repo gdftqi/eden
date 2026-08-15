@@ -41,7 +41,6 @@ namespace CC
 
         // ---- 托盘 ----
 
-        // 双击/单击托盘图标: 把主窗请回来
         private void Tray_Clicked(object? sender, System.EventArgs e)
         {
             ShowMain();
@@ -54,7 +53,7 @@ namespace CC
         }
 
 
-        // 唯一真正退出的入口. 关闭按钮只是 Hide, 所以没有它就退不掉了
+        // 真正退出
         private void TrayExit_Click(object? sender, System.EventArgs e)
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -64,7 +63,27 @@ namespace CC
         }
 
 
-        // 收起来的窗口可能还是最小化状态, 三步都要做: 显示 / 还原 / 抢到最前
+        public static void SetTrayUser(string? name)
+        {
+            if (Application.Current == null)
+            {
+                return;
+            }
+
+            var icons = Avalonia.Controls.TrayIcon.GetIcons(Application.Current);
+            if (icons == null || icons.Count == 0)
+            {
+                return;
+            }
+
+            var items = icons[0].Menu?.Items;
+            if (items != null && items.Count > 0 && items[0] is Avalonia.Controls.NativeMenuItem head)
+            {
+                head.Header = string.IsNullOrEmpty(name) ? "未登录" : name;
+            }
+        }
+
+
         private static void ShowMain()
         {
             if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
