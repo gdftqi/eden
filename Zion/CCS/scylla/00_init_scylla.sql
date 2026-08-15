@@ -71,14 +71,15 @@ CREATE TABLE IF NOT EXISTS eva.chat_seq (
 -- ============================================================
 -- 按 user_id 分区,一次查询拉到该用户全部会话
 CREATE TABLE IF NOT EXISTS eva.chat_cursor (
-    user_id   bigint,
-    chat_id   bigint,
-    last_seq  bigint,   
-    last_time bigint,
-    read_seq  bigint,
-    recv_seq  bigint,
-    is_pinned boolean,
-    is_muted  boolean,
+    user_id       bigint,
+    chat_id       bigint,
+    last_seq      bigint,   
+    last_time     bigint,
+    read_seq      bigint,
+    peer_read_seq bigint,
+    recv_seq      bigint,
+    is_pinned     boolean,
+    is_muted      boolean,
     PRIMARY KEY (user_id, chat_id)
 ) WITH compaction = {
     'class': 'LeveledCompactionStrategy'

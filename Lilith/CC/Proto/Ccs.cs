@@ -42,27 +42,27 @@ namespace CC.Proto {
             "dF9pZBgBIAEoBCJCCg5Db25maXJtQ2hhdFJlcRIPCgdwZWVyX2lkGAEgASgN",
             "EgsKA3NlcRgCIAEoAxISCgppZGVtcG90ZW50GAMgASgEIi8KDkNvbmZpcm1D",
             "aGF0UnNwEgwKBGNvZGUYASABKAUSDwoHY2hhdF9pZBgCIAEoBCIuCg5Db25m",
-            "aXJtQ2hhdE50ZhIPCgdjaGF0X2lkGAEgASgEEgsKA3NlcRgCIAEoAyKgAQoO",
+            "aXJtQ2hhdE50ZhIPCgdjaGF0X2lkGAEgASgEEgsKA3NlcRgCIAEoAyK3AQoO",
             "Q2hhdEN1cnNvckl0ZW0SDwoHdXNlcl9pZBgBIAEoDRIPCgdjaGF0X2lkGAIg",
             "ASgEEhAKCGxhc3Rfc2VxGAMgASgDEhEKCWxhc3RfdGltZRgEIAEoAxIQCghy",
-            "ZWFkX3NlcRgFIAEoAxIQCghyZWN2X3NlcRgGIAEoAxIRCglpc19waW5uZWQY",
-            "ByABKAgSEAoIaXNfbXV0ZWQYCCABKAgijAIKB0NoYXRNc2cSDwoHY2hhdF9p",
-            "ZBgBIAEoBBIOCgZidWNrZXQYAiABKAUSCwoDc2VxGAMgASgDEg4KBm1zZ19p",
-            "ZBgEIAEoAxIOCgZjbGlfaWQYBSABKAQSDwoHZnJvbV9pZBgGIAEoDRINCgV0",
-            "b19pZBgHIAEoDRIiCghtc2dfdHlwZRgIIAEoDjIQLmNjcy5NZXNzYWdlVHlw",
-            "ZRIPCgdjb250ZW50GAkgASgJEhEKCXRhcmdldF9pZBgKIAEoAxIQCghlZGl0",
-            "X3NlcRgLIAEoAxIRCgllZGl0ZWRfYXQYDCABKAMSEgoKaXNfcmV2b2tlZBgN",
-            "IAEoCBISCgpjcmVhdGVkX2F0GA4gASgDIhIKEEdldENoYXRDdXJzb3JSZXEi",
-            "RgoQR2V0Q2hhdEN1cnNvclJzcBIMCgRjb2RlGAEgASgFEiQKB2N1cnNvcnMY",
-            "AiADKAsyEy5jY3MuQ2hhdEN1cnNvckl0ZW0iRwoRR2V0Q2hhdE1lc3NhZ2VS",
-            "ZXESDwoHY2hhdF9pZBgBIAEoBBISCgpiZWZvcmVfc2VxGAIgASgDEg0KBWxp",
-            "bWl0GAMgASgFImQKEUdldENoYXRNZXNzYWdlUnNwEgwKBGNvZGUYASABKAUS",
-            "DwoHY2hhdF9pZBgCIAEoBBIQCghoYXNfbW9yZRgDIAEoCBIeCghtZXNzYWdl",
-            "cxgEIAMoCzIMLmNjcy5DaGF0TXNnKoYBCgtNZXNzYWdlVHlwZRILCgdNVF9O",
-            "b25lEAASCwoHTVRfVGV4dBABEgwKCE1UX0ltYWdlEAISCwoHTVRfRmlsZRAD",
-            "EgwKCE1UX0F1ZGlvEAQSDAoITVRfVmlkZW8QBRIKCgZNVF9QZGYQBhILCgdN",
-            "VF9FZGl0EGQSDQoJTVRfUmV2b2tlEGVCDUgDqgIIQ0MuUHJvdG9iBnByb3Rv",
-            "Mw=="));
+            "ZWFkX3NlcRgFIAEoAxIVCg1wZWVyX3JlYWRfc2VxGAkgASgDEhAKCHJlY3Zf",
+            "c2VxGAYgASgDEhEKCWlzX3Bpbm5lZBgHIAEoCBIQCghpc19tdXRlZBgIIAEo",
+            "CCKMAgoHQ2hhdE1zZxIPCgdjaGF0X2lkGAEgASgEEg4KBmJ1Y2tldBgCIAEo",
+            "BRILCgNzZXEYAyABKAMSDgoGbXNnX2lkGAQgASgDEg4KBmNsaV9pZBgFIAEo",
+            "BBIPCgdmcm9tX2lkGAYgASgNEg0KBXRvX2lkGAcgASgNEiIKCG1zZ190eXBl",
+            "GAggASgOMhAuY2NzLk1lc3NhZ2VUeXBlEg8KB2NvbnRlbnQYCSABKAkSEQoJ",
+            "dGFyZ2V0X2lkGAogASgDEhAKCGVkaXRfc2VxGAsgASgDEhEKCWVkaXRlZF9h",
+            "dBgMIAEoAxISCgppc19yZXZva2VkGA0gASgIEhIKCmNyZWF0ZWRfYXQYDiAB",
+            "KAMiEgoQR2V0Q2hhdEN1cnNvclJlcSJGChBHZXRDaGF0Q3Vyc29yUnNwEgwK",
+            "BGNvZGUYASABKAUSJAoHY3Vyc29ycxgCIAMoCzITLmNjcy5DaGF0Q3Vyc29y",
+            "SXRlbSJHChFHZXRDaGF0TWVzc2FnZVJlcRIPCgdjaGF0X2lkGAEgASgEEhIK",
+            "CmJlZm9yZV9zZXEYAiABKAMSDQoFbGltaXQYAyABKAUiZAoRR2V0Q2hhdE1l",
+            "c3NhZ2VSc3ASDAoEY29kZRgBIAEoBRIPCgdjaGF0X2lkGAIgASgEEhAKCGhh",
+            "c19tb3JlGAMgASgIEh4KCG1lc3NhZ2VzGAQgAygLMgwuY2NzLkNoYXRNc2cq",
+            "hgEKC01lc3NhZ2VUeXBlEgsKB01UX05vbmUQABILCgdNVF9UZXh0EAESDAoI",
+            "TVRfSW1hZ2UQAhILCgdNVF9GaWxlEAMSDAoITVRfQXVkaW8QBBIMCghNVF9W",
+            "aWRlbxAFEgoKBk1UX1BkZhAGEgsKB01UX0VkaXQQZBINCglNVF9SZXZva2UQ",
+            "ZUINSAOqAghDQy5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::CC.Proto.MessageType), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -78,7 +78,7 @@ namespace CC.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ConfirmChatReq), global::CC.Proto.ConfirmChatReq.Parser, new[]{ "PeerId", "Seq", "Idempotent" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ConfirmChatRsp), global::CC.Proto.ConfirmChatRsp.Parser, new[]{ "Code", "ChatId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ConfirmChatNtf), global::CC.Proto.ConfirmChatNtf.Parser, new[]{ "ChatId", "Seq" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ChatCursorItem), global::CC.Proto.ChatCursorItem.Parser, new[]{ "UserId", "ChatId", "LastSeq", "LastTime", "ReadSeq", "RecvSeq", "IsPinned", "IsMuted" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ChatCursorItem), global::CC.Proto.ChatCursorItem.Parser, new[]{ "UserId", "ChatId", "LastSeq", "LastTime", "ReadSeq", "PeerReadSeq", "RecvSeq", "IsPinned", "IsMuted" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.ChatMsg), global::CC.Proto.ChatMsg.Parser, new[]{ "ChatId", "Bucket", "Seq", "MsgId", "CliId", "FromId", "ToId", "MsgType", "Content", "TargetId", "EditSeq", "EditedAt", "IsRevoked", "CreatedAt" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.GetChatCursorReq), global::CC.Proto.GetChatCursorReq.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::CC.Proto.GetChatCursorRsp), global::CC.Proto.GetChatCursorRsp.Parser, new[]{ "Code", "Cursors" }, null, null, null, null),
@@ -3390,6 +3390,7 @@ namespace CC.Proto {
       lastSeq_ = other.lastSeq_;
       lastTime_ = other.lastTime_;
       readSeq_ = other.readSeq_;
+      peerReadSeq_ = other.peerReadSeq_;
       recvSeq_ = other.recvSeq_;
       isPinned_ = other.isPinned_;
       isMuted_ = other.isMuted_;
@@ -3462,6 +3463,18 @@ namespace CC.Proto {
       }
     }
 
+    /// <summary>Field number for the "peer_read_seq" field.</summary>
+    public const int PeerReadSeqFieldNumber = 9;
+    private long peerReadSeq_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long PeerReadSeq {
+      get { return peerReadSeq_; }
+      set {
+        peerReadSeq_ = value;
+      }
+    }
+
     /// <summary>Field number for the "recv_seq" field.</summary>
     public const int RecvSeqFieldNumber = 6;
     private long recvSeq_;
@@ -3518,6 +3531,7 @@ namespace CC.Proto {
       if (LastSeq != other.LastSeq) return false;
       if (LastTime != other.LastTime) return false;
       if (ReadSeq != other.ReadSeq) return false;
+      if (PeerReadSeq != other.PeerReadSeq) return false;
       if (RecvSeq != other.RecvSeq) return false;
       if (IsPinned != other.IsPinned) return false;
       if (IsMuted != other.IsMuted) return false;
@@ -3533,6 +3547,7 @@ namespace CC.Proto {
       if (LastSeq != 0L) hash ^= LastSeq.GetHashCode();
       if (LastTime != 0L) hash ^= LastTime.GetHashCode();
       if (ReadSeq != 0L) hash ^= ReadSeq.GetHashCode();
+      if (PeerReadSeq != 0L) hash ^= PeerReadSeq.GetHashCode();
       if (RecvSeq != 0L) hash ^= RecvSeq.GetHashCode();
       if (IsPinned != false) hash ^= IsPinned.GetHashCode();
       if (IsMuted != false) hash ^= IsMuted.GetHashCode();
@@ -3586,6 +3601,10 @@ namespace CC.Proto {
         output.WriteRawTag(64);
         output.WriteBool(IsMuted);
       }
+      if (PeerReadSeq != 0L) {
+        output.WriteRawTag(72);
+        output.WriteInt64(PeerReadSeq);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -3628,6 +3647,10 @@ namespace CC.Proto {
         output.WriteRawTag(64);
         output.WriteBool(IsMuted);
       }
+      if (PeerReadSeq != 0L) {
+        output.WriteRawTag(72);
+        output.WriteInt64(PeerReadSeq);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -3652,6 +3675,9 @@ namespace CC.Proto {
       }
       if (ReadSeq != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(ReadSeq);
+      }
+      if (PeerReadSeq != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(PeerReadSeq);
       }
       if (RecvSeq != 0L) {
         size += 1 + pb::CodedOutputStream.ComputeInt64Size(RecvSeq);
@@ -3688,6 +3714,9 @@ namespace CC.Proto {
       }
       if (other.ReadSeq != 0L) {
         ReadSeq = other.ReadSeq;
+      }
+      if (other.PeerReadSeq != 0L) {
+        PeerReadSeq = other.PeerReadSeq;
       }
       if (other.RecvSeq != 0L) {
         RecvSeq = other.RecvSeq;
@@ -3749,6 +3778,10 @@ namespace CC.Proto {
             IsMuted = input.ReadBool();
             break;
           }
+          case 72: {
+            PeerReadSeq = input.ReadInt64();
+            break;
+          }
         }
       }
     #endif
@@ -3798,6 +3831,10 @@ namespace CC.Proto {
           }
           case 64: {
             IsMuted = input.ReadBool();
+            break;
+          }
+          case 72: {
+            PeerReadSeq = input.ReadInt64();
             break;
           }
         }

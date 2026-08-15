@@ -74,16 +74,25 @@ confirm_chat_db(Server::Context& ctx, const ccs::ConfirmChatReq* req) noexcept {
     uint64_t chat_id = make_chat_id(from_id, peer_id);
     int64_t  seq     = req->seq();
 
-    // 只动自己那一行(chat_cursor 按 user_id 分区), 不碰对方的.
-    // 不需要 "只增不减" 的条件更新: KCP 可靠有序 + 顶号下同账号只有一个终端在线,
-    // 同一会话的两次上报不会乱序到达, 直接覆盖就是对的
     int rc = Scylla::instance()->exec(
         "UPDATE eva.chat_cursor SET read_seq=? WHERE user_id=? AND chat_id=?",
         [&](::CassStatement* st) {
             ::cass_statement_bind_int64(st, 0, seq);
             ::cass_statement_bind_int64(st, 1, (int64_t)from_id);
             ::cass_statement_bind_int64(st, 2, (int64_t)chat_id);
-        });
+        }
+    );
+
+    if (rc == 0 && peer_id != from_id) {
+        rc = Scylla::instance()->exec(
+            "UPDATE eva.chat_cursor SET peer_read_seq=? WHERE user_id=? AND chat_id=?",
+            [&](::CassStatement* st) {
+                ::cass_statement_bind_int64(st, 0, seq);
+                ::cass_statement_bind_int64(st, 1, (int64_t)peer_id);
+                ::cass_statement_bind_int64(st, 2, (int64_t)chat_id);
+            }
+        );
+    }
 
     // ---- ACK from_id ----
     ccs::ConfirmChatRsp rsp;

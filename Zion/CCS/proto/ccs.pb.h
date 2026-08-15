@@ -3658,6 +3658,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ChatCursorItem final : public ::goo
     kIsPinnedFieldNumber = 7,
     kIsMutedFieldNumber = 8,
     kRecvSeqFieldNumber = 6,
+    kPeerReadSeqFieldNumber = 9,
   };
   // uint64 chat_id = 2;
   void clear_chat_id() ;
@@ -3739,11 +3740,21 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ChatCursorItem final : public ::goo
   void _internal_set_recv_seq(::int64_t value);
 
   public:
+  // int64 peer_read_seq = 9;
+  void clear_peer_read_seq() ;
+  [[nodiscard]] ::int64_t peer_read_seq() const;
+  void set_peer_read_seq(::int64_t value);
+
+  private:
+  ::int64_t _internal_peer_read_seq() const;
+  void _internal_set_peer_read_seq(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:ccs.ChatCursorItem)
  private:
   class _Internal;
   using ParseTableT_ =
-      ::google::protobuf::internal::TcParseTable<3, 8,
+      ::google::protobuf::internal::TcParseTable<4, 9,
                           0, 0,
                           2>;
   static constexpr ParseTableT_ InternalGenerateParseTable_(
@@ -3780,6 +3791,7 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ChatCursorItem final : public ::goo
     bool is_pinned_;
     bool is_muted_;
     ::int64_t recv_seq_;
+    ::int64_t peer_read_seq_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -5332,6 +5344,30 @@ inline ::int64_t ChatCursorItem::_internal_read_seq() const {
 inline void ChatCursorItem::_internal_set_read_seq(::int64_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.read_seq_ = value;
+}
+
+// int64 peer_read_seq = 9;
+inline void ChatCursorItem::clear_peer_read_seq() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.peer_read_seq_ = ::int64_t{0};
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
+}
+inline ::int64_t ChatCursorItem::peer_read_seq() const {
+  // @@protoc_insertion_point(field_get:ccs.ChatCursorItem.peer_read_seq)
+  return _internal_peer_read_seq();
+}
+inline void ChatCursorItem::set_peer_read_seq(::int64_t value) {
+  _internal_set_peer_read_seq(value);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  // @@protoc_insertion_point(field_set:ccs.ChatCursorItem.peer_read_seq)
+}
+inline ::int64_t ChatCursorItem::_internal_peer_read_seq() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.peer_read_seq_;
+}
+inline void ChatCursorItem::_internal_set_peer_read_seq(::int64_t value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.peer_read_seq_ = value;
 }
 
 // int64 recv_seq = 6;

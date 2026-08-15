@@ -276,6 +276,12 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
                     conv.ReadSeq = c.ReadSeq;
                 }
 
+                if (c.PeerReadSeq > conv.PeerReadSeq)
+                {
+                    conv.PeerReadSeq = c.PeerReadSeq;
+                    UpdatePeerReadSeq(chatId, c.PeerReadSeq);
+                }
+
                 long missing = c.LastSeq - conv.RecvSeq;
                 if (missing > 0)
                 {

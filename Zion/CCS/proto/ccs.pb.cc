@@ -2327,11 +2327,11 @@ constexpr ChatCursorItem::ParseTableT_ ChatCursorItem::InternalGenerateParseTabl
     {
       PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_._has_bits_),
       0, // no _extensions_
-      8, 56,  // max_field_number, fast_idx_mask
+      9, 120,  // max_field_number, fast_idx_mask
       offsetof(ParseTableT_, field_lookup_table),
-      4294967040,  // skipmap
+      4294966784,  // skipmap
       offsetof(ParseTableT_, field_entries),
-      8,  // num_field_entries
+      9,  // num_field_entries
       0,  // num_aux_entries
       offsetof(ParseTableT_, field_names),  // no aux_entries
       class_data,
@@ -2341,10 +2341,7 @@ constexpr ChatCursorItem::ParseTableT_ ChatCursorItem::InternalGenerateParseTabl
       ::_pbi::TcParser::GetTable<::ccs::ChatCursorItem>(),  // to_prefetch
       #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
     }, {{
-      // bool is_muted = 8;
-      {::_pbi::TcParser::FastV8S1,
-       {64, 6, 0,
-        PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.is_muted_)}},
+      {::_pbi::TcParser::MiniParse, {}},
       // uint32 user_id = 1;
       {::_pbi::TcParser::FastV32S1,
        {8, 4, 0,
@@ -2373,6 +2370,20 @@ constexpr ChatCursorItem::ParseTableT_ ChatCursorItem::InternalGenerateParseTabl
       {::_pbi::TcParser::FastV8S1,
        {56, 5, 0,
         PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.is_pinned_)}},
+      // bool is_muted = 8;
+      {::_pbi::TcParser::FastV8S1,
+       {64, 6, 0,
+        PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.is_muted_)}},
+      // int64 peer_read_seq = 9;
+      {::_pbi::TcParser::FastV64S1,
+       {72, 8, 0,
+        PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.peer_read_seq_)}},
+      {::_pbi::TcParser::MiniParse, {}},
+      {::_pbi::TcParser::MiniParse, {}},
+      {::_pbi::TcParser::MiniParse, {}},
+      {::_pbi::TcParser::MiniParse, {}},
+      {::_pbi::TcParser::MiniParse, {}},
+      {::_pbi::TcParser::MiniParse, {}},
     }}, {{
       65535, 65535
     }}, {{
@@ -2392,6 +2403,8 @@ constexpr ChatCursorItem::ParseTableT_ ChatCursorItem::InternalGenerateParseTabl
       {PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.is_pinned_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
       // bool is_muted = 8;
       {PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.is_muted_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+      // int64 peer_read_seq = 9;
+      {PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.peer_read_seq_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
     }},
     // no aux_entries
     {{
@@ -2410,7 +2423,8 @@ inline constexpr ChatCursorItem::Impl_::Impl_(
         user_id_{0u},
         is_pinned_{false},
         is_muted_{false},
-        recv_seq_{::int64_t{0}} {}
+        recv_seq_{::int64_t{0}},
+        peer_read_seq_{::int64_t{0}} {}
 
 template <typename>
 constexpr ChatCursorItem::ChatCursorItem(::_pbi::ConstantInitialized,
@@ -5841,9 +5855,9 @@ inline void ChatCursorItem::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, chat_id_),
            0,
-           offsetof(Impl_, recv_seq_) -
+           offsetof(Impl_, peer_read_seq_) -
                offsetof(Impl_, chat_id_) +
-               sizeof(Impl_::recv_seq_));
+               sizeof(Impl_::peer_read_seq_));
 }
 ChatCursorItem::~ChatCursorItem() {
   // @@protoc_insertion_point(destructor:ccs.ChatCursorItem)
@@ -5895,6 +5909,7 @@ PROTOBUF_NOINLINE void ChatCursorItem::Clear() {
                  reinterpret_cast<char*>(&this_._impl_.chat_id_)) +
                  sizeof(_impl_.recv_seq_));
   }
+  this_._impl_.peer_read_seq_ = ::int64_t{0};
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::std::string>();
 }
@@ -5990,6 +6005,15 @@ PROTOBUF_NOINLINE void ChatCursorItem::Clear() {
     }
   }
 
+  // int64 peer_read_seq = 9;
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (this_._internal_peer_read_seq() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt64ToArrayWithField<9>(
+              stream, this_._internal_peer_read_seq(), target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -6069,6 +6093,15 @@ PROTOBUF_NOINLINE void ChatCursorItem::Clear() {
       }
     }
   }
+   {
+    // int64 peer_read_seq = 9;
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      if (this_._internal_peer_read_seq() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+            this_._internal_peer_read_seq());
+      }
+    }
+  }
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     total_size += this_._internal_metadata_.unknown_fields<::std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -6131,6 +6164,11 @@ void ChatCursorItem::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
   }
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    if (from._internal_peer_read_seq() != 0) {
+      _this->_impl_.peer_read_seq_ = from._impl_.peer_read_seq_;
+    }
+  }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::std::string>(
       from._internal_metadata_);
@@ -6149,8 +6187,8 @@ void ChatCursorItem::InternalSwap(ChatCursorItem* PROTOBUF_RESTRICT PROTOBUF_NON
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.recv_seq_)
-      + sizeof(ChatCursorItem::_impl_.recv_seq_)
+      PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.peer_read_seq_)
+      + sizeof(ChatCursorItem::_impl_.peer_read_seq_)
       - PROTOBUF_FIELD_OFFSET(ChatCursorItem, _impl_.chat_id_)>(
           reinterpret_cast<char*>(&_impl_.chat_id_),
           reinterpret_cast<char*>(&other->_impl_.chat_id_));

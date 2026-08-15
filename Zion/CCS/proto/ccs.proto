@@ -109,6 +109,7 @@ message ChatCursorItem {
     int64  last_seq  = 3;
     int64  last_time = 4;
     int64  read_seq  = 5;
+    int64  peer_read_seq = 9;
     int64  recv_seq  = 6;
     bool   is_pinned = 7;
     bool   is_muted  = 8;

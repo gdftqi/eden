@@ -9,7 +9,8 @@ get_chat_cursor(Server::Context& ctx, adam::core::Package*) noexcept {
     ccs::GetChatCursorRsp rsp;
 
     int rc = Scylla::instance()->exec(
-        "SELECT chat_id,last_seq,last_time,read_seq,recv_seq,is_pinned,is_muted FROM eva.chat_cursor WHERE user_id=?",
+        "SELECT chat_id,last_seq,last_time,read_seq,peer_read_seq,recv_seq,is_pinned,is_muted "
+        "FROM eva.chat_cursor WHERE user_id=?",
         [&](::CassStatement* st) {
             ::cass_statement_bind_int64(st, 0, (int64_t)uid);
         },
@@ -28,6 +29,7 @@ get_chat_cursor(Server::Context& ctx, adam::core::Package*) noexcept {
                 item->set_last_seq(col_i64(row, "last_seq"));
                 item->set_last_time(col_i64(row, "last_time"));
                 item->set_read_seq(col_i64(row, "read_seq"));
+                item->set_peer_read_seq(col_i64(row, "peer_read_seq"));
                 item->set_recv_seq(col_i64(row, "recv_seq"));
                 item->set_is_pinned(col_bool(row, "is_pinned"));
                 item->set_is_muted(col_bool(row, "is_muted"));
