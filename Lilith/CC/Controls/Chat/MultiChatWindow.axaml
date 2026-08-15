@@ -5,14 +5,14 @@
 
     <Grid RowDefinitions="56,*,Auto">
         <Border Grid.Row="0" Classes="topbar" Cursor="Hand"
-                BorderBrush="#E6E6E6" BorderThickness="0,0,0,1"
+                BorderBrush="#E9EDEF" BorderThickness="0,0,0,1"
                 PointerPressed="TopBar_PointerPressed">
             <Border.Styles>
                 <Style Selector="Border.topbar">
-                    <Setter Property="Background" Value="White"/>
+                    <Setter Property="Background" Value="#FFFFFF"/>
                 </Style>
                 <Style Selector="Border.topbar:pointerover">
-                    <Setter Property="Background" Value="#F6F7F8"/>
+                    <Setter Property="Background" Value="#F5F6F6"/>
                 </Style>
             </Border.Styles>
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,0">
@@ -24,7 +24,7 @@
                     <!-- 昵称 -->
                     <StackPanel VerticalAlignment="Center" Spacing="1">
                         <TextBlock Text="{Binding #Root.PeerName}" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="#1E1E1E"/>
+                                   Foreground="#111B21"/>
                         <TextBlock Text="{Binding #Root.PeerStatus}" FontSize="12" Foreground="#667781"/>
                     </StackPanel>
                 </StackPanel>
@@ -86,7 +86,7 @@
         </Border>
 
         <!-- 消息区 -->
-        <Border Grid.Row="1" Background="#ECE5DD">
+        <Border Grid.Row="1" Background="#EFEAE2">
             <ScrollViewer x:Name="MsgScroll" HorizontalScrollBarVisibility="Disabled">
                 <ScrollViewer.Resources>
                     <!-- 滚动条 -->
@@ -136,7 +136,7 @@
         </Border>
 
         <!-- 输入框 -->
-        <Border Grid.Row="2" Background="#ECE5DD">
+        <Border Grid.Row="2" Background="#F0F2F5">
             <Border Classes="inputpill" Margin="12,8" MinHeight="44" Padding="6,2,5,2">
                 <Border.Styles>
                     <Style Selector="Border.inputpill">
@@ -147,7 +147,7 @@
                         <Setter Property="BoxShadow" Value="0 1 2 0 #12000000"/>
                     </Style>
                     <Style Selector="Border.inputpill:focus-within">
-                        <Setter Property="BorderBrush" Value="#43A047"/>
+                        <Setter Property="BorderBrush" Value="#00A884"/>
                     </Style>
                     <Style Selector="Button.tool">
                         <Setter Property="Width" Value="38"/>
@@ -167,13 +167,13 @@
                         <Setter Property="Height" Value="40"/>
                         <Setter Property="Padding" Value="0"/>
                         <Setter Property="CornerRadius" Value="20"/>
-                        <Setter Property="Background" Value="#43A047"/>
+                        <Setter Property="Background" Value="#008069"/>
                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
                         <Setter Property="VerticalAlignment" Value="Bottom"/>
                     </Style>
                     <Style Selector="Button.send:pointerover /template/ ContentPresenter">
-                        <Setter Property="Background" Value="#4CAF50"/>
+                        <Setter Property="Background" Value="#00A884"/>
                     </Style>
                     <Style Selector="TextBox /template/ Border#PART_BorderElement">
                         <Setter Property="BorderThickness" Value="0"/>

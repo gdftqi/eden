@@ -1,11 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:cc="using:CC"
              x:Class="CC.ChatListPanel">
-    <Grid Background="White" RowDefinitions="48,Auto,*">
+    <Grid>
+    <Grid x:Name="MainView" Background="White" RowDefinitions="48,Auto,*">
         <!-- 标题 + 右侧按钮 -->
         <Grid Grid.Row="0" Margin="14,0,8,0">
-            <TextBlock Text="聊天" FontSize="18" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+            <TextBlock Text="聊天" FontSize="18" FontWeight="SemiBold" Foreground="#111B21" VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="2">
                 <StackPanel.Styles>
                     <Style Selector="Button">
@@ -22,15 +24,15 @@
                     </Style>
                 </StackPanel.Styles>
                 <!-- 新建聊天 -->
-                <Button>
-                    <Path Width="18" Height="18" Stroke="#555" StrokeThickness="1.6" StrokeJoin="Round" StrokeLineCap="Round" Data="M4,4 H14 V14 H4 Z M9,7.5 V10.5 M7.5,9 H10.5"/>
+                <Button Click="NewChat_Click" ToolTip.Tip="新聊天">
+                    <Path Width="18" Height="18" Stroke="#54656F" StrokeThickness="1.6" StrokeJoin="Round" StrokeLineCap="Round" Data="M4,4 H14 V14 H4 Z M9,7.5 V10.5 M7.5,9 H10.5"/>
                 </Button>
                 <!-- 菜单 -->
                 <Button>
                     <StackPanel Spacing="2.6">
-                        <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
-                        <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
-                        <Ellipse Width="3.4" Height="3.4" Fill="#555"/>
+                        <Ellipse Width="3.4" Height="3.4" Fill="#54656F"/>
+                        <Ellipse Width="3.4" Height="3.4" Fill="#54656F"/>
+                        <Ellipse Width="3.4" Height="3.4" Fill="#54656F"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
@@ -47,7 +49,7 @@
                 </Style>
                 <Style Selector="Border.search:focus-within">
                     <Setter Property="Background" Value="White"/>
-                    <Setter Property="BorderBrush" Value="#43A047"/>
+                    <Setter Property="BorderBrush" Value="#00A884"/>
                 </Style>
                 <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
                     <Setter Property="BorderThickness" Value="0"/>
@@ -79,8 +81,7 @@
         <ScrollViewer Grid.Row="2" Padding="0,0,2,0" HorizontalScrollBarVisibility="Disabled">
             <ScrollViewer.Resources>
                 <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
-                    <Setter Property="Background" Value="Transparent"/> 
-                    <!-- 滑块 -->
+                    <Setter Property="Background" Value="Transparent"/>
                     <Style Selector="^ /template/ Thumb">
                         <Setter Property="Background" Value="#C2C5CB"/>
                         <Setter Property="Template">
@@ -104,8 +105,6 @@
                             <ControlTemplate><Border Background="{TemplateBinding Background}"/></ControlTemplate>
                         </Setter>
                     </Style>
-
-                    <!-- 垂直滚动条 -->
                     <Style Selector="^:vertical">
                         <Setter Property="Width" Value="10"/>
                         <Setter Property="Template">
@@ -131,5 +130,8 @@
             </ScrollViewer.Resources>
             <StackPanel x:Name="ChatList"/>
         </ScrollViewer>
+    </Grid>
+
+    <cc:NewChatPanel x:Name="NewChat" IsVisible="False"/>
     </Grid>
 </UserControl>

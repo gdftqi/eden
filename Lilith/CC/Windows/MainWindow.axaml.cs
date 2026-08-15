@@ -67,8 +67,8 @@ namespace CC
             ShowTab(TabSettings);
         }
 
-        private static readonly Avalonia.Media.IBrush ActiveIcon = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#66BB6A"));
-        private static readonly Avalonia.Media.IBrush InactiveIcon = Avalonia.Media.Brushes.White;
+        private static readonly Avalonia.Media.IBrush ActiveIcon = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#111B21"));
+        private static readonly Avalonia.Media.IBrush InactiveIcon = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#54656F"));
 
         private void SetNav(Avalonia.Controls.Shapes.Path active)
         {
@@ -201,7 +201,7 @@ namespace CC
         public enum ConnState { Disconnected, Reconnecting, Connected }
 
         private static readonly Avalonia.Media.IBrush DotRed = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E53935"));
-        private static readonly Avalonia.Media.IBrush DotGreen = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#43A047"));
+        private static readonly Avalonia.Media.IBrush DotGreen = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#00A884"));
         private int connStateGen;   // 状态代次: Connected 的 1.5s 自动收起用它防"期间又切了别的状态时误收"
 
         // 显示提示条并滑出
@@ -263,7 +263,7 @@ namespace CC
         private static readonly Avalonia.Media.Geometry ToastFailGlyph =
             Avalonia.Media.Geometry.Parse("M11 7h2v6h-2zm0 8h2v2h-2z");
 
-        private static readonly Avalonia.Media.IBrush ToastOkBg = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#43A047"));
+        private static readonly Avalonia.Media.IBrush ToastOkBg = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#00A884"));
         private static readonly Avalonia.Media.IBrush ToastFailBg = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E53935"));
 
         // 与 connStateGen 同样的用意: 连着来两条时, 后一条不该被前一条的定时器收掉

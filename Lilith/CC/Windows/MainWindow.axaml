@@ -14,153 +14,132 @@
         TransparencyLevelHint="Transparent">
     <Border CornerRadius="8" ClipToBounds="True">
     <Grid>
-        <!-- Main -->
-        <Grid RowDefinitions="38,*" ColumnDefinitions="60,*">
-            <!-- TopBar -->
-            <Grid Grid.Row="0" Grid.ColumnSpan="2" PointerPressed="TopBar_PointerPressed">
-                <Grid.Background>
-                    <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
-                        <GradientStop Color="#1B5E20" Offset="0"/>
-                        <GradientStop Color="#66BB6A" Offset="1"/>
-                    </LinearGradientBrush>
-                </Grid.Background>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
-                    <!-- LOGO -->
-                    <Viewbox Width="34" Height="34">
-                        <Canvas Width="32" Height="32">
-                            <Viewbox Canvas.Left="4" Canvas.Top="4" Width="24" Height="24">
-                                <Canvas Width="24" Height="24">
-                                    <Path Stroke="White" StrokeThickness="2" StrokeJoin="Round" Data="M12,3 C7,3 3,6.5 3,11 C3,13 3.8,14.8 5.2,16.2 L3,21 L8.2,19.5 C9.3,19.8 10.6,20 12,20 C17,20 21,16.5 21,12 C21,7.5 17,3 12,3 Z"/>
-                                    <Path Stroke="White" StrokeThickness="2.2" StrokeLineCap="Round" Data="M9.5,9 L14.5,14 M14.5,9 L9.5,14"/>
-                                </Canvas>
-                            </Viewbox>
-                        </Canvas>
-                    </Viewbox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <StackPanel.Styles>
-                        <!-- TopBar 样式 -->
-                        <Style Selector="Button">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="CornerRadius" Value="0"/>
-                            <Setter Property="Width" Value="40"/>
-                            <Setter Property="Height" Value="40"/>
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                            <Setter Property="VerticalContentAlignment" Value="Center"/>
-                        </Style>
-                        <Style Selector="Button:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#33FFFFFF"/>
-                        </Style>
-                        <Style Selector="Button.close:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#E81123"/>
-                        </Style>
-                    </StackPanel.Styles>
-                    <!-- 最小化 -->
-                    <Button Click="Minimize_Click">
-                        <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M0,8 H16"/>
-                    </Button>
-                    <!-- 最大化 -->
-                    <Button Click="Maximize_Click">
-                        <Path x:Name="MaxIcon" Width="16" Height="16" Stroke="White" StrokeThickness="1" Fill="Transparent" Data="M1,1 H15 V15 H1 Z"/>
-                    </Button>
-                    <!-- 关闭 -->
-                    <Button Click="Button_Click" Classes="close">
-                        <Path Width="16" Height="16" Stroke="White" StrokeThickness="1" Data="M1,1 L15,15 M15,1 L1,15"/>
-                    </Button>
-                </StackPanel>
-            </Grid>
+        <!-- Main: 侧栏通高 (与 WhatsApp Web 一致) -->
+        <Grid ColumnDefinitions="60,*">
             <!-- SideBar -->
-            <Border Grid.Row="1" Grid.Column="0">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
-                        <GradientStop Color="#3E3E3E" Offset="0"/>
-                        <GradientStop Color="#1E1E1E" Offset="1"/>
-                    </LinearGradientBrush>
-                </Border.Background>
-
+            <Border Grid.Column="0" Background="#F0F2F5" BorderBrush="#E9EDEF" BorderThickness="0,0,1,0">
                 <Grid>
-                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,12,0,0" Spacing="6">
+                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,10,0,0" Spacing="4">
                     <StackPanel.Styles>
                         <Style Selector="Button">
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="CornerRadius" Value="10"/>
+                            <Setter Property="CornerRadius" Value="12"/>
                             <Setter Property="Width" Value="44"/>
                             <Setter Property="Height" Value="44"/>
                             <Setter Property="HorizontalContentAlignment" Value="Center"/>
                             <Setter Property="VerticalContentAlignment" Value="Center"/>
                         </Style>
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#22FFFFFF"/>
+                            <Setter Property="Background" Value="#E9EDEF"/>
                         </Style>
                     </StackPanel.Styles>
-                    <!-- 聊天 -->
                     <Button Click="Chat_Click">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
-                                <Path x:Name="ChatIcon" Fill="#66BB6A" Data="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-                                <!-- 有新消息的小红点. 描边取导航栏底色, 免得和图标糊在一起 -->
+                                <Path x:Name="ChatIcon" Fill="#111B21" Data="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
                                 <Ellipse x:Name="ChatDot" Canvas.Left="15" Canvas.Top="-1" Width="9" Height="9"
-                                         Fill="#F44336" Stroke="#2E2E2E" StrokeThickness="1.5" IsVisible="False"/>
+                                         Fill="#25D366" Stroke="#F0F2F5" StrokeThickness="1.5" IsVisible="False"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 联系人 -->
                     <Button Click="Contacts_Click">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
-                                <Path x:Name="ContactsIcon" Fill="White" Data="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                                <Path x:Name="ContactsIcon" Fill="#54656F" Data="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
-                    <!-- 组织架构 -->
                     <Button Click="Org_Click">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
-                                <Path x:Name="OrgIcon" Fill="White" Data="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z"/>
+                                <Path x:Name="OrgIcon" Fill="#54656F" Data="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
                 </StackPanel>
 
-                <!-- SideBar: 底部 -->
-                <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" Spacing="12">
+                <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,14" Spacing="10">
                     <StackPanel.Styles>
                         <Style Selector="Button">
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="CornerRadius" Value="10"/>
+                            <Setter Property="CornerRadius" Value="12"/>
                             <Setter Property="HorizontalContentAlignment" Value="Center"/>
                             <Setter Property="VerticalContentAlignment" Value="Center"/>
                         </Style>
                         <Style Selector="Button:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#22FFFFFF"/>
+                            <Setter Property="Background" Value="#E9EDEF"/>
                         </Style>
                     </StackPanel.Styles>
-
-                    <!-- 设置 -->
                     <Button Click="Settings_Click" Width="44" Height="44">
                         <Viewbox Width="22" Height="22">
                             <Canvas Width="24" Height="24">
-                                <Path x:Name="SettingsIcon" Fill="White" Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                <Path x:Name="SettingsIcon" Fill="#54656F" Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
-
-                    <!-- 用户头像 -->
-                    <Border Width="42" Height="42" CornerRadius="21" ClipToBounds="True">
+                    <Border Width="40" Height="40" CornerRadius="20" ClipToBounds="True">
                         <Image x:Name="Avatar" Stretch="UniformToFill"/>
                     </Border>
                 </StackPanel>
                 </Grid>
             </Border>
-            <!-- 页签宿主: 叠放, IsVisible 切换(切走再切回状态原样保留) -->
-            <Grid Grid.Row="1" Grid.Column="1">
-                <cc:ChatTab x:Name="TabChat"/>
-                <cc:ContactTab x:Name="TabContact" IsVisible="False"/>
-                <cc:OrgTab x:Name="TabOrg" IsVisible="False"/>
-                <cc:SettingsTab x:Name="TabSettings" IsVisible="False"/>
+
+            <Grid Grid.Column="1" RowDefinitions="36,*">
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E9EDEF" BorderThickness="0,0,0,1" PointerPressed="TopBar_PointerPressed">
+                    <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0" Spacing="8">
+                        <Viewbox Width="20" Height="20">
+                            <Canvas Width="32" Height="32">
+                                <Path Fill="#25D366"
+                                      Data="M16,2.2 C8.9,2.2 3.2,7.4 3.2,13.8 C3.2,16.7 4.4,19.3 6.4,21.2 L3.6,28.2 L11.2,25.4 C12.7,25.8 14.3,26.1 16,26.1 C23.1,26.1 28.8,20.9 28.8,13.8 C28.8,7.4 23.1,2.2 16,2.2 Z"/>
+                                <Ellipse Canvas.Left="9.2" Canvas.Top="11.6" Width="3.6" Height="3.6" Fill="White"/>
+                                <Ellipse Canvas.Left="14.2" Canvas.Top="11.6" Width="3.6" Height="3.6" Fill="White"/>
+                                <Ellipse Canvas.Left="19.2" Canvas.Top="11.6" Width="3.6" Height="3.6" Fill="White"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="CC" FontSize="13" FontWeight="SemiBold" Foreground="#111B21" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="CornerRadius" Value="0"/>
+                                <Setter Property="Width" Value="40"/>
+                                <Setter Property="Height" Value="36"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                            </Style>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="#F0F2F5"/>
+                            </Style>
+                            <Style Selector="Button.close:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="#E81123"/>
+                            </Style>
+                            <Style Selector="Button.close:pointerover Path">
+                                <Setter Property="Stroke" Value="White"/>
+                            </Style>
+                        </StackPanel.Styles>
+                        <Button Click="Minimize_Click">
+                            <Path Width="12" Height="12" Stroke="#54656F" StrokeThickness="1.2" Data="M0,6 H12"/>
+                        </Button>
+                        <Button Click="Maximize_Click">
+                            <Path x:Name="MaxIcon" Width="12" Height="12" Stroke="#54656F" StrokeThickness="1.2" Fill="Transparent" Data="M1,1 H11 V11 H1 Z"/>
+                        </Button>
+                        <Button Click="Button_Click" Classes="close">
+                            <Path Width="12" Height="12" Stroke="#54656F" StrokeThickness="1.2" StrokeLineCap="Round" Data="M1,1 L11,11 M11,1 L1,11"/>
+                        </Button>
+                    </StackPanel>
+                    </Grid>
+                </Border>
+                <Grid Grid.Row="1">
+                    <cc:ChatTab x:Name="TabChat"/>
+                    <cc:ContactTab x:Name="TabContact" IsVisible="False"/>
+                    <cc:OrgTab x:Name="TabOrg" IsVisible="False"/>
+                    <cc:SettingsTab x:Name="TabSettings" IsVisible="False"/>
+                </Grid>
             </Grid>
         </Grid>
 
@@ -221,7 +200,7 @@
                 </Transitions>
             </Border.Transitions>
             <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
-                <Border x:Name="ToastIcon" Width="18" Height="18" CornerRadius="9" Background="#43A047"
+                <Border x:Name="ToastIcon" Width="18" Height="18" CornerRadius="9" Background="#00A884"
                         VerticalAlignment="Center">
                     <!-- Material 图标是 24x24 坐标系, 必须 Viewbox+Canvas 缩放 -->
                     <Viewbox Width="12" Height="12">

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using CC.Model;
 using System;
 using System.Collections.Generic;
 
@@ -11,12 +12,21 @@ namespace CC
         // 选中某个会话时触发(宿主据此打开对应聊天窗)
         public event Action<ChatItem>? ChatSelected;
 
+        // 新聊天面板: 点联系人开聊 / 添加联系人 / 新建群组
+        public event Action<User>? StartChatRequested;
+        public event Action? AddContactRequested;
+        public event Action? NewGroupRequested;
+
         // 当前选中的会话项(高亮由 IsSelected 驱动, 不依赖焦点)
         private ChatItem? selectedItem;
 
         public ChatListPanel()
         {
             InitializeComponent();
+            NewChat.ContactPicked += OnContactPicked;
+            NewChat.AddContactRequested += () => AddContactRequested?.Invoke();
+            NewChat.NewGroupRequested += () => NewGroupRequested?.Invoke();
+            NewChat.Closed += () => MainView.IsVisible = true;
         }
 
         /// <summary>
@@ -123,6 +133,19 @@ namespace CC
         {
             SearchBox.Text = string.Empty;
             SearchBox.Focus();
+        }
+
+        private void NewChat_Click(object? sender, RoutedEventArgs e)
+        {
+            MainView.IsVisible = false;
+            NewChat.Show();
+        }
+
+        private void OnContactPicked(User user)
+        {
+            NewChat.Hide();
+            MainView.IsVisible = true;
+            StartChatRequested?.Invoke(user);
         }
     }
 }

@@ -85,7 +85,7 @@ namespace CC
             if (string.IsNullOrWhiteSpace(remark))
             {
                 RemarkText.Text = "添加部门描述";
-                RemarkText.Foreground = new SolidColorBrush(Color.Parse("#43A047"));
+                RemarkText.Foreground = new SolidColorBrush(Color.Parse("#008069"));
             }
             else
             {

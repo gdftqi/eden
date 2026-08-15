@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.OrgItem"
              x:Name="Root">
@@ -13,10 +13,10 @@
                 <Setter Property="Background" Value="#F2F3F5"/>
             </Style>
             <Style Selector="Border.item.selected">
-                <Setter Property="Background" Value="#D9EDDA"/>
+                <Setter Property="Background" Value="#F0F2F5"/>
             </Style>
             <Style Selector="Border.item.selected:pointerover">
-                <Setter Property="Background" Value="#CFE8D1"/>
+                <Setter Property="Background" Value="#E9EDEF"/>
             </Style>
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">

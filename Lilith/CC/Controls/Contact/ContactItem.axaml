@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Avalonia.Data.Converters"
              x:Class="CC.ContactItem"
@@ -14,10 +14,10 @@
             </Style>
             <!-- 选中 样式: 由 IsSelected 驱动(不依赖焦点, 点右侧详情高亮也不丢) -->
             <Style Selector="Border.item.selected">
-                <Setter Property="Background" Value="#D9EDDA"/>
+                <Setter Property="Background" Value="#F0F2F5"/>
             </Style>
             <Style Selector="Border.item.selected:pointerover">
-                <Setter Property="Background" Value="#CFE8D1"/>
+                <Setter Property="Background" Value="#E9EDEF"/>
             </Style>
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">

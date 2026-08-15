@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CC.ChatItem"
              x:Name="Root">
@@ -9,13 +9,13 @@
             </Style>
             <!-- hover 样式 -->
             <Style Selector="Border.item:pointerover">
-                <Setter Property="Background" Value="#F2F3F5"/>
+                <Setter Property="Background" Value="#F5F6F6"/>
             </Style>
             <Style Selector="Border.item.selected">
-                <Setter Property="Background" Value="#D9EDDA"/>
+                <Setter Property="Background" Value="#F0F2F5"/>
             </Style>
             <Style Selector="Border.item.selected:pointerover">
-                <Setter Property="Background" Value="#CFE8D1"/>
+                <Setter Property="Background" Value="#E9EDEF"/>
             </Style>
         </Border.Styles>
         <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center">
@@ -27,15 +27,15 @@
             <Grid Grid.Column="1" RowDefinitions="*,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                     <!-- 昵称 -->
-                    <TextBlock Grid.Column="0" Text="{Binding #Root.Nickname}" FontSize="14" FontWeight="SemiBold" Foreground="#1E1E1E" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.Nickname}" FontSize="14" FontWeight="SemiBold" Foreground="#111B21" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <!-- 最后一条消息的时间 -->
-                    <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    <TextBlock Grid.Column="1" Text="{Binding #Root.Time}" FontSize="11" Foreground="#667781" VerticalAlignment="Center" Margin="8,0,0,0"/>
                 </Grid>
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                     <!-- 最后一条消息 -->
-                    <TextBlock Grid.Column="0" Text="{Binding #Root.LastMessage}" FontSize="12.5" Foreground="#8A9099" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="0" Text="{Binding #Root.LastMessage}" FontSize="12.5" Foreground="#667781" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                     <!-- 未读 -->
-                    <Border Grid.Column="1" x:Name="Badge" Background="#F5333F" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="False">
+                    <Border Grid.Column="1" x:Name="Badge" Background="#25D366" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="False">
                         <TextBlock x:Name="BadgeText" FontSize="11" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                 </Grid>

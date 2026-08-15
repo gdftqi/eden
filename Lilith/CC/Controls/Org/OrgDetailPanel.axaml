@@ -66,10 +66,10 @@
                 <Setter Property="BorderBrush" Value="#DDE1E7"/>
             </Style>
             <Style Selector="TextBox.inline:pointerover /template/ Border#PART_BorderElement">
-                <Setter Property="BorderBrush" Value="#43A047"/>
+                <Setter Property="BorderBrush" Value="#008069"/>
             </Style>
             <Style Selector="TextBox.inline:focus-within /template/ Border#PART_BorderElement">
-                <Setter Property="BorderBrush" Value="#43A047"/>
+                <Setter Property="BorderBrush" Value="#00A884"/>
             </Style>
 
             <!-- 头像 hover 时底部浮出的遮罩 -->
@@ -168,7 +168,7 @@
                     <Button Classes="editAct" Click="AvatarOk_Click" ToolTip.Tip="使用这张图">
                         <Viewbox Width="18" Height="18">
                             <Canvas Width="24" Height="24">
-                                <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                             </Canvas>
                         </Viewbox>
                     </Button>
@@ -210,7 +210,7 @@
                                 ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
                             <Viewbox Width="18" Height="18">
                                 <Canvas Width="24" Height="24">
-                                    <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                    <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                 </Canvas>
                             </Viewbox>
                         </Button>
@@ -228,7 +228,7 @@
                 <!-- 副标题: 部门 · N 位成员 -->
                 <StackPanel Orientation="Horizontal" Spacing="0" HorizontalAlignment="Center" Margin="0,8,0,0">
                     <TextBlock Text="部门 · " FontSize="13.5" Foreground="#8A9099"/>
-                    <TextBlock x:Name="MemberSummary" FontSize="13.5" FontWeight="SemiBold" Foreground="#43A047"/>
+                    <TextBlock x:Name="MemberSummary" FontSize="13.5" FontWeight="SemiBold" Foreground="#008069"/>
                 </StackPanel>
 
                 <!-- 动作按钮排: 版式与 ContactWindow 的"语音/视频/搜索"完全一致
@@ -295,7 +295,7 @@
                                 ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
                             <Viewbox Width="18" Height="18">
                                 <Canvas Width="24" Height="24">
-                                    <Path Fill="#43A047" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                    <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                 </Canvas>
                             </Viewbox>
                         </Button>
@@ -358,7 +358,7 @@
                 <!-- 添加成员(绿圆) -->
                 <Border Classes="row" x:Name="AddMemberRow" PointerPressed="AddMemberRow_PointerPressed">
                     <Grid ColumnDefinitions="Auto,*">
-                        <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#43A047" Margin="0,0,14,0">
+                        <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#008069" Margin="0,0,14,0">
                             <Viewbox Width="21" Height="21">
                                 <Canvas Width="24" Height="24">
                                     <Path Fill="White" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>

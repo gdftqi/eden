@@ -49,8 +49,8 @@ namespace CC
         }
 
         static readonly IBrush InBrush = new SolidColorBrush(Color.Parse("#FFFFFF"));   // 对方: 白
-        static readonly IBrush OutBrush = new SolidColorBrush(Color.Parse("#DCF8C6"));  // 自己: 浅绿
-        static readonly IBrush TickGreen = new SolidColorBrush(Color.Parse("#43A047")); // 已送达 / 对方已读
+        static readonly IBrush OutBrush = new SolidColorBrush(Color.Parse("#D9FDD3"));  // 自己: WhatsApp 浅绿
+        static readonly IBrush TickGreen = new SolidColorBrush(Color.Parse("#53BDEB")); // 已送达 / 对方已读
         static readonly IBrush TickRed = new SolidColorBrush(Color.Parse("#E53935"));   // 失败
 
         const string SingleCheck = "M0,3 L2,5 L6,0";

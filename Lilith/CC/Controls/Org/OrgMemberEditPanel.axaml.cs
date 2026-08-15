@@ -188,7 +188,7 @@ namespace CC
             if (pickedDepts.Count == 0)
             {
                 DeptSummary.Text = "请选择部门";
-                DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#9AA0A6"));
+                DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#667781"));
                 return;
             }
 
@@ -196,7 +196,7 @@ namespace CC
             DeptSummary.Text = string.Join("、", allDepts
                 .Where(d => pickedDepts.Contains(d.ID!.Value))
                 .Select(d => d.Name ?? string.Empty));
-            DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#1E1E1E"));
+            DeptSummary.Foreground = new SolidColorBrush(Color.Parse("#111B21"));
         }
 
 

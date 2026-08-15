@@ -23,10 +23,10 @@
                 <Setter Property="BorderBrush" Value="#DDE1E7"/>
             </Style>
             <Style Selector="TextBox.fld:pointerover /template/ Border#PART_BorderElement">
-                <Setter Property="BorderBrush" Value="#43A047"/>
+                <Setter Property="BorderBrush" Value="#008069"/>
             </Style>
             <Style Selector="TextBox.fld:focus-within /template/ Border#PART_BorderElement">
-                <Setter Property="BorderBrush" Value="#43A047"/>
+                <Setter Property="BorderBrush" Value="#00A884"/>
             </Style>
             <Style Selector="TextBox.fld:focus-within">
                 <Setter Property="Background" Value="White"/>
@@ -37,7 +37,7 @@
                 <Setter Property="Width" Value="88"/>
                 <Setter Property="Padding" Value="0"/>
                 <Setter Property="CornerRadius" Value="6"/>
-                <Setter Property="Background" Value="#43A047"/>
+                <Setter Property="Background" Value="#008069"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
@@ -45,7 +45,7 @@
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
             </Style>
             <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-                <Setter Property="Background" Value="#4CAF50"/>
+                <Setter Property="Background" Value="#00A884"/>
                 <Setter Property="Foreground" Value="White"/>
             </Style>
         </Grid.Styles>

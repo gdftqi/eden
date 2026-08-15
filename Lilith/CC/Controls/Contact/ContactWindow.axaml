@@ -120,8 +120,11 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- 下方资料区居中, 与头像对齐 -->
+                <StackPanel MaxWidth="520" HorizontalAlignment="Center" Margin="0,10,0,0">
+
                 <!-- 状态(签名) -->
-                <StackPanel Margin="22,10,22,0">
+                <StackPanel Margin="22,0,22,0">
                     <TextBlock Text="状态" FontSize="13" Foreground="#8A8A8A"/>
                     <TextBlock x:Name="StatusText" Text="" FontSize="14" Foreground="#1E1E1E" Margin="0,6,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -130,7 +133,7 @@
 
                 <!-- 影音内容,链接和文档 -->
                 <Button Classes="opt">
-                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch" MinWidth="360">
+                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
                         <Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,18,0">
                             <Canvas Width="24" Height="24">
                                 <Path Fill="#555" Data="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/>
@@ -229,6 +232,8 @@
                         <TextBlock Text="删除聊天" FontSize="14" Foreground="#C62828" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

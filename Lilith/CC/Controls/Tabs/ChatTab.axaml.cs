@@ -30,6 +30,9 @@ namespace CC
         {
             InitializeComponent();
             ChatPanel.ChatSelected += OpenChat;
+            ChatPanel.StartChatRequested += OpenConversation;
+            ChatPanel.NewGroupRequested += () => Tips.Error("创建群组功能即将上线");
+            ChatPanel.AddContactRequested += () => Tips.Error("添加联系人功能即将上线");
             ChatView.SendRequested += OnSendRequested;
             ChatView.ClearRequested += OnClearRequested;
             ChatView.DeleteRequested += OnDeleteRequested;
@@ -580,6 +583,8 @@ LIMIT $n";
             {
                 return;
             }
+
+            orgUsers[peer.ID.Value] = peer;
 
             Int64 chatId = ChatCursor.MakeChatId(Me.ID, peer.ID.Value);
 

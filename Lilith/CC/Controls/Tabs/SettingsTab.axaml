@@ -10,7 +10,7 @@
             <Grid>
                 <cc:SettingInfo x:Name="InfoView" IsVisible="False"/>
                 <cc:SettingSecurity x:Name="SecurityView" IsVisible="False"/>
-                <Border x:Name="EmptyState" Background="#ECE5DD">
+                <Border x:Name="EmptyState" Background="#EFEAE2">
                     <TextBlock Text="设置" FontSize="15" Foreground="#8A8A8A"
                                VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Border>
