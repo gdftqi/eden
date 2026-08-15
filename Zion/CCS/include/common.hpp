@@ -45,6 +45,12 @@ constexpr int64_t SEQ_BUCKET_WIDTH = 10000;
 // 操作 DB 失败: 连接还在, 这一条没成, 客户端可重试
 #define CERR_CHAT_DB_FAILED (PERR_REQ_CUSTOM + 1)
 
+// 内容超长: 重试也没用, 客户端应该自己拦住(输入框 MaxLength=2048)
+#define CERR_CHAT_TOO_LONG (PERR_REQ_CUSTOM + 2)
+
+// content 的字节上限. 客户端限的是 2048 个字符
+constexpr size_t CONTENT_MAX_BYTES = 8 * 1024;
+
 
 using adam::tcp::Server;
 using adam::tcp::Message;
@@ -59,7 +65,6 @@ make_chat_id(uint32_t a, uint32_t b) noexcept {
 
 
 // 取列的小工具: 列不存在或是 NULL 都给零值.
-// 直接 cass_value_get_* 每取一个字段要判空 + 判返回码, 读起来全是噪音
 inline int64_t
 col_i64(const ::CassRow* row, const char* name) noexcept {
     int64_t v = 0;

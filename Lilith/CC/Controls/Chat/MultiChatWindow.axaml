@@ -209,7 +209,7 @@
                         </Viewbox>
                     </Button>
                     <!-- 输入框 -->
-                    <TextBox Grid.Column="2" x:Name="InputBox" PlaceholderText="输入消息" Background="Transparent" BorderThickness="0" FontSize="14" VerticalContentAlignment="Center" Padding="6,9" MaxHeight="120" AcceptsReturn="True" TextWrapping="Wrap"/>
+                    <TextBox Grid.Column="2" x:Name="InputBox" PlaceholderText="输入消息" MaxLength="2048" Background="Transparent" BorderThickness="0" FontSize="14" VerticalContentAlignment="Center" Padding="6,9" MaxHeight="120" AcceptsReturn="True" TextWrapping="Wrap"/>
                     <!-- 发送 -->
                     <Button Grid.Column="3" Classes="send" Click="Send_Click" Margin="4,0,0,0">
                         <Viewbox Width="22" Height="22">

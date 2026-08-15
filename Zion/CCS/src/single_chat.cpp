@@ -176,9 +176,6 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
         ::cass_statement_bind_int64_by_name(st, "created_at", created_at);
     });
 
-    // 会话游标: 双方各一行. UPDATE 即 upsert, 行不存在会自动出现,
-    // 所以不需要在别处预建 -- 会话列表(按 user_id 扫这张表)靠它保持完整.
-    // 未读数不单独存, 由 last_seq - read_seq 算出
     for (uint32_t uid: { from_id, to_id }) {
         if (rc != 0) {
             break;
@@ -194,7 +191,7 @@ single_chat_db(Server::Context& ctx, const ccs::SingleChatReq* req) noexcept {
             });
 
         if (to_id == from_id) {
-            break;   // 自己和自己的会话只有一行游标
+            break;
         }
     }
 
@@ -286,6 +283,16 @@ single_chat(Server::Context& ctx, adam::core::Package* pk) noexcept {
     if (to_id == 0) {
         xERROR("无效的 to_id: from = {}", from_id);
         ctx.terminate(PERR_TER_PROTO_ERR);
+        return;
+    }
+
+    if (req.content().size() > CONTENT_MAX_BYTES) {
+        xWARN("content 超长: from = {}, bytes = {}", from_id, req.content().size());
+
+        ccs::SingleChatRsp rsp;
+        rsp.set_cli_id(req.cli_id());
+        rsp.set_code(CERR_CHAT_TOO_LONG);
+        single_chat_ack(ctx, &rsp);
         return;
     }
 

@@ -8,6 +8,7 @@ using CC.Proto;
 using CC.Utils;
 using System;
 using System.Runtime.InteropServices;
+using System.Text.Unicode;
 
 namespace CC
 {
@@ -230,6 +231,12 @@ namespace CC
             var t = InputBox.Text?.Trim();
             if (string.IsNullOrEmpty(t))
             {
+                return;
+            }
+
+            if (t.Length > 2048)
+            {
+                Tips.Error("超出最大文本");
                 return;
             }
 
