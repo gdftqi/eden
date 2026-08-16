@@ -177,6 +177,21 @@ namespace CC
 
         private async Task Reload()
         {
+            await LoadLocal();
+
+            localReady = true;
+
+            var pending = pendingCursors;
+            pendingCursors = null;
+            if (pending != null)
+            {
+                ApplyCursors(pending);
+            }
+        }
+
+
+        private async Task LoadLocal()
+        {
             if (Me.Db == null)
             {
                 return;
@@ -241,15 +256,6 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
             catch (Exception ex)
             {
                 Log.Write($"[ChatTab] 会话加载失败: {ex.Message}");
-            }
-
-            localReady = true;
-
-            var pending = pendingCursors;
-            pendingCursors = null;
-            if (pending != null)
-            {
-                ApplyCursors(pending);
             }
         }
 
@@ -323,10 +329,12 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
                 long missing = c.LastSeq - conv.RecvSeq;
                 if (missing > 0)
                 {
-                    conv.Unread += (int)missing;
                     conv.LastTime = c.LastTime;
                     unseen = true;
                 }
+
+                long unread = c.LastSeq - conv.ReadSeq;
+                conv.Unread = unread > 0 ? (int)unread : 0;
 
                 ChatPanel.Upsert(conv, missing > 0);
                 SaveCursor(conv);
@@ -334,10 +342,27 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
 
             SweepDeleted(rsp);
 
+            if (current != null && current.SyncSeq > current.RecvSeq)
+            {
+                PullHistory(current, 0);
+            }
+
             if (unseen)
             {
                 RaiseUnseen();
             }
+        }
+
+
+        private static void PullHistory(ChatCursor conv, long beforeSeq)
+        {
+            ChatProto.Send(new GetChatMessageReq
+                           {
+                               ChatId    = (ulong)conv.ChatId,
+                               BeforeSeq = beforeSeq,
+                               Limit     = HISTORY_LIMIT,
+                           },
+                           ChatProto.PID_GET_CHAT_MSG_REQ);
         }
 
 
@@ -349,23 +374,45 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
             long chatId = (long)rsp.ChatId;
             var  conv   = ChatPanel.Find(chatId)?.Conversation;
 
-            if (conv == null || rsp.Messages.Count == 0)
+            if (conv == null)
             {
+                return;
+            }
+
+            if (rsp.Messages.Count == 0)
+            {
+                if (conv.SyncSeq > conv.RecvSeq)
+                {
+                    conv.RecvSeq = conv.SyncSeq;
+                    UpdateRecvSeq(chatId, conv.RecvSeq);
+
+                    long left = conv.SyncSeq - conv.ReadSeq;
+                    conv.Unread = left > 0 ? (int)left : 0;
+                    ChatPanel.Upsert(conv);
+                    SaveCursor(conv);
+                }
                 return;
             }
 
             InsertPulled(chatId, rsp);
 
             long maxSeq = 0;
+            long minSeq = long.MaxValue;
             foreach (var m in rsp.Messages)
             {
                 if (m.Seq > maxSeq)
                 {
                     maxSeq = m.Seq;
                 }
+                if (m.Seq < minSeq)
+                {
+                    minSeq = m.Seq;
+                }
             }
 
-            if (maxSeq > conv.RecvSeq)
+            bool more = rsp.HasMore && conv.RecvSeq > 0 && minSeq > conv.RecvSeq + 1;
+
+            if (!more && maxSeq > conv.RecvSeq)
             {
                 conv.RecvSeq = maxSeq;
                 UpdateRecvSeq(chatId, maxSeq);
@@ -387,7 +434,7 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
             {
                 ChatView.Reload();
 
-                if (Watching() && current.ReadSeq < current.RecvSeq)
+                if (!more && Watching() && current.ReadSeq < current.RecvSeq)
                 {
                     ConfirmRead(current);
 
@@ -397,6 +444,11 @@ FROM t_chat_cursor ORDER BY f_last_time ASC";
                         item.Unread = 0;
                     }
                 }
+            }
+
+            if (more)
+            {
+                PullHistory(conv, minSeq);
             }
         }
 
@@ -735,6 +787,7 @@ LIMIT $n";
         {
             current = item.Conversation;
             ChatView.Conversation = item.Conversation;
+            MemberView.IsVisible = false;
 
             if (current != null)
             {
@@ -763,13 +816,7 @@ LIMIT $n";
 
             if (current != null && current.SyncSeq > current.RecvSeq)
             {
-                ChatProto.Send(new GetChatMessageReq
-                               {
-                                   ChatId    = (ulong)current.ChatId,
-                                   BeforeSeq = 0,
-                                   Limit     = HISTORY_LIMIT,
-                               },
-                               ChatProto.PID_GET_CHAT_MSG_REQ);
+                PullHistory(current, 0);
             }
         }
 
@@ -908,6 +955,12 @@ LIMIT $n";
                             conv.RecvSeq = rsp.Seq;
                             UpdateRecvSeq(conv.ChatId, rsp.Seq);
                         }
+
+                        if (rsp.Seq > conv.ReadSeq)
+                        {
+                            conv.ReadSeq = rsp.Seq;
+                            SaveCursor(conv);
+                        }
                     }
                     else
                     {
@@ -957,6 +1010,7 @@ LIMIT $n";
 
             if (ReferenceEquals(item.Conversation, current))
             {
+                MemberView.IsVisible = false;
                 current = null;
                 ChatView.Conversation = null;
                 ChatView.ClearMessages();
