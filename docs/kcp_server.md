@@ -73,9 +73,12 @@ KCP 分片后经 `output` 回调 → 取一个 `Datagram`(对象池)→ 封信�
 校验链一步都不能少:
 
 ```
-sealedbox 解密 → 验 expire → 验 conv == s->conv() → 验 token.user_id == data.src_id
-  → 验 conv % N == user_id % N 不变量 → ed25519 验签 → crypto_kx 派生双向密钥 → 回 RSP
+长度 → sealedbox 解密 → 验 expire → 验 conv == s->conv() → 验 token.user_id == data.src_id
+  → ed25519 验签 → crypto_kx 派生双向密钥 → set_key → 回 RSP
 ```
+
+> **这里没有"验 `conv % N == user_id % N`"这一步。** 那条不变量由构造成立,不靠运行期检查:
+> 能通过验签的 token 只可能出自 Eva,而 `token.conv == s->conv()` 又把 conv 钉死了。
 
 `AccessToken` 由 Eva 签发(116B),客户端**只搬运不解密**。RSP 回带网关的临时 X25519 公钥,两端 X25519 皆临时 → **双边前向保密**。详见 [login.md](login.md)。
 

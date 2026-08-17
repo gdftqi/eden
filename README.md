@@ -119,14 +119,14 @@ UDP 载荷布局
 同时做**新会话限速**:`conv` 不在 `active_conv` 集合里的包才计入每源 IP 的 1 秒窗口,已建立会话一律放行(避免误伤 NAT 后的一片玩家)。
 
 **② X25519 ECDH 鉴权握手 —— 每会话密钥协商**
-Eva 用网关公钥 **sealedbox 封** + **ed25519 签** 签发 `AccessToken`(116B:`expire/conv/user_id/ip/cli_pk/sign`),客户端只搬运。网关 `REGIST_REQ` 校验链:解封 → 验期 → 验 `conv` → **验 `conv % N == user_id % N` 不变量** → ed25519 验签,再用**临时 X25519** 与 token 内 `cli_pk` 做 `crypto_kx` 派生**双向会话密钥**;`REGIST_RSP` 回带网关临时公钥。两端 X25519 皆临时 → **双边前向保密**。
+Eva 用网关公钥 **sealedbox 封** + **ed25519 签** 签发 `AccessToken`(116B:`expire/conv/user_id/ip/cli_pk/sign`),客户端只搬运。网关 `REGIST_REQ` 校验链:解封 → 验期 → 验 `conv == s->conv()` → 验 `token.user_id == data.src_id` → ed25519 验签,再用**临时 X25519** 与 token 内 `cli_pk` 做 `crypto_kx` 派生**双向会话密钥**;`REGIST_RSP` 回带网关临时公钥。两端 X25519 皆临时 → **双边前向保密**。
 
 **③ ChaCha20-Poly1305 信封 —— 包住整个 KCP 数据报**
 `conv` 与计数器放在 AAD 里(**认证但不加密**,因为解密前就要用它们定位会话)。计数器每次**发送**递增(含重传与纯 ACK),兼作 AEAD nonce 与防重放序号;耗尽即拆会话。收端用 **RFC 6479 式 64 位滑动窗口**去重:容忍乱序(KCP 依赖它),拒绝重放。
 
 > **为什么要下沉。** 改造前 AEAD 在 KCP 之上,KCP 头裸露在外,下面只有分槽共享的 MAC —— 同槽客户端可伪造受害者的 `una`/`rmt_wnd`/`sn`,一个包就能清空对方发送缓冲或劫持下行。根因是**认证发生在错误的层**:攻击面在 `ikcp_input` 里,而认证在它之后。下沉之后这四条注入路径全部由构造消失。
 
-> `conv` 不变量是关键:Eva 的 `MakeConv` 生成的 conv 满足 `conv % N == user_id % N`(N=网关 worker 数,Eva 从 etcd 的 ServerInfo 读取),从而这条会话经 sk_reuseport 恒落到负责该 user 的那个 Worker。`conv` 放在偏移 8 是刻意的 —— 与改造前 KCP 头里 conv 的位置重合,两个 BPF 程序一个字节都不用改。
+> `conv` 不变量是关键:Eva 的 `MakeConv` 生成的 conv 满足 `conv % N == user_id % N`(N=网关 worker 数,Eva 从 etcd 的 ServerInfo 读取),从而这条会话经 sk_reuseport 恒落到负责该 user 的那个 Worker。**网关不单独校验这条不变量** —— 它由构造成立:conv 只可能来自 Eva,而 token 又把 conv 钉死(`token.conv == 会话 conv`),伪造一个 `% N` 不匹配的 conv 拿不到能通过验签的 token。`conv` 放在偏移 8 是刻意的 —— 与改造前 KCP 头里 conv 的位置重合,两个 BPF 程序一个字节都不用改。
 
 见 [`Adam/src/bpf/envelope.bpf.c`](Adam/src/bpf/envelope.bpf.c)、[`Adam/src/kcp/session.cpp`](Adam/src/kcp/session.cpp)、[`Eva/com/token.go`](Eva/com/token.go)。
 

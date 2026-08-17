@@ -95,7 +95,7 @@
 
 ### X25519 鉴权握手 + 会话密钥
 - [x] **AccessToken(Eva 签发,客户端只搬运)**:`ACCESS_TOKEN_LEN=116`,布局 `expire@0 / conv@8 / user_id@12 / ip@16 / cli_pk@20 / sign@52`;Eva 用网关 X25519 公钥 sealedbox 封 + ed25519 签(签明文前 `ACCESS_TOKEN_SIGNED_LEN=52` 字节),绑 conv / 限时
-- [x] **REGIST_REQ 校验链**:sealedbox 解密 → 验期 → 验 `conv == s->conv()` → 验 `token.user_id == data.src_id` → **验 `conv % N == user_id % N` 不变量** → ed25519 验签 → 派生密钥 → 回 RSP(REGIST payload = `ACCESS_TOKEN_LEN(116) + 48 = 164`)
+- [x] **REGIST_REQ 校验链**(`on_regist_terminal_req`):长度 → sealedbox 解密 → 验期 → 验 `conv == s->conv()` → 验 `token.user_id == data.src_id` → ed25519 验签 → `crypto_kx` 派生密钥 → 回 RSP(REGIST payload = `ACCESS_TOKEN_LEN(116) + 48 = 164`)
 - [x] **会话密钥(crypto_kx)**:网关每会话生成临时 X25519,与 `token.cli_pk` 派生双向 `rx/tx`;RSP 回带网关临时公钥,客户端派生出对称密钥;**双边前向保密**(两端 X25519 皆临时)
 - [x] 加密激活 = `Session::authed`:握手包(REGIST_REQ/RSP)走明文,authed 翻转后才加解密,两端对称
 
@@ -110,6 +110,8 @@
 > **为什么要下沉。** 改造前 AEAD 在 KCP 之上,KCP 头裸露在外,下面只有分槽共享的 MAC —— 同槽客户端可伪造受害者的 `una`/`rmt_wnd`/`sn`,一个包就能清空对方发送缓冲或劫持下行。根因是**认证发生在错误的层**:攻击面在 `ikcp_input` 里,而认证在它之后。下沉之后这四条注入路径由构造消失。
 
 > `conv` 不变量是关键:Eva 的 `MakeConv`(Redis `INCR` 序号,`(seq%kmax)*N + user%N`)生成的 conv 满足 `conv % N == user_id % N`(N 从 etcd ServerInfo 的 `nthreads` 读),从而经 sk_reuseport 恒落到负责该 user 的 Worker。
+>
+> **网关侧没有单独校验这条不变量的代码** —— 它由构造成立:能通过验签的 token 只可能出自 Eva,而 `token.conv == 会话 conv` 这道检查又把 conv 钉死,所以伪造一个 `% N` 不匹配的 conv 换不到可用的 token。写单测时要测的是 `MakeConv` 的生成侧,不是网关的校验侧。
 
 ### 待办 / 短板
 - [ ] envelope MAC key 仍全局静态 → HKDF 派生 + 定时 rotate(`rotate_key()` 接口已就绪,缺定时触发 + 客户端协商)
