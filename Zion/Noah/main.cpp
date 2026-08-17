@@ -54,27 +54,27 @@ public:
 }; // class Noah;
 
 
-/**
- * @brief echo handler:把收到的 Package 原样回送给对端。
- *        对应 pk_id = 1(PING)消息。
- */
-static void
-echo_handler(adam::tcp::Server::Context& ctx, adam::core::Package* pk) noexcept {
-    auto* t = ctx.terminal;
+// /**
+//  * @brief echo handler:把收到的 Package 原样回送给对端。
+//  *        对应 pk_id = 1(PING)消息。
+//  */
+// static void
+// echo_handler(adam::tcp::Server::Context& ctx, adam::core::Package* pk) noexcept {
+//     auto* t = ctx.terminal;
 
-    // src/dst 对调, 原样回送给对端
-    uint32_t src = pk->data.src_id;
-    pk->data.src_id = pk->data.dst_id;
-    pk->data.dst_id = src;
+//     // src/dst 对调, 原样回送给对端
+//     uint32_t src = pk->data.src_id;
+//     pk->data.src_id = pk->data.dst_id;
+//     pk->data.dst_id = src;
 
-    int rc = t->sess()->send(*pk);
-    if (rc < 0) {
-        xWARN("echo send failed: uid ={}, rc={}", t->uid(), rc);
-    }
-}
+//     int rc = t->sess()->send(*pk);
+//     if (rc < 0) {
+//         xWARN("echo send failed: uid ={}, rc={}", t->uid(), rc);
+//     }
+// }
 
 
 TCP_SERVER_MAIN(
     Noah, "config.yml",
-    TCP_PK_HANDLE(PID_CUSTOM + 1, echo_handler)
+    // TCP_PK_HANDLE(PID_CUSTOM + 1, echo_handler)
 )
