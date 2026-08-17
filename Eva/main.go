@@ -56,6 +56,7 @@ func main() {
 	eng.POST(handlers.GET_ORG, handlers.GetOrg)
 	eng.POST(handlers.UPDATE_USER, handlers.UpdateUser)
 	eng.POST(handlers.UPDATE_DEPART, handlers.UpdateDepart)
+	eng.POST(handlers.UPDATE, handlers.Update)
 
 	log.Info("开启服务: %v", conf.Instance.Host)
 	eng.Run(conf.Instance.Host)

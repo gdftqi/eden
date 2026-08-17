@@ -42,10 +42,7 @@ namespace Lilith.Components
 
 
     /// <summary>
-    /// Hydra: HTTP(RA) + KCP 的门面.
-    /// 线程模型: 上层(UI)线程 + ioSend(SndLoop: 发包+KCP tick+判死) + ioRecv(RcvLoop: 阻塞收包).
-    /// 所有对上回调(OnStateChanged/OnPackage)都经 rcv/state 队列由 Update() 派发 --
-    /// 上层在 OnWakeup 里把 Update() 调度回自己的线程(如 Dispatcher.Post), 回调即落在上层线程.
+    /// Hydra: HTTP(RA)
     /// </summary>
     public class Hydra
     {
@@ -60,6 +57,9 @@ namespace Lilith.Components
 
         // RcvLoop 在会话不可收(已关/重连中)时的退避间隔(毫秒)
         const int IDLE_MS = 15;
+
+        // HTTP 会话保活间隔(毫秒).
+        const int PING_MS = 5 * 60 * 1000;
 
 
         static readonly Hydra instance = new Hydra();
@@ -109,6 +109,7 @@ namespace Lilith.Components
                 return;
             }
 
+            StopPing();
             sndQue.Signal();             // 唤醒 SndLoop, 让它看到 running=0 退出
             KcpSession.Instance.Close(); // 抽走 socket, 打断 RcvLoop 的阻塞收包
 
@@ -219,9 +220,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 设置 唤醒 事件: 有待派发的事件/包时触发(可能来自任意线程),
-        /// 上层应在回调里把 Update() 调度回自己的线程, 如 Dispatcher.UIThread.Post(Hydra.Instance.Update)
-        /// </summary>
+        /// 设置 唤醒 事件 </summary>
         /// <param name="handler"></param>
         /// <returns></returns>
         public Hydra SetOnWakeup(Action handler)
@@ -234,8 +233,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 用户登录: RA 登录 + KCP 打开(握手), 成功后拉起收发线程.
-        /// 注意: 已在连接中时须先 Close() 再 Login(KcpSession.Open 对活会话返回 1, 这里按失败处理).
+        /// 用户登录: RA 登录 + KCP 打开(握手)
         /// </summary>
         /// <param name="username">用户名</param>
         /// <param name="password">密码</param>
@@ -259,6 +257,7 @@ namespace Lilith.Components
                 }
 
                 Start();
+                StartPing();
                 SetState(HydraState.Connected);
                 return "";
             }
@@ -271,8 +270,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 发送消息.包的所有权移交给 Hydra: 由 ioSend 线程发出并归还对象池,
-        /// 调用方 Send 之后不得再读写/归还该包.
+        /// 发送消息.
         /// </summary>
         /// <param name="pkg"></param>
         public void Send(Package pkg)
@@ -282,7 +280,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// 事件泵: 把积压的状态变化与业务包派发给上层回调(在调用者线程执行).
+        /// 事件 Update
         /// 上层收到 OnWakeup 后调度本方法; 空转无害.
         /// </summary>
         public void Update()
@@ -300,8 +298,6 @@ namespace Lilith.Components
                 {
                     var pk = rcvBatch[i];
                     OnPackage?.Invoke(pk);
-                    // 包归 Hydra 还池: pk 只在回调执行期间有效,
-                    // 上层不得留引用,不得自行 Pool.Return(会导致双还池/串包)
                     Package.Pool.Return(pk);
                 }
             } while (n > 0);
@@ -326,9 +322,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// ioSend 线程: 批量发送 sndQue 中的包, 并以 TICK_MS 周期驱动 KCP Update(重传/ACK/保活)
-        /// Update 返回负值(-1000 除外)即传输层判死 -> 关会话并发起重连;
-        /// 但 -4(被服务端踢除)例外: 直接 Close 不重连, 避免与顶号者互踢.
+        /// ioSend 线程
         /// </summary>
         private void SndLoop()
         {
@@ -352,8 +346,7 @@ namespace Lilith.Components
 
                 int res = KcpSession.Instance.Update((uint)Environment.TickCount);
                 if (res == -4)
-                {// 被服务端主动踢除: 绝不能重连 -- 重连会把顶掉自己的那台设备再顶下去, 形成互踢死循环.
-                 // 上层收到 Disconnected 后应回登录页, 并按 KickCode 提示原因.
+                {
                     KickCode = KcpSession.Instance.KickCode;
                     Log.Write($"[Hydra] 被服务端踢除: code = {KickCode}, 不再重连");
                     Close();
@@ -373,8 +366,7 @@ namespace Lilith.Components
 
 
         /// <summary>
-        /// ioRecv 线程: 阻塞收包 -> 入 rcvQue -> OnWakeup 通知上层来取.
-        /// 会话不可收(已关/重连中)时退避轮询, 不退出线程 -- 重连成功后自动恢复收包.
+        /// ioRecv 线程.
         /// </summary>
         private void RcvLoop()
         {
@@ -405,6 +397,41 @@ namespace Lilith.Components
             }
 
             Log.Write("[Hydra] RcvLoop 退出");
+        }
+
+
+        private void StartPing()
+        {
+            StopPing();
+            pingTimer = new Timer(OnPing, null, PING_MS, PING_MS);
+        }
+
+
+        private void StopPing()
+        {
+            pingTimer?.Dispose();
+            pingTimer = null;
+        }
+
+
+        private async void OnPing(object? state)
+        {
+            try
+            {
+                if (await Ping.POST() == 0)
+                {
+                    return;
+                }
+
+                if (Volatile.Read(ref reconnecting) == 0)
+                {
+                    await Refresh.POST();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write($"[Hydra] 会话保活失败: {ex.Message}");
+            }
         }
 
 
@@ -505,6 +532,9 @@ namespace Lilith.Components
 
         // 两次重连尝试之间的间隔(毫秒)
         private uint reconnectRetryIntervalMs = 5000;
+
+        // HTTP 会话保活定时器(登录起、Close 停)
+        private Timer? pingTimer;
 
         // 状态变化事件(上层线程派发)
         private Action<HydraState, HydraState>? OnStateChanged;
