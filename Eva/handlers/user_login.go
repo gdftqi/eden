@@ -43,7 +43,7 @@ type userLoginRsp struct {
 	MacKey       string    `json:"mac_key"`       // siphash mac key
 	AccessToken  string    `json:"access_token"`  // 网关访问Token
 	RefreshToken string    `json:"refresh_token"` // OAUTH Token
-	User         *dao.User `json:"user"`
+	User         *dao.UserBasic `json:"user"`
 }
 
 func UserLogin(c *gin.Context) {
@@ -258,13 +258,6 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	user, err := dao.GetUserByID(ub.ID)
-	if err != nil {
-		log.Error("GetUserByID failed: %v", err)
-		web.Response(c, -1, "服务端内部错误9")
-		return
-	}
-
 	// Step 9, 加密应答消息
 	rsp := userLoginRsp{
 		Conv:         conv,
@@ -273,7 +266,7 @@ func UserLogin(c *gin.Context) {
 		MacKey:       base64.StdEncoding.EncodeToString(macKey),
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,
-		User:         user,
+		User:         ub,
 	}
 
 	web.Response(c, 0, "", tx, &rsp)

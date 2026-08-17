@@ -79,8 +79,16 @@ Package 头里 `src_id = user_id`。网关:
 握手完成(authed)。
 
 ### ⑥ 业务通信
-此后业务 payload 走游戏信道 ChaCha20-Poly1305 加密,nonce = `conv|seq|dir`,
-每个包带 `src_id = user_id`(网关逐包校验 `src_id == user_id`)。
+握手完成后加密**不在 payload 这一层**,而是下沉到 KCP 之外的**信封层** —— 整个 KCP
+数据报(含它自己的 24B 头)被 ChaCha20-Poly1305 裹住,`conv` 与计数器放在 AAD 里。
+nonce 由信封的**计数器**承担(每次发送 +1,含重传与纯 ACK),它同时也是防重放序号,
+收端用 RFC 6479 式 64 位滑动窗口去重。布局见 [package.md](package.md#5-加密不在这一层)。
+
+> 早期版本是"头明文 + 只加密 payload + `seq` 当 nonce",**已废弃**。原因是认证发生在
+> 错误的层:KCP 头裸露在外,同槽客户端能伪造受害者的 `sn`/`una`/`rmt_wnd`。
+
+每个包仍带 `src_id = user_id`,网关**逐包校验** `src_id == session.uid`
+(见 [worker.cpp](../Adam/src/kcp/worker.cpp) 里 `authed()` 之后那道 `src_id` 伪造检查)。
 
 ---
 
@@ -120,7 +128,11 @@ Package 头里 `src_id = user_id`。网关:
 
 ## 6. 实现对照
 
-- RA 的密码学原语在 `ra/utils/cryptor.go`(纯 Go `x/crypto`,与 libsodium 逐字节兼容)。
-- RA 发牌 = `Ed25519Sign` + `SealedBoxEncrypt`(顺序见 ④)。
-- 网关握手校验在 `src/kcp/server.cpp` 的 `on_regist_req`。
-- 客户端参考实现:Python `examples/kcp_echo/test_kcp.py`、C# `lilith/`。
+> **RA 就是 Eva**(Go 登录服),下面按实际路径列。
+
+- Eva 的密码学原语在 [`Eva/utils/cryptor.go`](../Eva/utils/cryptor.go)(纯 Go `x/crypto`,与 libsodium 逐字节兼容)。
+- Eva 发牌 = `Ed25519Sign` + `SealedBoxEncrypt`(顺序见 ④),在 [`Eva/com/token.go`](../Eva/com/token.go);
+  `conv` 的分配在 [`Eva/com/kcp.ex.go`](../Eva/com/kcp.ex.go) 的 `MakeConv`。
+- 网关握手校验在 [`Adam/src/kcp/worker.cpp`](../Adam/src/kcp/worker.cpp) 的 **`on_regist_terminal_req`**
+  (旧名 `on_regist_req`,且已从 `server.cpp` 挪到 `worker.cpp`)。
+- 客户端参考实现:C# [`Lilith/Lilith`](../Lilith/Lilith)。

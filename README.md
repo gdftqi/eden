@@ -6,19 +6,21 @@
 
 当前聚焦**网络 IO substrate 与传输安全**;业务层(战斗、AOI、聊天、持久化)由上层接入。
 
+> **本分支只含基础框架**,不含任何具体产品的业务代码。框架改动一律在 `basic` 上做,产品分支从这里合入。
+
 ---
 
 ## 组件
 
 | 代号 | 语言 | 角色 |
 |---|---|---|
-| **Adam** | C++20 | 核心框架 `libadam.a` —— KCP 网关库 + TCP 后端库 + 线协议 codec + eBPF + utils。命名空间 `adam` |
+| **Adam** | C++20 | 核心框架 `libadam.a` —— KCP 网关库 + TCP 后端库 + 线协议 codec + eBPF + Scylla 访问层 + utils。命名空间 `adam` |
 | **Moses** | C++ | KCP **网关**服务(基于 Adam 的 kcp 库) |
-| **Noah** | C++ | **终端路由服务**(`router: true`)—— 受理终端进入/离开、顶号仲裁;兼作 echo 示例 |
-| **Eva** | Go | **登录 / RA 服务** —— 签发 AccessToken、生成会话 conv、从 etcd 读网关注册表返回客户端 |
-| **Lilith** | C# | **客户端** —— KCP 核心库(Lilith) + 聊天 GUI(CC,Avalonia) |
-| **Ark** | — | **基础设施**编排 —— etcd / redis / mysql 主从 / docker-compose |
-| **Zion** | — | 可部署服务的**总目录**(Moses / Noah / tools) |
+| **Noah** | C++ | **终端路由服务**(`router: true`)—— 受理终端进入/离开、顶号仲裁 |
+| **Eva** | Go | **登录 / RA 服务** —— 签发 AccessToken、生成会话 conv、从 etcd 读网关注册表返回客户端;兼管账号(`t_user_basic`)与 S3 上传 |
+| **Lilith** | C# | **客户端 KCP 核心库** —— 会话端点 + 3 线程泵 + 重连 |
+| **Ark** | — | **基础设施**编排 —— etcd / redis / mysql 主从 / scylla / docker-compose |
+| **Zion** | — | 可部署服务的**总目录**(Moses / Noah) |
 
 ---
 
@@ -29,8 +31,8 @@
                               │                                                      │
    ┌────────┐   ①登录 HTTP    ▼          ┌──────────────┐                            ▼
    │ Lilith │ ───────────► ┌──────┐      │    Moses     │ ──TCP──► Noah  (终端路由)  │
-   │ 客户端 │ ◄─token+conv─ │ Eva  │      │  (KCP 网关)  │ ──TCP──► scene (业务实例)   │
-   │  (C#)  │              │ (Go) │      │              │ ──TCP──► chat             │
+   │ 客户端 │ ◄─token+conv─ │ Eva  │      │  (KCP 网关)  │ ──TCP──► 业务后端 A        │
+   │  (C#)  │              │ (Go) │      │              │ ──TCP──► 业务后端 B        │
    └────────┘              └──────┘      └──────────────┘                            │
         │  ②KCP/UDP + 鉴权握手                 ▲                                     │
         └─────────────────────────────────────┘  ③conv 落到负责该 user 的 worker    │
@@ -174,7 +176,9 @@ Eva 用网关公钥 **sealedbox 封** + **ed25519 签** 签发 `AccessToken`(116
 
 ## 构建与运行
 
-**依赖**:Linux kernel ≥ 5.x(XDP)· C++20(g++ ≥ 11 / clang ≥ 13)· libsodium · mimalloc · spdlog · libbpf + clang(编 BPF)· yaml-cpp · abseil · simdjson · gperftools(profiling)· Go ≥ 1.21(Eva)· .NET(Lilith)· etcd / redis(运行期)
+**依赖**:Linux kernel ≥ 5.x(XDP)· C++20(g++ ≥ 11 / clang ≥ 13)· libsodium · mimalloc · spdlog · libbpf + clang(编 BPF)· yaml-cpp · abseil · simdjson · cpp-rust-driver(Scylla)· gperftools(profiling)· Go ≥ 1.21(Eva)· .NET(Lilith)· etcd / redis(运行期)
+
+> 上述 C/C++ 依赖**全部被打进 `libadam.a`**(含 mimalloc 的 new/delete 覆盖与 Scylla 静态驱动),下游服务链一个 `libadam.a` 即可,不必逐个再链。
 
 ```bash
 # 1) 核心框架:静态库 + BPF 对象
@@ -183,8 +187,8 @@ cd Adam && make                 # → build/libadam.a  build/bpf/{kcp,envelope}.
 # 2) 基础设施(etcd / redis / mysql)
 cd Ark && docker compose up -d
 
-# 3) 登录服 Eva
-cd Eva && go build ./...        # 或 docker compose up -d
+# 3) 登录服 Eva(库,不带 main —— 产品自己写入口)
+cd Eva && go build ./...
 
 # 4) KCP 网关 Moses(需 root / CAP_BPF 加载 XDP)
 cd Zion/Moses && make           # → moses/ 部署包(二进制 + config + bpf + compose + flame_build.sh)
@@ -192,6 +196,17 @@ cd moses && sudo ./moses
 
 # 5) 终端路由服务 Noah
 cd Zion/Noah && make && cd noah && ./noah
+```
+
+Eva 是**库**不是可执行程序 —— 产品自己写 `main`,框架路由由 `boot` 挂好,业务路由自己往上加:
+
+```go
+func main() {
+    boot.Init("config.yml")     // conf → redis → etcd → mysql → s3
+    eng := boot.NewEngine()     // 框架路由: user_login / refresh / update / update_user / create_user / upload
+    eng.POST("/xxx", XxxHandler)
+    boot.Run(eng)
+}
 ```
 
 关键配置(`config.yml`):`server.id/name/host/router` · `etcd.url` · `ifname` + `*_bpf_path`(XDP)· `newsess_max`(新会话限速)· `flame`(profiling)· `log_path` · KCP 调优(`sndbuf/rcvbuf/sndwnd/rcvwnd/nodelay`)· 密钥(`siphash / x25519 / ed25519`)。详见 [CONFIG.md](CONFIG.md)。
@@ -204,14 +219,14 @@ cd Zion/Noah && make && cd noah && ./noah
 
 ```
 .
-├── Adam/          C++ 框架 (libadam.a): core / kcp / tcp / bpf / utils
-├── Eva/           Go 登录 / RA 服务 (token 签发 / MakeConv / etcd 网关注册表 / 限速)
-├── Lilith/        C# 客户端 (Lilith KCP 核心库 + CC 聊天 GUI)
-├── Ark/           基础设施 (etcd / redis / mysql 主从 / docker-compose)
+├── Adam/          C++ 框架 (libadam.a): core / kcp / tcp / bpf / db / utils
+├── Eva/           Go 登录 / RA 服务 (token 签发 / MakeConv / etcd 网关注册表 / 限速 / 账号 / 上传)
+│   └── boot/      启动序列 (Init / NewEngine / Run) —— 产品自带 main, 挂自己的路由
+├── Lilith/        C# 客户端 KCP 核心库
+├── Ark/           基础设施 (etcd / redis / mysql 主从 / scylla / docker-compose)
 ├── Zion/          可部署服务总目录
 │   ├── Moses/     KCP 网关 (Adam kcp 库)
-│   ├── Noah/      终端路由服务 (Adam tcp 库)
-│   └── tools/     ed25519 / x25519 密钥工具
+│   └── Noah/      终端路由服务 (Adam tcp 库)
 ├── docs/          设计文档 (kcp_server / tcp_server / package / login …)
 ├── CONFIG.md      配置项说明
 ├── PLAN.md        路线规划

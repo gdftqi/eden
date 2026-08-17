@@ -15,15 +15,3 @@ CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_basic` (
     INDEX nk_last_login(`f_last_login`),
     INDEX nk_state(`f_state`)
 ) ENGINE = INNODB CHARACTER SET utf8mb4 COMMENT '用户基础表';
-
-
-CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_info` (
-    `f_id`          BIGINT      NOT NULL              COMMENT '',
-    `f_nickname`    VARCHAR(16) NOT NULL              COMMENT '',
-    `f_phone_num`   VARCHAR(16) NULL     DEFAULT NULL COMMENT '',
-    `f_create_time` BIGINT      NOT NULL              COMMENT '',
-
-    PRIMARY KEY pk_id(`f_id`),
-    UNIQUE KEY uk_phone_num(`f_phone_num`),
-    INDEX nk_create_time(`f_create_time`)
-) ENGINE = INNODB CHARACTER SET utf8mb4 COMMENT '用户信息表';

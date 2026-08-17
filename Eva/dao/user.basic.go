@@ -8,7 +8,7 @@ type UserBasic struct {
 	ID         int64  `json:"id"`
 	Username   string `json:"username"`
 	Avatar     string `json:"avatar"`
-	Password   string `json:"password"`
+	Password   string `json:"-"`
 	CreateTime int64  `json:"create_time"`
 	LastLogin  int64  `json:"last_login"`
 	State      int64  `json:"state"`

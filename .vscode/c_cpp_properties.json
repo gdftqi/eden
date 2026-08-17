@@ -9,8 +9,6 @@
       "includePath": [
         "${workspaceFolder}/Adam/include",
         "${workspaceFolder}/Adam/src",
-        "${workspaceFolder}/Zion/CCS/include",
-        "${workspaceFolder}/Zion/CCS",
         "/usr/local/include",
         "/usr/include"
       ],
