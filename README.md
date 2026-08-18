@@ -17,10 +17,11 @@
 | **Adam** | C++20 | 核心框架 `libadam.a` —— KCP 网关库 + TCP 后端库 + 线协议 codec + eBPF + Scylla 访问层 + utils。命名空间 `adam` |
 | **Moses** | C++ | KCP **网关**服务(基于 Adam 的 kcp 库) |
 | **Noah** | C++ | **终端路由服务**(`router: true`)—— 受理终端进入/离开、顶号仲裁 |
-| **Eva** | Go | **登录 / RA 服务** —— 签发 AccessToken、生成会话 conv、从 etcd 读网关注册表返回客户端;兼管账号(`t_user_basic`)与 S3 上传 |
+| **Eva** | Go | **登录 / RA 库** —— 签发 AccessToken、生成会话 conv、从 etcd 读网关注册表返回客户端;兼管账号(`t_user_basic`)与 S3 上传。**不带 main**,由下面的 Adah 装配 |
+| **Adah** | Go | **登录服务** —— Eva 的可部署入口,本身零业务逻辑,只是 `boot.Init/NewEngine/Run` 三步 |
 | **Lilith** | C# | **客户端 KCP 核心库** —— 会话端点 + 3 线程泵 + 重连 |
 | **Ark** | — | **基础设施**编排 —— etcd / redis / mysql 主从 / scylla / docker-compose |
-| **Zion** | — | 可部署服务的**总目录**(Moses / Noah) |
+| **Zion** | — | 可部署服务的**总目录**(Moses / Noah / Adah) |
 
 ---
 
@@ -187,8 +188,9 @@ cd Adam && make                 # → build/libadam.a  build/bpf/{kcp,envelope}.
 # 2) 基础设施(etcd / redis / mysql)
 cd Ark && docker compose up -d
 
-# 3) 登录服 Eva(库,不带 main —— 产品自己写入口)
-cd Eva && go build ./...
+# 3) 登录服 Adah(Eva 库的可部署入口)
+cd Zion/Adah && go build .
+./Adah                          # 首次启动自动生成 config.yml + 密钥
 
 # 4) KCP 网关 Moses(需 root / CAP_BPF 加载 XDP)
 cd Zion/Moses && make           # → moses/ 部署包(二进制 + config + bpf + compose + flame_build.sh)
@@ -198,16 +200,18 @@ cd moses && sudo ./moses
 cd Zion/Noah && make && cd noah && ./noah
 ```
 
-Eva 是**库**不是可执行程序 —— 产品自己写 `main`,框架路由由 `boot` 挂好,业务路由自己往上加:
+Eva 是**库**不是可执行程序,`Zion/Adah` 就是它唯一的装配体 —— [Adah/main.go](Zion/Adah/main.go) 全文只有三行。产品要加自己的接口,照这个样子写一个自己的 main,在 `NewEngine()` 和 `Run()` 之间挂路由即可,**不必改 Eva 一行**:
 
 ```go
 func main() {
-    boot.Init("config.yml")     // conf → redis → etcd → mysql → s3
+    boot.Init("config.yml")     // 配置(缺就从 config.yml.example 生成) → redis → etcd → mysql → s3
     eng := boot.NewEngine()     // 框架路由: user_login / refresh / update / update_user / create_user / upload
     eng.POST("/xxx", XxxHandler)
     boot.Run(eng)
 }
 ```
+
+> **密钥不进版本库。** 版本库里只有 `config.yml.example`,`ed25519_sk` / `self_pk` / `self_sk` / `refresh_key` 四项**留空**。首次启动 `boot.Init` 会拷出 `config.yml`(已被 `.gitignore` 挡住)、生成密钥、写回文件并把权限改 `0600`,同时在日志里打出两个要手工同步的公钥:**ed25519 公钥填进网关的 `ed25519_pk`,`self_pk` 内置进客户端**。已经生成过就别再清空 —— 这两个公钥半边在网关和客户端手里,重生成会让所有登录验签失败。
 
 关键配置(`config.yml`):`server.id/name/host/router` · `etcd.url` · `ifname` + `*_bpf_path`(XDP)· `newsess_max`(新会话限速)· `flame`(profiling)· `log_path` · KCP 调优(`sndbuf/rcvbuf/sndwnd/rcvwnd/nodelay`)· 密钥(`siphash / x25519 / ed25519`)。详见 [CONFIG.md](CONFIG.md)。
 
@@ -226,7 +230,8 @@ func main() {
 ├── Ark/           基础设施 (etcd / redis / mysql 主从 / scylla / docker-compose)
 ├── Zion/          可部署服务总目录
 │   ├── Moses/     KCP 网关 (Adam kcp 库)
-│   └── Noah/      终端路由服务 (Adam tcp 库)
+│   ├── Noah/      终端路由服务 (Adam tcp 库)
+│   └── Adah/      登录服务 (Eva 库的可部署入口)
 ├── docs/          设计文档 (kcp_server / tcp_server / package / login …)
 ├── CONFIG.md      配置项说明
 ├── PLAN.md        路线规划

@@ -5,6 +5,9 @@
 package boot
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/eva/conf"
 	"github.com/eva/handlers"
 	"github.com/eva/log"
@@ -15,6 +18,10 @@ import (
 // Init 加载配置并把各个中间件拉起来. 任何一步失败都直接终止进程 --
 // 缺了其中任何一个, 服务起来了也只是每个请求都失败
 func Init(cfgPath string) {
+	if err := seedConfig(cfgPath); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := conf.Init(cfgPath); err != nil {
 		log.Fatal(err)
 	}
@@ -61,6 +68,32 @@ func NewEngine() *gin.Engine {
 	eng.POST(handlers.UPLOAD, handlers.Upload)
 
 	return eng
+}
+
+// seedConfig 首次运行时从 <cfgPath>.example 拷一份出来.
+//
+// 为什么要有这一步: conf.Init 会把生成的密钥【写回】配置文件, 所以真正在用的
+// config.yml 不能进版本库(一提交就把私钥带上去了). 版本库里放的是 .example 模板,
+// 真文件由这里生成、被 .gitignore 挡住.
+func seedConfig(cfgPath string) error {
+	if _, err := os.Stat(cfgPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	tpl := cfgPath + ".example"
+	data, err := os.ReadFile(tpl)
+	if err != nil {
+		return fmt.Errorf("%s 不存在, 且模板 %s 也读不到: %w", cfgPath, tpl, err)
+	}
+
+	if err = os.WriteFile(cfgPath, data, 0600); err != nil {
+		return err
+	}
+
+	log.Info("已从 %s 生成 %s", tpl, cfgPath)
+	return nil
 }
 
 func Run(eng *gin.Engine) {

@@ -53,6 +53,11 @@ func Init(fname string) error {
 		return errors.New("host is invalid")
 	}
 
+	// 留空的密钥字段在这里补齐并写回文件, 必须在下面的解码/校验之前
+	if err = ensureKeys(fname, &tmp); err != nil {
+		return err
+	}
+
 	tmp.Ed25519Sk, err = base64.StdEncoding.DecodeString(tmp.Ed25519SkStr)
 	if err != nil {
 		return err

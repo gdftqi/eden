@@ -12,6 +12,14 @@ build
 /Zion/Noah/noah/
 /Zion/Noah/obj/
 
+# Adah 是 go 工程: build.bat 产出 adah, 裸 go build 按目录名产出 Adah
+/Zion/Adah/adah
+/Zion/Adah/Adah
+
+# 真正在用的配置: 启动时从 config.yml.example 生成, 且密钥会被写回这个文件.
+# 版本库里只放模板, 这份绝不能提交
+/Zion/Adah/config.yml
+
 /Eva/eva
 
 # --- Unity (echidna/) ---

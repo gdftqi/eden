@@ -75,7 +75,14 @@
 - [ ] `cass_session_prepare` 每条消息都跑一次 → prepared statement 缓存(现在一半的 DB 往返是浪费)
 - [ ] 阻塞式 DB 调用仍在 Reactor 线程上 → 独立 DB 线程池 / 异步 future
 
-### 2h 业务消息层 ⏳
+### 2h Eva 库化 + Adah 登录服 ✅
+- [x] Eva 去掉 `main`,启动序列导出成 `boot` 包(`Init` / `NewEngine` / `Run`);框架路由在 `NewEngine` 里挂好,产品只需在它和 `Run` 之间加自己的路由
+- [x] `Zion/Adah` —— Eva 的可部署入口,`main.go` 全文三行,零业务逻辑
+- [x] **密钥不进版本库**:版本库只放 `config.yml.example`(四个密钥字段留空),首次启动 `boot.Init` 拷出 `config.yml` → `conf.ensureKeys` 生成 → 逐行写回(保住注释)→ `chmod 0600`
+- [x] 生成是**幂等的**:只在字段为空时才生成。ed25519 的公钥半边在网关 `ed25519_pk`、`self_pk` 是客户端内置的信任根,每次重生成会让所有登录验签失败 / 所有客户端连不上
+- [ ] 历史泄露处理:`Eva/config.yml` 的旧密钥与三个中间件口令已进 git 历史,上线前必须全部轮换
+
+### 2i 业务消息层 ⏳
 - [ ] 业务消息号约定文档
 - [ ] scene / chat 等真实业务消息展开(业务分支)
 

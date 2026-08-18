@@ -23,10 +23,21 @@ s3:
 
 id: 1
 host: "0.0.0.0:8080"
-ed25519_sk: "49snRJko0ayMemUHsZ5c7qj6X0Iq09np7NQBu6njl7w6O/FaWuWLST4QN43BYMwxPJdale2LNDKJ+ry2f5sFyQ=="
-self_pk: "LZBT82+6Hdzz/pqnOyk3tRh1460vhxVJ1NcvLT3kn0M="
-self_sk: "YnTMQwNokqRO2CRPHb7zcdVg+/3EdHDoZ3k90bLb3O4="
-refresh_key: "c}>m^%6A!NbrD,GVr1vn!4Y!CPZ@Q,fe"
+
+# 下面三组密钥【留空即可】: 首次启动会自动生成并写回本文件(权限改 0600).
+# 留空是刻意的 -- 真密钥不进版本库。
+#
+# 生成之后要做两件手工同步(启动日志里会把公钥打出来):
+#   ed25519 公钥 -> 网关 config.yml 的 ed25519_pk       (网关拿它验 token 签名)
+#   self_pk      -> 客户端内置                          (登录信道的信任根, 防中间人)
+#
+# 已经生成过就【不要再清空】: 这两个公钥半边在网关和客户端手里,
+# 重新生成会让所有登录验签失败、所有客户端连不上。
+# refresh_key 只有本服务用, 重生成的代价是已发出的 refresh token 全部失效。
+ed25519_sk: ""
+self_pk: ""
+self_sk: ""
+refresh_key: ""
 
 # 成功发放凭据(登录成功 / refresh)的限速, 按【账号】计。
 # 目的: 每成功一次就拿到一个新 conv + 一把 SipHash 密钥, 不限速就能刷齐全部 256 把。
