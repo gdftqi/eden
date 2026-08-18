@@ -54,7 +54,7 @@ namespace CC.Eva
                 throw new Exception("用户未登录");
             }
 
-            return await HttpSession.Instance.PostSecureAsync<User>("/update_user", req, true);
+            return await HttpSession.Instance.PostSecureAsync<User>("/cc/update_user", req, true);
         }
     }
 }

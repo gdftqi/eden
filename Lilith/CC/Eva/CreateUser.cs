@@ -47,7 +47,7 @@ namespace CC.Eva
             };
 
             var sw = Stopwatch.StartNew();
-            return await HttpSession.Instance.PostSecureAsync<User>("/create_user", req, true);
+            return await HttpSession.Instance.PostSecureAsync<User>("/cc/create_user", req, true);
         }
     }
 }
