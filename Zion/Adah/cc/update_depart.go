@@ -1,11 +1,10 @@
-package handlers
+package cc
 
 import (
 	"database/sql"
 	"errors"
 	"unicode/utf8"
 
-	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
@@ -26,7 +25,7 @@ type updateDepartReq struct {
 }
 
 type updateDepartRsp struct {
-	*dao.Department
+	*Department
 }
 
 func UpdateDepart(c *gin.Context) {
@@ -42,7 +41,7 @@ func UpdateDepart(c *gin.Context) {
 		return
 	}
 
-	depart, err := dao.GetDepartmentByID(req.DepartID)
+	depart, err := GetDepartmentByID(req.DepartID)
 	if err != nil {
 		log.Error("GetDepartmentByID failed: id = %d, %v", req.DepartID, err)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -76,7 +75,7 @@ func UpdateDepart(c *gin.Context) {
 		depart.Desc = *req.Desc
 	}
 
-	if err = dao.UpdateDepartment(depart); err != nil {
+	if err = UpdateDepartment(depart); err != nil {
 		var me *mysql.MySQLError
 		if errors.As(err, &me) && me.Number == 1062 {
 			web.Response(c, -1, "部门名已存在")
@@ -89,7 +88,7 @@ func UpdateDepart(c *gin.Context) {
 	}
 
 	if len(req.DelUserIDs) > 0 {
-		if err = dao.DeleteUsersDepart(req.DepartID, req.DelUserIDs); err != nil {
+		if err = DeleteUsersDepart(req.DepartID, req.DelUserIDs); err != nil {
 			log.Error("DeleteUsersDepart failed: id = %d, %v", req.DepartID, err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
@@ -97,14 +96,14 @@ func UpdateDepart(c *gin.Context) {
 	}
 
 	if len(req.AddUserIDs) > 0 {
-		if err = dao.UpsertUsersDepart(req.DepartID, req.AddUserIDs); err != nil {
+		if err = UpsertUsersDepart(req.DepartID, req.AddUserIDs); err != nil {
 			log.Error("UpsertUsersDepart failed: id = %d, %v", req.DepartID, err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
 		}
 	}
 
-	depart, err = dao.GetDepartmentByID(req.DepartID)
+	depart, err = GetDepartmentByID(req.DepartID)
 	if err != nil {
 		log.Error("GetDepartmentByID failed: id = %d, %v", req.DepartID, err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")

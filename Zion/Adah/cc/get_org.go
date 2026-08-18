@@ -1,7 +1,6 @@
-package handlers
+package cc
 
 import (
-	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
@@ -14,8 +13,8 @@ type getOrgReq struct {
 }
 
 type getOrgRsp struct {
-	Departs []*dao.Department `json:"departs"`
-	Users   []*dao.User       `json:"users"`
+	Departs []*Department `json:"departs"`
+	Users   []*User       `json:"users"`
 }
 
 func GetOrg(c *gin.Context) {
@@ -27,14 +26,14 @@ func GetOrg(c *gin.Context) {
 		return
 	}
 
-	departs, err := dao.GetDepartmentList()
+	departs, err := GetDepartmentList()
 	if err != nil {
 		log.Error("GetDepartmentList failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
 
-	members, err := dao.GetDepartUserIDs()
+	members, err := GetDepartUserIDs()
 	if err != nil {
 		log.Error("GetDepartUserIDs failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
@@ -45,7 +44,7 @@ func GetOrg(c *gin.Context) {
 		d.UserIDs = members[d.ID]
 	}
 
-	users, err := dao.GetUserList()
+	users, err := GetUserList()
 	if err != nil {
 		log.Error("GetUserList failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")

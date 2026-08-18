@@ -1,4 +1,4 @@
-package dao
+package cc
 
 import (
 	"database/sql"

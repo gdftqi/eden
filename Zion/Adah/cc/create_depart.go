@@ -1,10 +1,9 @@
-package handlers
+package cc
 
 import (
 	"errors"
 	"unicode/utf8"
 
-	"github.com/eva/dao"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
@@ -23,7 +22,7 @@ type createDepartReq struct {
 }
 
 type createDepartRsp struct {
-	Dept *dao.Department `json:"depart"`
+	Dept *Department `json:"depart"`
 }
 
 func CreateDepart(c *gin.Context) {
@@ -45,13 +44,13 @@ func CreateDepart(c *gin.Context) {
 		return
 	}
 
-	dept := &dao.Department{
+	dept := &Department{
 		Name:   req.Name,
 		Avatar: req.Avatar,
 		Desc:   req.Desc,
 		State:  1,
 	}
-	if err = dao.InsertDepartment(dept); err != nil {
+	if err = InsertDepartment(dept); err != nil {
 		// f_name 上有 uk_name, 撞了(错误号 1062)是用户填重了, 不是服务出错.
 		// 另外原来这里直接把 err.Error() 回给客户端, 会漏出 SQL 语句和表名
 		var me *mysql.MySQLError
@@ -65,7 +64,7 @@ func CreateDepart(c *gin.Context) {
 		return
 	}
 
-	err = dao.UpsertUsersDepart(dept.ID, req.UserIDs)
+	err = UpsertUsersDepart(dept.ID, req.UserIDs)
 	if err != nil {
 		log.Error("UpsertUsersDepart failed: %v", err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")

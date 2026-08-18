@@ -1,10 +1,11 @@
-package handlers
+package cc
 
 import (
 	"unicode/utf8"
 
 	"github.com/eva/com"
 	"github.com/eva/dao"
+	"github.com/eva/handlers"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
@@ -48,7 +49,7 @@ func CCUpdateUser(c *gin.Context) {
 
 	var (
 		ub *dao.UserBasic
-		ui *dao.UserInfo
+		ui *UserInfo
 	)
 
 	// 昵称是 NOT NULL, 空串不是合法值, 所以不接受清空
@@ -150,7 +151,7 @@ func CCUpdateUser(c *gin.Context) {
 	}
 
 	if ui != nil {
-		if err = dao.UpdateUserInfo(ui); err != nil {
+		if err = UpdateUserInfo(ui); err != nil {
 			log.Error("UpdateUserInfo failed: %v", err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
@@ -158,7 +159,7 @@ func CCUpdateUser(c *gin.Context) {
 	}
 
 	if len(req.DelDepartIDs) > 0 {
-		if err = dao.DeleteUserDeparts(req.UserID, req.DelDepartIDs); err != nil {
+		if err = DeleteUserDeparts(req.UserID, req.DelDepartIDs); err != nil {
 			log.Error("DeleteUserDeparts failed: %v", err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
@@ -166,21 +167,21 @@ func CCUpdateUser(c *gin.Context) {
 	}
 
 	if len(req.AddDepartIDs) > 0 {
-		if err = dao.UpsertUserDeparts(req.UserID, req.AddDepartIDs); err != nil {
+		if err = UpsertUserDeparts(req.UserID, req.AddDepartIDs); err != nil {
 			log.Error("UpsertUserDeparts failed: %v", err)
 			web.Response(c, -1, "服务器内部错误, 请稍后重试")
 			return
 		}
 	}
 
-	// ub 可能还是 nil(只改了昵称), UserLoader 要一个 basic 才能拼出完整资料
+	// ub 可能还是 nil(只改了昵称), handlers.UserLoader 要一个 basic 才能拼出完整资料
 	if ub, err = loadUserBasic(ub, c, req.UserID); err != nil {
 		return
 	}
 
-	user, err := UserLoader(ub)
+	user, err := handlers.UserLoader(ub)
 	if err != nil {
-		log.Error("UserLoader failed: uid = %d, %v", req.UserID, err)
+		log.Error("handlers.UserLoader failed: uid = %d, %v", req.UserID, err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
@@ -188,12 +189,12 @@ func CCUpdateUser(c *gin.Context) {
 	web.Response(c, 0, "", sess.Tx, &ccUpdateUserRsp{User: user})
 }
 
-func ccLoadUserInfo(ui *dao.UserInfo, c *gin.Context, userID int64) (*dao.UserInfo, error) {
+func ccLoadUserInfo(ui *UserInfo, c *gin.Context, userID int64) (*UserInfo, error) {
 	if ui != nil {
 		return ui, nil
 	}
 
-	ui, err := dao.GetUserInfoByID(userID)
+	ui, err := GetUserInfoByID(userID)
 	if err != nil {
 		log.Error("GetUserInfoByID failed: uid = %d, %v", userID, err)
 		respondLoadErr(c, err)

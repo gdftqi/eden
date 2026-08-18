@@ -1,8 +1,9 @@
-package dao
+package cc
 
 import (
 	"database/sql"
 
+	"github.com/eva/dao"
 	"github.com/eva/mid"
 )
 
@@ -16,7 +17,7 @@ type User struct {
 	State      int64  `json:"state"`
 }
 
-func InsertUser(ub *UserBasic, ui *UserInfo, departIDs []int64) error {
+func InsertUser(ub *dao.UserBasic, ui *UserInfo, departIDs []int64) error {
 	tx, err := mid.Mysql.Begin()
 	if err != nil {
 		return err

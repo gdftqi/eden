@@ -1,4 +1,4 @@
-package handlers
+package cc
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/eva/dao"
+	"github.com/eva/handlers"
 	"github.com/eva/log"
 	"github.com/eva/web"
 	"github.com/gin-gonic/gin"
@@ -79,14 +80,14 @@ func CCCreateUser(c *gin.Context) {
 	}
 
 	// ID 不在这里填: 自增值要等 t_user_basic 插完才有, InsertUser 里会回填
-	ui := dao.UserInfo{
+	ui := UserInfo{
 		Nickname:   req.Nickname,
 		PhoneNum:   req.PhoneNum,
 		CreateTime: tnow,
 	}
 
 	// 三张表一个事务, 半途失败不留残缺账号
-	if err = dao.InsertUser(&ub, &ui, req.DepartIDs); err != nil {
+	if err = InsertUser(&ub, &ui, req.DepartIDs); err != nil {
 		// 用户名和手机号上都有唯一索引, 撞了(错误号 1062)是用户填重了, 不是服务出错.
 		// 靠索引兜比"先 Count 再 Insert"可靠 -- 后者两步之间有窗口, 并发同名照样撞
 		var me *mysql.MySQLError
@@ -100,9 +101,9 @@ func CCCreateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := UserLoader(&ub)
+	user, err := handlers.UserLoader(&ub)
 	if err != nil {
-		log.Error("UserLoader failed: uid = %d, %v", ub.ID, err)
+		log.Error("handlers.UserLoader failed: uid = %d, %v", ub.ID, err)
 		web.Response(c, -1, "服务器内部错误, 请稍后重试")
 		return
 	}
