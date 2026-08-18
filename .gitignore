@@ -54,4 +54,5 @@ sysinfo.txt
 *.app
 
 
-lilith/lilith/bin
+/Lilith/Lilith/bin/
+/Lilith/Lilith/obj/
