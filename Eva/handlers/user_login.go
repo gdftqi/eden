@@ -37,13 +37,13 @@ type userLoginReq struct {
 }
 
 type userLoginRsp struct {
-	Conv         uint32    `json:"conv"`          // kcp conv
-	Host         string    `json:"host"`          // kcp host
-	HostID       uint32    `json:"host_id"`       // kcp host id
-	MacKey       string    `json:"mac_key"`       // siphash mac key
-	AccessToken  string    `json:"access_token"`  // 网关访问Token
-	RefreshToken string    `json:"refresh_token"` // OAUTH Token
-	User         any            `json:"user"` // 形态由 UserLoader 决定
+	Conv         uint32 `json:"conv"`          // kcp conv
+	Host         string `json:"host"`          // kcp host
+	HostID       uint32 `json:"host_id"`       // kcp host id
+	MacKey       string `json:"mac_key"`       // siphash mac key
+	AccessToken  string `json:"access_token"`  // 网关访问Token
+	RefreshToken string `json:"refresh_token"` // OAUTH Token
+	User         any    `json:"user"`          // 形态由 UserLoader 决定
 }
 
 func UserLogin(c *gin.Context) {
