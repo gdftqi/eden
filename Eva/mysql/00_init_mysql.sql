@@ -15,3 +15,10 @@ CREATE TABLE IF NOT EXISTS `db_eva`.`t_user_basic` (
     INDEX nk_last_login(`f_last_login`),
     INDEX nk_state(`f_state`)
 ) ENGINE = INNODB CHARACTER SET utf8mb4 COMMENT '用户基础表';
+
+
+-- 种子账号: /create_user 自己要求调用方已登录(BindW 取会话), 没有这行的话
+-- 全新部署一个账号都建不出来 -- 先有鸡还是先有蛋。上线后请立即改掉这个密码。
+INSERT INTO `db_eva`.`t_user_basic`(`f_username`, `f_avatar`, `f_password`, `f_create_time`, `f_last_login`, `f_state`)
+VALUES ('admin', '', '$2a$10$obW/1/ZuMl4g/dczG.Qqi.5R0yw4LlRolpAnRO6kBoGBO9ZXRUITC', UNIX_TIMESTAMP(), 0, 1) AS new
+ON DUPLICATE KEY UPDATE `f_password` = new.`f_password`, `f_state` = new.`f_state`;

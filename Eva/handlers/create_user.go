@@ -22,7 +22,7 @@ type createUserReq struct {
 }
 
 type createUserRsp struct {
-	*dao.UserBasic
+	User any `json:"user"`
 }
 
 func CreateUser(c *gin.Context) {
@@ -74,9 +74,14 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	// 响应用会话的 tx 加密; 新建的 user_id 回给客户端
-	rsp := createUserRsp{
-		UserBasic: &ub,
+	user, err := UserLoader(&ub)
+	if err != nil {
+		log.Error("UserLoader failed: uid = %d, %v", ub.ID, err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
+		return
 	}
+
+	// 响应用会话的 tx 加密; 新建的 user_id 回给客户端
+	rsp := createUserRsp{User: user}
 	web.Response(c, 0, "", sess.Tx, &rsp)
 }

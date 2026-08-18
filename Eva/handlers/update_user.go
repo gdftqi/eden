@@ -27,7 +27,7 @@ type updateUserReq struct {
 }
 
 type updateUserRsp struct {
-	*dao.UserBasic
+	User any `json:"user"`
 }
 
 func UpdateUser(c *gin.Context) {
@@ -114,10 +114,14 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	rsp := updateUserRsp{
-		UserBasic: ub,
+	user, err := UserLoader(ub)
+	if err != nil {
+		log.Error("UserLoader failed: uid = %d, %v", req.UserID, err)
+		web.Response(c, -1, "服务器内部错误, 请稍后重试")
+		return
 	}
 
+	rsp := updateUserRsp{User: user}
 	web.Response(c, 0, "", sess.Tx, &rsp)
 }
 

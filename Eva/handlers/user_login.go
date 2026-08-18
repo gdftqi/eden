@@ -43,7 +43,7 @@ type userLoginRsp struct {
 	MacKey       string    `json:"mac_key"`       // siphash mac key
 	AccessToken  string    `json:"access_token"`  // 网关访问Token
 	RefreshToken string    `json:"refresh_token"` // OAUTH Token
-	User         *dao.UserBasic `json:"user"`
+	User         any            `json:"user"` // 形态由 UserLoader 决定
 }
 
 func UserLogin(c *gin.Context) {
@@ -258,6 +258,13 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	user, err := UserLoader(ub)
+	if err != nil {
+		log.Error("UserLoader failed: uid = %d, %v", ub.ID, err)
+		web.Response(c, -1, "服务端内部错误9")
+		return
+	}
+
 	// Step 9, 加密应答消息
 	rsp := userLoginRsp{
 		Conv:         conv,
@@ -266,7 +273,7 @@ func UserLogin(c *gin.Context) {
 		MacKey:       base64.StdEncoding.EncodeToString(macKey),
 		AccessToken:  base64.StdEncoding.EncodeToString(sealed),
 		RefreshToken: refreshData,
-		User:         ub,
+		User:         user,
 	}
 
 	web.Response(c, 0, "", tx, &rsp)

@@ -67,6 +67,11 @@ func NewEngine() *gin.Engine {
 	eng.POST(handlers.UPDATE, handlers.Update)
 	eng.POST(handlers.UPLOAD, handlers.Upload)
 
+	// 产品路由放在框架之后, 见 RegisterExtra
+	for _, f := range extras {
+		f(eng)
+	}
+
 	return eng
 }
 
