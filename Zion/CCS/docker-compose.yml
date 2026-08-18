@@ -1,0 +1,14 @@
+services:
+  ccs:
+    image: ubuntu:26.04
+    container_name: ccs
+    network_mode: host
+    privileged: true
+    tty: true
+    stdin_open: true
+    working_dir: /usr/local/bin
+    command: ./ccs
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+      - ./:/usr/local/bin/

@@ -1,0 +1,23 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CC.App"
+             RequestedThemeVariant="Light">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+    <!-- 托盘 -->
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="/Resources/app.ico" ToolTipText="CC" Clicked="Tray_Clicked">
+                <TrayIcon.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="未登录" Click="TrayOpen_Click"/>
+                        <NativeMenuItem Header="退出" Click="TrayExit_Click"/>
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
+</Application>

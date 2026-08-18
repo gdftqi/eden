@@ -1,0 +1,382 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:cc="using:CC"
+             x:Class="CC.OrgDetailPanel"
+             x:Name="Root">
+    <Grid Background="#F9FAFB" RowDefinitions="56,*">
+        <Grid.Styles>
+            <Style Selector="Button.act">
+                <Setter Property="Width" Value="56"/>
+                <Setter Property="Height" Value="56"/>
+                <Setter Property="CornerRadius" Value="28"/>
+                <Setter Property="Background" Value="#F0F2F5"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.act:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#E4E6E9"/>
+            </Style>
+            <Style Selector="Border.row">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Height" Value="60"/>
+                <Setter Property="Padding" Value="14,0"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Cursor" Value="Hand"/>
+            </Style>
+            <Style Selector="Border.row:pointerover">
+                <Setter Property="Background" Value="#F5F6F7"/>
+            </Style>
+
+            <Style Selector="TextBlock.rowTitle">
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="#1E1E1E"/>
+            </Style>
+            <Style Selector="TextBlock.rowSub">
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Foreground" Value="#8A9099"/>
+                <Setter Property="Margin" Value="0,2,0,0"/>
+            </Style>
+            <Style Selector="Button.removeBtn">
+                <Setter Property="Width" Value="26"/>
+                <Setter Property="Height" Value="26"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="13"/>
+                <Setter Property="Background" Value="#E53935"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="IsVisible" Value="False"/>
+            </Style>
+            <Style Selector="Border.row:pointerover Button.removeBtn">
+                <Setter Property="IsVisible" Value="True"/>
+            </Style>
+            <Style Selector="Button.removeBtn:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#C62828"/>
+            </Style>
+            <Style Selector="TextBox.inline">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding" Value="0,2"/>
+                <Setter Property="CornerRadius" Value="0"/>
+            </Style>
+            <Style Selector="TextBox.inline /template/ Border#PART_BorderElement">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="CornerRadius" Value="0"/>
+                <Setter Property="BorderThickness" Value="0,0,0,1.5"/>
+                <Setter Property="BorderBrush" Value="#DDE1E7"/>
+            </Style>
+            <Style Selector="TextBox.inline:pointerover /template/ Border#PART_BorderElement">
+                <Setter Property="BorderBrush" Value="#008069"/>
+            </Style>
+            <Style Selector="TextBox.inline:focus-within /template/ Border#PART_BorderElement">
+                <Setter Property="BorderBrush" Value="#00A884"/>
+            </Style>
+
+            <!-- 头像 hover 时底部浮出的遮罩 -->
+            <Style Selector="Panel.avatar Border#AvatarMask">
+                <Setter Property="Opacity" Value="0"/>
+            </Style>
+            <Style Selector="Panel.avatar:pointerover Border#AvatarMask">
+                <Setter Property="Opacity" Value="1"/>
+            </Style>
+            <Style Selector="Border#AvatarMask">
+                <Setter Property="Transitions">
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                    </Transitions>
+                </Setter>
+            </Style>
+
+            <!-- 右侧的小铅笔 -->
+            <Style Selector="Button.pencil">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="34"/>
+                <Setter Property="Height" Value="34"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="17"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.pencil:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#11000000"/>
+            </Style>
+
+            <!-- 编辑态的 勾/叉.
+                 Focusable=False 是关键: 输入框失焦就等于放弃这次编辑,
+                 按钮要是能抢焦点, 点"确定"的瞬间就先把自己要提交的东西撤掉了 -->
+            <Style Selector="Button.editAct">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Width" Value="28"/>
+                <Setter Property="Height" Value="28"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="CornerRadius" Value="14"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style Selector="Button.editAct:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#11000000"/>
+            </Style>
+        </Grid.Styles>
+
+        <!-- 头部: 返回 + 标题 -->
+        <Border Grid.Row="0" Background="#F5F6F7" BorderBrush="#E4E7EB" BorderThickness="0,0,0,1" Padding="10,0">
+            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Button Click="Back_Click" Width="34" Height="34" Padding="0" CornerRadius="17" Background="Transparent">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#11000000"/>
+                        </Style>
+                    </Button.Styles>
+                    <Path Width="16" Height="16" Stroke="#555" StrokeThickness="1.8" Fill="Transparent"
+                          StrokeLineCap="Round" StrokeJoin="Round" Data="M10,3 L5,8 L10,13"/>
+                </Button>
+                <TextBlock Text="部门信息" FontSize="16" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Width="480" HorizontalAlignment="Center" Margin="0,28,0,32">
+
+                <Panel Classes="avatar" Width="128" Height="128" HorizontalAlignment="Center"
+                       Background="Transparent" Cursor="Hand"
+                       PointerPressed="PickAvatar_PointerPressed">
+                    <Border CornerRadius="64" ClipToBounds="True" Background="#DCE9FB">
+                        <Panel>
+                            <Viewbox x:Name="AvatarIcon" Width="60" Height="60">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#1A73E8" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+                                </Canvas>
+                            </Viewbox>
+
+                            <Image x:Name="AvatarImage" Stretch="UniformToFill" IsVisible="False"/>
+
+                            <Border x:Name="AvatarMask" Height="36" VerticalAlignment="Bottom" Background="#73000000">
+                                <Viewbox Width="20" Height="20" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Fill="White" Data="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8.2c-1.77 0-3.2 1.43-3.2 3.2s1.43 3.2 3.2 3.2 3.2-1.43 3.2-3.2-1.43-3.2-3.2-3.2z"/>
+                                    </Canvas>
+                                </Viewbox>
+                            </Border>
+                        </Panel>
+                    </Border>
+                </Panel>
+
+                <!-- 选完图只是先摆上来看看, 不点勾不上传 -->
+                <StackPanel x:Name="AvatarEditBar" Orientation="Horizontal" Spacing="2" IsVisible="False"
+                            HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <Button Classes="editAct" Click="AvatarOk_Click" ToolTip.Tip="使用这张图">
+                        <Viewbox Width="18" Height="18">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                    <Button Classes="editAct" Click="AvatarCancel_Click" ToolTip.Tip="取消">
+                        <Viewbox Width="18" Height="18">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+
+                <!-- 部门名: 只读态(文字+铅笔) 与 编辑态(下横杠输入框) 叠在一起, 切一个显示 -->
+                <Panel HorizontalAlignment="Center" Margin="0,20,0,0">
+                    <StackPanel x:Name="TitleView" Orientation="Horizontal" Spacing="4">
+                        <TextBlock x:Name="DeptTitle" FontSize="22" Foreground="#1E1E1E"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="380"/>
+                        <Button Classes="pencil" Click="RenameDept_Click" ToolTip.Tip="重命名部门"
+                                VerticalAlignment="Center">
+                            <!-- Material 图标的路径是 24x24 坐标系, 必须用 Viewbox+Canvas 缩放.
+                                 直接写 <Path Width="20"> 只会缩控件不缩几何, 图形会偏右下并被裁掉 -->
+                            <Viewbox Width="20" Height="20">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#5F6368"
+                                          Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel x:Name="TitleEditBar" Orientation="Horizontal" Spacing="2"
+                                IsVisible="False" VerticalAlignment="Center">
+                        <!-- 左边这 60 是给右侧两个按钮配的等宽留白(2+28+2+28):
+                             整条 bar 在 Panel 里居中, 不补的话输入框会比只读态的标题偏左 -->
+                        <TextBox x:Name="TitleEdit" Classes="inline" Margin="60,0,0,0"
+                                 Width="320" FontSize="22" MaxLength="32" TextAlignment="Center"
+                                 KeyDown="Edit_KeyDown" LostFocus="TitleEdit_LostFocus"/>
+                        <Button Classes="editAct" Tag="title" Click="EditOk_Click"
+                                ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="editAct" Tag="title" Click="EditCancel_Click"
+                                ToolTip.Tip="取消 (Esc)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </Panel>
+
+                <!-- 副标题: 部门 · N 位成员 -->
+                <StackPanel Orientation="Horizontal" Spacing="0" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <TextBlock Text="部门 · " FontSize="13.5" Foreground="#8A9099"/>
+                    <TextBlock x:Name="MemberSummary" FontSize="13.5" FontWeight="SemiBold" Foreground="#008069"/>
+                </StackPanel>
+
+                <!-- 动作按钮排: 版式与 ContactWindow 的"语音/视频/搜索"完全一致
+                     (Spacing 26 / 圆 56 / 图标 22 / 文字 12.5 #444) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="26" Margin="0,22,0,8">
+                    <StackPanel Spacing="7">
+                        <Button Classes="act" Click="AddMember_Click">
+                            <Viewbox Width="22" Height="22">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#333" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <TextBlock Text="添加" FontSize="12.5" Foreground="#444" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <Button Classes="act" Click="Search_Click">
+                            <Viewbox Width="22" Height="22">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#333" Data="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <TextBlock Text="搜索" FontSize="12.5" Foreground="#444" HorizontalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="7">
+                        <Button Classes="act" Click="Mute_Click">
+                            <Viewbox Width="22" Height="22">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#333" Data="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h17.73l2 2L25 19.72l-5-5.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-2.13-5.64-5-6.32V4c0-.83-.67-1.5-1.5-1.5S10 3.17 10 4v.68c-.15.03-.29.08-.42.12z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <TextBlock Text="免打扰" FontSize="12.5" Foreground="#444" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 部门描述 + 编辑: 同样让铅笔紧跟文字.
+                     描述可能很长, 给 TextBlock 限宽换行, 铅笔跟在换行块后面 -->
+                <Panel HorizontalAlignment="Left" Margin="14,26,0,0">
+                    <StackPanel x:Name="RemarkView" Orientation="Horizontal" Spacing="4">
+                        <TextBlock x:Name="RemarkText" FontSize="13.5" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" MaxWidth="390"/>
+                        <Button Classes="pencil" Click="EditRemark_Click" ToolTip.Tip="编辑部门描述"
+                                VerticalAlignment="Center">
+                            <Viewbox Width="20" Height="20">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#5F6368"
+                                          Data="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel x:Name="RemarkEditBar" Orientation="Horizontal" Spacing="2"
+                                IsVisible="False" VerticalAlignment="Center">
+                        <TextBox x:Name="RemarkEdit" Classes="inline"
+                                 Width="420" FontSize="13.5" MaxLength="200"
+                                 TextWrapping="Wrap" AcceptsReturn="False"
+                                 KeyDown="Edit_KeyDown" LostFocus="RemarkEdit_LostFocus"/>
+                        <Button Classes="editAct" Tag="remark" Click="EditOk_Click"
+                                ToolTip.Tip="确定 (Enter)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#008069" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="editAct" Tag="remark" Click="EditCancel_Click"
+                                ToolTip.Tip="取消 (Esc)" VerticalAlignment="Center">
+                            <Viewbox Width="18" Height="18">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="#8A9099" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </Panel>
+
+                <Border Height="1" Background="#E8EAED" Margin="0,20,0,0"/>
+
+                <!-- 信息行 -->
+                <Border Classes="row">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,18,0" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#5F6368" Data="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Grid.Column="1" Classes="rowTitle" Text="影音内容、链接和文档" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" x:Name="MediaCount" Text="0" FontSize="13" Foreground="#8A9099" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="row">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,18,0" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#5F6368" Data="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Grid.Column="1" Classes="rowTitle" Text="已加星标消息" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <Border Classes="row">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Viewbox Grid.Column="0" Width="22" Height="22" Margin="0,0,18,0" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path Fill="#5F6368" Data="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h17.73l2 2L25 19.72l-5-5.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Classes="rowTitle" Text="通知设置"/>
+                            <TextBlock x:Name="MuteState" Classes="rowSub" Text="接收全部消息"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Height="1" Background="#E8EAED" Margin="0,8,0,0"/>
+
+                <!-- 成员区 -->
+                <TextBlock x:Name="MemberHeader" FontSize="13" Foreground="#8A9099" Margin="14,18,0,6"/>
+
+                <!-- 添加成员(绿圆) -->
+                <Border Classes="row" x:Name="AddMemberRow" PointerPressed="AddMemberRow_PointerPressed">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21" Background="#008069" Margin="0,0,14,0">
+                            <Viewbox Width="21" Height="21">
+                                <Canvas Width="24" Height="24">
+                                    <Path Fill="White" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <TextBlock Grid.Column="1" Classes="rowTitle" Text="添加成员" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- 成员行(代码填充) -->
+                <StackPanel x:Name="MemberList"/>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 选人抽屉: 从右滑入, 盖在整个面板上(含头部).
+             与创建部门页共用同一个控件, 实现见 ContactPickerDrawer -->
+        <cc:ContactPickerDrawer x:Name="Picker" Grid.Row="0" Grid.RowSpan="2"/>
+    </Grid>
+</UserControl>

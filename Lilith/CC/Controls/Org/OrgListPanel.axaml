@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             xmlns:cc="using:CC"
+             x:Class="CC.OrgListPanel">
+    <!-- 组织架构面板: 标题 + 搜索栏 + 创建部门 + 创建成员 + 部门列表 (视觉对齐 ChatListPanel) -->
+    <Grid Background="White" RowDefinitions="48,Auto,Auto,Auto,*">
+        <!-- 标题 -->
+        <Grid Grid.Row="0" Margin="14,0,8,0">
+            <TextBlock Text="组织架构" FontSize="18" FontWeight="SemiBold" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- 搜索栏: 样式同 ChatListPanel -->
+        <Border Classes="search" Grid.Row="1" Height="36" Margin="12,2,12,8">
+            <Border.Styles>
+                <Style Selector="Border.search">
+                    <Setter Property="Background" Value="#F0F2F5"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="BorderThickness" Value="1.5"/>
+                    <Setter Property="CornerRadius" Value="18"/>
+                </Style>
+                <Style Selector="Border.search:focus-within">
+                    <Setter Property="Background" Value="White"/>
+                    <Setter Property="BorderBrush" Value="#00A884"/>
+                </Style>
+                <Style Selector="TextBox.search /template/ Border#PART_BorderElement">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                </Style>
+            </Border.Styles>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Path Grid.Column="0" Width="16" Height="16" Margin="11,0,8,0" VerticalAlignment="Center"
+                      Stroke="#888" StrokeThickness="1.6" Fill="Transparent"
+                      Data="M7,2 A5,5 0 1 1 7,12 A5,5 0 1 1 7,2 Z M10.5,10.5 L15,15"/>
+                <TextBox x:Name="SearchBox" Classes="search" Grid.Column="1" PlaceholderText="搜索部门或员工"
+                         Background="Transparent" BorderThickness="0" FontSize="13"
+                         VerticalContentAlignment="Center" Padding="0,0,4,0"/>
+                <Button Grid.Column="2" Click="ClearSearch_Click" Width="26" Height="26" Padding="0"
+                        Background="Transparent" CornerRadius="13" Margin="0,0,5,0" VerticalAlignment="Center"
+                        IsVisible="{Binding #SearchBox.Text, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                    <Button.Styles>
+                        <Style Selector="Button:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#15000000"/>
+                        </Style>
+                    </Button.Styles>
+                    <Path Width="11" Height="11" Stroke="#888" StrokeThickness="1.5" StrokeLineCap="Round"
+                          Data="M1,1 L10,10 M10,1 L1,10"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- 添加部门: 绿色圆底 + 楼宇图标 + 文字, 整行可点 -->
+        <Button Grid.Row="2" Click="AddOrg_Click" Background="Transparent" Padding="14,8"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" CornerRadius="0">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="#11000000"/>
+                </Style>
+            </Button.Styles>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="38" Height="38" CornerRadius="19" Background="#008069">
+                    <Viewbox Width="20" Height="20">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="White" Data="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                <TextBlock Text="创建部门" FontSize="14" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+
+        <!-- 创建成员: 与上面同款, 只换图标和文字 -->
+        <Button Grid.Row="3" Click="AddEmployee_Click" Background="Transparent" Padding="14,8"
+                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" CornerRadius="0">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="#11000000"/>
+                </Style>
+            </Button.Styles>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="38" Height="38" CornerRadius="19" Background="#008069">
+                    <Viewbox Width="20" Height="20">
+                        <Canvas Width="24" Height="24">
+                            <Path Fill="White" Data="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </Canvas>
+                    </Viewbox>
+                </Border>
+                <TextBlock Text="创建成员" FontSize="14" Foreground="#1E1E1E" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Button>
+
+        <!-- 部门/员工列表 -->
+        <ScrollViewer Grid.Row="4" Padding="0,0,2,0" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer.Resources>
+                <ControlTheme x:Key="{x:Type ScrollBar}" TargetType="ScrollBar">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Style Selector="^ /template/ Thumb">
+                        <Setter Property="Background" Value="#C2C5CB"/>
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="^ /template/ Thumb:pointerover">
+                        <Setter Property="Background" Value="#A6AAB1"/>
+                    </Style>
+                    <Style Selector="^ /template/ Thumb:pressed">
+                        <Setter Property="Background" Value="#8E939B"/>
+                    </Style>
+                    <Style Selector="^ /template/ RepeatButton.page">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="MinWidth" Value="0"/>
+                        <Setter Property="MinHeight" Value="0"/>
+                        <Setter Property="Template">
+                            <ControlTemplate><Border Background="{TemplateBinding Background}"/></ControlTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="^:vertical">
+                        <Setter Property="Width" Value="10"/>
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border Background="{TemplateBinding Background}">
+                                    <Track Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
+                                           Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}"
+                                           ViewportSize="{TemplateBinding ViewportSize}"
+                                           Value="{TemplateBinding Value, Mode=TwoWay}">
+                                        <Track.DecreaseButton>
+                                            <RepeatButton Name="PART_PageUpButton" Classes="page" Focusable="False"/>
+                                        </Track.DecreaseButton>
+                                        <Track.IncreaseButton>
+                                            <RepeatButton Name="PART_PageDownButton" Classes="page" Focusable="False"/>
+                                        </Track.IncreaseButton>
+                                        <Thumb Width="6" HorizontalAlignment="Center" MinHeight="28"/>
+                                    </Track>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </ControlTheme>
+            </ScrollViewer.Resources>
+            <StackPanel>
+                <!-- 常驻的"所有成员": 不随部门列表刷新, 所以刻意放在 OrgList 外面.
+                     这样 Groups() 只看得见真部门, 重拉部门时清空 OrgList 也碰不到它 -->
+                <cc:OrgGroup x:Name="AllMembersGroup"/>
+                <StackPanel x:Name="OrgList"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CC.OrgGroup">
+    <StackPanel>
+        <Border x:Name="Header" Height="40" Padding="12,0" Cursor="Hand" Background="Transparent">
+            <Border.Styles>
+                <Style Selector="Border:pointerover">
+                    <Setter Property="Background" Value="#F2F3F5"/>
+                </Style>
+            </Border.Styles>
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <Path x:Name="Arrow" Grid.Column="0" Width="10" Height="10" Margin="0,0,8,0"
+                      Stroke="#8A9099" StrokeThickness="1.6" Fill="Transparent"
+                      StrokeLineCap="Round" StrokeJoin="Round" Data="M3,1 L8,5.5 L3,10"
+                      VerticalAlignment="Center" RenderTransformOrigin="50%,50%">
+                    <Path.Transitions>
+                        <Transitions>
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                        </Transitions>
+                    </Path.Transitions>
+                </Path>
+                <TextBlock x:Name="TitleText" Grid.Column="1" FontSize="13" FontWeight="SemiBold" Foreground="#5F6368" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <TextBlock x:Name="CountText" Grid.Column="2" FontSize="12" Foreground="#9AA0A6" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <StackPanel x:Name="Body" IsVisible="False"/>
+    </StackPanel>
+</UserControl>
