@@ -3,29 +3,36 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Utilities;
 
 
 namespace Michael
 {
     public class Player : MonoBehaviour
     {
-        public PlayerInputs inputs;
-        public Rigidbody2D rb;
-
-        private StateMachine stateMachine;
-        public Animator Anim { get; private set; }
-        public EntityState IdleState { get; private set; }
-        public EntityState MoveState { get; private set; }
-        public EntityState JumpState { get; private set; }
-        public EntityState FallState {  get; private set; }
-
-        private bool faceToRight = true;
-
-        public Vector2 MoveInputValue { get; private set; }
+        [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
         public float JumpForce = 5f;
 
-        public float YValue = 0f;
+        [Header("Collision detection")]
+        [SerializeField] private float checkHighDistance = 1.35f; // 高度检测长度
+        [SerializeField] private LayerMask whatIsGround;
+        public bool groundDetected = false;
+
+
+        internal PlayerInputs inputs;
+        internal Rigidbody2D rb {  get; private set; }
+
+        private StateMachine stateMachine;
+        internal Animator Anim { get; private set; }
+        internal EntityState IdleState { get; private set; }
+        internal EntityState MoveState { get; private set; }
+        internal EntityState JumpState { get; private set; }
+        internal EntityState FallState {  get; private set; }
+
+        
+        internal Vector2 MoveInputValue { get; private set; }
+        private bool faceToRight = true;
 
 
         private void Awake()
@@ -53,6 +60,17 @@ namespace Michael
             inputs.Player.Movement.canceled += ctx => MoveInputValue = Vector2.zero;
         }
 
+
+        private void OnDisable()
+        {
+            inputs.Disable();
+        }
+
+        private void OnDrawGizmos()
+        {
+            Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkHighDistance));
+        }
+
         private void Start()
         {
             stateMachine.Init(IdleState);
@@ -60,11 +78,11 @@ namespace Michael
 
         private void Update()
         {
+            UpdateCollisionDetection();
             stateMachine.currentState.Update();
-            YValue = rb.linearVelocityY;
         }
 
-        public void SetVelocity(float x, float y = 0)
+        public void SetVelocity(float x, float y)
         {
             rb.linearVelocityX = x;
             rb.linearVelocityY = y;
@@ -78,6 +96,11 @@ namespace Michael
                 transform.Rotate(0, 180, 0);
                 faceToRight = !faceToRight;
             }
+        }
+
+        private void UpdateCollisionDetection()
+        {
+            groundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkHighDistance, whatIsGround);
         }
     }
 }

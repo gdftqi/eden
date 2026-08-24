@@ -9,6 +9,7 @@ namespace Michael
         public override void Enter()
         {
             base.Enter();
+            player.SetVelocity(0, player.rb.linearVelocityY);
         }
 
         public override void Exit()
@@ -19,6 +20,11 @@ namespace Michael
         public override void Update()
         {
             base.Update();
+
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
 
             if (player.MoveInputValue.x != 0)
             {

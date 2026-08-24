@@ -465,7 +465,7 @@ GameObject:
   - component: {fileID: 1434203351}
   - component: {fileID: 1434203350}
   - component: {fileID: 1434203352}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Square
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -621,7 +621,7 @@ Transform:
   m_GameObject: {fileID: 1833535080}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -3.82, z: 0}
+  m_LocalPosition: {x: 0, y: -5.176, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -640,10 +640,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bce1170ea2b54d4da22f7f51c8b207e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.Player
-  rb: {fileID: 0}
   MoveSpeed: 5
-  JumpForce: 15
-  YValue: 0
+  JumpForce: 5
+  checkHighDistance: 1.35
+  whatIsGround:
+    serializedVersion: 2
+    m_Bits: 64
+  groundDetected: 0
 --- !u!114 &1833535084
 MonoBehaviour:
   m_ObjectHideFlags: 0

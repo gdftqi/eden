@@ -20,12 +20,18 @@ namespace Michael
         {
             base.Update();
 
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
+
             if (player.MoveInputValue.x == 0)
             {
                 stateMachine.ChangeState(player.IdleState);
+                return;
             }
 
-            player.SetVelocity(player.MoveInputValue.x * player.MoveSpeed);
+            player.SetVelocity(player.MoveInputValue.x * player.MoveSpeed, player.rb.linearVelocityY);
         }
     }
 }
