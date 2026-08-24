@@ -920,9 +920,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.Player
   MoveSpeed: 5
   JumpForce: 12
+  WallJumpForce: {x: 5, y: 12}
   InAirMoveMultiplier: 0.7
+  WallSlideSlowMultiplier: 0.5
   checkGroundDistance: 1.35
-  checkWallDistance: 0.45
+  checkWallDistance: 0.55
   whatIsGround:
     serializedVersion: 2
     m_Bits: 64

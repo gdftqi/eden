@@ -9,7 +9,7 @@ namespace Michael
         [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
         public float JumpForce = 12f;
-        public Vector2 WallJumpForce = new Vector2(6, 12);
+        public Vector2 WallJumpForce = new Vector2(5f, 12f);
 
         [Range(0, 1)]
         public float InAirMoveMultiplier = 0.7f; // 从 0 到 1

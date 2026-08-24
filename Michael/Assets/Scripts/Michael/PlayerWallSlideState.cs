@@ -13,7 +13,7 @@ namespace Michael
             base.Update();
             HandleWallSlide();
 
-            if (player.inputs.Player.Jump.WasReleasedThisFrame())
+            if (player.inputs.Player.Jump.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.WallJumpState);
             }
