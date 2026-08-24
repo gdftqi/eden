@@ -10,7 +10,7 @@ namespace Michael
         {
             base.Update();
 
-            if (player.rb.linearVelocityY < 0)
+            if (player.rb.linearVelocityY < 0 && !player.GroundDetected)
             {
                 stateMachine.ChangeState(player.FallState);
             }

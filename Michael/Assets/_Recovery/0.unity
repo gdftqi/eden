@@ -921,6 +921,7 @@ MonoBehaviour:
   MoveSpeed: 5
   JumpForce: 12
   InAirMoveMultiplier: 0.7
+  WallSlideSlowMultiplier: 0.7
   checkGroundDistance: 1.35
   checkWallDistance: 0.45
   whatIsGround:

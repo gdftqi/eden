@@ -24,6 +24,11 @@ namespace Michael
             {
                 stateMachine.ChangeState(player.IdleState);
             }
+
+            if (player.WallDetected)
+            {
+                stateMachine.ChangeState(player.WallSlideState);
+            }
         }
     }
 }

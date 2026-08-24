@@ -9,13 +9,17 @@ namespace Michael
         [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
         public float JumpForce = 12f;
+        public Vector2 WallJumpForce = new Vector2(6, 12);
 
         [Range(0, 1)]
         public float InAirMoveMultiplier = 0.7f; // 从 0 到 1
 
+        [Range(0, 1)]
+        public float WallSlideSlowMultiplier = 0.5f; // 从 0 到 1
+
         [Header("Collision detection")]
         [SerializeField] private float checkGroundDistance = 1.35f; // 高度检测长度
-        [SerializeField] private float checkWallDistance = 0.7f;
+        [SerializeField] private float checkWallDistance = 0.55f;
         [SerializeField] private LayerMask whatIsGround;
         
 
@@ -28,13 +32,15 @@ namespace Michael
         internal EntityState MoveState { get; private set; }
         internal EntityState JumpState { get; private set; }
         internal EntityState FallState {  get; private set; }
+        internal EntityState WallSlideState {  get; private set; }
+        internal EntityState WallJumpState { get; private set; }
 
-        
+
         internal Vector2 MoveInputValue { get; private set; }
         [SerializeField] internal bool GroundDetected;
         [SerializeField] internal bool WallDetected;
         private bool faceToRight = true;
-        private float faceDirection = 1f;
+        public float FaceDirection { get; private set; } = 1f;
 
 
         private void Awake()
@@ -56,6 +62,8 @@ namespace Michael
             MoveState = new PlayerMoveState(this, stateMachine, "move");
             JumpState = new PlayerJumpState(this, stateMachine, "jumpFall");
             FallState = new PlayerFallState(this, stateMachine, "jumpFall");
+            WallSlideState = new PlayerWallSlideState(this, stateMachine, "wallSlide");
+            WallJumpState = new PlayerWallJumpState(this, stateMachine, "jumpFall");
         }
 
         private void OnEnable()
@@ -74,7 +82,7 @@ namespace Michael
         private void OnDrawGizmos()
         {
             Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkGroundDistance));
-            Gizmos.DrawLine(transform.position, transform.position + new Vector3(faceDirection * checkWallDistance, 0));
+            Gizmos.DrawLine(transform.position, transform.position + new Vector3(FaceDirection * checkWallDistance, 0));
         }
 
         private void Start()
@@ -99,16 +107,21 @@ namespace Michael
         {
             if ((faceToRight && x < 0) || (!faceToRight && x > 0))
             {
-                transform.Rotate(0, 180, 0);
-                faceToRight = !faceToRight;
-                faceDirection = -faceDirection;
+                Flip();
             }
+        }
+
+        public void Flip()
+        {
+            transform.Rotate(0, 180, 0);
+            faceToRight = !faceToRight;
+            FaceDirection = -FaceDirection;
         }
 
         private void UpdateCollisionDetection()
         {
             GroundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkGroundDistance, whatIsGround);
-            WallDetected = Physics2D.Raycast(transform.position, Vector2.right * faceDirection, checkWallDistance, whatIsGround);
+            WallDetected = Physics2D.Raycast(transform.position, Vector2.right * FaceDirection, checkWallDistance, whatIsGround);
         }
     }
 }
