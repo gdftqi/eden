@@ -53,6 +53,7 @@
     <Compile Include="Assets\Scripts\Michael\EntityState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerFallState.cs" />
+    <Compile Include="Assets\Scripts\Michael\PlayerAiredState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerJumpState.cs" />

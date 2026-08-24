@@ -10,6 +10,11 @@ namespace Michael
         {
             base.Update();
 
+            if (player.rb.linearVelocityY < 0)
+            {
+                stateMachine.ChangeState(player.FallState);
+            }
+
             if (player.inputs.Player.Jump.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.JumpState);

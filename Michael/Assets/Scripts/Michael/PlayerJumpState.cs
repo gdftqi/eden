@@ -1,6 +1,6 @@
 namespace Michael
 {
-    public class PlayerJumpState : EntityState
+    public class PlayerJumpState : PlayerAiredState
     {
         public PlayerJumpState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {

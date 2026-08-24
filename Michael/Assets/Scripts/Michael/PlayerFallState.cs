@@ -1,6 +1,6 @@
 namespace Michael
 {
-    public class PlayerFallState : EntityState
+    public class PlayerFallState : PlayerAiredState
     {
         public PlayerFallState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
@@ -20,7 +20,7 @@ namespace Michael
         {
             base.Update();
 
-            if (player.groundDetected)
+            if (player.GroundDetected)
             {
                 stateMachine.ChangeState(player.IdleState);
             }
