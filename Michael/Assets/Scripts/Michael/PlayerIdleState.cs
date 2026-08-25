@@ -21,7 +21,7 @@ namespace Michael
         {
             base.Update();
 
-            if (stateMachine.currentState != this || player.MoveInputValue.x == player.FaceDirection && player.WallDetected)
+            if (stateMachine.currentState != this || player.WallDetected && player.MoveInputValue.x * player.FaceDirection > 0)
             {
                 return;
             }

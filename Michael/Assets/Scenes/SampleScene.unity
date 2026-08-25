@@ -940,6 +940,8 @@ MonoBehaviour:
   DashSpeed: 20
   checkGroundDistance: 1.35
   checkWallDistance: 0.55
+  checkWallUpOffset: 0.3
+  checkWallDownOffset: 0.5
   whatIsGround:
     serializedVersion: 2
     m_Bits: 64
@@ -947,11 +949,9 @@ MonoBehaviour:
   - {x: 3, y: 1.5}
   - {x: 1, y: 2}
   - {x: 5, y: 1.5}
-  JumpAttackVelocity: {x: 5, y: -6}
+  JumpAttackVelocity: {x: 5, y: 6}
   AttackVelocityDuration: 0.1
   ComboResetTime: 1
-  GroundDetected: 0
-  WallDetected: 0
 --- !u!114 &1833535084
 MonoBehaviour:
   m_ObjectHideFlags: 0

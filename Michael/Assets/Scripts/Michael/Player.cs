@@ -9,7 +9,7 @@ namespace Michael
     {
         [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
-        public float JumpForce = 12f;
+        public float JumpForce = 16f;
         public Vector2 WallJumpForce = new Vector2(5f, 12f);
 
         [Range(0, 1)]
@@ -25,11 +25,17 @@ namespace Michael
         [Header("Collision detection")]
         [SerializeField] private float checkGroundDistance = 1.35f; // 高度检测长度
         [SerializeField] private float checkWallDistance = 0.55f;
+        [SerializeField] private float checkWallUpOffset = 0.3f;
+        [SerializeField] private float checkWallDownOffset = 0.5f;
         [SerializeField] private LayerMask whatIsGround;
 
         [Header("Attack properties")]
-        public Vector2[] AttackVelocity;
-        public Vector2 JumpAttackVelocity;
+        public Vector2[] AttackVelocity = new Vector2[3] {
+            new Vector2(3f, 1.5f),
+            new Vector2(1f, 2f),
+            new Vector2(5f, 1.5f),
+        };
+        public Vector2 JumpAttackVelocity = new Vector2(5f, 6f);
         public float AttackVelocityDuration = 0.1f;
         public float ComboResetTime = 1f;
         private Coroutine queuedAttackCo;
@@ -51,8 +57,8 @@ namespace Michael
 
 
         internal Vector2 MoveInputValue { get; private set; }
-        [SerializeField] internal bool GroundDetected;
-        [SerializeField] internal bool WallDetected;
+        internal bool GroundDetected;
+        internal bool WallDetected;
         private bool faceToRight = true;
         public float FaceDirection { get; private set; } = 1f;
 
@@ -99,7 +105,11 @@ namespace Michael
         private void OnDrawGizmos()
         {
             Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkGroundDistance));
-            Gizmos.DrawLine(transform.position, transform.position + new Vector3(FaceDirection * checkWallDistance, 0));
+
+            var pos1 = new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
+            var pos2 = new Vector3(transform.position.x, transform.position.y - checkWallDownOffset * 2);
+            Gizmos.DrawLine(pos1, pos1 + new Vector3(FaceDirection * checkWallDistance, 0));
+            Gizmos.DrawLine(pos2, pos2 + new Vector3(FaceDirection * checkWallDistance, 0));
         }
 
         private void Start()
@@ -159,7 +169,10 @@ namespace Michael
         private void UpdateCollisionDetection()
         {
             GroundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkGroundDistance, whatIsGround);
-            WallDetected = Physics2D.Raycast(transform.position, Vector2.right * FaceDirection, checkWallDistance, whatIsGround);
+
+            var pos1 = new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
+            var pos2 = new Vector3(transform.position.x, transform.position.y - checkWallDownOffset * 2);
+            WallDetected = Physics2D.Raycast(pos1, Vector2.right * FaceDirection, checkWallDistance, whatIsGround) || Physics2D.Raycast(pos2, Vector2.right * FaceDirection, checkWallDistance, whatIsGround);
         }
     }
 }
