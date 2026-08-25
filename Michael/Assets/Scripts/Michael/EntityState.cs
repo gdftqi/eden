@@ -14,6 +14,9 @@ namespace Michael
         protected string stateConditionName;
         protected Animator anim;
 
+        protected float stateTimer = 0f;
+        protected bool triggerCalled = false;
+
 
         public EntityState(Player player, StateMachine sm, string conditionName)
         {
@@ -29,6 +32,7 @@ namespace Michael
         public virtual void Enter()
         {
             anim.SetBool(stateConditionName, true);
+            triggerCalled = false;
         }
 
         /// <summary>
@@ -44,7 +48,29 @@ namespace Michael
         /// </summary>
         public virtual void Update()
         {
+            stateTimer -= Time.deltaTime;
+
             anim.SetFloat("yVelocity", player.rb.linearVelocityY);
+
+            if (player.inputs.Player.Dash.WasPressedThisFrame() && CanDash())
+            {
+                stateMachine.ChangeState(player.DashState);
+            }
+        }
+
+        public void CallAnimationTrigger()
+        {
+            triggerCalled = true;
+        }
+
+        private bool CanDash()
+        {
+            if (player.WallDetected)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

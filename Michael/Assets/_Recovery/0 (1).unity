@@ -943,12 +943,8 @@ MonoBehaviour:
   whatIsGround:
     serializedVersion: 2
     m_Bits: 64
-  AttackVelocity:
-  - {x: 3, y: 1.5}
-  - {x: 1, y: 2}
-  - {x: 5, y: 1.5}
+  AttackVelocity: {x: 3, y: 1.5}
   AttackVelocityDuration: 0.1
-  ComboResetTime: 1
   GroundDetected: 0
   WallDetected: 0
 --- !u!114 &1833535084

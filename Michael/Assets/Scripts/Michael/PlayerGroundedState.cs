@@ -13,11 +13,19 @@ namespace Michael
             if (player.rb.linearVelocityY < 0 && !player.GroundDetected)
             {
                 stateMachine.ChangeState(player.FallState);
+                return;
             }
 
             if (player.inputs.Player.Jump.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.JumpState);
+                return;
+            }
+
+            if (player.inputs.Player.Attack.WasPerformedThisFrame())
+            {
+                stateMachine.ChangeState(player.BasicAttackState);
+                return;
             }
         }
     }
