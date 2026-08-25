@@ -23,10 +23,10 @@ namespace Michael
         public float DashSpeed = 20f;
 
         [Header("Collision detection")]
-        [SerializeField] private float checkGroundDistance = 1.35f; // 高度检测长度
+        [SerializeField] private float checkGroundDistance = 1.45f; // 高度检测长度
         [SerializeField] private float checkWallDistance = 0.55f;
         [SerializeField] private float checkWallUpOffset = 0.3f;
-        [SerializeField] private float checkWallDownOffset = 0.5f;
+        [SerializeField] private float checkWallDownOffset = 1.0f;
         [SerializeField] private LayerMask whatIsGround;
 
         [Header("Attack properties")]
@@ -102,14 +102,26 @@ namespace Michael
             inputs.Disable();
         }
 
+        private Vector3 WallRayUp()
+        {
+            return new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
+        }
+
+
+        private Vector3 WallRayDown()
+        {
+            return new Vector3(transform.position.x, transform.position.y - checkWallDownOffset);
+        }
+
         private void OnDrawGizmos()
         {
+            Gizmos.color = Color.green;
             Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkGroundDistance));
 
-            var pos1 = new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
-            var pos2 = new Vector3(transform.position.x, transform.position.y - checkWallDownOffset * 2);
-            Gizmos.DrawLine(pos1, pos1 + new Vector3(FaceDirection * checkWallDistance, 0));
-            Gizmos.DrawLine(pos2, pos2 + new Vector3(FaceDirection * checkWallDistance, 0));
+            Gizmos.color = Color.cyan;
+            var offset = new Vector3(FaceDirection * checkWallDistance, 0);
+            Gizmos.DrawLine(WallRayUp(), WallRayUp() + offset);
+            Gizmos.DrawLine(WallRayDown(), WallRayDown() + offset);
         }
 
         private void Start()
@@ -170,9 +182,9 @@ namespace Michael
         {
             GroundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkGroundDistance, whatIsGround);
 
-            var pos1 = new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
-            var pos2 = new Vector3(transform.position.x, transform.position.y - checkWallDownOffset * 2);
-            WallDetected = Physics2D.Raycast(pos1, Vector2.right * FaceDirection, checkWallDistance, whatIsGround) || Physics2D.Raycast(pos2, Vector2.right * FaceDirection, checkWallDistance, whatIsGround);
+            var dir = Vector2.right * FaceDirection;
+            WallDetected = Physics2D.Raycast(WallRayUp(), dir, checkWallDistance, whatIsGround)
+                        || Physics2D.Raycast(WallRayDown(), dir, checkWallDistance, whatIsGround);
         }
     }
 }
