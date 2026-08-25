@@ -29,6 +29,7 @@ namespace Michael
 
         [Header("Attack properties")]
         public Vector2[] AttackVelocity;
+        public Vector2 JumpAttackVelocity;
         public float AttackVelocityDuration = 0.1f;
         public float ComboResetTime = 1f;
         private Coroutine queuedAttackCo;
@@ -46,6 +47,7 @@ namespace Michael
         internal EntityState WallJumpState { get; private set; }
         internal EntityState DashState { get; private set; }
         internal EntityState BasicAttackState { get; private set; }
+        internal EntityState JumpAttackState { get; private set; }
 
 
         internal Vector2 MoveInputValue { get; private set; }
@@ -78,6 +80,7 @@ namespace Michael
             WallJumpState = new PlayerWallJumpState(this, stateMachine, "jumpFall");
             DashState = new PlayerDashState(this, stateMachine, "dash");
             BasicAttackState = new PlayerBasicAttackState(this, stateMachine, "basicAttack");
+            JumpAttackState = new PlayerJumpAttackState(this, stateMachine, "jumpAttack");
         }
 
         private void OnEnable()

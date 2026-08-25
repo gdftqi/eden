@@ -25,7 +25,7 @@ namespace Michael
                 return;
             }
 
-            if (player.MoveInputValue.x == 0)
+            if (player.MoveInputValue.x == 0 || player.WallDetected)
             {
                 stateMachine.ChangeState(player.IdleState);
                 return;

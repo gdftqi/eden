@@ -932,7 +932,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.Player
   MoveSpeed: 5
-  JumpForce: 12
+  JumpForce: 16
   WallJumpForce: {x: 5, y: 12}
   InAirMoveMultiplier: 0.7
   WallSlideSlowMultiplier: 0.5
@@ -947,6 +947,7 @@ MonoBehaviour:
   - {x: 3, y: 1.5}
   - {x: 1, y: 2}
   - {x: 5, y: 1.5}
+  JumpAttackVelocity: {x: 5, y: -6}
   AttackVelocityDuration: 0.1
   ComboResetTime: 1
   GroundDetected: 0

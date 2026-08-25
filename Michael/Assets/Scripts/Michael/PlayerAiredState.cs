@@ -17,6 +17,11 @@ namespace Michael
             {
                 player.SetVelocity(player.MoveInputValue.x * player.MoveSpeed * player.InAirMoveMultiplier, player.rb.linearVelocityY);
             }
+
+            if (player.inputs.Player.Attack.WasPressedThisFrame())
+            {
+                stateMachine.ChangeState(player.JumpAttackState);
+            }
         }
     }
 }

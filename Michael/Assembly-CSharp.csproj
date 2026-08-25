@@ -62,6 +62,7 @@
     <Compile Include="Assets\Scripts\Michael\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerJumpState.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
+    <Compile Include="Assets\Scripts\Michael\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\Michael\PlayerAnimationTriggers.cs" />
   </ItemGroup>

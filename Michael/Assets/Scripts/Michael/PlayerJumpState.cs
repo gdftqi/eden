@@ -22,7 +22,7 @@ namespace Michael
         {
             base.Update();
 
-            if (player.rb.linearVelocityY < 0)
+            if (player.rb.linearVelocityY < 0 && stateMachine.currentState != player.JumpAttackState)
             {
                 stateMachine.ChangeState(player.FallState);
             }
