@@ -25,24 +25,17 @@ namespace Michael
             ResetComboIndex();
 
             comboAttackQueued = false;
-            if (player.MoveInputValue.x != 0)
-            {
-                attackDirection = Mathf.Sign(player.MoveInputValue.x);
-            }
-            else
-            {
-                attackDirection = player.FaceDirection;
-            }
+            attackDirection = player.MoveInputValue.x != 0 ? Mathf.Sign(player.MoveInputValue.x) : player.FaceDirection;
 
             anim.SetInteger("basicAttackIndex", comboIndex);
             ApplyAttackVelocity();
-            lastAttackedTime = Time.time;
         }
 
         public override void Exit()
         {
             base.Exit();
             comboIndex++;
+            lastAttackedTime = Time.time;
         }
 
         public override void Update()
@@ -63,16 +56,7 @@ namespace Michael
 
             if (triggerCalled)
             {
-                if (comboAttackQueued)
-                {
-                    anim.SetBool(stateConditionName, false);
-                    player.EnterAttackStateWithDelay();
-                }
-                else
-                {
-                    stateMachine.ChangeState(player.IdleState);
-                }
-
+                HandleStateExit();
             }
         }
 
@@ -91,6 +75,19 @@ namespace Michael
             if (attackVelocityTimer <= 0)
             {
                 player.SetVelocity(0, player.rb.linearVelocityY);
+            }
+        }
+
+        private void HandleStateExit()
+        {
+            if (comboAttackQueued)
+            {
+                anim.SetBool(stateConditionName, false);
+                player.EnterAttackStateWithDelay();
+            }
+            else
+            {
+                stateMachine.ChangeState(player.IdleState);
             }
         }
 
