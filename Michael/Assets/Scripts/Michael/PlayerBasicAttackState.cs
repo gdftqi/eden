@@ -24,9 +24,10 @@ namespace Michael
             base.Enter();
             ResetComboIndex();
 
+            comboAttackQueued = false;
             if (player.MoveInputValue.x != 0)
             {
-                attackDirection = player.MoveInputValue.x;
+                attackDirection = Mathf.Sign(player.MoveInputValue.x);
             }
             else
             {
@@ -47,7 +48,12 @@ namespace Michael
         public override void Update()
         {
             base.Update();
-            comboAttackQueued = false;
+
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
+
             HandleAttackVelocity();
 
             if (player.inputs.Player.Attack.WasPressedThisFrame())
