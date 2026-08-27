@@ -1,7 +1,4 @@
-using UnityEngine;
-
-
-namespace Michael
+namespace Michael.Animation
 {
     public class StateMachine
     {

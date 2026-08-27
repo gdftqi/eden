@@ -2,7 +2,7 @@
 
 using UnityEngine;
 
-namespace Michael
+namespace Michael.Animation
 {
     /// <summary>
     /// 实体状态

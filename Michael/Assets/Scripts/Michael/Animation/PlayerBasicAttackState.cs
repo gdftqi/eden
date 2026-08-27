@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Michael
+namespace Michael.Animation
 {
     public class PlayerBasicAttackState : EntityState
     {

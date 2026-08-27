@@ -1,4 +1,4 @@
-namespace Michael
+namespace Michael.Animation
 {
     public class PlayerDashState : EntityState
     {

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Assertions;
 
-namespace Michael
+namespace Michael.Animation
 {
     public class PlayerAnimationTriggers : MonoBehaviour
     {

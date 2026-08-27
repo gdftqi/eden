@@ -49,22 +49,22 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.14f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Scripts\Michael\StateMachine.cs" />
-    <Compile Include="Assets\Scripts\Michael\EntityState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerWallSlideState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerMoveState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerFallState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerWallJumpState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerAiredState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerBasicAttackState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerGroundedState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerAiredState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallSlideState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerBasicAttackState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerIdleState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerFallState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\StateMachine.cs" />
     <Compile Include="Assets\Scripts\Michael\Player.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerDashState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerJumpAttackState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerJumpState.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerJumpAttackState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerIdleState.cs" />
-    <Compile Include="Assets\Scripts\Michael\PlayerAnimationTriggers.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerAnimationTriggers.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerMoveState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerDashState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerGroundedState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
@@ -1171,6 +1171,10 @@
       <HintPath>Library\ScriptAssemblies\Unity.InternalAPIEditorBridge.001.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.Splines.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.Splines.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.RenderPipelines.Universal.2D.Editor.Overrides">
       <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.Universal.2D.Editor.Overrides.dll</HintPath>
       <Private>False</Private>
@@ -1231,12 +1235,20 @@
       <HintPath>Library\ScriptAssemblies\Unity.Mathematics.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Unity.Cinemachine.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.Cinemachine.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.UnifiedRayTracing.Runtime">
       <HintPath>Library\ScriptAssemblies\Unity.UnifiedRayTracing.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.2D.Aseprite.Common">
       <HintPath>Library\ScriptAssemblies\Unity.2D.Aseprite.Common.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Cinemachine">
+      <HintPath>Library\ScriptAssemblies\Unity.Cinemachine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.Rider.Editor">
@@ -1385,6 +1397,14 @@
     </Reference>
     <Reference Include="Unity.InputSystem">
       <HintPath>Library\ScriptAssemblies\Unity.InputSystem.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Settings.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.Settings.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Splines">
+      <HintPath>Library\ScriptAssemblies\Unity.Splines.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEditor.UI">
