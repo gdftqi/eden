@@ -52,7 +52,9 @@
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerAiredState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallSlideState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\ParallexBackground.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerBasicAttackState.cs" />
+    <Compile Include="Assets\Scripts\Michael\ParallexLayer.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerFallState.cs" />

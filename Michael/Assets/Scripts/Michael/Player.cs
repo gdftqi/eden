@@ -77,6 +77,7 @@ namespace Michael
 
             rb.gravityScale = 4f;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
 
             stateMachine = new StateMachine();
             IdleState = new PlayerIdleState(this, stateMachine, "idle");
