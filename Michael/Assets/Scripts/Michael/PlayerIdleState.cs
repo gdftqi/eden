@@ -29,7 +29,10 @@ namespace Michael
             if (player.MoveInputValue.x != 0)
             {
                 stateMachine.ChangeState(player.MoveState);
+                return;
             }
+
+            player.SetVelocity(0, player.rb.linearVelocityY);
         }
     }
 }

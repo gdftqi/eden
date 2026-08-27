@@ -9,8 +9,7 @@ namespace Michael
         public override void Enter()
         {
             base.Enter();
-
-            player.SetVelocity(player.rb.linearVelocityX, player.JumpForce);
+            player.rb.linearVelocityY = player.JumpForce;
         }
 
         public override void Exit()
