@@ -9,6 +9,7 @@ namespace Michael
     {
         private Camera mainCamera;
         private float lastCameraPositionX = 0f;
+        private float cameraHalfWidth = 0f;
 
         [SerializeField] private ParallexLayer[] backgroundLayers;
 
@@ -16,6 +17,10 @@ namespace Michael
         {
             mainCamera = Camera.main;
             Assert.IsNotNull(mainCamera);
+
+            cameraHalfWidth = mainCamera.orthographicSize * mainCamera.aspect;
+
+            CaculateImageLength();
         }
 
         private void Update()
@@ -24,9 +29,21 @@ namespace Michael
             float distanceToMove = currentCameraPositionX - lastCameraPositionX;
             lastCameraPositionX = currentCameraPositionX;
 
+            float cameraLeftEdge = currentCameraPositionX - cameraHalfWidth;
+            float cameraRightEdge = currentCameraPositionX + cameraHalfWidth;
+
             foreach (var layer in backgroundLayers)
             {
                 layer.Move(distanceToMove);
+                layer.LoopBackground(cameraLeftEdge, cameraRightEdge);
+            }
+        }
+
+        private void CaculateImageLength()
+        {
+            foreach (var layer in backgroundLayers)
+            {
+                layer.CaculateImageWidth();
             }
         }
     }
