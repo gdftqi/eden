@@ -16,5 +16,10 @@ namespace Michael.Animation
             currentState = newState;
             currentState.Enter();
         }
+
+        public void UpdateActiveState()
+        {
+            currentState.Update();
+        }
     }
 }

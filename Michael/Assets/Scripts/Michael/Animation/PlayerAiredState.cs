@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Michael.Animation
 {
-    public class PlayerAiredState : EntityState
+    public class PlayerAiredState : PlayerState
     {
         public PlayerAiredState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
@@ -18,7 +18,7 @@ namespace Michael.Animation
                 player.SetVelocity(player.MoveInputValue.x * player.MoveSpeed * player.InAirMoveMultiplier, player.rb.linearVelocityY);
             }
 
-            if (player.inputs.Player.Attack.WasPressedThisFrame())
+            if (inputs.Player.Attack.WasPressedThisFrame())
             {
                 stateMachine.ChangeState(player.JumpAttackState);
             }

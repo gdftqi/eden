@@ -49,24 +49,26 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.14f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Michael\Parallex\ParallexBackground.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerAiredState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallSlideState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerWallJumpState.cs" />
-    <Compile Include="Assets\Scripts\Michael\ParallexBackground.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerBasicAttackState.cs" />
-    <Compile Include="Assets\Scripts\Michael\ParallexLayer.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Parallex\ParallexLayer.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerFallState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\StateMachine.cs" />
     <Compile Include="Assets\Scripts\Michael\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\PlayerState.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerAnimationTriggers.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\PlayerGroundedState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Entity.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

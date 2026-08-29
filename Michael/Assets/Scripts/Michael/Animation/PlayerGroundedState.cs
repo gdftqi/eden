@@ -1,6 +1,6 @@
 namespace Michael.Animation
 {
-    public class PlayerGroundedState : EntityState
+    public class PlayerGroundedState : PlayerState
     {
         public PlayerGroundedState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
@@ -10,19 +10,19 @@ namespace Michael.Animation
         {
             base.Update();
 
-            if (player.rb.linearVelocityY < 0 && !player.GroundDetected)
+            if (rb.linearVelocityY < 0 && !player.GroundDetected)
             {
                 stateMachine.ChangeState(player.FallState);
                 return;
             }
 
-            if (player.inputs.Player.Jump.WasPerformedThisFrame())
+            if (inputs.Player.Jump.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.JumpState);
                 return;
             }
 
-            if (player.inputs.Player.Attack.WasPerformedThisFrame())
+            if (inputs.Player.Attack.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.BasicAttackState);
                 return;

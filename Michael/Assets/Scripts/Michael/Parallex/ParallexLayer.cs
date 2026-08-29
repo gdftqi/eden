@@ -1,8 +1,7 @@
 using System;
-using UnityEditor;
 using UnityEngine;
 
-namespace Michael
+namespace Michael.Parallex
 {
     [Serializable]
     public class ParallexLayer

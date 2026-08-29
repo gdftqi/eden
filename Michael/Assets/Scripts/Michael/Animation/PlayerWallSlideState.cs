@@ -1,6 +1,6 @@
 namespace Michael.Animation
 {
-    public class PlayerWallSlideState : EntityState
+    public class PlayerWallSlideState : PlayerState
     {
         public PlayerWallSlideState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
@@ -11,7 +11,7 @@ namespace Michael.Animation
             base.Update();
             HandleWallSlide();
 
-            if (player.inputs.Player.Jump.WasPerformedThisFrame())
+            if (inputs.Player.Jump.WasPerformedThisFrame())
             {
                 stateMachine.ChangeState(player.WallJumpState);
             }
@@ -32,11 +32,11 @@ namespace Michael.Animation
         {
             if (player.MoveInputValue.y < 0)
             {
-                player.SetVelocity(player.MoveInputValue.x, player.rb.linearVelocityY);
+                player.SetVelocity(player.MoveInputValue.x, rb.linearVelocityY);
             }
             else
             {
-                player.SetVelocity(player.MoveInputValue.x, player.rb.linearVelocityY * player.WallSlideSlowMultiplier);
+                player.SetVelocity(player.MoveInputValue.x, rb.linearVelocityY * player.WallSlideSlowMultiplier);
             }
         }
     }

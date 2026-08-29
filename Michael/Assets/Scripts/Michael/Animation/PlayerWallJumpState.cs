@@ -1,6 +1,6 @@
 namespace Michael.Animation
 {
-    public class PlayerWallJumpState : EntityState
+    public class PlayerWallJumpState : PlayerState
     {
         public PlayerWallJumpState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {

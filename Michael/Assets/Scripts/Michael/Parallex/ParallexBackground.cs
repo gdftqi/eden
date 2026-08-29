@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.Assertions;
 
-
-namespace Michael
+namespace Michael.Parallex
 {
     [DefaultExecutionOrder(100)]
     public class ParallexBackground : MonoBehaviour

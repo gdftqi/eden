@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Michael.Animation
 {
-    public class PlayerBasicAttackState : EntityState
+    public class PlayerBasicAttackState : PlayerState
     {
         private float attackVelocityTimer = 0f;
 
@@ -49,7 +49,7 @@ namespace Michael.Animation
 
             HandleAttackVelocity();
 
-            if (player.inputs.Player.Attack.WasPressedThisFrame())
+            if (inputs.Player.Attack.WasPressedThisFrame())
             {
                 QueueNextAttack();
             }

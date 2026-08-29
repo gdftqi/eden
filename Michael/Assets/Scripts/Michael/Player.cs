@@ -1,37 +1,27 @@
+using Michael.Animation;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Assertions;
-using Michael.Animation;
-
 
 namespace Michael
 {
-    public class Player : MonoBehaviour
+    public class Player : Entity
     {
         [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
         public float JumpForce = 16f;
         public Vector2 WallJumpForce = new Vector2(5f, 12f);
-
         [Range(0, 1)]
-        public float InAirMoveMultiplier = 0.7f; // 从 0 到 1
-
+        public float InAirMoveMultiplier = 0.7f;
         [Range(0, 1)]
-        public float WallSlideSlowMultiplier = 0.5f; // 从 0 到 1
-
+        public float WallSlideSlowMultiplier = 0.5f;
         [Space]
         public float DashDuration = 0.15f;
         public float DashSpeed = 20f;
 
-        [Header("Collision detection")]
-        [SerializeField] private float checkGroundDistance = 1.45f; // 高度检测长度
-        [SerializeField] private float checkWallDistance = 0.55f;
-        [SerializeField] private float checkWallUpOffset = 0.3f;
-        [SerializeField] private float checkWallDownOffset = 1.0f;
-        [SerializeField] private LayerMask whatIsGround;
-
         [Header("Attack properties")]
-        public Vector2[] AttackVelocity = new Vector2[3] {
+        public Vector2[] AttackVelocity = new Vector2[3]
+        {
             new Vector2(3f, 1.5f),
             new Vector2(1f, 2f),
             new Vector2(5f, 1.5f),
@@ -42,44 +32,25 @@ namespace Michael
         private Coroutine queuedAttackCo;
 
         internal PlayerInputs inputs;
-        internal Rigidbody2D rb {  get; private set; }
-
-        private StateMachine stateMachine;
-        internal Animator Anim { get; private set; }
-        internal EntityState IdleState { get; private set; }
-        internal EntityState MoveState { get; private set; }
-        internal EntityState JumpState { get; private set; }
-        internal EntityState FallState {  get; private set; }
-        internal EntityState WallSlideState {  get; private set; }
-        internal EntityState WallJumpState { get; private set; }
-        internal EntityState DashState { get; private set; }
-        internal EntityState BasicAttackState { get; private set; }
-        internal EntityState JumpAttackState { get; private set; }
-
-
         internal Vector2 MoveInputValue { get; private set; }
-        internal bool GroundDetected;
-        internal bool WallDetected;
-        private bool faceToRight = true;
-        public float FaceDirection { get; private set; } = 1f;
 
+        internal PlayerState IdleState { get; private set; }
+        internal PlayerState MoveState { get; private set; }
+        internal PlayerState JumpState { get; private set; }
+        internal PlayerState FallState { get; private set; }
+        internal PlayerState WallSlideState { get; private set; }
+        internal PlayerState WallJumpState { get; private set; }
+        internal PlayerState DashState { get; private set; }
+        internal PlayerState BasicAttackState { get; private set; }
+        internal PlayerState JumpAttackState { get; private set; }
 
-        private void Awake()
+        protected override void Awake()
         {
+            base.Awake();
+
             inputs = new PlayerInputs();
             Assert.IsNotNull(inputs);
 
-            Anim = GetComponentInChildren<Animator>();
-            Assert.IsNotNull(Anim);
-
-            rb = GetComponent<Rigidbody2D>();
-            Assert.IsNotNull(rb);
-
-            rb.gravityScale = 4f;
-            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-            rb.interpolation = RigidbodyInterpolation2D.Interpolate;
-
-            stateMachine = new StateMachine();
             IdleState = new PlayerIdleState(this, stateMachine, "idle");
             MoveState = new PlayerMoveState(this, stateMachine, "move");
             JumpState = new PlayerJumpState(this, stateMachine, "jumpFall");
@@ -91,6 +62,12 @@ namespace Michael
             JumpAttackState = new PlayerJumpAttackState(this, stateMachine, "jumpAttack");
         }
 
+        protected override void Start()
+        {
+            base.Start();
+            stateMachine.Init(IdleState);
+        }
+
         private void OnEnable()
         {
             inputs.Enable();
@@ -98,43 +75,9 @@ namespace Michael
             inputs.Player.Movement.canceled += ctx => MoveInputValue = Vector2.zero;
         }
 
-
         private void OnDisable()
         {
             inputs.Disable();
-        }
-
-        private Vector3 WallRayUp()
-        {
-            return new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
-        }
-
-
-        private Vector3 WallRayDown()
-        {
-            return new Vector3(transform.position.x, transform.position.y - checkWallDownOffset);
-        }
-
-        private void OnDrawGizmos()
-        {
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkGroundDistance));
-
-            Gizmos.color = Color.cyan;
-            var offset = new Vector3(FaceDirection * checkWallDistance, 0);
-            Gizmos.DrawLine(WallRayUp(), WallRayUp() + offset);
-            Gizmos.DrawLine(WallRayDown(), WallRayDown() + offset);
-        }
-
-        private void Start()
-        {
-            stateMachine.Init(IdleState);
-        }
-
-        private void Update()
-        {
-            UpdateCollisionDetection();
-            stateMachine.currentState.Update();
         }
 
         public void EnterAttackStateWithDelay()
@@ -151,42 +94,6 @@ namespace Michael
         {
             yield return new WaitForEndOfFrame();
             stateMachine.ChangeState(BasicAttackState);
-        }
-
-        public void SetVelocity(float x, float y)
-        {
-            rb.linearVelocityX = x;
-            rb.linearVelocityY = y;
-            UpdateDirection(x);
-        }
-
-        public void CallAnimationTrigger()
-        {
-            stateMachine.currentState.CallAnimationTrigger();
-        }
-
-        private void UpdateDirection(float x)
-        {
-            if ((faceToRight && x < 0) || (!faceToRight && x > 0))
-            {
-                Flip();
-            }
-        }
-
-        public void Flip()
-        {
-            transform.Rotate(0, 180, 0);
-            faceToRight = !faceToRight;
-            FaceDirection = -FaceDirection;
-        }
-
-        private void UpdateCollisionDetection()
-        {
-            GroundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkGroundDistance, whatIsGround);
-
-            var dir = Vector2.right * FaceDirection;
-            WallDetected = Physics2D.Raycast(WallRayUp(), dir, checkWallDistance, whatIsGround)
-                        || Physics2D.Raycast(WallRayDown(), dir, checkWallDistance, whatIsGround);
         }
     }
 }
