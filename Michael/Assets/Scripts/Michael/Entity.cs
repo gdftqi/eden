@@ -12,25 +12,21 @@ namespace Michael
         internal Animator Anim { get; private set; }
 
         [Header("Collision detection")]
-        [SerializeField] private float checkGroundDistance = 1.45f; // 高度检测长度
-        [SerializeField] private float checkWallDistance = 0.55f;
-        [SerializeField] private float checkWallUpOffset = 0.3f;
-        [SerializeField] private float checkWallDownOffset = 1.0f;
+        [SerializeField] private Transform groundCheckPostion;
+        [SerializeField] private float groundCheckDistance = 1.45f; // 高度检测长度
+        [SerializeField] private float wallCheckDistance = 0.55f;
+        [SerializeField] private float wallCheckUpOffset = 0.3f;
+        [SerializeField] private float wallCheckDownOffset = 1.0f;
         [SerializeField] private LayerMask whatIsGround;
-
-
-
         
         internal bool GroundDetected;
         internal bool WallDetected;
-        private bool faceToRight = true;
+
         public float FaceDirection { get; private set; } = 1f;
 
 
         protected virtual void Awake()
         {
-            
-
             Anim = GetComponentInChildren<Animator>();
             Assert.IsNotNull(Anim);
 
@@ -41,19 +37,21 @@ namespace Michael
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
             rb.interpolation = RigidbodyInterpolation2D.Interpolate;
 
+            FaceDirection = transform.right.x > 0f ? 1f : -1f;
+
             stateMachine = new StateMachine();
             
         }
 
         private Vector3 WallRayUp()
         {
-            return new Vector3(transform.position.x, transform.position.y + checkWallUpOffset);
+            return new Vector3(transform.position.x, transform.position.y + wallCheckUpOffset);
         }
 
 
         private Vector3 WallRayDown()
         {
-            return new Vector3(transform.position.x, transform.position.y - checkWallDownOffset);
+            return new Vector3(transform.position.x, transform.position.y - wallCheckDownOffset);
         }
 
         protected virtual void Start()
@@ -81,7 +79,7 @@ namespace Michael
 
         private void UpdateDirection(float x)
         {
-            if ((faceToRight && x < 0) || (!faceToRight && x > 0))
+            if (x != 0 && Mathf.Sign(x) != FaceDirection)
             {
                 Flip();
             }
@@ -90,25 +88,24 @@ namespace Michael
         public void Flip()
         {
             transform.Rotate(0, 180, 0);
-            faceToRight = !faceToRight;
             FaceDirection = -FaceDirection;
         }
 
         private void UpdateCollisionDetection()
         {
-            GroundDetected = Physics2D.Raycast(transform.position, Vector2.down, checkGroundDistance, whatIsGround);
+            GroundDetected = Physics2D.Raycast(groundCheckPostion.position, Vector2.down, groundCheckDistance, whatIsGround);
 
             var dir = Vector2.right * FaceDirection;
-            WallDetected = Physics2D.Raycast(WallRayUp(), dir, checkWallDistance, whatIsGround) || Physics2D.Raycast(WallRayDown(), dir, checkWallDistance, whatIsGround);
+            WallDetected = Physics2D.Raycast(WallRayUp(), dir, wallCheckDistance, whatIsGround) || Physics2D.Raycast(WallRayDown(), dir, wallCheckDistance, whatIsGround);
         }
 
         private void OnDrawGizmos()
         {
             Gizmos.color = Color.green;
-            Gizmos.DrawLine(transform.position, transform.position + new Vector3(0, -checkGroundDistance));
+            Gizmos.DrawLine(groundCheckPostion.position, groundCheckPostion.position + new Vector3(0, -groundCheckDistance));
 
             Gizmos.color = Color.cyan;
-            var offset = new Vector3(FaceDirection * checkWallDistance, 0);
+            var offset = new Vector3(FaceDirection * wallCheckDistance, 0);
             Gizmos.DrawLine(WallRayUp(), WallRayUp() + offset);
             Gizmos.DrawLine(WallRayDown(), WallRayDown() + offset);
         }
