@@ -22,7 +22,7 @@ namespace Michael
         [Header("Player detection")]
         [SerializeField] private LayerMask whatIsPlayer;
         [SerializeField] private Transform playerCheck;
-        [SerializeField] private float playerCheckDistance = 10f;
+        [SerializeField] internal float playerCheckDistance = 10f;
 
         public RaycastHit2D PlayerDetection()
         {

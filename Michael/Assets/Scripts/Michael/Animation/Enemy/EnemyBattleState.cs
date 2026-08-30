@@ -24,6 +24,12 @@ namespace Michael.Animation
         {
             base.Update();
 
+            if (DistanceToPlayer() > enemy.playerCheckDistance)
+            {
+                stateMachine.ChangeState(enemy.IdleState);
+                return;
+            }
+
             if (WithinAttackRange())
             {
                 if (DirectionToPlayer() != enemy.FaceDirection)
