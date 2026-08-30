@@ -15,6 +15,7 @@ public class EnemyGroundedState : EnemyState
         if (enemy.PlayerDetection())
         {
             stateMachine.ChangeState(enemy.BattleState);
+            return;
         }
     }
 }

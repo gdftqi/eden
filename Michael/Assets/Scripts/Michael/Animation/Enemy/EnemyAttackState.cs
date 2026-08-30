@@ -6,6 +6,12 @@ namespace Michael.Animation
         {
         }
 
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.SetVelocity(0, rb.linearVelocityY);
+        }
+
         public override void Update()
         {
             base.Update();

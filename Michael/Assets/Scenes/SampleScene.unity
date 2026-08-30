@@ -6399,7 +6399,7 @@ MonoBehaviour:
   attackDistance: 2
   whatIsPlayer:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 256
   playerCheck: {fileID: 2094198913}
   playerCheckDistance: 10
 --- !u!50 &2094198915

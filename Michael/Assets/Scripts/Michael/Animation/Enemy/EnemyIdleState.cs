@@ -17,6 +17,10 @@ namespace Michael.Animation
         public override void Update()
         {
             base.Update();
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
 
             if (stateTimer < 0)
             {

@@ -20,6 +20,12 @@ namespace Michael.Animation
         public override void Update()
         {
             base.Update();
+
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
+
             enemy.SetVelocity(enemy.moveSpeed * enemy.FaceDirection, rb.linearVelocityY);
             if (!enemy.GroundDetected || enemy.WallDetected)
             {

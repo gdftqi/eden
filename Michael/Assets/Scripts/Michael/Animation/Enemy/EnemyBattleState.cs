@@ -26,12 +26,16 @@ namespace Michael.Animation
 
             if (WithinAttackRange())
             {
+                if (DirectionToPlayer() != enemy.FaceDirection)
+                {
+                    enemy.Flip();
+                }
+
                 stateMachine.ChangeState(enemy.AttackState);
+                return;
             }
-            else
-            {
-                enemy.SetVelocity(enemy.battleMoveSpeed * DirectionToPlayer(), rb.linearVelocityY);
-            }
+
+            enemy.SetVelocity(enemy.battleMoveSpeed * DirectionToPlayer(), rb.linearVelocityY);
         }
 
         private bool WithinAttackRange()
