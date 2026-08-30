@@ -15,6 +15,7 @@ namespace Michael.Animation
         {
             base.Update();
             anim.SetFloat("moveAnimSpeedMultiplier", enemy.moveAnimSpeedMultiplier);
+            anim.SetFloat("xVelocity", rb.linearVelocityX);
         }
     }
 }

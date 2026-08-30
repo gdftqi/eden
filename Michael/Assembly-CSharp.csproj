@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\Michael\Parallex\ParallexBackground.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerAiredState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyIdleState.cs" />
@@ -57,6 +58,7 @@
     <Compile Include="Assets\Scripts\Michael\EnemySkeleton.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyAttackState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyBattleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallSlideState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyMoveState.cs" />

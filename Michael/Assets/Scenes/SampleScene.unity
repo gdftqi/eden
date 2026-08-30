@@ -395,7 +395,7 @@ Transform:
   m_GameObject: {fileID: 469254697}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -8.261343, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -17.558256, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5239,7 +5239,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -8.261343, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -17.558256, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6032,7 +6032,7 @@ GameObject:
   - component: {fileID: 1833535085}
   - component: {fileID: 1833535086}
   - component: {fileID: 1833535083}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6048,7 +6048,7 @@ Transform:
   m_GameObject: {fileID: 1833535080}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.17, y: -2.51, z: 0}
+  m_LocalPosition: {x: -19.08, y: -2.51, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6067,14 +6067,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bce1170ea2b54d4da22f7f51c8b207e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.Player
+  whatIsGround:
+    serializedVersion: 2
+    m_Bits: 64
   groundCheckPostion: {fileID: 1833535082}
   groundCheckDistance: 1.45
   wallCheckDistance: 0.55
   wallCheckUpOffset: 0.3
   wallCheckDownOffset: 1
-  whatIsGround:
-    serializedVersion: 2
-    m_Bits: 64
   MoveSpeed: 5
   JumpForce: 16
   WallJumpForce: {x: 5, y: 12}
@@ -6348,7 +6348,7 @@ GameObject:
   - component: {fileID: 2094198915}
   - component: {fileID: 2094198916}
   - component: {fileID: 2094198914}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: EnemySkeleton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6363,15 +6363,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2094198912}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 6.95, y: -4.45, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -4.76, y: -2.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1366300415}
   - {fileID: 583409903}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2094198914
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6384,17 +6384,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 348105899aa824f459fa8e96ab8bda1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.Animation.EnemySkeleton
+  whatIsGround:
+    serializedVersion: 2
+    m_Bits: 64
   groundCheckPostion: {fileID: 583409903}
   groundCheckDistance: 1.45
   wallCheckDistance: 1.25
   wallCheckUpOffset: 0.3
   wallCheckDownOffset: 1
-  whatIsGround:
-    serializedVersion: 2
-    m_Bits: 64
   idleTime: 2
   moveSpeed: 3
   moveAnimSpeedMultiplier: 2
+  battleMoveSpeed: 3
+  attackDistance: 2
+  whatIsPlayer:
+    serializedVersion: 2
+    m_Bits: 0
+  playerCheck: {fileID: 2094198913}
+  playerCheckDistance: 10
 --- !u!50 &2094198915
 Rigidbody2D:
   serializedVersion: 5

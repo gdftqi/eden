@@ -1,4 +1,5 @@
 using Michael.Animation;
+using System;
 using UnityEngine;
 
 namespace Michael
@@ -8,11 +9,34 @@ namespace Michael
         public EntityState IdleState { get; set; }
         public EntityState MoveState { get; set; }
         public EntityState AttackState { get; set; }
+        public EntityState BattleState { get; set; }
 
         [Header("Locomotion properties")]
         public float idleTime = 2;
         public float moveSpeed = 1.5f;
         [Range(0f, 2f)]
         public float moveAnimSpeedMultiplier = 1f;
+        public float battleMoveSpeed = 3f;
+        public float attackDistance = 2f;
+
+        [Header("Player detection")]
+        [SerializeField] private LayerMask whatIsPlayer;
+        [SerializeField] private Transform playerCheck;
+        [SerializeField] private float playerCheckDistance = 10f;
+
+        public RaycastHit2D PlayerDetection()
+        {
+            var hit = Physics2D.Raycast(playerCheck.position, Vector2.right * FaceDirection, playerCheckDistance, whatIsPlayer | whatIsGround);
+            return hit.collider == null || hit.collider.gameObject.layer != LayerMask.NameToLayer("Player") ? default : hit;
+        }
+
+        protected override void OnDrawGizmos()
+        {
+            base.OnDrawGizmos();
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(playerCheck.position, new Vector3(playerCheck.position.x + playerCheckDistance * FaceDirection, playerCheck.position.y));
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(playerCheck.position, new Vector3(playerCheck.position.x + attackDistance * FaceDirection, playerCheck.position.y));
+        }
     }
 }

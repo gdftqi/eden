@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Michael.Animation
 {
-    public class EnemyIdleState : EnemyState
+    public class EnemyIdleState : EnemyGroundedState
     {
         public EnemyIdleState(Enemy enemy, StateMachine sm, string conditionName) : base(enemy, sm, conditionName)
         {

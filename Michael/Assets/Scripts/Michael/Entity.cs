@@ -12,12 +12,12 @@ namespace Michael
         internal Animator Anim { get; private set; }
 
         [Header("Collision detection")]
+        [SerializeField] protected LayerMask whatIsGround;
         [SerializeField] private Transform groundCheckPostion;
         [SerializeField] private float groundCheckDistance = 1.45f; // 高度检测长度
         [SerializeField] private float wallCheckDistance = 0.55f;
         [SerializeField] private float wallCheckUpOffset = 0.3f;
         [SerializeField] private float wallCheckDownOffset = 1.0f;
-        [SerializeField] private LayerMask whatIsGround;
         
         internal bool GroundDetected;
         internal bool WallDetected;
@@ -99,7 +99,7 @@ namespace Michael
             WallDetected = Physics2D.Raycast(WallRayUp(), dir, wallCheckDistance, whatIsGround) || Physics2D.Raycast(WallRayDown(), dir, wallCheckDistance, whatIsGround);
         }
 
-        private void OnDrawGizmos()
+        protected virtual void OnDrawGizmos()
         {
             Gizmos.color = Color.green;
             Gizmos.DrawLine(groundCheckPostion.position, groundCheckPostion.position + new Vector3(0, -groundCheckDistance));
