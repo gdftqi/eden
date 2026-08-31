@@ -21,6 +21,9 @@ namespace Michael
         public float battleTimeDuration = 5f;
         public float minRetreatDistance = 1f;
         public Vector2 retreatVelocity = new Vector2(5f, 3f);
+        // 回撤的持续时间. 必须够跨过几个物理步(50Hz = 每 20ms 一次), 否则
+        // 冲量还没被刚体用上就被下一帧的攻击判定清掉了
+        public float retreatDuration = 0.2f;
 
         [Header("Player detection")]
         [SerializeField] private LayerMask whatIsPlayer;
