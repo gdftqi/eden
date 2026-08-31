@@ -21,6 +21,8 @@ namespace Michael.Animation
                 player = enemy.PlayerDetection().transform;
             }
 
+            UpdateBattleTimer();
+
             if (ShouldRetreat())
             {
                 stateTimer = enemy.retreatDuration;
@@ -51,7 +53,7 @@ namespace Michael.Animation
                 return;
             }
 
-            if (DistanceToPlayer() > enemy.playerCheckDistance)
+            if (player == null)
             {
                 stateMachine.ChangeState(enemy.IdleState);
                 return;

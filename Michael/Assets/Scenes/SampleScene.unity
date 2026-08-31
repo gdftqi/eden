@@ -6401,6 +6401,7 @@ MonoBehaviour:
   battleTimeDuration: 5
   minRetreatDistance: 1
   retreatVelocity: {x: 5, y: 3}
+  retreatDuration: 0.2
   whatIsPlayer:
     serializedVersion: 2
     m_Bits: 256
