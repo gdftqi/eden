@@ -35,10 +35,6 @@ namespace Michael.Animation
         {
             base.Update();
 
-            // 回撤期间什么都不做: 不判攻击范围, 也不覆盖速度.
-            // 让冲量有足够时间真正把身体推开 -- 触发回撤的距离(minRetreatDistance)
-            // 一定小于攻击距离(attackDistance), 所以不挡住的话下一帧必然切进
-            // AttackState, 而它 Enter() 里的 SetVelocity(0, ...) 会把回撤速度抹掉
             if (stateTimer > 0)
             {
                 return;
