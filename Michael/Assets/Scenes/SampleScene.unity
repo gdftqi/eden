@@ -6393,8 +6393,8 @@ MonoBehaviour:
   wallCheckUpOffset: 0.3
   wallCheckDownOffset: 1
   idleTime: 2
-  moveSpeed: 3
-  moveAnimSpeedMultiplier: 2
+  moveSpeed: 1.5
+  moveAnimSpeedMultiplier: 1
   battleMoveSpeed: 3
   attackDistance: 2
   attackHeightTolerance: 1.5
