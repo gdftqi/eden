@@ -14,6 +14,9 @@ namespace Michael.Animation
         public override void Update()
         {
             base.Update();
+            float battleAnimSpeedMultiplier = enemy.battleMoveSpeed / enemy.moveSpeed;
+
+            anim.SetFloat("moveAnimSpeedMultiplier", battleAnimSpeedMultiplier);
             anim.SetFloat("moveAnimSpeedMultiplier", enemy.moveAnimSpeedMultiplier);
             anim.SetFloat("xVelocity", rb.linearVelocityX);
         }

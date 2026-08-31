@@ -5,6 +5,8 @@ namespace Michael.Animation
     public class EnemyBattleState : EnemyState
     {
         private Transform player;
+        public float lastTimeWasInBattle = 0f;
+        public float inGameTime = 0f;
 
         public EnemyBattleState(Enemy enemy, StateMachine sm, string conditionName) : base(enemy, sm, conditionName)
         {
@@ -18,11 +20,29 @@ namespace Michael.Animation
             {
                 player = enemy.PlayerDetection().transform;
             }
+
+            if (ShouldRetreat())
+            {
+                var dir = DirectionToPlayer();
+                rb.linearVelocity = new Vector2(enemy.retreatVelocity.x * -dir, enemy.retreatVelocity.y);
+                enemy.UpdateDirection(dir);
+            }
         }
 
         public override void Update()
         {
             base.Update();
+
+            if (enemy.PlayerDetection())
+            {
+                UpdateBattleTimer();
+            }
+
+            if (BattleTimeIsOver())
+            {
+                stateMachine.ChangeState(enemy.IdleState);
+                return;
+            }
 
             if (DistanceToPlayer() > enemy.playerCheckDistance)
             {
@@ -44,19 +64,35 @@ namespace Michael.Animation
             enemy.SetVelocity(enemy.battleMoveSpeed * DirectionToPlayer(), rb.linearVelocityY);
         }
 
+        private void UpdateBattleTimer()
+        {
+            lastTimeWasInBattle = Time.time;
+        }
+
+        private bool BattleTimeIsOver()
+        {
+            return Time.time - lastTimeWasInBattle > enemy.battleTimeDuration;
+        }
+
         private bool WithinAttackRange()
         {
-            return DistanceToPlayer() < enemy.attackDistance;
+            if (player == null)
+            {
+                return false;
+            }
+
+            var delta = player.position - enemy.transform.position;
+            return Mathf.Abs(delta.x) < enemy.attackDistance && Mathf.Abs(delta.y) < enemy.attackHeightTolerance;
+        }
+
+        private bool ShouldRetreat()
+        {
+            return DistanceToPlayer() < enemy.minRetreatDistance; 
         }
 
         private float DistanceToPlayer()
         {
-            if (player == null)
-            {
-                return float.MaxValue;
-            }
-
-            return Mathf.Abs(player.position.x - enemy.transform.position.x);
+            return player == null ? float.MaxValue : Vector2.Distance(player.position, enemy.transform.position);
         }
 
         private float DirectionToPlayer()

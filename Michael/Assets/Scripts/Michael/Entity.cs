@@ -59,7 +59,7 @@ namespace Michael
 
         }
 
-        private void Update()
+        protected virtual void Update()
         {
             UpdateCollisionDetection();
             stateMachine.currentState.Update();
@@ -77,7 +77,7 @@ namespace Michael
             stateMachine.currentState.CallAnimationTrigger();
         }
 
-        private void UpdateDirection(float x)
+        public void UpdateDirection(float x)
         {
             if (x != 0 && Mathf.Sign(x) != FaceDirection)
             {

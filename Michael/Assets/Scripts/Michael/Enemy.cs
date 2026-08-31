@@ -1,4 +1,3 @@
-using Michael.Animation;
 using System;
 using UnityEngine;
 
@@ -18,6 +17,10 @@ namespace Michael
         public float moveAnimSpeedMultiplier = 1f;
         public float battleMoveSpeed = 3f;
         public float attackDistance = 2f;
+        public float attackHeightTolerance = 1.5f;
+        public float battleTimeDuration = 5f;
+        public float minRetreatDistance = 1f;
+        public Vector2 retreatVelocity = new Vector2(5f, 3f);
 
         [Header("Player detection")]
         [SerializeField] private LayerMask whatIsPlayer;
@@ -37,6 +40,11 @@ namespace Michael
             Gizmos.DrawLine(playerCheck.position, new Vector3(playerCheck.position.x + playerCheckDistance * FaceDirection, playerCheck.position.y));
             Gizmos.color = Color.red;
             Gizmos.DrawLine(playerCheck.position, new Vector3(playerCheck.position.x + attackDistance * FaceDirection, playerCheck.position.y));
+        }
+
+        protected override void Update()
+        {
+            base.Update();
         }
     }
 }
