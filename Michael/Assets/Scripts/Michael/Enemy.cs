@@ -27,6 +27,28 @@ namespace Michael
         [SerializeField] private LayerMask whatIsPlayer;
         [SerializeField] private Transform playerCheck;
         [SerializeField] internal float playerCheckDistance = 10f;
+        public Transform Player { get; private set; }
+
+        public void TryEnterBattleState(Transform player)
+        {
+            if (stateMachine.currentState == IdleState || stateMachine.currentState == AttackState)
+            {
+                return;
+            }
+
+            Player = player;
+            stateMachine.ChangeState(BattleState);
+        }
+
+        public Transform GetPlayerReference()
+        {
+            if (Player == null)
+            {
+                Player = PlayerDetection().transform;
+            }
+
+            return Player;
+        }
 
         public RaycastHit2D PlayerDetection()
         {

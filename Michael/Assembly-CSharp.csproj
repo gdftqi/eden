@@ -69,9 +69,11 @@
     <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
     <Compile Include="Assets\Scripts\Michael\Parallex\ParallexLayer.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\StateMachine.cs" />
+    <Compile Include="Assets\Scripts\Michael\EntityHealth.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityAnimationTriggers.cs" />
+    <Compile Include="Assets\Scripts\Michael\EnemyHealth.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDashState.cs" />

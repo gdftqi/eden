@@ -16,12 +16,12 @@ namespace Michael.Animation
         {
             base.Enter();
 
+            UpdateBattleTimer();
+
             if (player == null)
             {
-                player = enemy.PlayerDetection().transform;
+                player = enemy.GetPlayerReference();
             }
-
-            UpdateBattleTimer();
 
             if (ShouldRetreat())
             {

@@ -15,9 +15,10 @@ namespace Michael
         {
             GetDetectedColliders();
 
-            foreach (var collider in targetColliders)
+            foreach (var target in targetColliders)
             {
-
+                EntityHealth targetHealth = target.GetComponent<EntityHealth>();
+                targetHealth?.TakeDamage(10f, transform);
             }
         }
 
