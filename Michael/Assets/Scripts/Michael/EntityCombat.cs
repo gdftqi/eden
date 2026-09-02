@@ -6,6 +6,8 @@ namespace Michael
     {
         public Collider2D[] targetColliders;
 
+        public float Damage = 10f;
+
         [Header("Target detection")]
         [SerializeField] private Transform targetCheck;
         [SerializeField] private float targetCheckRadius;
@@ -18,7 +20,7 @@ namespace Michael
             foreach (var target in targetColliders)
             {
                 EntityHealth targetHealth = target.GetComponent<EntityHealth>();
-                targetHealth?.TakeDamage(10f, transform);
+                targetHealth?.TakeDamage(Damage, transform);
             }
         }
 

@@ -11,6 +11,7 @@ namespace Michael
             MoveState = new EnemyMoveState(this, stateMachine, "move");
             AttackState = new EnemyAttackState(this, stateMachine, "attack");
             BattleState = new EnemyBattleState(this, stateMachine, "battle");
+            DeadState = new EnemyDeadState(this, stateMachine, "idle");
         }
 
         protected override void Start()

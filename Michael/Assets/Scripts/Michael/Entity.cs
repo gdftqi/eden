@@ -1,4 +1,5 @@
 using Michael.Animation;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -19,10 +20,13 @@ namespace Michael
         [SerializeField] private float wallCheckUpOffset = 0.3f;
         [SerializeField] private float wallCheckDownOffset = 1.0f;
         
-        internal bool GroundDetected;
-        internal bool WallDetected;
+        internal bool GroundDetected = false;
+        internal bool WallDetected = false;
 
         public float FaceDirection { get; private set; } = 1f;
+
+        internal bool IsKnocked = false;
+        internal Coroutine KnockbackCoroutine;
 
 
         protected virtual void Awake()
@@ -65,8 +69,37 @@ namespace Michael
             stateMachine.currentState.Update();
         }
 
+        public virtual void EntityDead()
+        {
+
+        }
+
+        public void ReceiveKnockback(Vector2 knockback, float duration)
+        {
+            if (KnockbackCoroutine != null)
+            {
+                StopCoroutine(KnockbackCoroutine);
+            }
+            KnockbackCoroutine = StartCoroutine(KnockbackCo(knockback, duration));
+        }
+
+        private IEnumerator KnockbackCo(Vector2 knockback, float duration)
+        {
+            IsKnocked = true;
+            rb.linearVelocity = knockback;
+            yield return new WaitForSeconds(duration);
+
+            rb.linearVelocity = Vector2.zero;
+            IsKnocked = false;
+        }
+
         public void SetVelocity(float x, float y)
         {
+            if (IsKnocked)
+            {
+                return;
+            }
+
             rb.linearVelocityX = x;
             rb.linearVelocityY = y;
             UpdateDirection(x);

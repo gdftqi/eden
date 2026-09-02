@@ -9,6 +9,7 @@ namespace Michael
         public EntityState MoveState { get; set; }
         public EntityState AttackState { get; set; }
         public EntityState BattleState { get; set; }
+        public EntityState DeadState { get; set; }
 
         [Header("Locomotion properties")]
         public float idleTime = 2;
@@ -28,6 +29,12 @@ namespace Michael
         [SerializeField] private Transform playerCheck;
         [SerializeField] internal float playerCheckDistance = 10f;
         public Transform Player { get; private set; }
+
+        public override void EntityDead()
+        {
+            base.EntityDead();
+            stateMachine.ChangeState(DeadState);
+        }
 
         public void TryEnterBattleState(Transform player)
         {

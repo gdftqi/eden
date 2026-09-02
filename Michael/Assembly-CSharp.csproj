@@ -81,6 +81,7 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyDeadState.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity.cs" />
   </ItemGroup>
   <ItemGroup>

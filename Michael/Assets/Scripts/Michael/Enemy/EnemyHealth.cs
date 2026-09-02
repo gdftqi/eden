@@ -13,12 +13,11 @@ namespace Michael
 
         public override void TakeDamage(float damage, Transform damageDealer)
         {
+            base.TakeDamage(damage, damageDealer);
             if (damageDealer.GetComponent<Player>() != null)
             {
                 enemy.TryEnterBattleState(damageDealer);
             }
-
-            base.TakeDamage(damage, damageDealer);
         }
     }
 }

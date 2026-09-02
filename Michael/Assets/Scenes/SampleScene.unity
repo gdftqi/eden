@@ -6090,7 +6090,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1833535082}
-  - component: {fileID: 1833535084}
   - component: {fileID: 1833535085}
   - component: {fileID: 1833535086}
   - component: {fileID: 1833535083}
@@ -6155,64 +6154,6 @@ MonoBehaviour:
   JumpAttackVelocity: {x: 5, y: 6}
   AttackVelocityDuration: 0.1
   ComboResetTime: 1
---- !u!114 &1833535084
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1833535080}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
-  m_Actions: {fileID: -944628639613478452, guid: e0611704ba775ab4899c1e0a8fd057ff, type: 3}
-  m_NotificationBehavior: 2
-  m_UIInputModule: {fileID: 0}
-  m_DeviceLostEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  m_DeviceRegainedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  m_ControlsChangedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  m_ActionEvents:
-  - m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1833535083}
-        m_TargetAssemblyTypeName: Michael.Player, Assembly-CSharp
-        m_MethodName: OnInputActionMovement
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-    m_ActionId: 8730f663-a637-4d81-b231-c4e8d11095c7
-    m_ActionName: 'Player/Movement[/Keyboard/w,/Keyboard/s,/Keyboard/a,/Keyboard/d]'
-  - m_PersistentCalls:
-      m_Calls: []
-    m_ActionId: bdda7f72-10f7-4bb9-9d77-ad41ecce6ccc
-    m_ActionName: 'Player/Jump[/Keyboard/k]'
-  - m_PersistentCalls:
-      m_Calls: []
-    m_ActionId: 2c92b7fe-0c89-4fdd-8fd3-e499949d6674
-    m_ActionName: 'Player/Dash[/Keyboard/l]'
-  - m_PersistentCalls:
-      m_Calls: []
-    m_ActionId: 8578b148-5d5b-44fc-b6e0-0849bf818016
-    m_ActionName: 'Player/Attack[/Keyboard/j]'
-  m_NeverAutoSwitchControlSchemes: 0
-  m_DefaultControlScheme: Keyboard & Mouse
-  m_DefaultActionMap: Player
-  m_SplitScreenIndex: -1
-  m_Camera: {fileID: 0}
 --- !u!50 &1833535085
 Rigidbody2D:
   serializedVersion: 5
@@ -6295,6 +6236,7 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  Damage: 10
   targetCheck: {fileID: 328204148}
   targetCheckRadius: 1
   whatIsTarget:
@@ -6326,8 +6268,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8bd9699c339c7eb4f9c33123be79061c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityHealth
+  CurrentHP: 100
   MaxHP: 100
   dead: 0
+  KnockbackPower: {x: 1.5, y: 2.5}
+  KnockbackDuration: 0.15
+  HeavyKnockbackPower: {x: 7, y: 7}
+  HeavyKnockbackDuration: 0.15
+  HeavyDamageThreshold: 0.3
 --- !u!1 &1873500493
 GameObject:
   m_ObjectHideFlags: 0
@@ -6484,7 +6432,7 @@ Transform:
   m_GameObject: {fileID: 2094198912}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4.76, y: -2.5, z: 0}
+  m_LocalPosition: {x: -12.93, y: -2.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6605,6 +6553,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityCombat
   targetColliders: []
+  Damage: 10
   targetCheck: {fileID: 516986951}
   targetCheckRadius: 1
   whatIsTarget:
@@ -6622,8 +6571,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 376910273046fda4fbb0dc19a8a86ee9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyHealth
+  CurrentHP: 100
   MaxHP: 100
   dead: 0
+  KnockbackPower: {x: 1.5, y: 2.5}
+  KnockbackDuration: 0.2
+  HeavyKnockbackPower: {x: 7, y: 7}
+  HeavyKnockbackDuration: 0.15
+  HeavyDamageThreshold: 0.3
 --- !u!114 &2094198919
 MonoBehaviour:
   m_ObjectHideFlags: 0
