@@ -1,5 +1,6 @@
 using Michael.Animation;
 using System.Collections;
+using System.Data;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -43,6 +44,7 @@ namespace Michael
         internal PlayerState DashState { get; private set; }
         internal PlayerState BasicAttackState { get; private set; }
         internal PlayerState JumpAttackState { get; private set; }
+        internal PlayerState DeadState { get; private set; }
 
         protected override void Awake()
         {
@@ -60,6 +62,7 @@ namespace Michael
             DashState = new PlayerDashState(this, stateMachine, "dash");
             BasicAttackState = new PlayerBasicAttackState(this, stateMachine, "basicAttack");
             JumpAttackState = new PlayerJumpAttackState(this, stateMachine, "jumpAttack");
+            DeadState = new PlayerDeadState(this, stateMachine, "dead");
         }
 
         protected override void Start()
@@ -78,6 +81,12 @@ namespace Michael
         private void OnDisable()
         {
             inputs.Disable();
+        }
+
+        public override void EntityDead()
+        {
+            base.EntityDead();
+            stateMachine.ChangeState(DeadState);
         }
 
         public void EnterAttackStateWithDelay()

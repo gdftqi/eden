@@ -55,6 +55,7 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyIdleState.cs" />
     <Compile Include="Assets\Scripts\Michael\EntityVFX.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDeadState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\EntityAudio.cs" />
