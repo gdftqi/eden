@@ -57,6 +57,7 @@
     <Compile Include="Assets\Scripts\Michael\EntityVFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerGroundedState.cs" />
+    <Compile Include="Assets\Scripts\Michael\EntityAudio.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyBattleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallSlideState.cs" />

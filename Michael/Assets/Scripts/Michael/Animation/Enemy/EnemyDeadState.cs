@@ -16,6 +16,7 @@ namespace Michael.Animation
             col.enabled = anim.enabled = false;
             rb.gravityScale = 12f;
             rb.linearVelocityY = 15f;
+            stateMachine.SwitchOffStateMachine();
         }
     }
 }

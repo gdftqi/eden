@@ -7,6 +7,7 @@ namespace Michael
     public class EntityHealth : MonoBehaviour
     {
         private EntityVFX entityVFX;
+        private EntityAudio entityAudio;
         private Entity entity;
 
         [SerializeField] protected float CurrentHP = 0f;
@@ -26,6 +27,7 @@ namespace Michael
         private void Awake()
         {
             entityVFX = GetComponent<EntityVFX>();
+            entityAudio = GetComponent<EntityAudio>();
             entity = GetComponent<Entity>();
             CurrentHP = MaxHP;
         }
@@ -40,6 +42,7 @@ namespace Michael
             var (knockback, duration) = CalculateKnockback(damage, damageDealer);
             entity.ReceiveKnockback(knockback, duration);
             entityVFX?.PlayOnDamageVFX();
+            entityAudio?.PlayOnDamageSFX();
             ReduceHP(damage);
         }
 
