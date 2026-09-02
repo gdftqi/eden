@@ -54,8 +54,8 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerAiredState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyIdleState.cs" />
-    <Compile Include="Assets\Scripts\Michael\Enemy.cs" />
-    <Compile Include="Assets\Scripts\Michael\EnemySkeleton.cs" />
+    <Compile Include="Assets\Scripts\Michael\EntityVFX.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyBattleState.cs" />
@@ -64,22 +64,23 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerIdleState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\Enemy.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerFallState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerBasicAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\EnemyHealth.cs" />
     <Compile Include="Assets\Scripts\Michael\Parallex\ParallexLayer.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\StateMachine.cs" />
     <Compile Include="Assets\Scripts\Michael\EntityHealth.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\EnemySkeleton.cs" />
     <Compile Include="Assets\Scripts\Michael\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityAnimationTriggers.cs" />
-    <Compile Include="Assets\Scripts\Michael\EnemyHealth.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyState.cs" />
-    <Compile Include="Assets\Scripts\Michael\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity.cs" />
   </ItemGroup>
   <ItemGroup>
