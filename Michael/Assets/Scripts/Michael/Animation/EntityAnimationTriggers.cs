@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace Michael.Animation
 {
@@ -8,25 +7,20 @@ namespace Michael.Animation
         private Entity entity;
         private EntityCombat entityCombat;
 
-        private void Awake()
+        protected virtual void Awake()
         {
             entity = GetComponentInParent<Entity>();
-            Assert.IsNotNull(entity);
-
             entityCombat = GetComponentInParent<EntityCombat>();
         }
 
         public void CurrentStateTrigger()
         {
-            entity.CallAnimationTrigger();
+            entity?.CallAnimationTrigger();
         }
 
         public void AttackTrigger()
         {
-            if (entityCombat != null)
-            {
-                entityCombat.PerformAttack();
-            }
+            entityCombat?.PerformAttack();
         }
     }
 }

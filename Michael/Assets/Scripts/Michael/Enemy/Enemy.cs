@@ -1,3 +1,4 @@
+using Michael.Animation;
 using System;
 using UnityEngine;
 
@@ -5,11 +6,12 @@ namespace Michael
 {
     public class Enemy : Entity
     {
-        public EntityState IdleState { get; set; }
-        public EntityState MoveState { get; set; }
-        public EntityState AttackState { get; set; }
-        public EntityState BattleState { get; set; }
-        public EntityState DeadState { get; set; }
+        public EnemyState IdleState { get; set; }
+        public EnemyState MoveState { get; set; }
+        public EnemyState AttackState { get; set; }
+        public EnemyState BattleState { get; set; }
+        public EnemyState DeadState { get; set; }
+        public EnemyState StunnedState { get; set; }
 
         [Header("Locomotion properties")]
         public float idleTime = 2;
@@ -29,6 +31,16 @@ namespace Michael
         [SerializeField] private Transform playerCheck;
         [SerializeField] internal float playerCheckDistance = 10f;
         public Transform PlayerTransform { get; private set; }
+
+        [Header("Stunned details")]
+        public float StunnedDuration = 1f;
+        public Vector2 StunnedVelocity = new Vector2(7f, 7f);
+        [SerializeField] protected bool CanBeStunned = false;
+
+        public void EnableCounterWindow(bool enabled)
+        {
+            CanBeStunned = enabled;
+        }
 
         public override void EntityDead()
         {

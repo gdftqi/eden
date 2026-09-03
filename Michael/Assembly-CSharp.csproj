@@ -58,9 +58,10 @@
     <Compile Include="Assets\Scripts\Michael\Entity\Entity.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerGroundedState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Interfaces\ICounterable.cs" />
+    <Compile Include="Assets\Scripts\Michael\EnemyAnimationTriggers.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyBattleState.cs" />
-    <Compile Include="Assets\Scripts\Michael\IDamagable.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityVFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallSlideState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerMoveState.cs" />
@@ -77,6 +78,7 @@
     <Compile Include="Assets\Scripts\Michael\Entity\EntitySFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemySkeleton.cs" />
+    <Compile Include="Assets\Scripts\Michael\Interfaces\IDamagable.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityAnimationTriggers.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityHealth.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
@@ -84,6 +86,7 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityCombat.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyStunnedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyDeadState.cs" />

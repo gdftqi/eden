@@ -5738,7 +5738,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1313078884
 Transform:
   m_ObjectHideFlags: 0
@@ -6092,9 +6092,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1366300414}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5c5b7820bce7470438a060d32b9e1cc8, type: 3}
+  m_Script: {fileID: 11500000, guid: 2b375004ec4b0c040aa1ee79881b7425, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Michael.Animation.EntityAnimationTriggers
+  m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyAnimationTriggers
 --- !u!1 &1491774049
 GameObject:
   m_ObjectHideFlags: 0
@@ -6958,6 +6958,9 @@ MonoBehaviour:
     m_Bits: 256
   playerCheck: {fileID: 2094198913}
   playerCheckDistance: 10
+  StunnedDuration: 1
+  StunnedVelocity: {x: 7, y: 7}
+  CanBeStunned: 0
 --- !u!50 &2094198915
 Rigidbody2D:
   serializedVersion: 5
