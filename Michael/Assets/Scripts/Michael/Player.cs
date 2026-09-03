@@ -1,6 +1,7 @@
 using Michael.Animation;
+using System;
 using System.Collections;
-using System.Data;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -8,6 +9,8 @@ namespace Michael
 {
     public class Player : Entity
     {
+        public static event Action OnPlayerDeath;
+
         [Header("Locomotion properties")]
         public float MoveSpeed = 5f;
         public float JumpForce = 16f;
@@ -86,6 +89,7 @@ namespace Michael
         public override void EntityDead()
         {
             base.EntityDead();
+            OnPlayerDeath?.Invoke();
             stateMachine.ChangeState(DeadState);
         }
 

@@ -12,6 +12,7 @@ namespace Michael.Animation
         {
             base.Enter();
             inputs.Disable();
+            rb.simulated = false;
         }
     }
 }

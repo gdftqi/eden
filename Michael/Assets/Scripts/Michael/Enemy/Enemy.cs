@@ -28,7 +28,7 @@ namespace Michael
         [SerializeField] private LayerMask whatIsPlayer;
         [SerializeField] private Transform playerCheck;
         [SerializeField] internal float playerCheckDistance = 10f;
-        public Transform Player { get; private set; }
+        public Transform PlayerTransform { get; private set; }
 
         public override void EntityDead()
         {
@@ -36,25 +36,33 @@ namespace Michael
             stateMachine.ChangeState(DeadState);
         }
 
+        private void HandlePlayerDeath()
+        {
+            stateMachine.ChangeState(IdleState);
+        }
+
         public void TryEnterBattleState(Transform player)
         {
-            if (stateMachine.currentState == IdleState || stateMachine.currentState == AttackState)
+            PlayerTransform = player;
+
+            if (stateMachine.currentState == BattleState || stateMachine.currentState == AttackState)
             {
                 return;
             }
 
-            Player = player;
+            UpdateDirection(player.position.x > transform.position.x ? 1f : -1f);
+
             stateMachine.ChangeState(BattleState);
         }
 
         public Transform GetPlayerReference()
         {
-            if (Player == null)
+            if (PlayerTransform == null)
             {
-                Player = PlayerDetection().transform;
+                PlayerTransform = PlayerDetection().transform;
             }
 
-            return Player;
+            return PlayerTransform;
         }
 
         public RaycastHit2D PlayerDetection()
@@ -75,6 +83,16 @@ namespace Michael
         protected override void Update()
         {
             base.Update();
+        }
+
+        private void OnEnable()
+        {
+            Player.OnPlayerDeath += HandlePlayerDeath;
+        }
+
+        private void OnDisable()
+        {
+            Player.OnPlayerDeath -= HandlePlayerDeath;
         }
     }
 }
