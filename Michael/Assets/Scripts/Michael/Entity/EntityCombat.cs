@@ -19,8 +19,8 @@ namespace Michael
 
             foreach (var target in targetColliders)
             {
-                EntityHealth targetHealth = target.GetComponent<EntityHealth>();
-                targetHealth?.TakeDamage(Damage, transform);
+                IDamagable damagable = target.GetComponent<IDamagable>();
+                damagable?.TakeDamage(Damage, transform);
             }
         }
 

@@ -4,10 +4,10 @@ using UnityEngine.Assertions;
 
 namespace Michael
 {
-    public class EntityHealth : MonoBehaviour
+    public class EntityHealth : MonoBehaviour, IDamagable
     {
         private EntityVFX entityVFX;
-        private EntityAudio entityAudio;
+        private EntitySFX entityAudio;
         private Entity entity;
 
         [SerializeField] protected float CurrentHP = 0f;
@@ -27,7 +27,7 @@ namespace Michael
         private void Awake()
         {
             entityVFX = GetComponent<EntityVFX>();
-            entityAudio = GetComponent<EntityAudio>();
+            entityAudio = GetComponent<EntitySFX>();
             entity = GetComponent<Entity>();
             CurrentHP = MaxHP;
         }

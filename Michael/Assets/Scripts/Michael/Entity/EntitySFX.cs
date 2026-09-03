@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Michael
 {
     [RequireComponent(typeof(AudioSource))]
-    public class EntityAudio : MonoBehaviour
+    public class EntitySFX : MonoBehaviour
     {
         [Header("On Damage SFX")]
         [SerializeField] private AudioClip[] onDamageClips;
