@@ -426,7 +426,7 @@ Transform:
   m_GameObject: {fileID: 469254697}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -17.558256, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -17.675072, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5301,7 +5301,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -17.558256, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -17.675072, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6611,8 +6611,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8bd9699c339c7eb4f9c33123be79061c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityHealth
-  CurrentHP: 100
-  MaxHP: 100
+  CurrentHP: 10000
+  MaxHP: 10000
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.15
@@ -6750,7 +6750,7 @@ MonoBehaviour:
   whatIsTarget:
     serializedVersion: 2
     m_Bits: 128
-  counterDuration: 0.8
+  counterRecovery: 0.33
 --- !u!1 &1873500493
 GameObject:
   m_ObjectHideFlags: 0
@@ -7142,8 +7142,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 376910273046fda4fbb0dc19a8a86ee9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyHealth
-  CurrentHP: 100
-  MaxHP: 100
+  CurrentHP: 10000
+  MaxHP: 10000
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.2

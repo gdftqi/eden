@@ -4,6 +4,8 @@ namespace Michael
 {
     public interface ICounterable
     {
-        public bool HandleCoutner();
+        public bool CanBeCountered { get; }
+
+        public void HandleCounter();
     }
 }

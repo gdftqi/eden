@@ -15,21 +15,22 @@ namespace Michael.Animation
         public override void Enter()
         {
             base.Enter();
-            counteredSomebody = false;
-            anim.SetBool("counterAttackPerformed", false);
-            stateTimer = combat?.GetCounterDuration() ?? 0f;
+
+            stateTimer = combat?.GetCounterRecoveryDuration() ?? 0f;
+            counteredSomebody = combat.CounterAttackPerformed();
+            anim.SetBool("counterAttackPerformed", counteredSomebody);
+
+            if (counteredSomebody)
+            {
+                player.GetComponent<EntitySFX>()?.PlayOnCounterSFX();
+            }
         }
 
         public override void Update()
         {
             base.Update();
 
-            if (combat.CounterAttackPerformed())
-            {
-                counteredSomebody = true;
-                anim.SetBool("counterAttackPerformed", counteredSomebody);
-                return;
-            }
+            player.SetVelocity(0f, rb.linearVelocityY);
 
             if (triggerCalled || (stateTimer <= 0f && !counteredSomebody))
             {

@@ -18,8 +18,7 @@ namespace Michael
             {
                 IDamagable damagable = target.GetComponent<IDamagable>();
                 damagable?.TakeDamage(Damage, transform);
-
-                target.GetComponent<ICounterable>()?.HandleCoutner();
+                target.GetComponent<ICounterable>()?.HandleCounter();
             }
         }
 

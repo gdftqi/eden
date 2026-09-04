@@ -5,6 +5,14 @@ namespace Michael
 {
     public class EnemySkeleton : Enemy, ICounterable
     {
+        public bool CanBeCountered
+        {
+            get
+            {
+                return CanBeStunned;
+            }
+        }
+
         protected override void Awake()
         {
             base.Awake();
@@ -22,21 +30,14 @@ namespace Michael
             stateMachine.Init(IdleState);
         }
 
-        protected override void Update()
+        public void HandleCounter()
         {
-            base.Update();
-        }
-
-        public bool HandleCoutner()
-        {
-            if (!CanBeStunned)
+            if (!CanBeCountered)
             {
-                return false;
+                return;
             }
 
-            CanBeStunned = false;
             stateMachine.ChangeState(StunnedState);
-            return true;
         }
     }
 }
