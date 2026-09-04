@@ -5857,6 +5857,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: a18f65a1142b74c47bdee90301acdcc2, type: 3}
   onDamageVolume: 0.8
   pitchRange: {x: 0.92, y: 1.08}
+  onCounterClips: []
+  onCounterVolume: 0.9
 --- !u!82 &1313078889
 AudioSource:
   m_ObjectHideFlags: 0
@@ -6635,6 +6637,9 @@ MonoBehaviour:
   - {fileID: 8300000, guid: a18f65a1142b74c47bdee90301acdcc2, type: 3}
   onDamageVolume: 0.8
   pitchRange: {x: 0.92, y: 1.08}
+  onCounterClips:
+  - {fileID: 8300000, guid: db4be678d916d124b8f9eacc3776b033, type: 3}
+  onCounterVolume: 0.9
 --- !u!82 &1833535091
 AudioSource:
   m_ObjectHideFlags: 0
@@ -7166,6 +7171,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: a18f65a1142b74c47bdee90301acdcc2, type: 3}
   onDamageVolume: 0.8
   pitchRange: {x: 0.92, y: 1.08}
+  onCounterClips: []
+  onCounterVolume: 0.9
 --- !u!82 &2094198921
 AudioSource:
   m_ObjectHideFlags: 0
