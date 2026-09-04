@@ -6958,7 +6958,7 @@ MonoBehaviour:
     m_Bits: 256
   playerCheck: {fileID: 2094198913}
   playerCheckDistance: 10
-  StunnedDuration: 1
+  StunnedDuration: 0.33
   StunnedVelocity: {x: 7, y: 7}
   CanBeStunned: 0
 --- !u!50 &2094198915

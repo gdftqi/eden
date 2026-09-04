@@ -33,7 +33,7 @@ namespace Michael
         public Transform PlayerTransform { get; private set; }
 
         [Header("Stunned details")]
-        public float StunnedDuration = 1f;
+        public float StunnedDuration = 0.33f;
         public Vector2 StunnedVelocity = new Vector2(7f, 7f);
         [SerializeField] protected bool CanBeStunned = false;
 
@@ -45,6 +45,8 @@ namespace Michael
         public override void EntityDead()
         {
             base.EntityDead();
+            CanBeStunned = false;
+
             stateMachine.ChangeState(DeadState);
         }
 
@@ -57,7 +59,9 @@ namespace Michael
         {
             PlayerTransform = player;
 
-            if (stateMachine.currentState == BattleState || stateMachine.currentState == AttackState)
+            if (stateMachine.currentState == BattleState
+                || stateMachine.currentState == AttackState
+                || stateMachine.currentState == StunnedState)
             {
                 return;
             }

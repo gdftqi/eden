@@ -29,10 +29,13 @@ namespace Michael
 
         public void HandleCoutner()
         {
-            if (CanBeStunned)
+            if (!CanBeStunned)
             {
-                stateMachine.ChangeState(StunnedState);
+                return;
             }
+
+            CanBeStunned = false;
+            stateMachine.ChangeState(StunnedState);
         }
     }
 }
