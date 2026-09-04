@@ -6457,8 +6457,8 @@ GameObject:
   - component: {fileID: 1833535082}
   - component: {fileID: 1833535085}
   - component: {fileID: 1833535086}
+  - component: {fileID: 1833535092}
   - component: {fileID: 1833535083}
-  - component: {fileID: 1833535087}
   - component: {fileID: 1833535088}
   - component: {fileID: 1833535089}
   - component: {fileID: 1833535091}
@@ -6585,30 +6585,6 @@ CapsuleCollider2D:
   m_Offset: {x: 0.034579754, y: -0.29018724}
   m_Size: {x: 0.80260944, y: 2.0797603}
   m_Direction: 0
---- !u!114 &1833535087
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1833535080}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d0e6595d8ff387c4191e5de22f87cb59, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EntityCombat
-  targetColliders:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  Damage: 10
-  targetCheck: {fileID: 328204148}
-  targetCheckRadius: 1
-  whatIsTarget:
-    serializedVersion: 2
-    m_Bits: 128
 --- !u!114 &1833535088
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6756,6 +6732,25 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1833535092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833535080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e4eabba8a2d27346a3aae99c03f4f66, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Michael.PlayerCombat
+  Damage: 10
+  targetCheck: {fileID: 328204148}
+  targetCheckRadius: 0
+  whatIsTarget:
+    serializedVersion: 2
+    m_Bits: 128
+  counterDuration: 0.2
 --- !u!1 &1873500493
 GameObject:
   m_ObjectHideFlags: 0
@@ -7129,7 +7124,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0e6595d8ff387c4191e5de22f87cb59, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityCombat
-  targetColliders: []
   Damage: 10
   targetCheck: {fileID: 516986951}
   targetCheckRadius: 1

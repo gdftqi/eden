@@ -129,6 +129,15 @@ namespace Michael
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""CounterAttack"",
+                    ""type"": ""Button"",
+                    ""id"": ""b0711d4c-4d91-4117-827a-c1eff38ef3cc"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -219,6 +228,17 @@ namespace Michael
                     ""action"": ""Attack"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d626e9c0-9666-457a-8e18-af9d1957f469"",
+                    ""path"": ""<Keyboard>/#(U)"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard & Mouse"",
+                    ""action"": ""CounterAttack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -248,6 +268,7 @@ namespace Michael
             m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
             m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
             m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
+            m_Player_CounterAttack = m_Player.FindAction("CounterAttack", throwIfNotFound: true);
         }
 
         ~@PlayerInputs()
@@ -332,6 +353,7 @@ namespace Michael
         private readonly InputAction m_Player_Jump;
         private readonly InputAction m_Player_Dash;
         private readonly InputAction m_Player_Attack;
+        private readonly InputAction m_Player_CounterAttack;
         /// <summary>
         /// Provides access to input actions defined in input action map "Player".
         /// </summary>
@@ -359,6 +381,10 @@ namespace Michael
             /// Provides access to the underlying input action "Player/Attack".
             /// </summary>
             public InputAction @Attack => m_Wrapper.m_Player_Attack;
+            /// <summary>
+            /// Provides access to the underlying input action "Player/CounterAttack".
+            /// </summary>
+            public InputAction @CounterAttack => m_Wrapper.m_Player_CounterAttack;
             /// <summary>
             /// Provides access to the underlying input action map instance.
             /// </summary>
@@ -397,6 +423,9 @@ namespace Michael
                 @Attack.started += instance.OnAttack;
                 @Attack.performed += instance.OnAttack;
                 @Attack.canceled += instance.OnAttack;
+                @CounterAttack.started += instance.OnCounterAttack;
+                @CounterAttack.performed += instance.OnCounterAttack;
+                @CounterAttack.canceled += instance.OnCounterAttack;
             }
 
             /// <summary>
@@ -420,6 +449,9 @@ namespace Michael
                 @Attack.started -= instance.OnAttack;
                 @Attack.performed -= instance.OnAttack;
                 @Attack.canceled -= instance.OnAttack;
+                @CounterAttack.started -= instance.OnCounterAttack;
+                @CounterAttack.performed -= instance.OnCounterAttack;
+                @CounterAttack.canceled -= instance.OnCounterAttack;
             }
 
             /// <summary>
@@ -501,6 +533,13 @@ namespace Michael
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnAttack(InputAction.CallbackContext context);
+            /// <summary>
+            /// Method invoked when associated input action "CounterAttack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+            /// </summary>
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+            void OnCounterAttack(InputAction.CallbackContext context);
         }
     }
 }

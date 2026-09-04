@@ -63,6 +63,7 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyBattleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityVFX.cs" />
+    <Compile Include="Assets\Scripts\Michael\Player\PlayerCombat.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerWallSlideState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyMoveState.cs" />

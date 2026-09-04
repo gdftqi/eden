@@ -48,6 +48,7 @@ namespace Michael
         internal PlayerState BasicAttackState { get; private set; }
         internal PlayerState JumpAttackState { get; private set; }
         internal PlayerState DeadState { get; private set; }
+        internal PlayerState CounterAttackState {  get; private set; }
 
         protected override void Awake()
         {
@@ -66,6 +67,7 @@ namespace Michael
             BasicAttackState = new PlayerBasicAttackState(this, stateMachine, "basicAttack");
             JumpAttackState = new PlayerJumpAttackState(this, stateMachine, "jumpAttack");
             DeadState = new PlayerDeadState(this, stateMachine, "dead");
+            CounterAttackState = new PlayerCounterAttackState(this, stateMachine, "counterAttack");
         }
 
         protected override void Start()

@@ -4,8 +4,6 @@ namespace Michael
 {
     public class EntityCombat : MonoBehaviour
     {
-        public Collider2D[] targetColliders;
-
         public float Damage = 10f;
 
         [Header("Target detection")]
@@ -17,7 +15,8 @@ namespace Michael
         {
             GetDetectedColliders();
 
-            foreach (var target in targetColliders)
+            var targets = GetDetectedColliders();
+            foreach (var target in targets)
             {
                 IDamagable damagable = target.GetComponent<IDamagable>();
                 damagable?.TakeDamage(Damage, transform);
@@ -26,9 +25,9 @@ namespace Michael
             }
         }
 
-        private void GetDetectedColliders()
+        protected Collider2D[] GetDetectedColliders()
         {
-            targetColliders = Physics2D.OverlapCircleAll(targetCheck.position, targetCheckRadius, whatIsTarget);
+            return Physics2D.OverlapCircleAll(targetCheck.position, targetCheckRadius, whatIsTarget);
         }
 
         private void OnDrawGizmos()

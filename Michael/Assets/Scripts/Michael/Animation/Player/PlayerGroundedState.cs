@@ -16,15 +16,21 @@ namespace Michael.Animation
                 return;
             }
 
-            if (inputs.Player.Jump.WasPerformedThisFrame())
+            if (inputs.Player.Jump.WasPressedThisFrame())
             {
                 stateMachine.ChangeState(player.JumpState);
                 return;
             }
 
-            if (inputs.Player.Attack.WasPerformedThisFrame())
+            if (inputs.Player.Attack.WasPressedThisFrame())
             {
                 stateMachine.ChangeState(player.BasicAttackState);
+                return;
+            }
+
+            if (inputs.Player.CounterAttack.WasPressedThisFrame())
+            {
+                stateMachine.ChangeState(player.CounterAttackState);
                 return;
             }
         }
