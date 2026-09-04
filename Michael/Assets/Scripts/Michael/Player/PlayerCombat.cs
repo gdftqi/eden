@@ -16,9 +16,8 @@ namespace Michael
             foreach (var target in targets)
             {
                 ICounterable counterable = target.GetComponent<ICounterable>();
-                if (counterable != null)
+                if (counterable != null && counterable.HandleCoutner())
                 {
-                    counterable.HandleCoutner();
                     hasCounterSomebody = true;
                 }
             }

@@ -27,15 +27,16 @@ namespace Michael
             base.Update();
         }
 
-        public void HandleCoutner()
+        public bool HandleCoutner()
         {
             if (!CanBeStunned)
             {
-                return;
+                return false;
             }
 
             CanBeStunned = false;
             stateMachine.ChangeState(StunnedState);
+            return true;
         }
     }
 }

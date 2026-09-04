@@ -6746,11 +6746,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.PlayerCombat
   Damage: 10
   targetCheck: {fileID: 328204148}
-  targetCheckRadius: 0
+  targetCheckRadius: 1
   whatIsTarget:
     serializedVersion: 2
     m_Bits: 128
-  counterDuration: 0.2
+  counterDuration: 0.8
 --- !u!1 &1873500493
 GameObject:
   m_ObjectHideFlags: 0

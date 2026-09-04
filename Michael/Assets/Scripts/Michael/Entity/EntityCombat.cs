@@ -8,13 +8,11 @@ namespace Michael
 
         [Header("Target detection")]
         [SerializeField] private Transform targetCheck;
-        [SerializeField] private float targetCheckRadius;
+        [SerializeField] private float targetCheckRadius = 1f;
         [SerializeField] private LayerMask whatIsTarget;
 
         public void PerformAttack()
         {
-            GetDetectedColliders();
-
             var targets = GetDetectedColliders();
             foreach (var target in targets)
             {
