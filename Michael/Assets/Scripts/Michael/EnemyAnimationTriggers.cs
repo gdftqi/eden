@@ -13,12 +13,12 @@ namespace Michael
             enemy = GetComponentInParent<Enemy>();
         }
 
-        private void EnableCounterWindow()
+        public void EnableCounterWindow()
         {
             enemy?.EnableCounterWindow(true);
         }
 
-        private void DisableCounterWindow()
+        public void DisableCounterWindow()
         {
             enemy?.EnableCounterWindow(false);
         }

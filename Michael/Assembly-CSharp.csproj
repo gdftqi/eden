@@ -68,6 +68,7 @@
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\Enemy.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\EnemyVFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerFallState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerBasicAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\EntityState.cs" />
@@ -90,6 +91,7 @@
     <Compile Include="Assets\Scripts\Michael\Player\Player.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyDeadState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerCounterAttackState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

@@ -12,6 +12,13 @@ namespace Michael.Animation
             enemy.SetVelocity(0, rb.linearVelocityY);
         }
 
+        public override void Exit()
+        {
+            base.Exit();
+
+            enemy.EnableCounterWindow(false);
+        }
+
         public override void Update()
         {
             base.Update();

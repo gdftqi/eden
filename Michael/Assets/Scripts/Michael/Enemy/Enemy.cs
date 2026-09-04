@@ -36,16 +36,23 @@ namespace Michael
         public float StunnedDuration = 0.33f;
         public Vector2 StunnedVelocity = new Vector2(7f, 7f);
         [SerializeField] protected bool CanBeStunned = false;
+        private EnemyVFX vfx;
+
+        protected override void Awake()
+        {
+            base.Awake();
+            vfx = GetComponent<EnemyVFX>();
+        }
 
         public void EnableCounterWindow(bool enabled)
         {
             CanBeStunned = enabled;
+            vfx?.EnableAttackAlert(enabled);
         }
 
         public override void EntityDead()
         {
             base.EntityDead();
-            CanBeStunned = false;
 
             stateMachine.ChangeState(DeadState);
         }
