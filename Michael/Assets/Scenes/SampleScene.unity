@@ -5970,6 +5970,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityVFX
   mOnDamage: {fileID: 2100000, guid: e6849dd81686c4a4389944baf3998a05, type: 2}
   onDamageVFXDuration: 0.2
+  hitVFXColor: {r: 0, g: 0, b: 0, a: 1}
+  hitVFX: {fileID: 0}
 --- !u!1 &1366300414
 GameObject:
   m_ObjectHideFlags: 0
@@ -6601,6 +6603,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityVFX
   mOnDamage: {fileID: 2100000, guid: e6849dd81686c4a4389944baf3998a05, type: 2}
   onDamageVFXDuration: 0.2
+  hitVFXColor: {r: 1, g: 0, b: 0, a: 1}
+  hitVFX: {fileID: 639523113882873507, guid: c90fd0048e7700b4cad3b9a8fabdfab7, type: 3}
 --- !u!114 &1833535089
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7284,6 +7288,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyVFX
   mOnDamage: {fileID: 2100000, guid: e6849dd81686c4a4389944baf3998a05, type: 2}
   onDamageVFXDuration: 0.2
+  hitVFXColor: {r: 1, g: 1, b: 0, a: 1}
+  hitVFX: {fileID: 639523113882873507, guid: c90fd0048e7700b4cad3b9a8fabdfab7, type: 3}
   attackAlert: {fileID: 2000905281}
 --- !u!1 &2127316897
 GameObject:

@@ -8,11 +8,15 @@ namespace Michael
     {
         private SpriteRenderer sr;
 
-        [Header("On Damage VFX")]
+        [Header("On Taking Damage VFX")]
         [SerializeField] private Material mOnDamage;
         [SerializeField] private float onDamageVFXDuration = 0.2f;
         private Material mOrignal;
         private Coroutine onDamageVFXCoroutines;
+
+        [Header("On Doing Damage VFX")]
+        [SerializeField] private Color hitVFXColor = Color.white;
+        [SerializeField] private GameObject hitVFX;
 
         private void Awake()
         {
@@ -20,6 +24,12 @@ namespace Michael
             Assert.IsNotNull(sr);
 
             mOrignal = sr.material;
+        }
+
+        public void CreateOnHitVFX(Transform target)
+        {
+            var vfx = Instantiate(hitVFX, target.position, Quaternion.identity);
+            vfx.GetComponentInChildren<SpriteRenderer>().color = hitVFXColor;
         }
 
         public void PlayOnDamageVFX()
