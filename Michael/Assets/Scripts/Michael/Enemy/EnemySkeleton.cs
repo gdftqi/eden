@@ -1,6 +1,3 @@
-using Michael.Animation;
-using UnityEngine;
-
 namespace Michael
 {
     public class EnemySkeleton : Enemy, ICounterable

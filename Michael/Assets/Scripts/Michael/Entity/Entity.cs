@@ -1,8 +1,6 @@
-using Michael.Animation;
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 
 namespace Michael

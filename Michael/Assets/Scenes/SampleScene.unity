@@ -6883,8 +6883,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb8f951e00a59664aa25c869025eb101, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
-  MaxHP: 100
-  Vitality: 7
+  MaxHP:
+    baseValue: 100
+  Vitality:
+    baseValue: 7
 --- !u!1 &1872349594
 GameObject:
   m_ObjectHideFlags: 0
@@ -7513,8 +7515,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb8f951e00a59664aa25c869025eb101, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
-  MaxHP: 100
-  Vitality: 7
+  MaxHP:
+    baseValue: 100
+  Vitality:
+    baseValue: 7
 --- !u!1 &2127316897
 GameObject:
   m_ObjectHideFlags: 0

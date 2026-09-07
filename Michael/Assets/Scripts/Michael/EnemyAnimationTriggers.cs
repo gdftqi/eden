@@ -1,4 +1,4 @@
-using Michael.Animation;
+using Michael;
 using UnityEngine;
 
 namespace Michael
