@@ -5,13 +5,14 @@ namespace Michael
     public class EntityStats : MonoBehaviour
     {
         public Stat MaxHP;
-        public Stat Vitality;
-
+        public StatMajorGroup major;
+        public StatOffenseGroup offense;
+        public StatDefenseGroup defense;
 
         public float GetMaxHealth()
         {
             float baseHp = MaxHP.GetValue();
-            float bonusHp = Vitality.GetValue() * 5;
+            float bonusHp = major.vitality.GetValue() * 5;
             return baseHp + bonusHp;
         }
     }

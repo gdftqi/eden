@@ -62,14 +62,17 @@
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityVFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\PlayerCombat.cs" />
+    <Compile Include="Assets\Scripts\Michael\StatSystem\StatDefenseGroup.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerFallState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\State\EnemyBattleState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\State\EnemyGroundedState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerWallSlideState.cs" />
+    <Compile Include="Assets\Scripts\Michael\StatSystem\StatOffenseGroup.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\Enemy.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyVFX.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerAiredState.cs" />
+    <Compile Include="Assets\Scripts\Michael\StatSystem\StatMajorGroup.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\State\EnemyMoveState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyHealth.cs" />
     <Compile Include="Assets\Scripts\Michael\Parallex\ParallexLayer.cs" />

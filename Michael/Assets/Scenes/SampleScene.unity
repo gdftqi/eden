@@ -6885,8 +6885,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
   MaxHP:
     baseValue: 100
-  Vitality:
-    baseValue: 7
+  major:
+    strength:
+      baseValue: 0
+    agility:
+      baseValue: 0
+    intelligence:
+      baseValue: 0
+    vitality:
+      baseValue: 10
+  offense:
+    damage:
+      baseValue: 10
+    critPower:
+      baseValue: 0
+    critChance:
+      baseValue: 0
+    fireDamage:
+      baseValue: 0
+    iceDamage:
+      baseValue: 0
+    lightningDamage:
+      baseValue: 0
+  defense:
+    armor:
+      baseValue: 0
+    evasion:
+      baseValue: 0
+    fireRes:
+      baseValue: 0
+    iceRes:
+      baseValue: 0
+    lightningRes:
+      baseValue: 0
 --- !u!1 &1872349594
 GameObject:
   m_ObjectHideFlags: 0
@@ -7517,8 +7548,39 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
   MaxHP:
     baseValue: 100
-  Vitality:
-    baseValue: 7
+  major:
+    strength:
+      baseValue: 0
+    agility:
+      baseValue: 0
+    intelligence:
+      baseValue: 0
+    vitality:
+      baseValue: 5
+  offense:
+    damage:
+      baseValue: 10
+    critPower:
+      baseValue: 0
+    critChance:
+      baseValue: 0
+    fireDamage:
+      baseValue: 0
+    iceDamage:
+      baseValue: 0
+    lightningDamage:
+      baseValue: 0
+  defense:
+    armor:
+      baseValue: 0
+    evasion:
+      baseValue: 0
+    fireRes:
+      baseValue: 0
+    iceRes:
+      baseValue: 0
+    lightningRes:
+      baseValue: 0
 --- !u!1 &2127316897
 GameObject:
   m_ObjectHideFlags: 0
