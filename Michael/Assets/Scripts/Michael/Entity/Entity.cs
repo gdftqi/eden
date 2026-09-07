@@ -34,20 +34,15 @@ namespace Michael
 
         protected virtual void Awake()
         {
+            stateMachine = new StateMachine();
             Anim = GetComponentInChildren<Animator>();
-            Assert.IsNotNull(Anim);
-
             rb = GetComponent<Rigidbody2D>();
-            Assert.IsNotNull(rb);
 
             rb.gravityScale = 4f;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
             rb.interpolation = RigidbodyInterpolation2D.Interpolate;
 
             FaceDirection = transform.right.x > 0f ? 1f : -1f;
-
-            stateMachine = new StateMachine();
-            
         }
 
         private Vector3 WallRayUp()

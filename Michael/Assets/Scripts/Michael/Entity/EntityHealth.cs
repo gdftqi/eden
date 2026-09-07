@@ -1,3 +1,4 @@
+using Unity.VisualScripting.Antlr3.Runtime.Misc;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,9 +10,9 @@ namespace Michael
         private EntityVFX entityVFX;
         private EntitySFX entityAudio;
         private Entity entity;
+        private EntityStats stats;
 
         [SerializeField] protected float CurrentHP = 0f;
-        [SerializeField] protected float MaxHP = 100f;
         [SerializeField] protected bool dead = false;
 
         [Header("On Damage Knockback")]
@@ -30,7 +31,9 @@ namespace Michael
             entityAudio = GetComponent<EntitySFX>();
             entity = GetComponent<Entity>();
             healthBar = GetComponentInChildren<Slider>();
-            CurrentHP = MaxHP;
+            stats = GetComponent<EntityStats>();
+                
+            CurrentHP = stats!.GetMaxHealth(); 
             UpdateHealthBar();
         }
 
@@ -87,14 +90,14 @@ namespace Michael
 
         private bool IsHeavyDamage(float damage)
         {
-            return damage / MaxHP >= HeavyDamageThreshold;
+            return damage / stats.GetMaxHealth() >= HeavyDamageThreshold;
         }
 
         private void UpdateHealthBar()
         {
             if (healthBar != null)
             {
-                healthBar.value = CurrentHP / MaxHP;
+                healthBar.value = CurrentHP / stats.GetMaxHealth();
             }
         }
     }

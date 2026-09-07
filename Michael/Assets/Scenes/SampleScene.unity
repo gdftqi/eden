@@ -366,7 +366,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 0}
   m_FillRect: {fileID: 1504045498}
   m_HandleRect: {fileID: 0}
-  m_Direction: 0
+  m_Direction: 1
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
@@ -5726,7 +5726,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 0}
   m_FillRect: {fileID: 1829481468}
   m_HandleRect: {fileID: 0}
-  m_Direction: 0
+  m_Direction: 1
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
@@ -7083,6 +7083,7 @@ GameObject:
   - component: {fileID: 1833535089}
   - component: {fileID: 1833535091}
   - component: {fileID: 1833535090}
+  - component: {fileID: 1833535093}
   m_Layer: 8
   m_Name: Player
   m_TagString: Player
@@ -7235,7 +7236,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityHealth
   CurrentHP: 100
-  MaxHP: 100
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.15
@@ -7377,6 +7377,20 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   counterRecovery: 0.33
+--- !u!114 &1833535093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833535080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb8f951e00a59664aa25c869025eb101, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
+  MaxHP: 100
+  Vitality: 7
 --- !u!1 &1872349594
 GameObject:
   m_ObjectHideFlags: 0
@@ -7827,6 +7841,7 @@ GameObject:
   - component: {fileID: 2094198921}
   - component: {fileID: 2094198920}
   - component: {fileID: 2094198922}
+  - component: {fileID: 2094198923}
   m_Layer: 7
   m_Name: EnemySkeleton
   m_TagString: Untagged
@@ -7987,7 +8002,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyHealth
   CurrentHP: 100
-  MaxHP: 100
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.2
@@ -8126,6 +8140,20 @@ MonoBehaviour:
   hitVFXColor: {r: 1, g: 1, b: 0, a: 1}
   hitVFX: {fileID: 639523113882873507, guid: c90fd0048e7700b4cad3b9a8fabdfab7, type: 3}
   attackAlert: {fileID: 2000905281}
+--- !u!114 &2094198923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2094198912}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb8f951e00a59664aa25c869025eb101, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityStats
+  MaxHP: 100
+  Vitality: 7
 --- !u!1 &2127316897
 GameObject:
   m_ObjectHideFlags: 0

@@ -86,6 +86,7 @@
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerDashState.cs" />
+    <Compile Include="Assets\Scripts\Michael\Entity\EntityStats.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityCombat.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Player\PlayerJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\Animation\Enemy\EnemyStunnedState.cs" />
