@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -8,6 +7,7 @@ namespace Michael
     public class EntityVFX : MonoBehaviour
     {
         private SpriteRenderer sr;
+        private Entity entity;
 
         [Header("On Taking Damage VFX")]
         [SerializeField] private Material mOnDamage;
@@ -24,6 +24,7 @@ namespace Michael
         {
             sr = GetComponentInChildren<SpriteRenderer>();
             Assert.IsNotNull(sr);
+            entity = GetComponent<Entity>();
 
             mOrignal = sr.material;
         }
@@ -33,6 +34,11 @@ namespace Michael
             GameObject hitPrefab = isCrit ? hitCritVFX : hitVFX;
             var vfx = Instantiate(hitPrefab, target.position, Quaternion.identity);
             vfx.GetComponentInChildren<SpriteRenderer>().color = hitVFXColor;
+
+            if (entity.FaceDirection == -1f && isCrit)
+            {
+                vfx.transform.Rotate(0f, 180f, 0f);
+            }
         }
 
         public void PlayOnDamageVFX()

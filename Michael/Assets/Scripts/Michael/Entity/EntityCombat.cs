@@ -30,8 +30,7 @@ namespace Michael
                     continue;
                 }
 
-                bool isCrit;
-                if (damagable.TakeDamage(stats.GetPhysicalDamage(out isCrit), transform))
+                if (damagable.TakeDamage(stats.GetPhysicalDamage(out bool isCrit), transform))
                 {
                     // 触发忍杀
                     target.GetComponent<ICounterable>()?.HandleCounter();
