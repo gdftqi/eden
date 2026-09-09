@@ -36,11 +36,11 @@ namespace Michael
             UpdateHealthBar();
         }
 
-        public virtual void TakeDamage(float damage, Transform damageDealer)
+        public virtual bool TakeDamage(float damage, Transform damageDealer)
         {
-            if (dead)
+            if (dead || AttackEvaded())
             {
-                return;
+                return false;
             }
 
             var (knockback, duration) = CalculateKnockback(damage, damageDealer);
@@ -48,6 +48,13 @@ namespace Michael
             entityVFX?.PlayOnDamageVFX();
             entityAudio?.PlayOnDamageSFX();
             ReduceHP(damage);
+
+            return true;
+        }
+
+        private bool AttackEvaded()
+        {
+            return Random.Range(0, 100) < stats.GetEvasion();
         }
 
         protected void ReduceHP(float damage)

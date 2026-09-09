@@ -57,7 +57,6 @@
     <Compile Include="Assets\Scripts\Michael\Enemy\State\EnemyAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Enemy\EnemyArcher.cs" />
     <Compile Include="Assets\Scripts\Michael\Interfaces\ICounterable.cs" />
-    <Compile Include="Assets\Scripts\Michael\EnemyAnimationTriggers.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerJumpAttackState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerDashState.cs" />
     <Compile Include="Assets\Scripts\Michael\Entity\EntityVFX.cs" />
@@ -99,6 +98,7 @@
     <Compile Include="Assets\Scripts\Michael\Enemy\State\EnemyDeadState.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerWallJumpState.cs" />
     <Compile Include="Assets\Scripts\Michael\UI\UIMiniHealthBar.cs" />
+    <Compile Include="Assets\Scripts\Michael\Enemy\EnemyAnimationTriggers.cs" />
     <Compile Include="Assets\Scripts\Michael\Player\State\PlayerState.cs" />
   </ItemGroup>
   <ItemGroup>

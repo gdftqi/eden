@@ -426,7 +426,7 @@ Transform:
   m_GameObject: {fileID: 469254697}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -17.733297, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -18.015673, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5411,7 +5411,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -17.733297, y: -0.4599998, z: -10}
+  m_LocalPosition: {x: -18.015673, y: -0.4599998, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6082,6 +6082,7 @@ MonoBehaviour:
   onDamageVFXDuration: 0.2
   hitVFXColor: {r: 0, g: 0, b: 0, a: 1}
   hitVFX: {fileID: 0}
+  hitCritVFX: {fileID: 0}
 --- !u!1 &1366300414
 GameObject:
   m_ObjectHideFlags: 0
@@ -6717,6 +6718,7 @@ MonoBehaviour:
   onDamageVFXDuration: 0.2
   hitVFXColor: {r: 1, g: 0, b: 0, a: 1}
   hitVFX: {fileID: 639523113882873507, guid: c90fd0048e7700b4cad3b9a8fabdfab7, type: 3}
+  hitCritVFX: {fileID: 2865867225180339207, guid: 80dbaefdaac5fa949a8c62c92fef2352, type: 3}
 --- !u!114 &1833535089
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6729,7 +6731,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8bd9699c339c7eb4f9c33123be79061c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityHealth
-  CurrentHP: 100
+  CurrentHP: 10000
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.15
@@ -6864,7 +6866,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e4eabba8a2d27346a3aae99c03f4f66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.PlayerCombat
-  Damage: 10
   targetCheck: {fileID: 328204148}
   targetCheckRadius: 1
   whatIsTarget:
@@ -6898,9 +6899,9 @@ MonoBehaviour:
     damage:
       baseValue: 10
     critPower:
-      baseValue: 0
+      baseValue: 250
     critChance:
-      baseValue: 0
+      baseValue: 100
     fireDamage:
       baseValue: 0
     iceDamage:
@@ -6911,7 +6912,7 @@ MonoBehaviour:
     armor:
       baseValue: 0
     evasion:
-      baseValue: 0
+      baseValue: 10
     fireRes:
       baseValue: 0
     iceRes:
@@ -7057,7 +7058,7 @@ Transform:
   m_GameObject: {fileID: 2000905281}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.383, z: 0}
+  m_LocalPosition: {x: 0, y: 1.76, z: 0}
   m_LocalScale: {x: 0.27, y: 0.27, z: 0.27}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -7377,7 +7378,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0e6595d8ff387c4191e5de22f87cb59, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EntityCombat
-  Damage: 10
   targetCheck: {fileID: 516986951}
   targetCheckRadius: 1
   whatIsTarget:
@@ -7395,7 +7395,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 376910273046fda4fbb0dc19a8a86ee9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Michael.EnemyHealth
-  CurrentHP: 100
+  CurrentHP: 10000
   dead: 0
   KnockbackPower: {x: 1.5, y: 2.5}
   KnockbackDuration: 0.2
@@ -7533,6 +7533,7 @@ MonoBehaviour:
   onDamageVFXDuration: 0.2
   hitVFXColor: {r: 1, g: 1, b: 0, a: 1}
   hitVFX: {fileID: 639523113882873507, guid: c90fd0048e7700b4cad3b9a8fabdfab7, type: 3}
+  hitCritVFX: {fileID: 2865867225180339207, guid: 80dbaefdaac5fa949a8c62c92fef2352, type: 3}
   attackAlert: {fileID: 2000905281}
 --- !u!114 &2094198923
 MonoBehaviour:
@@ -7563,7 +7564,7 @@ MonoBehaviour:
     critPower:
       baseValue: 0
     critChance:
-      baseValue: 0
+      baseValue: 10
     fireDamage:
       baseValue: 0
     iceDamage:

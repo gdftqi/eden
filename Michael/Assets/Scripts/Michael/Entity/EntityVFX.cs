@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -17,6 +18,7 @@ namespace Michael
         [Header("On Doing Damage VFX")]
         [SerializeField] private Color hitVFXColor = Color.white;
         [SerializeField] private GameObject hitVFX;
+        [SerializeField] private GameObject hitCritVFX;
 
         private void Awake()
         {
@@ -26,9 +28,10 @@ namespace Michael
             mOrignal = sr.material;
         }
 
-        public void CreateOnHitVFX(Transform target)
+        public void CreateOnHitVFX(Transform target, bool isCrit)
         {
-            var vfx = Instantiate(hitVFX, target.position, Quaternion.identity);
+            GameObject hitPrefab = isCrit ? hitCritVFX : hitVFX;
+            var vfx = Instantiate(hitPrefab, target.position, Quaternion.identity);
             vfx.GetComponentInChildren<SpriteRenderer>().color = hitVFXColor;
         }
 

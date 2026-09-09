@@ -5,7 +5,7 @@ namespace Michael
     public class EntityCombat : MonoBehaviour
     {
         private EntityVFX vfx;
-        public float Damage = 10f;
+        private EntityStats stats;
 
         [Header("Target detection")]
         [SerializeField] private Transform targetCheck;
@@ -15,6 +15,7 @@ namespace Michael
         private void Awake()
         {
             vfx = GetComponent<EntityVFX>();
+            stats = GetComponent<EntityStats>();
         }
 
         public void PerformAttack()
@@ -29,9 +30,13 @@ namespace Michael
                     continue;
                 }
 
-                damagable.TakeDamage(Damage, transform);
-                target.GetComponent<ICounterable>()?.HandleCounter();
-                vfx?.CreateOnHitVFX(target.transform);
+                bool isCrit;
+                if (damagable.TakeDamage(stats.GetPhysicalDamage(out isCrit), transform))
+                {
+                    // 触发忍杀
+                    target.GetComponent<ICounterable>()?.HandleCounter();
+                    vfx?.CreateOnHitVFX(target.transform, isCrit);
+                }
             }
         }
 

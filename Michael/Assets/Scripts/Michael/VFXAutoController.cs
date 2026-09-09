@@ -9,6 +9,10 @@ namespace Michael
         [SerializeField] private float destroyDelay = 1f;
         [SerializeField] private bool randomOffset = true;
 
+        [Header("Random Rotation")]
+        [SerializeField] private float minRotation = 0f;
+        [SerializeField] private float maxRotation = 360f;
+
         [Header("Random Position")]
         [SerializeField] private float xMinOffset = -0.3f;
         [SerializeField] private float xMaxOffset = 0.3f;
@@ -47,7 +51,7 @@ namespace Michael
                 return;
             }
 
-            float z = Random.Range(0f, 360f);
+            float z = Random.Range(minRotation, maxRotation);
             transform.Rotate(0f, 0f, z);
         }
     }

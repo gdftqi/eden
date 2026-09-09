@@ -39,13 +39,15 @@ namespace Michael
         [Header("Open Details")]
         [SerializeField] private Vector2 knockback;
 
-        public void TakeDamage(float damage, Transform damageDealer)
+        public bool TakeDamage(float damage, Transform damageDealer)
         {
             vfx?.PlayOnDamageVFX();
             sfx?.PlayOnDamageSFX();
             anim?.GetComponentInChildren<Animator>().SetBool("chestOpen", true);
             rb.linearVelocity = knockback;
             rb.angularVelocity = Random.Range(-200f, 200f);
+
+            return true;
         }
     }
 }

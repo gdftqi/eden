@@ -4,6 +4,6 @@ namespace Michael
 {
     public interface IDamagable
     {
-        public void TakeDamage(float damage, Transform damageDealer);
+        public bool TakeDamage(float damage, Transform damageDealer);
     }
 }
