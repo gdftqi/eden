@@ -6894,14 +6894,16 @@ MonoBehaviour:
     intelligence:
       baseValue: 0
     vitality:
-      baseValue: 10
+      baseValue: 0
   offense:
     damage:
-      baseValue: 10
+      baseValue: 150
     critPower:
       baseValue: 250
     critChance:
       baseValue: 100
+    armorReduction:
+      baseValue: 0
     fireDamage:
       baseValue: 0
     iceDamage:
@@ -7560,11 +7562,13 @@ MonoBehaviour:
       baseValue: 5
   offense:
     damage:
-      baseValue: 10
+      baseValue: 150
     critPower:
       baseValue: 0
     critChance:
       baseValue: 10
+    armorReduction:
+      baseValue: 0
     fireDamage:
       baseValue: 0
     iceDamage:

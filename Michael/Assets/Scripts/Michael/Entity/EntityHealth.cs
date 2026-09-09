@@ -43,6 +43,12 @@ namespace Michael
                 return false;
             }
 
+            EntityStats attackStats = damageDealer.GetComponent<EntityStats>();
+            float armorReduction = attackStats?.GetArmorReduction() ?? 0f;
+
+            float mitigation = stats.GetArmorMitigation(armorReduction);
+            damage = damage * (1 - mitigation);
+
             var (knockback, duration) = CalculateKnockback(damage, damageDealer);
             entity.ReceiveKnockback(knockback, duration);
             entityVFX?.PlayOnDamageVFX();
