@@ -7,19 +7,47 @@ namespace Michael
     {
         private Entity entity;
         private EntityVFX entityVFX;
-        private EntityStats stats;
+        private EntityStats entityStats;
+        private EntityHealth entityHealth;
         private ElementType currentEffect = ElementType.None;
 
         private void Awake()
         {
             entity = GetComponent<Entity>();
             entityVFX = GetComponent<EntityVFX>();
-            stats = GetComponent<EntityStats>();
+            entityStats = GetComponent<EntityStats>();
+            entityHealth = GetComponent<EntityHealth>();
+        }
+
+        public void ApplyBurnEffect(float duration, float fireDamage)
+        {
+            float fireResistance = entityStats.GetElementalResistance(ElementType.Fire);
+            float totalDamage = fireDamage * (1 -  fireResistance);
+            StartCoroutine(BurnEffectCo(duration, totalDamage));
+        }
+
+        private IEnumerator BurnEffectCo(float duration, float totalDamage)
+        {
+            currentEffect = ElementType.Fire;
+            entityVFX.PlayOnStatusVFX(duration, ElementType.Fire);
+
+            var tickersPerSecond = 2f;
+            int tickCount = Mathf.RoundToInt(tickersPerSecond * duration);
+            float damagePerTick = totalDamage / tickCount;
+            float tickInterval = 1f / tickersPerSecond;
+
+            for (int i = 0; i < tickCount; i++)
+            {
+                entityHealth.ReduceHP(damagePerTick);
+                yield return new WaitForSeconds(tickInterval);
+            }
+
+            currentEffect = ElementType.None;
         }
 
         public void ApplyChilledEffect(float duration, float slowMultiplier)
         {
-            float iceResistance = stats.GetElementalResistance(ElementType.Ice);
+            float iceResistance = entityStats.GetElementalResistance(ElementType.Ice);
             float reducedDuration = duration * (1 - iceResistance);
             
             StartCoroutine(ChilledEffectCo(reducedDuration, slowMultiplier));

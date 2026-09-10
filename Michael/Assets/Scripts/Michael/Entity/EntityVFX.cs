@@ -23,6 +23,7 @@ namespace Michael
 
         [Header("Element Colors")]
         [SerializeField] private Color chillVfx = Color.cyan;
+        [SerializeField] private Color burnVfx = Color.red;
         private Color originalHitVfxColor;
 
         private void Awake()
@@ -40,6 +41,11 @@ namespace Michael
             if (element == ElementType.Ice)
             {
                 StartCoroutine(PlayStatusVFXCo(duration, chillVfx));
+            }
+
+            if (element == ElementType.Fire)
+            {
+                StartCoroutine(PlayStatusVFXCo(duration, burnVfx));
             }
         }
 

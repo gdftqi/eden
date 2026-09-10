@@ -16,7 +16,8 @@ namespace Michael
         public StatOffenseGroup offense;
         public StatDefenseGroup defense;
 
-        public float GetElementalDamage(out ElementType element)
+
+        public float GetElementalDamage(out ElementType element, float scaleFactor = 1f)
         {
             float fireDamage = offense.fireDamage.GetValue();
             float iceDamage = offense.iceDamage.GetValue();
@@ -48,7 +49,8 @@ namespace Michael
             float bonusLightning = lightningDamage == highestDamage ? 0f : lightningDamage * 0.5f;
 
             float weakerElementsDamage = bonusFire + bonusIce + bonusLightning;
-            return highestDamage + bonusElementalDamage + weakerElementsDamage;
+            float finalDamage = highestDamage + bonusElementalDamage + weakerElementsDamage;
+            return finalDamage * scaleFactor;
         }
 
         public float GetElementalResistance(ElementType element)
@@ -79,7 +81,7 @@ namespace Michael
             return finalResistance;
         }
 
-        public float GetPhysicalDamage(out bool isCrit)
+        public float GetPhysicalDamage(out bool isCrit, float scaleFactor = 1f)
         {
             float baseDamage = offense.damage.GetValue();
             float bonusDamage = major.strength.GetValue();
@@ -94,8 +96,9 @@ namespace Michael
             float critPower = (baseCritPower + bonusCritPower) / 100f;
 
             isCrit = Random.Range(0f, 100f) < critChance;
+            var finalDamage = isCrit ? totalDamage * critPower : totalDamage;
 
-            return isCrit ? totalDamage * critPower : totalDamage;
+            return finalDamage * scaleFactor;
         }
 
         public float GetArmorMitigation(float armorReduction)

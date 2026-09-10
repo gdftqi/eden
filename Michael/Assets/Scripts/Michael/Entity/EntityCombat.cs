@@ -36,7 +36,7 @@ namespace Michael
                     continue;
                 }
 
-                if (damegable.TakeDamage(stats.GetPhysicalDamage(out bool isCrit), stats.GetElementalDamage(out ElementType element), element, transform))
+                if (damegable.TakeDamage(stats.GetPhysicalDamage(out bool isCrit, 2f), stats.GetElementalDamage(out ElementType element, 0.6f), element, transform))
                 {
                     if (element != ElementType.None)
                     {
@@ -51,7 +51,7 @@ namespace Michael
             }
         }
 
-        public void ApplyStatusEffect(Transform target, ElementType element)
+        public void ApplyStatusEffect(Transform target, ElementType element, float scaleFactor = 1f)
         {
             EntityStatusHandler handler = target.GetComponent<EntityStatusHandler>();
             if (handler == null)
@@ -62,6 +62,12 @@ namespace Michael
             if (element == ElementType.Ice && handler.CanBeApplied(ElementType.Ice))
             {
                 handler.ApplyChilledEffect(defaultDuration, chillSlowMultiplier);
+            }
+
+            if (element == ElementType.Fire && handler.CanBeApplied(ElementType.Fire))
+            {
+                float fireDamage = stats.offense.fireDamage.GetValue() * scaleFactor;
+                handler.ApplyBurnEffect(defaultDuration, fireDamage);
             }
         }
 

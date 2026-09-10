@@ -70,7 +70,7 @@ namespace Michael
             return Random.Range(0, 100) < stats.GetEvasion();
         }
 
-        protected void ReduceHP(float damage)
+        public void ReduceHP(float damage)
         {
             CurrentHP -= damage;
             UpdateHealthBar();
