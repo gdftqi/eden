@@ -6,16 +6,16 @@ namespace Solomon
     [Serializable]
     public class StatMajorGroup
     {
-        [Tooltip("力量: 加物理伤害, 并按 50% 加暴击伤害")]
+        [Tooltip("力量")]
         public Stat strength;
 
-        [Tooltip("敏捷: 按 30% 加暴击率, 按 50% 加闪避")]
+        [Tooltip("敏捷")]
         public Stat agility;
 
-        [Tooltip("智力: 加元素伤害, 并按 50% 加元素抗性")]
+        [Tooltip("智力")]
         public Stat intelligence;
 
-        [Tooltip("体力: 加护甲, 并按 5 倍加最大生命值")]
+        [Tooltip("体力")]
         public Stat vitality;
     }
 }

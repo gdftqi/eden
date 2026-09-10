@@ -13,13 +13,13 @@ namespace Solomon
         [Tooltip("物理伤害基础值")]
         public Stat damage;
 
-        [Tooltip("暴击伤害, 百分比. 150 表示暴击打 1.5 倍")]
+        [Tooltip("暴击伤害")]
         public Stat critPower;
 
-        [Tooltip("暴击率, 百分比")]
+        [Tooltip("暴击率")]
         public Stat critChance;
 
-        [Tooltip("护甲穿透, 百分比. 按比例削减目标的有效护甲")]
+        [Tooltip("护甲穿透")]
         public Stat armorReduction;
 
         [Tooltip("火焰伤害")]

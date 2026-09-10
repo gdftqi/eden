@@ -1,5 +1,3 @@
-using System;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -8,6 +6,8 @@ namespace Solomon
     [RequireComponent(typeof(Rigidbody))]
     public class Actor : MonoBehaviour
     {
+        private const float FLIP_THRESHOLD = 0.1f;
+
         protected Rigidbody rb;
 
         [SerializeField, Tooltip("角色朝向: 1 面向右, -1 面向左")]
@@ -23,7 +23,7 @@ namespace Solomon
         protected LayerMask whatIsGround;
 
         [SerializeField, Tooltip("运动属性")]
-        StatLocomotionGroup locomotion = new StatLocomotionGroup(5f, 3f);
+        StatLocomotionGroup locomotion = new StatLocomotionGroup(5f);
 
         [SerializeField, Tooltip("主属性")]
         StatMajorGroup major;
@@ -39,7 +39,7 @@ namespace Solomon
             get
             {
                 var moveSpeed = locomotion.moveSpeed.GetValue();
-                var jumpForce = locomotion.jumpForce.GetValue();
+                var jumpForce = moveSpeed * 0.416f;
 
                 return (moveSpeed <= 0f) ? 0f : jumpForce / (2f * moveSpeed);
             }
@@ -51,12 +51,18 @@ namespace Solomon
             rb = GetComponent<Rigidbody>();
             Assert.IsNotNull(rb);
 
-            rb.constraints = RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezePositionZ;
+            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionZ;
         }
 
         protected virtual void Update()
         {
             groundDetected = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, whatIsGround);
+
+            float vx = rb.linearVelocity.x;
+            if (Mathf.Abs(vx) >= FLIP_THRESHOLD && Mathf.Sign(vx) != faceDirection)
+            {
+                Flip();
+            }
         }
 
         protected virtual void FixedUpdate()
@@ -68,7 +74,8 @@ namespace Solomon
                 return;
             }
 
-            float target = 2f * locomotion.jumpForce.GetValue() / (t * t);
+            var jumpForce = locomotion.moveSpeed.GetValue() * 0.416f;
+            float target = 2f * jumpForce / (t * t);
 
             float g = -Physics.gravity.y;
             rb.linearVelocity += Vector3.down * (target - g) * Time.fixedDeltaTime;
@@ -78,7 +85,7 @@ namespace Solomon
         public void SetVelocity(float x, float y)
         {
             var moveSpeed = locomotion.moveSpeed.GetValue();
-            rb.linearVelocity = new Vector3(x * moveSpeed * faceDirection, y, rb.linearVelocity.z);
+            rb.linearVelocity = new Vector3(x * moveSpeed, y, rb.linearVelocity.z);
         }
 
 
@@ -87,12 +94,19 @@ namespace Solomon
             float t = JumpTime;
             if (groundDetected && t > 0f)
             {
-                var jumpForce = locomotion.jumpForce.GetValue();
+                var jumpForce = locomotion.moveSpeed.GetValue() * 0.416f;
 
                 float a = 2f * jumpForce / (t * t);
                 float v = 2f * jumpForce / t + a * Time.fixedDeltaTime * 0.5f;
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, v, rb.linearVelocity.z);
             }
+        }
+
+
+        public void Flip()
+        {
+            transform.Rotate(0f, 180f, 0f);
+            faceDirection = -faceDirection;
         }
 
 
