@@ -672,15 +672,54 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 190f00c4afb767e4997ef0535b9da111, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Solomon.Player
-  moveSpeed: 5
   faceDirection: 1
-  jumpForce: 24
-  jumpTime: 0.28
   groundCheckDistance: 1.05
   groundDetected: 1
   whatIsGround:
     serializedVersion: 2
     m_Bits: 8
+  locomotion:
+    moveSpeed:
+      baseValue: 5
+    jumpForce:
+      baseValue: 3
+    jumpDistance:
+      baseValue: 3
+  major:
+    strength:
+      baseValue: 0
+    agility:
+      baseValue: 0
+    intelligence:
+      baseValue: 0
+    vitality:
+      baseValue: 0
+  offense:
+    damage:
+      baseValue: 0
+    critPower:
+      baseValue: 0
+    critChance:
+      baseValue: 0
+    armorReduction:
+      baseValue: 0
+    fireDamage:
+      baseValue: 0
+    iceDamage:
+      baseValue: 0
+    lightningDamage:
+      baseValue: 0
+  defense:
+    armor:
+      baseValue: 0
+    evasion:
+      baseValue: 0
+    fireRes:
+      baseValue: 0
+    iceRes:
+      baseValue: 0
+    lightningRes:
+      baseValue: 0
   moveInputValue: {x: 0, y: 0}
 --- !u!54 &1546151089
 Rigidbody:
