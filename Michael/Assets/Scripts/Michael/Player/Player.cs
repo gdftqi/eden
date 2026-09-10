@@ -74,6 +74,38 @@ namespace Michael
             stateMachine.Init(IdleState);
         }
 
+        public override IEnumerator SlowDownEntityCo(float duration, float slowMultiplier)
+        {
+            float originalMoveSpeed = MoveSpeed;
+            float originalJumpForce = JumpForce;
+            float originalAnimSpeed = Anim.speed;
+            Vector2 originalWallJump = WallJumpForce;
+            Vector2 originalJumpAttack = JumpAttackVelocity;
+            Vector2[] originalAttackVelocity = AttackVelocity.Clone() as Vector2[];
+
+            float speedMultiplier = 1 - slowMultiplier;
+
+            MoveSpeed *= speedMultiplier;
+            JumpForce *= speedMultiplier;
+            Anim.speed *= speedMultiplier;
+            WallJumpForce *= speedMultiplier;
+            JumpAttackVelocity *= speedMultiplier;
+
+            for (int i = 0; i < AttackVelocity.Length; i++)
+            {
+                AttackVelocity[i] *= speedMultiplier;
+            }
+
+            yield return new WaitForSeconds(duration);
+
+            MoveSpeed = originalMoveSpeed;
+            JumpForce = originalJumpForce;
+            Anim.speed = originalAnimSpeed;
+            WallJumpForce = originalWallJump;
+            JumpAttackVelocity = originalJumpAttack;
+            AttackVelocity = originalAttackVelocity;
+        }
+
         private void OnEnable()
         {
             inputs.Enable();

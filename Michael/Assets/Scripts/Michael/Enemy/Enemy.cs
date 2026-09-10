@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Michael
@@ -41,6 +42,23 @@ namespace Michael
         {
             base.Awake();
             vfx = GetComponent<EnemyVFX>();
+        }
+
+        public override IEnumerator SlowDownEntityCo(float duration, float slowMultiplier)
+        {
+            float originalMoveSpeed = moveSpeed;
+            float originalBattleSpeed = battleMoveSpeed;
+            float originalAnimSpeed = Anim.speed;
+            float speedMultiplier = 1 - slowMultiplier;
+            moveSpeed *= speedMultiplier;
+            battleMoveSpeed *= speedMultiplier;
+            Anim.speed *= speedMultiplier;
+
+            yield return new WaitForSeconds(duration);
+
+            moveSpeed = originalMoveSpeed;
+            battleMoveSpeed = originalBattleSpeed;
+            Anim.speed = originalAnimSpeed;
         }
 
         public void EnableCounterWindow(bool enabled)

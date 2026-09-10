@@ -39,7 +39,7 @@ namespace Michael
         [Header("Open Details")]
         [SerializeField] private Vector2 knockback;
 
-        public bool TakeDamage(float damage, Transform damageDealer)
+        public bool TakeDamage(float damage, float elementalDamage, ElementType element, Transform damageDealer)
         {
             vfx?.PlayOnDamageVFX();
             sfx?.PlayOnDamageSFX();

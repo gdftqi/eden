@@ -1,3 +1,5 @@
+using System;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace Michael
@@ -12,6 +14,10 @@ namespace Michael
         [SerializeField] private float targetCheckRadius = 1f;
         [SerializeField] private LayerMask whatIsTarget;
 
+        [Header("Status effect details")]
+        [SerializeField] private float defaultDuration = 3f;
+        [SerializeField] private float chillSlowMultiplier = 0.2f;
+
         private void Awake()
         {
             vfx = GetComponent<EntityVFX>();
@@ -23,19 +29,39 @@ namespace Michael
             var targets = GetDetectedColliders();
             foreach (var target in targets)
             {
-                IDamagable damagable = target.GetComponent<IDamagable>();
+                IDamagable damegable = target.GetComponent<IDamagable>();
 
-                if (damagable == null)
+                if (damegable == null)
                 {
                     continue;
                 }
 
-                if (damagable.TakeDamage(stats.GetPhysicalDamage(out bool isCrit), transform))
+                if (damegable.TakeDamage(stats.GetPhysicalDamage(out bool isCrit), stats.GetElementalDamage(out ElementType element), element, transform))
                 {
+                    if (element != ElementType.None)
+                    {
+                        ApplyStatusEffect(target.transform, element);
+                    }
+
                     // 触发忍杀
                     target.GetComponent<ICounterable>()?.HandleCounter();
+                    vfx?.UpdateOnHitColor(element);
                     vfx?.CreateOnHitVFX(target.transform, isCrit);
                 }
+            }
+        }
+
+        public void ApplyStatusEffect(Transform target, ElementType element)
+        {
+            EntityStatusHandler handler = target.GetComponent<EntityStatusHandler>();
+            if (handler == null)
+            {
+                return;
+            }
+
+            if (element == ElementType.Ice && handler.CanBeApplied(ElementType.Ice))
+            {
+                handler.ApplyChilledEffect(defaultDuration, chillSlowMultiplier);
             }
         }
 

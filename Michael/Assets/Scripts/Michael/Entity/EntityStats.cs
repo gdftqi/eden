@@ -2,12 +2,82 @@ using UnityEngine;
 
 namespace Michael
 {
+    public enum EquipmentType
+    {
+        Sword,
+        Helmet,
+        Chest,
+    }
+
     public class EntityStats : MonoBehaviour
     {
         public Stat MaxHP;
         public StatMajorGroup major;
         public StatOffenseGroup offense;
         public StatDefenseGroup defense;
+
+        public float GetElementalDamage(out ElementType element)
+        {
+            float fireDamage = offense.fireDamage.GetValue();
+            float iceDamage = offense.iceDamage.GetValue();
+            float lightningDamage = offense.lightningDamage.GetValue();
+            float bonusElementalDamage = major.intelligence.GetValue();
+            float highestDamage = fireDamage;
+            element = ElementType.Fire;
+
+            if (iceDamage > highestDamage)
+            {
+                highestDamage = iceDamage;
+                element = ElementType.Ice;
+            }
+
+            if (lightningDamage > highestDamage)
+            {
+                highestDamage = lightningDamage;
+                element= ElementType.Lightning;
+            }
+
+            if (highestDamage <= 0f)
+            {
+                element = ElementType.None;
+                return 0f;
+            }
+
+            float bonusFire = fireDamage == highestDamage ? 0f : fireDamage * 0.5f;
+            float bonusIce = iceDamage == highestDamage ? 0f : iceDamage * 0.5f;
+            float bonusLightning = lightningDamage == highestDamage ? 0f : lightningDamage * 0.5f;
+
+            float weakerElementsDamage = bonusFire + bonusIce + bonusLightning;
+            return highestDamage + bonusElementalDamage + weakerElementsDamage;
+        }
+
+        public float GetElementalResistance(ElementType element)
+        {
+            float baseResistance = 0f;
+            float bonusResistance = major.intelligence.GetValue() * 0.5f;
+
+            switch (element)
+            {
+                case ElementType.Fire:
+                    baseResistance = defense.fireRes.GetValue();
+                    break;
+
+                case ElementType.Ice:
+                    baseResistance = defense.iceRes.GetValue();
+                    break;
+
+                case ElementType.Lightning:
+                    baseResistance = defense.lightningRes.GetValue();
+                    break;
+
+                default: break;
+            }
+
+            var resistance = baseResistance + bonusResistance;
+            var resistanceCap = 75f;
+            var finalResistance = Mathf.Clamp(resistance, 0f, resistanceCap) / 100f;
+            return finalResistance;
+        }
 
         public float GetPhysicalDamage(out bool isCrit)
         {
@@ -21,7 +91,7 @@ namespace Michael
 
             float baseCritPower = offense.critPower.GetValue();
             float bonusCritPower = major.strength.GetValue() * 0.5f;
-            float critPower = (baseCritPower + bonusCritPower) / 100;
+            float critPower = (baseCritPower + bonusCritPower) / 100f;
 
             isCrit = Random.Range(0f, 100f) < critChance;
 

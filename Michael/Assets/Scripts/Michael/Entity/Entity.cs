@@ -28,6 +28,7 @@ namespace Michael
 
         internal bool IsKnocked = false;
         internal Coroutine KnockbackCoroutine;
+        internal Coroutine SlowDownCoroutine;
 
 
         protected virtual void Awake()
@@ -68,6 +69,20 @@ namespace Michael
         public virtual void EntityDead()
         {
 
+        }
+
+        public virtual void SlowDownEntity(float duration, float slowMultiplier)
+        {
+            if (SlowDownCoroutine != null)
+            {
+                StopCoroutine(SlowDownCoroutine);
+            }
+            SlowDownCoroutine = StartCoroutine(SlowDownEntityCo(duration, slowMultiplier));
+        }
+
+        public virtual IEnumerator SlowDownEntityCo(float duration, float slowMultiplier)
+        {
+            yield return null;
         }
 
         public void ReceiveKnockback(Vector2 knockback, float duration)

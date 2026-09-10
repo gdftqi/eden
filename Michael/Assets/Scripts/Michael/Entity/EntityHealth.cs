@@ -36,7 +36,7 @@ namespace Michael
             UpdateHealthBar();
         }
 
-        public virtual bool TakeDamage(float damage, Transform damageDealer)
+        public virtual bool TakeDamage(float damage, float elementalDamage, ElementType element, Transform damageDealer)
         {
             if (dead || AttackEvaded())
             {
@@ -49,13 +49,20 @@ namespace Michael
             float mitigation = stats.GetArmorMitigation(armorReduction);
             damage = damage * (1 - mitigation);
 
+            float resistance = stats.GetElementalResistance(element);
+            elementalDamage = elementalDamage * (1 - resistance);
+            TakeKnockback(damage, damageDealer);
+            ReduceHP(damage + elementalDamage);
+
+            return true;
+        }
+
+        private void TakeKnockback(float damage, Transform damageDealer)
+        {
             var (knockback, duration) = CalculateKnockback(damage, damageDealer);
             entity.ReceiveKnockback(knockback, duration);
             entityVFX?.PlayOnDamageVFX();
             entityAudio?.PlayOnDamageSFX();
-            ReduceHP(damage);
-
-            return true;
         }
 
         private bool AttackEvaded()
