@@ -9,9 +9,7 @@ namespace Solomon
         public PlayerInputs inputs;
         public Animator anim;
 
-        public PlayerState idleState;
-        public PlayerState moveState;
-        public PlayerState dashState;
+        public PlayerState groundState;
 
         [SerializeField] public Vector2 moveInputValue;
 
@@ -24,14 +22,13 @@ namespace Solomon
             anim = GetComponent<Animator>();
             Assert.IsNotNull(anim);
 
-            idleState = new PlayerIdleState(this, stateMachine, "idle");
-            moveState = new PlayerMoveState(this, stateMachine, "move");
+            groundState = new PlayerGroundedState(this, stateMachine, "");
         }
 
         protected override void Start()
         {
             base.Start();
-            stateMachine.Init(idleState);
+            stateMachine.Init(groundState);
         }
 
         protected override void Update()
@@ -45,7 +42,6 @@ namespace Solomon
             inputs.Enable();
             inputs.Player.Movement.performed += OnPlayerMovementInputPerformed;
             inputs.Player.Movement.canceled += OnPlayerMovementInputCanceled;
-            //inputs.Player.Jump.performed += OnPlayerJumpPerformed;
         }
 
         private void OnDisable()
@@ -53,7 +49,6 @@ namespace Solomon
             inputs.Disable();
             inputs.Player.Movement.performed -= OnPlayerMovementInputPerformed;
             inputs.Player.Movement.canceled -= OnPlayerMovementInputCanceled;
-            //inputs.Player.Jump.performed -= OnPlayerJumpPerformed;
         }
 
         private void OnPlayerMovementInputPerformed(InputAction.CallbackContext ctx)
@@ -65,10 +60,5 @@ namespace Solomon
         {
             moveInputValue = Vector2.zero;
         }
-
-        //private void OnPlayerJumpPerformed(InputAction.CallbackContext ctx)
-        //{
-        //    Jump();
-        //}
     }
 }

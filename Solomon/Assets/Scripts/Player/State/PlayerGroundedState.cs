@@ -1,10 +1,12 @@
 using UnityEngine;
-using UnityEngine.Playables;
 
 namespace Solomon
 {
     public class PlayerGroundedState : PlayerState
     {
+        private const float MOVE_THRESHOLD = 0.1f;
+        private float prevVelocityX = 0f;
+
         public PlayerGroundedState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
         }
@@ -13,17 +15,35 @@ namespace Solomon
         {
             base.Update();
 
-            //if (rb.linearVelocity.y < 0 && !player.groundDetected)
-            //{
-            //    // FALL
-            //    return;
-            //}
+            if (stateMachine.currentState != this)
+            {
+                return;
+            }
 
-            //if (inputs.Player.Jump.WasPressedThisFrame())
-            //{
-            //    // JUMP
-            //    return;
-            //}
+            var x = rb.linearVelocity.x;
+            var xs = Mathf.Abs(x);
+            anim.SetBool("move", xs > MOVE_THRESHOLD);
+
+            if (x != prevVelocityX && xs == 1f)
+            {
+                if (prevVelocityX == 0f)
+                {
+                    // TODO IDLE -> ×ªÉí
+                }
+                else
+                {
+                    if (x < 0f)
+                    {
+                        anim.SetBool("turnLeft", true);
+                    }
+                    else
+                    {
+                        anim.SetBool("turnRight", true);
+                    }
+                }
+
+                prevVelocityX = x;
+            }
         }
     }
 }

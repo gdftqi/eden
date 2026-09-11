@@ -53,7 +53,6 @@
     <Compile Include="Assets\Scripts\StatSystem\StatDefenseGroup.cs" />
     <Compile Include="Assets\Scripts\StatSystem\Stat.cs" />
     <Compile Include="Assets\Scripts\Actor\Actor.cs" />
-    <Compile Include="Assets\Scripts\Player\State\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Chapter\ChapterEnvironment.cs" />
     <Compile Include="Assets\Scripts\Actor\ActorState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatMajorGroup.cs" />
@@ -65,8 +64,8 @@
     <Compile Include="Assets\Scripts\StatSystem\StatResourceGroup.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
     <Compile Include="Assets\Scripts\State\StateMachine.cs" />
+    <Compile Include="Assets\Scripts\Player\State\PlayerTurnState.cs" />
     <Compile Include="Assets\Scripts\Player\Player.cs" />
-    <Compile Include="Assets\Scripts\Player\State\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatLocomotionGroup.cs" />
   </ItemGroup>
   <ItemGroup>

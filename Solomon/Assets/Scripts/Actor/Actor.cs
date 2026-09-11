@@ -19,6 +19,12 @@ namespace Solomon
         [SerializeField, Tooltip("初始偏移角度")]
         private float modelYawOffset = 90f;
 
+        [SerializeField, Tooltip("转身角速度, 度/秒. 1440 约等于 0.125 秒转完 180 度")]
+        private float turnSpeed = 1440f;
+
+        // 转身的目标朝向. Flip 只改这个值, 实际旋转在 Update 里逐帧靠拢, 避免一帧翻完的生硬感.
+        private float targetYaw;
+
         [SerializeField, Tooltip("地面检测距离")]
         protected float groundCheckDistance = 1.05f;
 
@@ -72,6 +78,10 @@ namespace Solomon
         {
             groundDetected = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, whatIsGround);
             stateMachine.currentState.Update();
+
+            // 匀速转向目标朝向. 用 RotateTowards 而不是 Slerp: 角速度恒定, 转身耗时可预测.
+            rb.rotation = Quaternion.RotateTowards(
+                rb.rotation, Quaternion.Euler(0f, targetYaw, 0f), turnSpeed * Time.deltaTime);
         }
 
         protected virtual void FixedUpdate()
@@ -95,12 +105,6 @@ namespace Solomon
         {
             var moveSpeed = locomotion.moveSpeed.GetValue();
             rb.linearVelocity = new Vector3(x * moveSpeed, y, rb.linearVelocity.z);
-
-            float vx = rb.linearVelocity.x;
-            if (Mathf.Abs(vx) >= FLIP_THRESHOLD && Mathf.Sign(vx) != faceDirection)
-            {
-                Flip();
-            }
         }
 
 
@@ -121,7 +125,7 @@ namespace Solomon
         public void Flip()
         {
             faceDirection = -faceDirection;
-            rb.rotation = Quaternion.Euler(0f, (faceDirection > 0f ? 0f : 180f) + modelYawOffset, 0f);
+            targetYaw = (faceDirection > 0f ? 0f : 180f) + modelYawOffset;
         }
 
 
@@ -146,7 +150,8 @@ namespace Solomon
             capsuleCollider.radius = 0.2f;
             capsuleCollider.center = new Vector3(0f, 0.81f, 0f);
 
-            transform.rotation = Quaternion.Euler(0f, modelYawOffset, 0f);
+            targetYaw = (faceDirection > 0f ? 0f : 180f) + modelYawOffset;
+            transform.rotation = Quaternion.Euler(0f, targetYaw, 0f);
         }
 
 

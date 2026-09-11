@@ -20,13 +20,21 @@ namespace Solomon
 
         public virtual void Enter()
         {
-            anim.SetBool(stateConditionName, true);
+            // conditionName 为空表示这个状态不需要自己的 Animator bool (比如动画由别的参数驱动).
+            if (!string.IsNullOrEmpty(stateConditionName))
+            {
+                anim.SetBool(stateConditionName, true);
+            }
+
             triggerCalled = false;
         }
 
         public virtual void Exit()
         {
-            anim.SetBool(stateConditionName, false);
+            if (!string.IsNullOrEmpty(stateConditionName))
+            {
+                anim.SetBool(stateConditionName, false);
+            }
         }
 
         public virtual void Update()
