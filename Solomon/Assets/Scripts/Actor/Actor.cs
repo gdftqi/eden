@@ -48,11 +48,9 @@ namespace Solomon
 
         protected virtual void Awake()
         {
-            rb = GetComponent<Rigidbody>();
-            Assert.IsNotNull(rb);
-
-            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionZ;
+            InitRigibody();
         }
+
 
         protected virtual void Update()
         {
@@ -107,6 +105,38 @@ namespace Solomon
         {
             transform.Rotate(0f, 180f, 0f);
             faceDirection = -faceDirection;
+        }
+
+
+        private void InitRigibody()
+        {
+            if (rb == null)
+            {
+                rb = GetComponent<Rigidbody>();
+            }
+
+            Assert.IsNotNull(rb);
+            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionZ;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        }
+
+
+        private void InitCamera()
+        {
+
+        }
+
+
+        private void Reset()
+        {
+            InitRigibody();
+        }
+
+
+        private void OnValidate()
+        {
+            InitRigibody();
         }
 
 
