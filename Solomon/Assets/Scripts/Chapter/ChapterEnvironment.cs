@@ -28,7 +28,7 @@ namespace Solomon
         [SerializeField] private CinemachineCamera cmPlayer;
         [SerializeField, Tooltip("越小越扁平越接近正交, 2.5D 用 25 左右")]
         private float fieldOfView = 25f;
-        [SerializeField] private float cameraDistance = 20f;
+        [SerializeField] private float cameraDistance = 14f;
 
         private void Awake()
         {

@@ -1,18 +1,23 @@
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace Solomon
 {
-    [RequireComponent(typeof(Rigidbody))]
+    [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
     public class Actor : MonoBehaviour
     {
         private const float FLIP_THRESHOLD = 0.1f;
 
         protected Rigidbody rb;
+        protected CapsuleCollider capsuleCollider;
 
         [SerializeField, Tooltip("角色朝向: 1 面向右, -1 面向左")]
         protected float faceDirection = 1f;
-    
+
+        [SerializeField, Tooltip("初始偏移角度")]
+        private float modelYawOffset = 90f;
+
         [SerializeField, Tooltip("地面检测距离")]
         protected float groundCheckDistance = 1.05f;
 
@@ -103,8 +108,8 @@ namespace Solomon
 
         public void Flip()
         {
-            transform.Rotate(0f, 180f, 0f);
             faceDirection = -faceDirection;
+            rb.rotation = Quaternion.Euler(0f, (faceDirection > 0f ? 0f : 180f) + modelYawOffset, 0f);
         }
 
 
@@ -119,12 +124,17 @@ namespace Solomon
             rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionZ;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-        }
 
+            if (capsuleCollider == null)
+            {
+                capsuleCollider = GetComponent<CapsuleCollider>();
+            }
 
-        private void InitCamera()
-        {
+            capsuleCollider.height = 1.68f;
+            capsuleCollider.radius = 0.2f;
+            capsuleCollider.center = new Vector3(0f, 0.8f, 0f);
 
+            transform.rotation = Quaternion.Euler(0f, modelYawOffset, 0f);
         }
 
 
