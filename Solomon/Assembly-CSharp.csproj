@@ -49,18 +49,24 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.24f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Player\State\PlayerState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatDefenseGroup.cs" />
     <Compile Include="Assets\Scripts\StatSystem\Stat.cs" />
     <Compile Include="Assets\Scripts\Actor\Actor.cs" />
+    <Compile Include="Assets\Scripts\Player\State\PlayerMoveState.cs" />
     <Compile Include="Assets\Scripts\Chapter\ChapterEnvironment.cs" />
+    <Compile Include="Assets\Scripts\Actor\ActorState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatMajorGroup.cs" />
     <Compile Include="Assets\Scripts\Chapter\Chapter_000.cs" />
     <Compile Include="Assets\Scripts\Camera\Camera.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatOffenseGroup.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\Scripts\Player\State\PlayerGroundedState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatResourceGroup.cs" />
     <Compile Include="Assets\InputSystem\PlayerInputs.cs" />
+    <Compile Include="Assets\Scripts\State\StateMachine.cs" />
     <Compile Include="Assets\Scripts\Player\Player.cs" />
+    <Compile Include="Assets\Scripts\Player\State\PlayerIdleState.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatLocomotionGroup.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -6,14 +6,32 @@ namespace Solomon
 {
     public class Player : Actor
     {
-        PlayerInputs inputs;
-        [SerializeField] private Vector2 moveInputValue;
+        public PlayerInputs inputs;
+        public Animator anim;
+
+        public PlayerState idleState;
+        public PlayerState moveState;
+        public PlayerState dashState;
+
+        [SerializeField] public Vector2 moveInputValue;
 
         protected override void Awake()
         {
             base.Awake();
             inputs = new PlayerInputs();
             Assert.IsNotNull(inputs);
+
+            anim = GetComponent<Animator>();
+            Assert.IsNotNull(anim);
+
+            idleState = new PlayerIdleState(this, stateMachine, "idle");
+            moveState = new PlayerMoveState(this, stateMachine, "move");
+        }
+
+        protected override void Start()
+        {
+            base.Start();
+            stateMachine.Init(idleState);
         }
 
         protected override void Update()
@@ -27,7 +45,7 @@ namespace Solomon
             inputs.Enable();
             inputs.Player.Movement.performed += OnPlayerMovementInputPerformed;
             inputs.Player.Movement.canceled += OnPlayerMovementInputCanceled;
-            inputs.Player.Jump.performed += OnPlayerJumpPerformed;
+            //inputs.Player.Jump.performed += OnPlayerJumpPerformed;
         }
 
         private void OnDisable()
@@ -35,7 +53,7 @@ namespace Solomon
             inputs.Disable();
             inputs.Player.Movement.performed -= OnPlayerMovementInputPerformed;
             inputs.Player.Movement.canceled -= OnPlayerMovementInputCanceled;
-            inputs.Player.Jump.performed -= OnPlayerJumpPerformed;
+            //inputs.Player.Jump.performed -= OnPlayerJumpPerformed;
         }
 
         private void OnPlayerMovementInputPerformed(InputAction.CallbackContext ctx)
@@ -48,9 +66,9 @@ namespace Solomon
             moveInputValue = Vector2.zero;
         }
 
-        private void OnPlayerJumpPerformed(InputAction.CallbackContext ctx)
-        {
-            Jump();
-        }
+        //private void OnPlayerJumpPerformed(InputAction.CallbackContext ctx)
+        //{
+        //    Jump();
+        //}
     }
 }

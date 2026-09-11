@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Assertions;
 
@@ -9,11 +8,13 @@ namespace Solomon
     {
         private const float FLIP_THRESHOLD = 0.1f;
 
-        protected Rigidbody rb;
+        public Rigidbody rb;
         protected CapsuleCollider capsuleCollider;
 
+        protected StateMachine stateMachine;
+
         [SerializeField, Tooltip("角色朝向: 1 面向右, -1 面向左")]
-        protected float faceDirection = 1f;
+        public float faceDirection = 1f;
 
         [SerializeField, Tooltip("初始偏移角度")]
         private float modelYawOffset = 90f;
@@ -21,23 +22,25 @@ namespace Solomon
         [SerializeField, Tooltip("地面检测距离")]
         protected float groundCheckDistance = 1.05f;
 
-        [SerializeField, Tooltip("是否检测到地面")]
-        protected bool groundDetected = true;
-
         [SerializeField, Tooltip("地面图层")]
         protected LayerMask whatIsGround;
 
+        [SerializeField, Tooltip("是否检测到地面")]
+        public bool groundDetected = true;
+
+        public bool wallDetected = false;
+
         [SerializeField, Tooltip("运动属性")]
-        StatLocomotionGroup locomotion = new StatLocomotionGroup(5f);
+        public StatLocomotionGroup locomotion = new StatLocomotionGroup(5f);
 
         [SerializeField, Tooltip("主属性")]
-        StatMajorGroup major;
+        public StatMajorGroup major;
 
         [SerializeField, Tooltip("攻击类属性")]
-        StatOffenseGroup offense;
+        public StatOffenseGroup offense;
 
         [SerializeField, Tooltip("防御类属性")]
-        StatDefenseGroup defense;
+        public StatDefenseGroup defense;
 
         protected float JumpTime
         {
@@ -54,18 +57,21 @@ namespace Solomon
         protected virtual void Awake()
         {
             InitRigibody();
+
+            stateMachine = new StateMachine();
+        }
+
+
+        protected virtual void Start()
+        {
+
         }
 
 
         protected virtual void Update()
         {
             groundDetected = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, whatIsGround);
-
-            float vx = rb.linearVelocity.x;
-            if (Mathf.Abs(vx) >= FLIP_THRESHOLD && Mathf.Sign(vx) != faceDirection)
-            {
-                Flip();
-            }
+            stateMachine.currentState.Update();
         }
 
         protected virtual void FixedUpdate()
@@ -89,6 +95,12 @@ namespace Solomon
         {
             var moveSpeed = locomotion.moveSpeed.GetValue();
             rb.linearVelocity = new Vector3(x * moveSpeed, y, rb.linearVelocity.z);
+
+            float vx = rb.linearVelocity.x;
+            if (Mathf.Abs(vx) >= FLIP_THRESHOLD && Mathf.Sign(vx) != faceDirection)
+            {
+                Flip();
+            }
         }
 
 
@@ -130,9 +142,9 @@ namespace Solomon
                 capsuleCollider = GetComponent<CapsuleCollider>();
             }
 
-            capsuleCollider.height = 1.68f;
+            capsuleCollider.height = 1.65f;
             capsuleCollider.radius = 0.2f;
-            capsuleCollider.center = new Vector3(0f, 0.8f, 0f);
+            capsuleCollider.center = new Vector3(0f, 0.81f, 0f);
 
             transform.rotation = Quaternion.Euler(0f, modelYawOffset, 0f);
         }
