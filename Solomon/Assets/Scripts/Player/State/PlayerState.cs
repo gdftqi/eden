@@ -10,7 +10,6 @@ namespace Solomon
             this.player = player;
             anim = player.anim;
             inputs = player.inputs;
-            rb = player.rb;
         }
     }
 }

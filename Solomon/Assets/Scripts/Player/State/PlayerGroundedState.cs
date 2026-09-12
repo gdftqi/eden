@@ -5,7 +5,9 @@ namespace Solomon
     public class PlayerGroundedState : PlayerState
     {
         private const float MOVE_THRESHOLD = 0.1f;
-        private float prevVelocityX = 0f;
+        private const float MOVE_MEMORY = 0.12f;
+
+        private float moveTimer;
 
         public PlayerGroundedState(Player player, StateMachine sm, string conditionName) : base(player, sm, conditionName)
         {
@@ -20,30 +22,25 @@ namespace Solomon
                 return;
             }
 
-            var x = rb.linearVelocity.x;
-            var xs = Mathf.Abs(x);
-            anim.SetBool("move", xs > MOVE_THRESHOLD);
+            float vx = player.velocity.x;
+            float input = player.moveInputValue.x;
 
-            if (x != prevVelocityX && xs == 1f)
+            if (this != player.turnState && input != 0f && Mathf.Sign(input) != player.faceDirection)
             {
-                if (prevVelocityX == 0f)
-                {
-                    // TODO IDLE -> ×ªÉí
-                }
-                else
-                {
-                    if (x < 0f)
-                    {
-                        anim.SetBool("turnLeft", true);
-                    }
-                    else
-                    {
-                        anim.SetBool("turnRight", true);
-                    }
-                }
-
-                prevVelocityX = x;
+                stateMachine.ChangeState(player.turnState);
+                return;
             }
+
+            if (Mathf.Abs(vx) > MOVE_THRESHOLD)
+            {
+                moveTimer = MOVE_MEMORY;
+            }
+            else
+            {
+                moveTimer = Mathf.Max(moveTimer - Time.deltaTime, 0f);
+            }
+
+            anim.SetBool("move", moveTimer > 0f);
         }
     }
 }

@@ -3,13 +3,13 @@ using UnityEngine.Assertions;
 
 namespace Solomon
 {
-    [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
+    [RequireComponent(typeof(CharacterController))]
     public class Actor : MonoBehaviour
     {
-        private const float FLIP_THRESHOLD = 0.1f;
+        private const float GROUND_STICK_SPEED = -2f;
 
-        public Rigidbody rb;
-        protected CapsuleCollider capsuleCollider;
+        protected CharacterController cc;
+        public Vector3 velocity;
 
         protected StateMachine stateMachine;
 
@@ -22,8 +22,9 @@ namespace Solomon
         [SerializeField, Tooltip("转身角速度, 度/秒. 1440 约等于 0.125 秒转完 180 度")]
         private float turnSpeed = 1440f;
 
-        // 转身的目标朝向. Flip 只改这个值, 实际旋转在 Update 里逐帧靠拢, 避免一帧翻完的生硬感.
         private float targetYaw;
+
+        public bool animationDrivenRotation;
 
         [SerializeField, Tooltip("地面检测距离")]
         protected float groundCheckDistance = 1.05f;
@@ -62,7 +63,9 @@ namespace Solomon
 
         protected virtual void Awake()
         {
-            InitRigibody();
+            InitController();
+            targetYaw = (faceDirection > 0f ? 0f : 180f) + modelYawOffset;
+            transform.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
             stateMachine = new StateMachine();
         }
@@ -76,35 +79,46 @@ namespace Solomon
 
         protected virtual void Update()
         {
-            groundDetected = Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, whatIsGround);
             stateMachine.currentState.Update();
 
-            // 匀速转向目标朝向. 用 RotateTowards 而不是 Slerp: 角速度恒定, 转身耗时可预测.
-            rb.rotation = Quaternion.RotateTowards(
-                rb.rotation, Quaternion.Euler(0f, targetYaw, 0f), turnSpeed * Time.deltaTime);
+            ApplyGravity();
+
+            Vector3 move = velocity * Time.deltaTime;
+            move.z = 0f;
+            cc.Move(move);
+
+            groundDetected = cc.isGrounded;
+            if (!animationDrivenRotation)
+            {
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation, Quaternion.Euler(0f, targetYaw, 0f), turnSpeed * Time.deltaTime);
+            }
         }
 
-        protected virtual void FixedUpdate()
+
+        private void ApplyGravity()
         {
-            float vy = rb.linearVelocity.y;
+            if (groundDetected && velocity.y < 0f)
+            {
+                velocity.y = GROUND_STICK_SPEED;
+                return;
+            }
+
             float t = JumpTime;
-            if (vy == 0f || t <= 0f)
+            if (t <= 0f)
             {
                 return;
             }
 
-            var jumpForce = locomotion.moveSpeed.GetValue() * 0.416f;
-            float target = 2f * jumpForce / (t * t);
-
-            float g = -Physics.gravity.y;
-            rb.linearVelocity += Vector3.down * (target - g) * Time.fixedDeltaTime;
+            float jumpHeight = locomotion.moveSpeed.GetValue() * 0.416f;
+            velocity.y -= 2f * jumpHeight / (t * t) * Time.deltaTime;
         }
 
 
         public void SetVelocity(float x, float y)
         {
-            var moveSpeed = locomotion.moveSpeed.GetValue();
-            rb.linearVelocity = new Vector3(x * moveSpeed, y, rb.linearVelocity.z);
+            velocity.x = x * locomotion.moveSpeed.GetValue();
+            velocity.y = y;
         }
 
 
@@ -114,11 +128,15 @@ namespace Solomon
             if (groundDetected && t > 0f)
             {
                 var jumpForce = locomotion.moveSpeed.GetValue() * 0.416f;
-
                 float a = 2f * jumpForce / (t * t);
-                float v = 2f * jumpForce / t + a * Time.fixedDeltaTime * 0.5f;
-                rb.linearVelocity = new Vector3(rb.linearVelocity.x, v, rb.linearVelocity.z);
+                velocity.y = 2f * jumpForce / t + a * Time.deltaTime * 0.5f;
             }
+        }
+
+
+        public void CallAnimationTrigger()
+        {
+            stateMachine.currentState.CallAnimationTrigger();
         }
 
 
@@ -129,41 +147,32 @@ namespace Solomon
         }
 
 
-        private void InitRigibody()
+        private void InitController()
         {
-            if (rb == null)
+            if (cc == null)
             {
-                rb = GetComponent<Rigidbody>();
+                cc = GetComponent<CharacterController>();
             }
+            Assert.IsNotNull(cc);
+        }
 
-            Assert.IsNotNull(rb);
-            rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionZ;
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
-            if (capsuleCollider == null)
-            {
-                capsuleCollider = GetComponent<CapsuleCollider>();
-            }
+        private void Reset()
+        {
+            InitController();
 
-            capsuleCollider.height = 1.65f;
-            capsuleCollider.radius = 0.2f;
-            capsuleCollider.center = new Vector3(0f, 0.81f, 0f);
+            cc.height = 1.65f;
+            cc.radius = 0.2f;
+            cc.center = new Vector3(0f, 0.81f, 0f);
 
             targetYaw = (faceDirection > 0f ? 0f : 180f) + modelYawOffset;
             transform.rotation = Quaternion.Euler(0f, targetYaw, 0f);
         }
 
 
-        private void Reset()
-        {
-            InitRigibody();
-        }
-
-
         private void OnValidate()
         {
-            InitRigibody();
+            InitController();
         }
 
 

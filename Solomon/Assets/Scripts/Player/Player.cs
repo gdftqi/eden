@@ -10,6 +10,7 @@ namespace Solomon
         public Animator anim;
 
         public PlayerState groundState;
+        public PlayerState turnState;
 
         [SerializeField] public Vector2 moveInputValue;
 
@@ -23,6 +24,7 @@ namespace Solomon
             Assert.IsNotNull(anim);
 
             groundState = new PlayerGroundedState(this, stateMachine, "");
+            turnState = new PlayerTurnState(this, stateMachine, "turn");
         }
 
         protected override void Start()
@@ -34,8 +36,19 @@ namespace Solomon
         protected override void Update()
         {
             base.Update();
-            SetVelocity(moveInputValue.x, rb.linearVelocity.y);
+            SetVelocity(moveInputValue.x, velocity.y);
         }
+
+        private void OnAnimatorMove()
+        {
+            transform.rotation *= anim.deltaRotation;
+
+            Vector3 delta = anim.deltaPosition;
+            delta.y = 0f;
+            delta.z = 0f;
+            cc.Move(delta);
+        }
+
 
         private void OnEnable()
         {

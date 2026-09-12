@@ -7,7 +7,6 @@ namespace Solomon
         protected StateMachine stateMachine;
         protected string stateConditionName;
         protected Animator anim;
-        protected Rigidbody rb;
 
         protected float stateTimer = 0f;
         protected bool triggerCalled = false;
