@@ -8,6 +8,12 @@ namespace Solomon
         public IA_Player inputs;
         private Vector2 moveInputValue;
 
+        // 给 PlayerCamera 读的只读状态
+        public Vector2 MoveInput => moveInputValue;
+        public bool Grounded => groundDetected;
+        public float VerticalSpeed => body.linearVelocityY;
+        public float HorizontalSpeed => body.linearVelocityX;
+
 
         protected override void Awake()
         {
