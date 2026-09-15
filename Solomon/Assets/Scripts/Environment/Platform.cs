@@ -9,6 +9,7 @@ namespace Solomon
     {
         [SerializeField] private float tolerance = 0.05f;      // 脚底和顶面的容差, 防止贴合时抖动
         [SerializeField] private float dropThroughTime = 0.3f; // 主动下穿持续多久
+        [SerializeField] private float topInset = 0.15f;       // 顶面比格子上沿低多少, 让脚踩在美术的地表线上
 
         private readonly List<BoxCollider2D> blocks = new List<BoxCollider2D>();
         private readonly List<bool> ignoring = new List<bool>();
@@ -110,6 +111,8 @@ namespace Solomon
         {
             Vector3 min = map.CellToLocal(new Vector3Int(xMin, y, 0));
             Vector3 max = map.CellToLocal(new Vector3Int(xMax + 1, y + 1, 0));
+
+            max.y -= topInset;
 
             var go = new GameObject($"P_{y}_{xMin}");
             go.layer = gameObject.layer;
