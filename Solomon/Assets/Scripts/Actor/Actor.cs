@@ -8,7 +8,8 @@ namespace Solomon
         [Header("--------------------- Ground 检测 ---------------------")]
         [SerializeField] protected bool groundDetected = false;
         [SerializeField] protected bool switchGroundDetected = false;
-        [SerializeField] protected float groundDetectedDistance = 0.15f;
+        [SerializeField] protected float groundDetectedDistance = 1.1f;
+        [SerializeField] protected float groundDetectedOriginOffset = 1f;
         [SerializeField] protected LayerMask whatIsGround;
 
 
@@ -40,8 +41,9 @@ namespace Solomon
         {
             if (switchGroundDetected)
             {
+                Vector2 origin = (Vector2)transform.position + Vector2.up * groundDetectedOriginOffset;
                 Gizmos.color = Color.red;
-                Gizmos.DrawLine(transform.position, transform.position + new Vector3(0f, -groundDetectedDistance));
+                Gizmos.DrawLine(origin, origin + new Vector2(0f, -groundDetectedDistance));
             }
         }
 
@@ -50,7 +52,8 @@ namespace Solomon
         {
             if (switchGroundDetected)
             {
-                groundDetected = Physics2D.Raycast(transform.position, Vector2.down, groundDetectedDistance, whatIsGround);
+                Vector2 origin = (Vector2)transform.position + Vector2.up * groundDetectedOriginOffset;
+                groundDetected = Physics2D.Raycast(origin, Vector2.down, groundDetectedDistance, whatIsGround);
             }
         }
     }

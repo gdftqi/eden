@@ -85,5 +85,11 @@ namespace Solomon
         {
             moveInputValue = Vector2.zero;
         }
+
+
+        private void InitCamera()
+        {
+
+        }
     }
 }

@@ -7,11 +7,11 @@ namespace Solomon
     public class Character : Actor
     {
         [Header("--------------------- 移动 ---------------------")]
-        public float moveSpeed = 1f;
+        public float moveSpeed = 6f;
 
         [Header("--------------------- 跳跃 ---------------------")]
         [SerializeField] protected float jumpHeight = 3f;    // 最高点高度, 单位: 米
-        [SerializeField] protected float jumpSpan = 10f;     // 一次跳跃的水平距离, 单位: 米
+        [SerializeField] protected float jumpSpan = 8f;     // 一次跳跃的水平距离, 单位: 米
 
         [SerializeField] protected float jumpTimeMin = 0.15f;   // 上升时间下限, 单位: 秒
         [SerializeField] protected float jumpTimeMax = 0.35f;   // 上升时间上限, 单位: 秒
