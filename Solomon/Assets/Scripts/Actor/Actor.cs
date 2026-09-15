@@ -12,6 +12,8 @@ namespace Solomon
         [SerializeField] protected float groundDetectedOriginOffset = 1f;
         [SerializeField] protected LayerMask whatIsGround;
 
+        private float groundIgnoreTimer;
+
 
         protected virtual void Awake()
         {
@@ -48,8 +50,21 @@ namespace Solomon
         }
 
 
+        protected void IgnoreGroundFor(float seconds)
+        {
+            groundIgnoreTimer = seconds;
+        }
+
+
         private void UpdateGroundDetectedCheck()
         {
+            if (groundIgnoreTimer > 0f)
+            {
+                groundIgnoreTimer -= Time.fixedDeltaTime;
+                groundDetected = false;
+                return;
+            }
+
             if (switchGroundDetected)
             {
                 Vector2 origin = (Vector2)transform.position + Vector2.up * groundDetectedOriginOffset;

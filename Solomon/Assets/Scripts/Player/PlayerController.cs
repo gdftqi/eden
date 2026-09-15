@@ -8,17 +8,47 @@ namespace Solomon
         public IA_Player inputs;
         private Vector2 moveInputValue;
 
-        // 给 PlayerCamera 读的只读状态
-        public Vector2 MoveInput => moveInputValue;
-        public bool Grounded => groundDetected;
-        public float VerticalSpeed => body.linearVelocityY;
-        public float HorizontalSpeed => body.linearVelocityX;
+
+        public Vector2 MoveInput
+        {
+            get { return moveInputValue; }
+        }
+        public bool Grounded
+        {
+            get
+            {
+                return groundDetected;
+            }
+        }
+        public float VerticalSpeed
+        {
+            get
+            {
+                return body.linearVelocityY;
+            }
+        }
+        public float HorizontalSpeed
+        {
+            get
+            {
+                return body.linearVelocityX;
+            }
+        }
+
+
+        private Platform platform;
 
 
         protected override void Awake()
         {
             base.Awake();
             inputs = new IA_Player();
+        }
+
+
+        private void Start()
+        {
+            platform = FindFirstObjectByType<Platform>();
         }
 
 
@@ -30,7 +60,15 @@ namespace Solomon
             {
                 if (inputs.Player.Jump.WasPressedThisFrame())
                 {
-                    Jump();
+                    if (moveInputValue.y < -0.5f && platform != null)
+                    {
+                        IgnoreGroundFor(platform.DropThrough());
+                    }
+                    else
+                    {
+                        Jump();
+                    }
+
                     return;
                 }
 
@@ -90,12 +128,6 @@ namespace Solomon
         private void OnPlayerMovementCanceled(InputAction.CallbackContext context)
         {
             moveInputValue = Vector2.zero;
-        }
-
-
-        private void InitCamera()
-        {
-
         }
     }
 }

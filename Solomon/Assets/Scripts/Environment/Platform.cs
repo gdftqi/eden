@@ -69,9 +69,10 @@ namespace Solomon
         }
 
 
-        public void DropThrough()
+        public float DropThrough()
         {
             dropThroughTimer = dropThroughTime;
+            return dropThroughTime;
         }
 
 
