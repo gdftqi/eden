@@ -20,15 +20,6 @@ namespace Solomon
         [SerializeField] private float confinerDamping = 0.5f;
         [SerializeField] private float confinerSlowingDistance = 0f;   // 离边界多近开始减速
 
-        //[Header("--------------------- 下望 ---------------------")]
-        //[SerializeField] private float lookDownDistance = 12f;    // 瞄准点下移多少米
-        //[SerializeField] private float lookDownDelay = 0.4f;     // 按住多久才开始下移
-        //[SerializeField] private float lookDownSpeed = 20f;      // 每秒移动多少米
-
-        //[Header("--------------------- 下落跟随 ---------------------")]
-        //[SerializeField] private float fallLookSpeed = 5f;       // 下落速度超过这个值才开始额外下移
-        //[SerializeField] private float fallLookDistance = 10f;    // 下落时额外下移多少米
-
         private CinemachineCamera cam;
         private CinemachinePositionComposer composer;
         private CinemachineConfiner2D confiner;

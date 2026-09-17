@@ -56,35 +56,40 @@ namespace Solomon
         {
             base.Update();
 
-            if (groundDetected)
+            if (inputs.Player.Attack.WasPressedThisFrame())
             {
-                if (inputs.Player.Jump.WasPressedThisFrame())
-                {
-                    if (moveInputValue.y < -0.5f && platform != null)
-                    {
-                        IgnoreGroundFor(platform.DropThrough());
-                    }
-                    else
-                    {
-                        Jump();
-                    }
+                Attack();
+            }
 
-                    return;
-                }
-
-                if (Mathf.Abs(moveInputValue.x) > 0.1f)
+            if (inputs.Player.Jump.WasPressedThisFrame() && groundDetected)
+            {
+                if (moveInputValue.y < -0.5f && platform != null)
                 {
-                    SetFacing(moveInputValue.x > 0f);
-                    PlayAnim("run", true);
+                    IgnoreGroundFor(platform.DropThrough());
                 }
                 else
                 {
-                    PlayAnim("idle", true);
+                    Jump();
                 }
+            }
+
+            // 动画优先级: 攻击 > 空中 > 地面移动 > 待机
+            if (IsAttacking())
+            {
+                // 攻击动画正在播, 不让任何状态覆盖它
+            }
+            else if (!groundDetected)
+            {
+                PlayAnim(body.linearVelocityY > 0f ? "jump" : "fall", false);
+            }
+            else if (Mathf.Abs(moveInputValue.x) > 0.1f)
+            {
+                SetFacing(moveInputValue.x > 0f);
+                PlayAnim("run", true);
             }
             else
             {
-                PlayAnim(body.linearVelocityY > 0f ? "jump" : "fall", false);
+                PlayAnim("idle", true);
             }
         }
 
@@ -92,7 +97,8 @@ namespace Solomon
         protected override void FixedUpdate()
         {
             base.FixedUpdate();
-            body.linearVelocityX = moveInputValue.x * moveSpeed;
+            // 攻击时不接受移动输入, 目标速度给 0, 靠 Deceleration() 滑停
+            Move(IsAttacking() ? 0f : moveInputValue.x);
         }
 
 

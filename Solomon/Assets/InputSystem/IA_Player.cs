@@ -113,6 +113,16 @@ namespace Solomon
                     ""interactions"": """",
                     ""initialStateCheck"": false,
                     ""priority"": 0
+                },
+                {
+                    ""name"": ""Attack"",
+                    ""type"": ""Button"",
+                    ""id"": ""1a4a2545-6cdf-4c1f-9a5e-404f4d25612a"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false,
+                    ""priority"": 0
                 }
             ],
             ""bindings"": [
@@ -181,6 +191,17 @@ namespace Solomon
                     ""action"": ""Jump"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e0a7e5d7-b005-4caf-8b3d-4a3f7acc6861"",
+                    ""path"": ""<Keyboard>/j"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Keyboard"",
+                    ""action"": ""Attack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -197,6 +218,7 @@ namespace Solomon
             m_Player = asset.FindActionMap("Player", throwIfNotFound: true);
             m_Player_Movement = m_Player.FindAction("Movement", throwIfNotFound: true);
             m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
+            m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
         }
 
         ~@IA_Player()
@@ -279,6 +301,7 @@ namespace Solomon
         private List<IPlayerActions> m_PlayerActionsCallbackInterfaces = new List<IPlayerActions>();
         private readonly InputAction m_Player_Movement;
         private readonly InputAction m_Player_Jump;
+        private readonly InputAction m_Player_Attack;
         /// <summary>
         /// Provides access to input actions defined in input action map "Player".
         /// </summary>
@@ -298,6 +321,10 @@ namespace Solomon
             /// Provides access to the underlying input action "Player/Jump".
             /// </summary>
             public InputAction @Jump => m_Wrapper.m_Player_Jump;
+            /// <summary>
+            /// Provides access to the underlying input action "Player/Attack".
+            /// </summary>
+            public InputAction @Attack => m_Wrapper.m_Player_Attack;
             /// <summary>
             /// Provides access to the underlying input action map instance.
             /// </summary>
@@ -330,6 +357,9 @@ namespace Solomon
                 @Jump.started += instance.OnJump;
                 @Jump.performed += instance.OnJump;
                 @Jump.canceled += instance.OnJump;
+                @Attack.started += instance.OnAttack;
+                @Attack.performed += instance.OnAttack;
+                @Attack.canceled += instance.OnAttack;
             }
 
             /// <summary>
@@ -347,6 +377,9 @@ namespace Solomon
                 @Jump.started -= instance.OnJump;
                 @Jump.performed -= instance.OnJump;
                 @Jump.canceled -= instance.OnJump;
+                @Attack.started -= instance.OnAttack;
+                @Attack.performed -= instance.OnAttack;
+                @Attack.canceled -= instance.OnAttack;
             }
 
             /// <summary>
@@ -414,6 +447,13 @@ namespace Solomon
             /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
             /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
             void OnJump(InputAction.CallbackContext context);
+            /// <summary>
+            /// Method invoked when associated input action "Attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+            /// </summary>
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+            /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+            void OnAttack(InputAction.CallbackContext context);
         }
     }
 }

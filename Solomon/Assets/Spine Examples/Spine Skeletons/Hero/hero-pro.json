@@ -317,7 +317,8 @@
 	}
 ],
 "events": {
-	"footstep": {}
+	"footstep": {},
+	"hit": {}
 },
 "animations": {
 	"attack": {
@@ -603,7 +604,8 @@
 					}
 				}
 			}
-		}
+		},
+		"events": [ { "time": 0.1333, "name": "hit" } ]
 	},
 	"crouch": {
 		"bones": {
