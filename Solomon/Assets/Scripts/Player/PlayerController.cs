@@ -13,6 +13,8 @@ namespace Solomon
         {
             get { return moveInputValue; }
         }
+
+
         public bool Grounded
         {
             get
@@ -20,6 +22,8 @@ namespace Solomon
                 return groundDetected;
             }
         }
+
+
         public float VerticalSpeed
         {
             get
@@ -27,6 +31,8 @@ namespace Solomon
                 return body.linearVelocityY;
             }
         }
+
+
         public float HorizontalSpeed
         {
             get
@@ -73,7 +79,6 @@ namespace Solomon
                 }
             }
 
-            // 动画优先级: 攻击 > 空中 > 地面移动 > 待机
             if (IsAttacking())
             {
                 // 攻击动画正在播, 不让任何状态覆盖它
@@ -97,8 +102,14 @@ namespace Solomon
         protected override void FixedUpdate()
         {
             base.FixedUpdate();
-            // 攻击时不接受移动输入, 目标速度给 0, 靠 Deceleration() 滑停
-            Move(IsAttacking() ? 0f : moveInputValue.x);
+            if (!IsAttacking())
+            {
+                Move(moveInputValue.x);
+            }
+            else if (groundDetected)
+            {
+                Move(0f);
+            }
         }
 
 
