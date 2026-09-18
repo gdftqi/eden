@@ -1,4 +1,6 @@
 using Spine.Unity;
+using System;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace Solomon
@@ -7,7 +9,7 @@ namespace Solomon
     public class Character : Actor
     {
         protected Rigidbody2D body;
-        protected CapsuleCollider2D capsule;
+        protected BoxCollider2D collider;
         protected SkeletonAnimation skeleton;
 
         private string currentAnim;
@@ -16,18 +18,28 @@ namespace Solomon
         [Header("--------------------- 运动 --------------------")]
         [SerializeField] protected StatLocomotion locomotion = new StatLocomotion();
 
+
+        [Header("--------------------- 攻击 --------------------")]
+        [SerializeField] protected bool switchAttackCheck = false;
+        [SerializeField] protected bool attackDetected = false;
+        [SerializeField] protected Vector2 attackCheckOriginal;
+        [SerializeField] protected float attackCheckWidth;
+        [SerializeField] protected float attackCheckHeight;
+        [SerializeField] protected LayerMask whatIsEnemy;
+
+
         protected override void Awake()
         {
             base.Awake();
             Init();
-            skeleton.AnimationState.Event += OnSpineEvent;
+            skeleton.AnimationState.Event += OnAttackEvent;
         }
 
 
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            skeleton.AnimationState.Event -= OnSpineEvent;
+            skeleton.AnimationState.Event -= OnAttackEvent;
         }
 
 
@@ -105,9 +117,9 @@ namespace Solomon
                 body = GetComponent<Rigidbody2D>();
             }
 
-            if (capsule == null)
+            if (collider == null)
             {
-                capsule = GetComponent<CapsuleCollider2D>();
+                collider = GetComponent<BoxCollider2D>();
             }
 
             if (skeleton == null)
@@ -162,12 +174,43 @@ namespace Solomon
         }
 
 
-        private void OnSpineEvent(Spine.TrackEntry entry, Spine.Event e)
+        private void OnAttackEvent(Spine.TrackEntry entry, Spine.Event e)
         {
-            if (e.Data.Name == "hit")
+            if (e.Data.Name != "hit")
             {
-                Debug.Log("--------------------------- attacked ------------------------------");
+                return;
             }
+
+            Collider2D[] hits = Physics2D.OverlapBoxAll(AttackCheckCenter(), new Vector2(attackCheckWidth, attackCheckHeight), 0f, whatIsEnemy);
+
+            attackDetected = hits.Length > 0;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                Debug.Log("打到了: " + hits[i].name);
+            }
+        }
+
+
+        protected override void OnDrawGizmos()
+        {
+            base.OnDrawGizmos();
+
+            if (!switchAttackCheck)
+            {
+                return;
+            }
+
+            Gizmos.color = attackDetected ? Color.green : Color.red;
+            Gizmos.DrawWireCube(AttackCheckCenter(), new Vector3(attackCheckWidth, attackCheckHeight, 0f));
+        }
+
+
+        protected Vector2 AttackCheckCenter()
+        {
+            float facing = skeleton != null && skeleton.Skeleton != null ? Mathf.Sign(skeleton.Skeleton.ScaleX) : 1f;
+
+            return (Vector2)transform.position + new Vector2(attackCheckOriginal.x * facing, attackCheckOriginal.y);
         }
     }
 }

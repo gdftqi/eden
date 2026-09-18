@@ -40,7 +40,7 @@ namespace Solomon
         }
 
 
-        private void OnDrawGizmos()
+        protected virtual void OnDrawGizmos()
         {
             if (!switchGroundDetected)
             {

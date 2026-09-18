@@ -11,8 +11,8 @@ TagManager:
   - Ground
   - Water
   - UI
-  - 
-  - 
+  - Enemy
+  - Player
   - 
   - 
   - 
@@ -43,6 +43,12 @@ TagManager:
     locked: 0
   - name: Ground
     uniqueID: 3075697067
+    locked: 0
+  - name: Player
+    uniqueID: 4208967567
+    locked: 0
+  - name: Enemy
+    uniqueID: 1448265835
     locked: 0
   - name: Default
     uniqueID: 0

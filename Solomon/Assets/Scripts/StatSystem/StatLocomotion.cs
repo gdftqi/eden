@@ -8,9 +8,9 @@ namespace Solomon
     {
         public Stat MoveSpeed = new Stat(6f);
         public Stat JumpHeight = new Stat(3f);    // 最高点高度, 单位: 米
-        public Stat JumpSpan = new Stat(8f);     // 一次跳跃的水平距离, 单位: 米
-        public float JumpTimeMin = 0.15f;   // 上升时间下限, 单位: 秒
-        public float JumpTimeMax = 0.35f;   // 上升时间上限, 单位: 秒
+        public Stat JumpSpan = new Stat(8f);      // 一次跳跃的水平距离, 单位: 米
+        public float JumpTimeMin = 0.15f;         // 上升时间下限, 单位: 秒
+        public float JumpTimeMax = 0.35f;         // 上升时间上限, 单位: 秒
 
         private const float AccelTimeSlow = 0.35f;
         private const float AccelTimeFast = 0.085f;
