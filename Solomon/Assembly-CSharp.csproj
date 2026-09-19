@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\InputSystem\IA_Player.cs" />
+    <Compile Include="Assets\Scripts\StatSystem\StatOffense.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\LightControl\LightControlTrack.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TimeDilation\TimeDilationBehaviour.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\ScreenFader\ScreenFaderBehaviour.cs" />
@@ -67,6 +68,7 @@
     <Compile Include="Assets\Scripts\Player\PlayerCamera.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\Video\VideoPlayableBehaviour.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\Video\VideoScriptPlayableAsset.cs" />
+    <Compile Include="Assets\Scripts\StatSystem\StatMajor.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\Standard Assets\Effects\ImageEffects\Scripts\PostEffectsBase.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TransformTween\TransformTweenTrack.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TextSwitcher\TextSwitcherMixerBehaviour.cs" />
@@ -75,11 +77,14 @@
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\LightControl\LightControlMixerBehaviour.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerController.cs" />
     <Compile Include="Assets\Scripts\StatSystem\StatLocomotion.cs" />
+    <Compile Include="Assets\Scripts\StatSystem\StatDefense.cs" />
     <Compile Include="Assets\Scripts\Enemy\Enemy.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\Video\VideoSchedulerPlayableBehaviour.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\ScreenFader\ScreenFaderMixerBehaviour.cs" />
+    <Compile Include="Assets\Scripts\Characters\CharacterStat.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TimeDilation\TimeDilationTrack.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\Standard Assets\Effects\ImageEffects\Scripts\BlurOptimized.cs" />
+    <Compile Include="Assets\Scripts\StatSystem\ResourcePool.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TimeDilation\TimeDilationMixerBehaviour.cs" />
     <Compile Include="Assets\2DGamekit\Utilities\DefaultPlayables\TextSwitcher\TextSwitcherClip.cs" />
     <Compile Include="Assets\Scripts\Environment\Platform.cs" />

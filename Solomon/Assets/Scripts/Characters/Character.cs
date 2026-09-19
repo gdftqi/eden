@@ -1,6 +1,5 @@
 using Spine.Unity;
-using System;
-using Unity.VisualScripting;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Solomon
@@ -9,17 +8,17 @@ namespace Solomon
     public class Character : Actor
     {
         protected Rigidbody2D body;
-        protected BoxCollider2D collider;
+        protected BoxCollider2D coll;
         protected SkeletonAnimation skeleton;
 
         private string currentAnim;
         private float attackTimer;   // > 0 表示攻击动画还在播
 
-        [Header("--------------------- 运动 --------------------")]
-        [SerializeField] protected StatLocomotion locomotion = new StatLocomotion();
+
+        public CharacterStat stat = new CharacterStat();
 
 
-        [Header("--------------------- 攻击 --------------------")]
+        [Header("--------------------- 攻击判定 --------------------")]
         [SerializeField] protected bool switchAttackCheck = false;
         [SerializeField] protected bool attackDetected = false;
         [SerializeField] protected Vector2 attackCheckOriginal;
@@ -117,9 +116,9 @@ namespace Solomon
                 body = GetComponent<Rigidbody2D>();
             }
 
-            if (collider == null)
+            if (coll == null)
             {
-                collider = GetComponent<BoxCollider2D>();
+                coll = GetComponent<BoxCollider2D>();
             }
 
             if (skeleton == null)
@@ -138,36 +137,36 @@ namespace Solomon
                 return;
             }
 
-            float t = locomotion.JumpTime();
-            float a = 2f * locomotion.JumpHeight.GetValue() / (t * t);
+            float t = stat.Locomotion.JumpTime();
+            float a = 2f * stat.Locomotion.JumpHeight.GetValue() / (t * t);
             body.gravityScale = a / Mathf.Abs(Physics2D.gravity.y);
-            body.linearVelocityY = 2f * locomotion.JumpHeight.GetValue() / t + a * Time.fixedDeltaTime * 0.5f;
+            body.linearVelocityY = 2f * stat.Locomotion.JumpHeight.GetValue() / t + a * Time.fixedDeltaTime * 0.5f;
         }
 
 
         public void Move(float inputX)
         {
-            float target = inputX * locomotion.MoveSpeed.GetValue();
+            float target = inputX * stat.Locomotion.MoveSpeed.GetValue();
             float current = body.linearVelocityX;
 
             float rate;
 
             if (Mathf.Abs(target) < 0.01f)
             {
-                rate = locomotion.Deceleration();
+                rate = stat.Locomotion.Deceleration();
             }
             else if (current * target < 0f)
             {
-                rate = locomotion.Acceleration() * locomotion.TurnBoost();
+                rate = stat.Locomotion.Acceleration() * stat.Locomotion.TurnBoost();
             }
             else
             {
-                rate = locomotion.Acceleration();
+                rate = stat.Locomotion.Acceleration();
             }
 
             if (!groundDetected)
             {
-                rate *= locomotion.AirControl();
+                rate *= stat.Locomotion.AirControl();
             }
 
             body.linearVelocityX = Mathf.MoveTowards(current, target, rate * Time.fixedDeltaTime);
@@ -185,10 +184,17 @@ namespace Solomon
 
             attackDetected = hits.Length > 0;
 
-            for (int i = 0; i < hits.Length; i++)
+            List<Character> targets = new List<Character>();
+            foreach (var target in hits)
             {
-                Debug.Log("打到了: " + hits[i].name);
+                var c = target.GetComponentInParent<Character>();
+                if (c != null && !targets.Contains(c))
+                {
+                    targets.Add(c);
+                }
             }
+
+            stat.ApplyDamage(targets);
         }
 
 
