@@ -15,7 +15,12 @@ namespace Solomon
         private float attackTimer;   // > 0 表示攻击动画还在播
 
 
+        [Header("--------------------- 游戏角色属性 --------------------")]
         public CharacterStat stat = new CharacterStat();
+
+
+        [Header("--------------------- UI 血条 --------------------")]
+        [SerializeField] protected float healthBarOffset = 0.5f;
 
 
         [Header("--------------------- 攻击判定 --------------------")]
@@ -32,6 +37,18 @@ namespace Solomon
             base.Awake();
             Init();
             skeleton.AnimationState.Event += OnAttackEvent;
+            stat.HP.Fill();
+
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_CharacterHP");
+
+            if (prefab == null)
+            {
+                Debug.LogErrorFormat("Prefabs/UI_CharacterHP 不在存");
+                return;
+            }
+
+            GameObject bar = Instantiate(prefab, transform);
+            bar.transform.localPosition = new Vector3(coll.offset.x, coll.offset.y + coll.size.y * 0.5f + healthBarOffset, 0f);
         }
 
 

@@ -14,6 +14,12 @@ namespace Solomon
         }
 
 
+        public void Fill(float current = -1f)
+        {
+            this.current = current < 0f ? Max.GetValue() : Mathf.Min(current, Max.GetValue());
+        }
+
+
         /// <summary>
         /// 扣减, 钳到 0 为止. 传负数无效, 想加请用专门的恢复方法.
         /// </summary>
