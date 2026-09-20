@@ -28,15 +28,26 @@ namespace Solomon
         private const float StrengthToDamage = 1f;
         private const float AgilityToCrit = 0.003f;
         private const float VitalityToHealth = 5f;
+        private const float IntelligenceToElement = 1f;
         private const float ArmorScale = 100f;
         private const float MitigationCap = 0.85f;
         private const float ResistanceCap = 0.75f;
 
 
         /// <summary>
-        /// 结算一次攻击: 对每个目标算出最终伤害并扣血.
-        /// 暴击对整次攻击掷一次, 不是每个目标各掷一次 -- 横扫时有的暴有的不暴很怪.
-        /// 减免要逐个算, 因为每个目标的护甲和抗性不同.
+        /// 把主属性换算成各副属性的加成
+        /// </summary>
+        public void ApplyMajorBonus()
+        {
+            Offense.Damage.SetBonus(Major.Strength.GetValue() * StrengthToDamage);
+            Offense.CritChance.SetBonus(Major.Agility.GetValue() * AgilityToCrit);
+            Offense.ElementDamage.SetBonus(Major.Intelligence.GetValue() * IntelligenceToElement);
+            HP.Max.SetBonus(Major.Vitality.GetValue() * VitalityToHealth);
+        }
+
+
+        /// <summary>
+        /// 结算一次攻击
         /// </summary>
         public void ApplyDamage(IList<Character> targets)
         {
@@ -66,20 +77,16 @@ namespace Solomon
                 info.Damage = physical * (1f - ArmorMitigation(def)) + elemental * (1f - Resistance(def, info.Type));
 
                 target.stat.HP.Reduce(info.Damage);
-
-                // TODO: 这里把 info 交给目标, 用于飘字、受击特效、以及按 Type 挂状态
+                target.OnDamaged(info);
             }
         }
 
 
         /// <summary>
-        /// 物理减伤率, 0~MitigationCap. 用 护甲/(护甲+ArmorScale) 这个形状:
-        /// 护甲可以无限堆而收益自动递减, 不会出现完全免疫.
-        /// ArmorScale 的含义是 "护甲等于这个值时减伤正好 50%".
+        /// 物理减伤率
         /// </summary>
         private float ArmorMitigation(StatDefense def)
         {
-            // 穿透按比例削弱对方护甲, 不是直接减固定值
             float penetration = Mathf.Clamp01(Offense.ArmorReduction.GetValue());
             float armor = def.Armor.GetValue() * (1f - penetration);
 

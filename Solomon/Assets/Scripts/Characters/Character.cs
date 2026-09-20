@@ -37,6 +37,7 @@ namespace Solomon
             base.Awake();
             Init();
             skeleton.AnimationState.Event += OnAttackEvent;
+            stat.ApplyMajorBonus();
             stat.HP.Fill();
 
             GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_CharacterHP");
@@ -187,6 +188,21 @@ namespace Solomon
             }
 
             body.linearVelocityX = Mathf.MoveTowards(current, target, rate * Time.fixedDeltaTime);
+        }
+
+
+        public virtual void OnDamaged(DamageInfo info)
+        {
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_DamageText");
+
+            if (prefab == null)
+            {
+                Debug.LogErrorFormat("Prefabs/UI_DamageText 不存在");
+                return;
+            }
+
+            GameObject go = Instantiate(prefab, coll.bounds.center, Quaternion.identity);
+            go.GetComponent<UI_DamageText>().Setup(info);
         }
 
 
