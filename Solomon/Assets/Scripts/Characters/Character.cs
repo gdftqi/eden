@@ -20,6 +20,7 @@ namespace Solomon
         [SerializeField] protected bool wallDetected = false;
         [SerializeField] protected float wallCheckWidthScale = 0.9f;
         [SerializeField] protected float wallCheckThickness = 0.12f;
+        [SerializeField] protected LayerMask whatIsWall;
 
 
         [Header("--------------------- 前方脚下地板检测 ---------------------")]
@@ -318,7 +319,7 @@ namespace Solomon
 
             if (switchWallDetected)
             {
-                wallDetected = Physics2D.OverlapBox(WallCheckOrigin(coll), WallCheckSize(coll), 0f, whatIsGround) != null;
+                wallDetected = Physics2D.OverlapBox(WallCheckOrigin(coll), WallCheckSize(coll), 0f, whatIsWall) != null;
 
                 if (!wallDetected && switchFrontGroundDetected)
                 {
