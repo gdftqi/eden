@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace Solomon
 {
@@ -10,10 +11,98 @@ namespace Solomon
         private const float DriftRange = 0.4f;    // 横向随机偏移, 防止连击时数字重叠
         private const float CritScale = 1.5f;     // 暴击字号倍率
 
+        private const string PrefabPath = "Prefabs/UI_DamageText";
+        private const int PoolCapacity = 16;      // 预期同屏数量, 池子按这个预留
+        private const int PoolMaxSize = 128;      // 超出就直接销毁, 不再回收, 防止异常情况下无限涨
+
+        private static ObjectPool<UI_DamageText> pool;
+        private static bool poolTried;            // 加载失败时别每次命中都重试一遍 Resources.Load
+
         private TextMeshPro text;
         private Vector3 velocity;
         private Color color;
         private float timer;
+
+
+        /// <summary>
+        /// 唯一的外部入口
+        /// </summary>
+        public static void Spawn(Vector3 pos, DamageInfo info)
+        {
+            if (!poolTried)
+            {
+                poolTried = true;
+                pool = CreatePool();
+            }
+
+            if (pool == null)
+            {
+                return;
+            }
+
+            UI_DamageText item = pool.Get();
+            if (item == null)
+            {
+                return;
+            }
+
+            item.transform.position = pos;
+            item.Setup(info);
+        }
+
+
+        private static ObjectPool<UI_DamageText> CreatePool()
+        {
+            GameObject prefab = Resources.Load<GameObject>(PrefabPath);
+
+            if (prefab == null)
+            {
+                Debug.LogErrorFormat("{0} 不存在", PrefabPath);
+                return null;
+            }
+
+            return new ObjectPool<UI_DamageText>(
+                createFunc: () =>
+                {
+                    GameObject go = Instantiate(prefab);
+                    DontDestroyOnLoad(go);
+                    return go.GetComponent<UI_DamageText>();
+                },
+                actionOnGet: item =>
+                {
+                    if (item != null)
+                    {
+                        item.gameObject.SetActive(true);
+                    }
+                },
+                actionOnRelease: item =>
+                {
+                    if (item != null)
+                    {
+                        item.gameObject.SetActive(false);
+                    }
+                },
+
+                actionOnDestroy: item =>
+                {
+                    if (item != null)
+                    {
+                        Destroy(item.gameObject);
+                    }
+                },
+                collectionCheck: true,
+                defaultCapacity: PoolCapacity,
+                maxSize: PoolMaxSize);
+        }
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            pool = null;
+            poolTried = false;
+        }
+
 
         private void Awake()
         {
@@ -21,20 +110,15 @@ namespace Solomon
         }
 
 
-        /// <summary>
-        /// 生成后立刻调一次, 把伤害数据翻译成显示效果. 之后这个物体就自生自灭了.
-        /// </summary>
-        public void Setup(DamageInfo info)
+        private void Setup(DamageInfo info)
         {
             text.text = Mathf.RoundToInt(info.Damage).ToString();
 
             color = ElementColor(info.Type);
             text.color = color;
 
-            if (info.IsCrit)
-            {
-                transform.localScale *= CritScale;
-            }
+            timer = 0f;
+            transform.localScale = info.IsCrit ? Vector3.one * CritScale : Vector3.one;
 
             velocity = new Vector3(Random.Range(-DriftRange, DriftRange), RiseSpeed, 0f);
         }
@@ -52,7 +136,7 @@ namespace Solomon
 
             if (timer >= Lifetime)
             {
-                Destroy(gameObject);
+                pool.Release(this);
             }
         }
 
@@ -61,19 +145,20 @@ namespace Solomon
         {
             switch (type)
             {
-                case ElementType.Fire: 
+                case ElementType.Fire:
                     return new Color(1f, 0.45f, 0.1f);
 
-                case ElementType.Ice: 
+                case ElementType.Ice:
                     return new Color(0.4f, 0.85f, 1f);
 
-                case ElementType.Lightning: 
+                case ElementType.Lightning:
                     return new Color(1f, 0.9f, 0.2f);
 
-                case ElementType.Toxic: 
+                case ElementType.Toxic:
                     return new Color(0.5f, 0.9f, 0.3f);
 
-                default: return Color.white;
+                default:
+                    return Color.white;
             }
         }
     }

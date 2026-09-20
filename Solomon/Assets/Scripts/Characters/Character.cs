@@ -191,18 +191,12 @@ namespace Solomon
         }
 
 
+        /// <summary>
+        /// 受击后的表现层回调
+        /// </summary>
         public virtual void OnDamaged(DamageInfo info)
         {
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_DamageText");
-
-            if (prefab == null)
-            {
-                Debug.LogErrorFormat("Prefabs/UI_DamageText 不存在");
-                return;
-            }
-
-            GameObject go = Instantiate(prefab, coll.bounds.center, Quaternion.identity);
-            go.GetComponent<UI_DamageText>().Setup(info);
+            UI_DamageText.Spawn(coll.bounds.center, info);
         }
 
 
