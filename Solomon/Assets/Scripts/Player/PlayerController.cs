@@ -79,22 +79,21 @@ namespace Solomon
                 }
             }
 
-            if (IsAttacking())
+            if (!IsAttacking())
             {
-                // 攻击动画正在播, 不让任何状态覆盖它
-            }
-            else if (!groundDetected)
-            {
-                PlayAnim(body.linearVelocityY > 0f ? "jump" : "fall", false);
-            }
-            else if (Mathf.Abs(moveInputValue.x) > 0.1f)
-            {
-                SetFacing(moveInputValue.x > 0f);
-                PlayAnim("run", true);
-            }
-            else
-            {
-                PlayAnim("idle", true);
+                if (!groundDetected)
+                {
+                    PlayAnim(body.linearVelocityY > 0f ? "jump" : "fall", false);
+                }
+                else if (Mathf.Abs(moveInputValue.x) > 0.1f)
+                {
+                    SetFacing(moveInputValue.x);
+                    PlayAnim("run", true);
+                }
+                else
+                {
+                    PlayAnim("idle", true);
+                }
             }
         }
 
@@ -120,16 +119,20 @@ namespace Solomon
         }
 
 
-        private void OnEnable()
+        protected override void OnEnable()
         {
+            base.OnEnable();
+
             inputs.Enable();
             inputs.Player.Movement.performed += OnPlayerMovementPerformed;
             inputs.Player.Movement.canceled += OnPlayerMovementCanceled;
         }
 
 
-        private void OnDisable()
+        protected override void OnDisable()
         {
+            base.OnDisable();
+
             inputs.Disable();
             inputs.Player.Movement.performed -= OnPlayerMovementPerformed;
             inputs.Player.Movement.canceled -= OnPlayerMovementCanceled;

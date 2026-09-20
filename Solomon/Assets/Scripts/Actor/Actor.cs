@@ -5,14 +5,16 @@ namespace Solomon
 {
     public class Actor : MonoBehaviour
     {
-        [Header("--------------------- Ground 检测 ---------------------")]
-        [SerializeField] protected bool groundDetected = false;
         [SerializeField] protected bool switchGroundDetected = false;
-        [SerializeField] protected float groundCheckWidthScale = 0.9f;   // 探测盒宽度 = 碰撞体宽 * 这个值
-        [SerializeField] protected float groundCheckThickness = 0.12f;   // 探测盒高度
         [SerializeField] protected LayerMask whatIsGround;
 
-        private Collider2D groundCheckCollider;   // 用基类, 换 Box 还是胶囊都不影响
+        [Header("--------------------- 脚下地板检测 ---------------------")]
+        [SerializeField] protected bool groundDetected = false;
+        [SerializeField] protected float groundCheckWidthScale = 0.9f;
+        [SerializeField] protected float groundCheckThickness = 0.12f;
+
+
+        private Collider2D groundCheckCollider;
         private float groundIgnoreTimer;
 
 

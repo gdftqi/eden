@@ -15,12 +15,29 @@ namespace Solomon
         private float attackTimer;   // > 0 表示攻击动画还在播
 
 
+        [Header("--------------------- 前方墙体检测 ---------------------")]
+        [SerializeField] protected bool switchWallDetected = false;
+        [SerializeField] protected bool wallDetected = false;
+        [SerializeField] protected float wallCheckWidthScale = 0.9f;
+        [SerializeField] protected float wallCheckThickness = 0.12f;
+
+
+        [Header("--------------------- 前方脚下地板检测 ---------------------")]
+        [SerializeField] protected bool switchFrontGroundDetected = false;
+        [SerializeField] protected bool frontGroundDetected = false;
+        [SerializeField] protected float frontGroundCheckThickness = 0.12f;
+
+
         [Header("--------------------- 游戏角色属性 --------------------")]
         public CharacterStat stat = new CharacterStat();
 
 
         [Header("--------------------- UI 血条 --------------------")]
         [SerializeField] protected float healthBarOffset = 0.5f;
+
+
+        [Header("--------------------- 朝向 --------------------")]
+        [SerializeField] protected float faceDirection = 1f;
 
 
         [Header("--------------------- 攻击判定 --------------------")]
@@ -30,122 +47,6 @@ namespace Solomon
         [SerializeField] protected float attackCheckWidth;
         [SerializeField] protected float attackCheckHeight;
         [SerializeField] protected LayerMask whatIsEnemy;
-
-
-        protected override void Awake()
-        {
-            base.Awake();
-            Init();
-            skeleton.AnimationState.Event += OnAttackEvent;
-            stat.ApplyMajorBonus();
-            stat.HP.Fill();
-
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_CharacterHP");
-
-            if (prefab == null)
-            {
-                Debug.LogErrorFormat("Prefabs/UI_CharacterHP 不在存");
-                return;
-            }
-
-            GameObject bar = Instantiate(prefab, transform);
-            bar.transform.localPosition = new Vector3(coll.offset.x, coll.offset.y + coll.size.y * 0.5f + healthBarOffset, 0f);
-        }
-
-
-        protected override void OnDestroy()
-        {
-            base.OnDestroy();
-            skeleton.AnimationState.Event -= OnAttackEvent;
-        }
-
-
-        protected void PlayAnim(string name, bool loop)
-        {
-            if (name == currentAnim)
-            {
-                return;
-            }
-
-            skeleton.AnimationState.SetAnimation(0, name, loop);
-            currentAnim = name;
-        }
-
-
-        protected void ForcePlayAnim(string name, bool loop)
-        {
-            skeleton.AnimationState.SetAnimation(0, name, loop);
-            currentAnim = name;
-        }
-
-
-        public bool IsAttacking()
-        {
-            return attackTimer > 0f;
-        }
-
-
-        public void Attack()
-        {
-            if (IsAttacking())
-            {
-                return;
-            }
-
-            Spine.Animation anim = skeleton.Skeleton.Data.FindAnimation("attack");
-
-            if (anim == null)
-            {
-                return;
-            }
-
-            attackTimer = anim.Duration;
-            ForcePlayAnim("attack", false);
-        }
-
-
-        protected override void Update()
-        {
-            base.Update();
-
-            if (attackTimer > 0f)
-            {
-                attackTimer -= Time.deltaTime;
-            }
-        }
-
-
-        protected void SetFacing(bool right)
-        {
-            skeleton.Skeleton.ScaleX = right ? 1f : -1f;
-        }
-
-
-        private void Reset()
-        {
-            Init();
-        }
-
-
-        private void Init()
-        {
-            if (body == null)
-            {
-                body = GetComponent<Rigidbody2D>();
-            }
-
-            if (coll == null)
-            {
-                coll = GetComponent<BoxCollider2D>();
-            }
-
-            if (skeleton == null)
-            {
-                skeleton = GetComponent<SkeletonAnimation>();
-            }
-
-            body.constraints |= RigidbodyConstraints2D.FreezeRotation;
-        }
 
 
         public void Jump()
@@ -191,12 +92,156 @@ namespace Solomon
         }
 
 
+        public bool IsAttacking()
+        {
+            return attackTimer > 0f;
+        }
+
+
+        public void Attack()
+        {
+            if (IsAttacking())
+            {
+                return;
+            }
+
+            Spine.Animation anim = skeleton.Skeleton.Data.FindAnimation("attack");
+
+            if (anim == null)
+            {
+                return;
+            }
+
+            attackTimer = anim.Duration;
+            ForcePlayAnim("attack", false);
+        }
+
+
         /// <summary>
         /// 受击后的表现层回调
         /// </summary>
         public virtual void OnDamaged(DamageInfo info)
         {
             UI_DamageText.Spawn(coll.bounds.center, info);
+        }
+
+
+        protected override void Awake()
+        {
+            base.Awake();
+            InitComponents();
+            skeleton.AnimationState.Event += OnAttackEvent;
+            stat.ApplyMajorBonus();
+            stat.HP.Fill();
+
+            InitUI_CharacterHP();
+        }
+
+
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            skeleton.AnimationState.Event -= OnAttackEvent;
+        }
+
+
+        protected virtual void OnEnable()
+        {
+            faceDirection = transform.right.x >= 0f ? 1f : -1f;
+        }
+
+
+        protected virtual void OnDisable()
+        {
+
+        }
+
+
+        protected override void Update()
+        {
+            base.Update();
+
+            if (attackTimer > 0f)
+            {
+                attackTimer -= Time.deltaTime;
+            }
+        }
+
+
+        protected void PlayAnim(string name, bool loop)
+        {
+            if (name == currentAnim)
+            {
+                return;
+            }
+
+            skeleton.AnimationState.SetAnimation(0, name, loop);
+            currentAnim = name;
+        }
+
+
+        protected void ForcePlayAnim(string name, bool loop)
+        {
+            skeleton.AnimationState.SetAnimation(0, name, loop);
+            currentAnim = name;
+        }
+
+
+        protected void SetFacing(float direction)
+        {
+            float next = direction >= 0f ? 1f : -1f;
+
+            if (next == faceDirection)
+            {
+                return;
+            }
+
+            faceDirection = next;
+            transform.rotation = faceDirection > 0f ? Quaternion.identity : Quaternion.Euler(0f, 180f, 0f);
+        }
+
+
+
+        private void Reset()
+        {
+            InitComponents();
+        }
+
+
+        private void InitComponents()
+        {
+            if (body == null)
+            {
+                body = GetComponent<Rigidbody2D>();
+            }
+
+            if (coll == null)
+            {
+                coll = GetComponent<BoxCollider2D>();
+            }
+
+            if (skeleton == null)
+            {
+                skeleton = GetComponent<SkeletonAnimation>();
+            }
+
+            body.constraints |= RigidbodyConstraints2D.FreezeRotation;
+        }
+
+
+        private void InitUI_CharacterHP()
+        {
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/UI_CharacterHP");
+
+            if (prefab == null)
+            {
+                Debug.LogErrorFormat("Prefabs/UI_CharacterHP 不在存");
+                return;
+            }
+
+            GameObject bar = Instantiate(prefab, transform);
+            bar.transform.localPosition = new Vector3(coll.offset.x, coll.offset.y + coll.size.y * 0.5f + healthBarOffset, 0f);
         }
 
 
@@ -229,21 +274,81 @@ namespace Solomon
         {
             base.OnDrawGizmos();
 
-            if (!switchAttackCheck)
+            if (!Application.isPlaying)
             {
-                return;
+                faceDirection = transform.right.x >= 0f ? 1f : -1f;
             }
 
-            Gizmos.color = attackDetected ? Color.green : Color.red;
-            Gizmos.DrawWireCube(AttackCheckCenter(), new Vector3(attackCheckWidth, attackCheckHeight, 0f));
+            Collider2D col = coll != null ? coll : GetComponent<Collider2D>();
+
+            if (switchAttackCheck)
+            {
+                Gizmos.color = attackDetected ? Color.green : Color.red;
+                Gizmos.DrawWireCube(AttackCheckCenter(), new Vector3(attackCheckWidth, attackCheckHeight, 0f));
+            }
+
+            if (switchWallDetected && col != null)
+            {
+                Gizmos.color = wallDetected ? Color.green : Color.red;
+                Gizmos.DrawWireCube(WallCheckOrigin(col), WallCheckSize(col));
+            }
+
+            if (switchFrontGroundDetected && col != null)
+            {
+                Gizmos.color = frontGroundDetected ? Color.green : Color.red;
+                Gizmos.DrawWireCube(FrontGroundCheckOrigin(col), FrontGroundCheckSize(col));
+            }
         }
 
 
         protected Vector2 AttackCheckCenter()
         {
-            float facing = skeleton != null && skeleton.Skeleton != null ? Mathf.Sign(skeleton.Skeleton.ScaleX) : 1f;
+            return (Vector2)transform.position + new Vector2(attackCheckOriginal.x * faceDirection, attackCheckOriginal.y);
+        }
 
-            return (Vector2)transform.position + new Vector2(attackCheckOriginal.x * facing, attackCheckOriginal.y);
+
+        protected override void FixedUpdate()
+        {
+            base.FixedUpdate();
+
+            if (coll == null)
+            {
+                return;
+            }
+
+            if (switchWallDetected)
+            {
+                wallDetected = Physics2D.OverlapBox(WallCheckOrigin(coll), WallCheckSize(coll), 0f, whatIsGround) != null;
+
+                if (!wallDetected && switchFrontGroundDetected)
+                {
+                    frontGroundDetected = Physics2D.OverlapBox(FrontGroundCheckOrigin(coll), FrontGroundCheckSize(coll), 0f, whatIsGround) != null;
+                }
+            }
+        }
+
+
+        private Vector2 WallCheckOrigin(Collider2D col)
+        {
+            return new Vector2(col.bounds.center.x + faceDirection * (col.bounds.size.x + wallCheckThickness) * 0.5f, col.bounds.center.y);
+        }
+
+
+        private Vector2 WallCheckSize(Collider2D col)
+        {
+            return new Vector2(wallCheckThickness, col.bounds.size.y * wallCheckWidthScale);
+        }
+
+
+        private Vector2 FrontGroundCheckOrigin(Collider2D col)
+        {
+            return new Vector2(col.bounds.center.x + faceDirection * col.bounds.size.x, col.bounds.min.y - frontGroundCheckThickness * 0.5f);
+        }
+
+
+        private Vector2 FrontGroundCheckSize(Collider2D col)
+        {
+            return new Vector2(col.bounds.size.x, frontGroundCheckThickness);
         }
     }
 }
