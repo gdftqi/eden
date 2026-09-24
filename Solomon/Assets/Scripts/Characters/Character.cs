@@ -50,6 +50,10 @@ namespace Solomon
         [SerializeField] protected LayerMask whatIsEnemy;
 
 
+        [Header("--------------------- 攻击判定 --------------------")]
+        [SerializeField] protected float animMoveSpeed = 2f;
+
+
         public void Jump()
         {
             if (!groundDetected)
